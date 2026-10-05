@@ -16410,7 +16410,7 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
                         },
                         "skipped": {
-                          "description": "From a brand.json: files and portfolio brands that wouldn't read, each with why",
+                          "description": "From a brand.json: files and portfolio brands that wouldn't read; from a BrandHub brand: files shown there but not handed out. Each with why",
                           "type": "array",
                           "items": {
                             "type": "string"
@@ -50767,7 +50767,14 @@
                           },
                           "join": {
                             "type": "boolean",
-                            "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                            "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                          },
+                          "workspaceId": {
+                            "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "sso": {
                             "type": "boolean",
@@ -50800,6 +50807,7 @@
                           "domain",
                           "verified",
                           "join",
+                          "workspaceId",
                           "sso",
                           "record"
                         ],
@@ -50896,7 +50904,14 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                        },
+                        "workspaceId": {
+                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "sso": {
                           "type": "boolean",
@@ -50929,6 +50944,7 @@
                         "domain",
                         "verified",
                         "join",
+                        "workspaceId",
                         "sso",
                         "record"
                       ],
@@ -50993,7 +51009,7 @@
       ],
       "patch": {
         "summary": "Open an email domain to joining",
-        "description": "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the organization, able to read, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single sign-on covers, and on a server that sends no email of its own.\n\nScope: `admin`.",
+        "description": "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the organization, able to read one workspace, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). They land in `workspaceId`, or the organization's oldest workspace when it is null, never the whole organization. Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single sign-on covers, and on a server that sends no email of its own.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -51003,13 +51019,23 @@
                 "type": "object",
                 "properties": {
                   "join": {
-                    "type": "boolean",
-                    "description": "Let anyone whose address is at exactly this domain join, able to read. Needs it proved, not free mail, no single sign-on over it, and the server's own email"
+                    "description": "Let anyone whose address is at exactly this domain join, able to read its landing workspace. Needs it proved, not free mail, no single sign-on over it, and the server's own email",
+                    "type": "boolean"
+                  },
+                  "workspaceId": {
+                    "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
-                "required": [
-                  "join"
-                ],
                 "additionalProperties": false
               }
             }
@@ -51035,7 +51061,14 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                        },
+                        "workspaceId": {
+                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "sso": {
                           "type": "boolean",
@@ -51068,6 +51101,7 @@
                         "domain",
                         "verified",
                         "join",
+                        "workspaceId",
                         "sso",
                         "record"
                       ],
@@ -51223,7 +51257,14 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                        },
+                        "workspaceId": {
+                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "sso": {
                           "type": "boolean",
@@ -51256,6 +51297,7 @@
                         "domain",
                         "verified",
                         "join",
+                        "workspaceId",
                         "sso",
                         "record"
                       ],
@@ -51309,7 +51351,7 @@
     "/api/v1/join": {
       "post": {
         "summary": "Join by email domain",
-        "description": "Join the organization that opened your address's domain (me.joinable), able to read. 404 when there is none to join.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Join the organization that opened your address's domain (me.joinable), able to read the workspace it lands people in. 404 when there is none to join.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "Joined",
@@ -53437,6 +53479,13 @@
                               "type": "boolean",
                               "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                             },
+                            "workspaceId": {
+                              "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "record": {
                               "type": "object",
                               "properties": {
@@ -53471,6 +53520,7 @@
                             "domain",
                             "verified",
                             "required",
+                            "workspaceId",
                             "record",
                             "redirectUri"
                           ],
@@ -53540,7 +53590,7 @@
       },
       "put": {
         "summary": "Set up single sign-on",
-        "description": "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register `redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the organization able to read. A new domain is proved again; one another organization proved is refused.\n\nScope: `admin`.",
+        "description": "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register `redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the organization able to read `workspaceId` (the oldest workspace when null). A new domain is proved again; one another organization proved is refused.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -53572,6 +53622,19 @@
                     "minLength": 1,
                     "maxLength": 253,
                     "description": "The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"
+                  },
+                  "workspaceId": {
+                    "description": "The workspace its people land in the first time, able to read; null for the organization's oldest. Left out, it stays",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -53612,6 +53675,13 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
+                        "workspaceId": {
+                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "record": {
                           "type": "object",
                           "properties": {
@@ -53646,6 +53716,7 @@
                         "domain",
                         "verified",
                         "required",
+                        "workspaceId",
                         "record",
                         "redirectUri"
                       ],
@@ -53747,6 +53818,13 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
+                        "workspaceId": {
+                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "record": {
                           "type": "object",
                           "properties": {
@@ -53781,6 +53859,7 @@
                         "domain",
                         "verified",
                         "required",
+                        "workspaceId",
                         "record",
                         "redirectUri"
                       ],
@@ -53933,6 +54012,13 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
+                        "workspaceId": {
+                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "record": {
                           "type": "object",
                           "properties": {
@@ -53967,6 +54053,7 @@
                         "domain",
                         "verified",
                         "required",
+                        "workspaceId",
                         "record",
                         "redirectUri"
                       ],
@@ -54105,7 +54192,7 @@
     "/api/v1/audit": {
       "get": {
         "summary": "The audit log",
-        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace admin, the workspace's.\n\nScope: `admin`.",
+        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace admin, the workspace's.\n\nScope: `admin`.",
         "x-scope": "admin",
         "parameters": [
           {

@@ -13,7 +13,7 @@ import { AssetError } from "@/lib/core/errors";
 import { recordSearch, who } from "@/lib/core/events";
 import { listFields } from "@/lib/core/fields";
 import { dropGrants, keepReach } from "@/lib/core/people";
-import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
+import { checkLimit, claimStorage, limitsOf, uncountRenditions } from "@/lib/core/usage";
 import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
@@ -32,7 +32,7 @@ import { isDownloadable, isEmpty, RightsInput, type Origin, type Rights } from "
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
 import { isReview, STATES, type State } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
-import { MAX_UPLOAD_BYTES } from "@/lib/schemas";
+import { MAX_UPLOAD_BYTES, tooLargeToUpload } from "@/lib/filename";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
 import { normalizeTags, prefixQuery } from "@/lib/search";
 import { FITS, FORMATS, isVector, MAX_DIMENSION, PRESETS, SIZES } from "@/lib/transform";
@@ -139,9 +139,8 @@ export async function createUploadTicket(
   caller: Pick<Caller, "workspace">,
   input: { filename: string; mime: string; size: number },
 ): Promise<UploadTicket> {
-  if (input.size > MAX_UPLOAD_BYTES) {
-    throw new AssetError("too_large", `Max upload size is ${MAX_UPLOAD_BYTES} bytes`);
-  }
+  const big = tooLargeToUpload(input.size);
+  if (big) throw new AssetError("too_large", big);
   await checkLimit(caller.workspace.organizationId, "storage", { adding: input.size });
   await ensureBucket();
   const token = randomUUID();
@@ -1099,6 +1098,7 @@ export async function deleteAsset(caller: Caller, id: string) {
   if (!asset) return false;
   if (asset.deletedAt) return true;
   await db.update(assets).set({ deletedAt: sql`now()`, updatedAt: sql`now()` }).where(eq(assets.id, id));
+  await uncountRenditions(asset.workspaceId, typeof asset.probe?.preview === "string" ? asset.probe.preview : asset.sha256);
   // Deleting the current version hands over to the newest approved one left.
   if (asset.stackId) await repoint(asset.stackId);
   await record(caller, "deleted", asset);

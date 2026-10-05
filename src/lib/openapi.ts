@@ -1456,7 +1456,8 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the " +
-            "organization, able to read, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "organization, able to read one workspace, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "They land in `workspaceId`, or the organization's oldest workspace when it is null, never the whole organization. " +
             "Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single " +
             "sign-on covers, and on a server that sends no email of its own.",
           body: S.EmailDomainPatch,
@@ -1472,7 +1473,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Join by email domain",
           scope: "any",
-          description: "Join the organization that opened your address's domain (me.joinable), able to read. 404 when there is none to join.",
+          description: "Join the organization that opened your address's domain (me.joinable), able to read the workspace it lands people in. 404 when there is none to join.",
           ok: [200, "Joined", data(S.JoinOffer)],
         }),
         delete: op({ summary: "Turn down joining by email domain", scope: "any", description: "Not now: the offer isn't made again.", ok: [200, "Turned down", data(S.JoinOffer)] }),
@@ -1639,7 +1640,7 @@ export function openapi(serverUrl: string) {
             "`redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the " +
             "issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then " +
             "POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the " +
-            "organization able to read. A new domain is proved again; one another organization proved is refused.",
+            "organization able to read `workspaceId` (the oldest workspace when null). A new domain is proved again; one another organization proved is refused.",
           body: S.SsoInput,
           ok: [200, "Single sign-on", data(S.Sso)],
         }),
@@ -1683,7 +1684,7 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, " +
-            "workspaces. An organization admin reads the organization's (with its members' sign-ins); a workspace " +
+            "workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace " +
             "admin, the workspace's.",
           query: {
             before: { schema: { type: "string", format: "date-time" }, description: "The `next` of the previous page" },
