@@ -10,6 +10,7 @@ naming the variable.
 | Variable | Default | |
 |---|---|---|
 | `DATABASE_URL` | required | Postgres connection string |
+| `DATABASE_STATEMENT_TIMEOUT` | `15` | Seconds a query may run before Postgres cancels it, so a slow one gives its connection back; a transaction may also sit idle a minute at most. Migrations and the sweep's long work aren't bound by it. `0` sends no limit: behind a pooler that refuses startup parameters (PgBouncer), set `statement_timeout` on the database role instead |
 | `S3_ENDPOINT` | required | Where the server reaches storage |
 | `S3_PUBLIC_ENDPOINT` | `S3_ENDPOINT` | Where browsers reach storage, when that differs (Docker Compose) |
 | `S3_REGION` | `us-east-1` | Storage region |
