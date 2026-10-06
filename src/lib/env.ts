@@ -6,6 +6,13 @@ import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
+  /**
+   * Seconds any one query may run before Postgres cancels it (lib/db), so a
+   * slow one gives its connection back. Migrations and the sweep's long work
+   * aren't bound by it. 0 sends no limit: for a pooler that refuses startup
+   * parameters (PgBouncer), set statement_timeout on the role instead.
+   */
+  DATABASE_STATEMENT_TIMEOUT: z.coerce.number().int().nonnegative().default(15),
   S3_ENDPOINT: z.string().url(),
   /**
    * Where browsers reach storage, when that isn't where the server does:

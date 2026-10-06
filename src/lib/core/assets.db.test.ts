@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
+import { setTimeout as sleep } from "node:timers/promises";
+import { sql } from "drizzle-orm";
 import sharp from "sharp";
 import { signUp } from "@/test/db";
+import { db } from "@/lib/db";
+import { BYTES_LOCK, deleteObject, exists, originalKey } from "@/lib/storage";
 import { deleteAsset, findAsset, getAsset, ingestBytes, restoreAsset, searchAssets } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, viewPortal } from "@/lib/core/portals";
@@ -61,4 +66,39 @@ test("a public portal shows its collections' usable assets, and never a private 
   assert.deepEqual(view.portal.collections.map((c) => c.count), [1]);
   // Its owner still sees the private one in the library.
   assert.ok((await listed()).includes(closed.id));
+});
+
+test("an upload stores its bytes before its transaction, and puts them back if the sweep took them meanwhile", async () => {
+  const bytes = await png();
+  const sha = createHash("sha256").update(bytes).digest("hex");
+  // The test bucket outlives the test's database: an earlier run's copy would be found already there.
+  await deleteObject(originalKey(sha));
+  // The sweep, between its last look and its delete: it holds the lock an upload of these bytes takes.
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  let locked = () => {};
+  const isLocked = new Promise<void>((r) => (locked = r));
+  const sweep = db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${BYTES_LOCK}, hashtext(${sha}))`);
+    locked();
+    await held;
+  });
+  try {
+    await isLocked;
+    const upload = ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "raced.png" });
+    // The original lands while the lock is still taken: the PUT is outside the transaction.
+    for (let i = 0; !(await exists(originalKey(sha))); i++) {
+      if (i > 100) assert.fail("the original waited for the lock before it was stored");
+      await sleep(50);
+    }
+    await deleteObject(originalKey(sha));
+    release();
+    await sweep;
+    const { asset } = await upload;
+    assert.equal(asset.sha256, sha);
+    assert.ok(await exists(originalKey(sha)), "the original is back under the lock");
+  } finally {
+    release();
+    await sweep;
+  }
 });
