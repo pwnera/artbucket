@@ -4,6 +4,13 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.10.2](https://github.com/pwnera/artbucket/compare/v1.10.1...v1.10.2) (2026-10-06)
+
+
+### Fixes
+
+* **fonts:** serve brand fonts from the server, never from Google ([bef7fab](https://github.com/pwnera/artbucket/commit/bef7fabef791da8503296ee39a4301389dcd30a8))
+
 ## [1.10.1](https://github.com/pwnera/artbucket/compare/v1.10.0...v1.10.1) (2026-10-06)
 
 
