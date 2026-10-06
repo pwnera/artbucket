@@ -102,6 +102,12 @@ Writes signed by a session cookie are taken only from `APP_URL`'s origin.
 Fetches from a URL (`ingest_asset`, `POST /api/v1/assets` with `url`) refuse
 loopback, private and link-local addresses, checked on every redirect.
 
+Previews of files the server can't show as they are (PDF, PSD, HEIC, Office
+documents, video) are made by decoders that read whatever an upload holds,
+each in a process of its own with none of the server's secrets: two at once,
+killed after 30 seconds (two minutes for LibreOffice and ffmpeg), and capped in
+memory. A file that is too slow or too big gets no preview; the upload stands.
+
 ## Abuse
 
 With open sign-up, anyone can publish a portal, share links and public files
