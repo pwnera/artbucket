@@ -285,6 +285,17 @@ export const apiKeys = pgTable(
      * with them. Null for a key an admin made, which answers to nobody.
      */
     userId: text("user_id").references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    /**
+     * An agent's token works until then (lib/core/oauth.ts): an hour, renewed
+     * by its refresh token. Null for a key an admin made, which lasts until
+     * revoked.
+     */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** The refresh token that renews it (sha256), until then; a key that can no longer be renewed is swept. */
+    refreshHash: text("refresh_hash"),
+    refreshExpiresAt: timestamp("refresh_expires_at", { withTimezone: true }),
+    /** The OAuth client it was issued to: only that client renews it, and a client holding no key is swept. */
+    clientId: text("client_id").references((): AnyPgColumn => oauthClients.id, { onDelete: "set null" }),
     /** Bumped on every request that presents it: "Connected agents" and "waiting for first call". */
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     calls: integer("calls").notNull().default(0),
@@ -295,6 +306,7 @@ export const apiKeys = pgTable(
   (t) => [
     check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
     unique("api_keys_hash_workspace_unique").on(t.hash, t.workspaceId),
+    index("api_keys_refresh_hash_idx").on(t.refreshHash),
   ],
 );
 
@@ -722,6 +734,10 @@ export const oauthClients = pgTable("oauth_clients", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   redirectUris: jsonb("redirect_uris").$type<string[]>().notNull().default([]),
+  /** The grants it registered for (RFC 7591): one without refresh_token gets a longer token and none to renew it. Null: registered before they were kept. */
+  grantTypes: jsonb("grant_types").$type<string[]>(),
+  /** When a token was last issued or renewed for it: a client unused for long, holding no key, is swept (lib/core/oauth.ts). */
+  usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1310,7 +1326,8 @@ export const instance = pgTable("instance", {
  * Renditions stored (lib/core/renditions.ts), so their bytes count toward the
  * organization's storage while the bucket keeps them (RENDITION_DAYS). The
  * workspace whose asset made it first; a rendition of the same bytes elsewhere
- * is the same object, counted once.
+ * is the same object, counted once. Indexed by workspace and age: storage is
+ * summed per organization on every upload and rendition (lib/core/usage.ts).
  */
 export const renditions = pgTable("renditions", {
   key: text("key").primaryKey(),
@@ -1319,7 +1336,7 @@ export const renditions = pgTable("renditions", {
     .references(() => workspaces.id, { onDelete: "cascade" }),
   bytes: bigint("bytes", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [index("renditions_workspace_created_idx").on(t.workspaceId, t.createdAt)]);
 
 // ---- insights -----------------------------------------------------------------
 
@@ -1365,6 +1382,10 @@ export const events = pgTable(
   (t) => [
     index("events_workspace_day_idx").on(t.workspaceId, t.day),
     index("events_asset_idx").on(t.assetId, t.at.desc()),
+    // BrandHub's pull counts, across workspaces (lib/core/events.ts pullCounts): only events about a brand.
+    index("events_brand_day_idx").on(t.brandId, t.day).where(sql`${t.brandId} is not null`),
+    // The days the rollup reads and drops.
+    index("events_day_idx").on(t.day),
     check("events_kind_check", sql`${t.kind} in ('fetch', 'check', 'search', 'view', 'pull', 'lookup', 'tool')`),
     check("events_actor_check", sql`${t.actor} in ('person', 'agent', 'anonymous')`),
   ],
@@ -1373,7 +1394,7 @@ export const events = pgTable(
 /**
  * Events counted per day and everything they say but the moment and the
  * offer, rolled up from `events` once a day is over (lib/core/events.ts
- * rollUp), and kept after the raw rows go.
+ * rollUp), and kept after the raw rows go, for ROLLUP_DAYS (lib/insights.ts).
  */
 const counted = {
   workspaceId: uuid("workspace_id").notNull(),
@@ -1402,7 +1423,12 @@ export const eventDays = pgTable(
     brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
     assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
   },
-  (t) => [index("event_days_workspace_day_idx").on(t.workspaceId, t.day), index("event_days_asset_idx").on(t.assetId), index("event_days_day_idx").on(t.day)],
+  (t) => [
+    index("event_days_workspace_day_idx").on(t.workspaceId, t.day),
+    index("event_days_asset_idx").on(t.assetId),
+    index("event_days_day_idx").on(t.day),
+    index("event_days_brand_day_idx").on(t.brandId, t.day).where(sql`${t.brandId} is not null`),
+  ],
 );
 
 const DIMS = sql.raw("workspace_id, brand_id, day, kind, surface, actor, client, asset_id, subject, version, verdict, reasons, referrer");

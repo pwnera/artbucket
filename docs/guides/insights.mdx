@@ -26,4 +26,4 @@ One row per event in the `events` table: a file fetched from `/a/{id}` (the app 
 
 Never an IP address, a person's name or a full URL. There are no cookies or trackers for portal and hub visitors. Everything stays in your own Postgres: a self-hosted install sends nothing anywhere.
 
-Raw events are kept 90 days. Once a day is over, it is rolled up into `event_days`, which is kept; charts read both through the `event_counts` view, so they are current whenever the rollup last ran.
+Raw events are kept 90 days. Once a day is over, it is rolled up into `event_days`, which is kept a year (the longest chart reads 12 weeks); charts read both through the `event_counts` view, so they are current whenever the rollup last ran.

@@ -12,8 +12,9 @@ The CLI is the `artbucket` package on npm, for Node 22 and later: `npx
 artbucket` runs it anywhere, `npm install -g artbucket` keeps it. `login`
 takes your server (`https://` is assumed without a scheme; give
 `http://localhost:3000` in full), signs in through the browser with the
-device flow, and keeps a key in `~/.config/artbucket/credentials.json`,
-with that server as the default: later commands go there without
+device flow, and keeps a key in `~/.config/artbucket/credentials.json`
+(it lasts an hour, and each command renews it when it has lapsed, for as
+long as you use it within 90 days), with that server as the default: later commands go there without
 `ARTBUCKET_URL`, which still wins when set. It asks to suggest (`propose`),
 what an agent gets by default: uploads wait for a person to approve them.
 Pushing a brand edits it and `--publish` releases it, so that takes

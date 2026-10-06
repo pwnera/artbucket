@@ -78,8 +78,10 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   }
   const caller = await callerFrom(req);
   // resource_metadata: how an MCP client finds where to send its person to sign in (RFC 9728).
-  const challenge = { "WWW-Authenticate": `Bearer realm="artbucket", resource_metadata="${env.APP_URL}/.well-known/oauth-protected-resource/api/v1/mcp"` };
-  if (!caller) return fail(401, "unauthorized", "Unknown API key", undefined, challenge);
+  const metadata = `resource_metadata="${env.APP_URL}/.well-known/oauth-protected-resource/api/v1/mcp"`;
+  const challenge = { "WWW-Authenticate": `Bearer realm="artbucket", ${metadata}` };
+  // RFC 6750: a token that was sent and doesn't work, which tells an agent to renew it (or connect again).
+  if (!caller) return fail(401, "unauthorized", "Unknown or expired API key", undefined, { "WWW-Authenticate": `Bearer realm="artbucket", error="invalid_token", ${metadata}` });
   if (need === null) return caller;
   // A fresh install does one thing: make its first account, which is its admin. Keys from before wait too.
   if (!(await hasUsers())) {

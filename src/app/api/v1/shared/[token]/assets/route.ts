@@ -1,4 +1,5 @@
 import { body, handle, ok } from "@/lib/api";
+import { ipOf } from "@/lib/client-ip";
 import { shareFinalize } from "@/lib/core/shares";
 import { ShareFinalize } from "@/lib/schemas";
 
@@ -9,7 +10,7 @@ import { ShareFinalize } from "@/lib/schemas";
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
     const input = await body(req, ShareFinalize);
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || null;
+    const ip = ipOf(req.headers);
     return ok({ data: await shareFinalize((await params).token, req.headers.get("x-share-password"), input, ip) }, { status: 201 });
   } catch (err) {
     return handle(err);

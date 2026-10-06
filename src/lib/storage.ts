@@ -53,9 +53,10 @@ export const previewKey = (sha256: string) => `previews/${sha256}`;
 export const stagingKey = (workspaceId: string, token: string) => `staging/${workspaceId}/${token}`;
 
 /**
- * The advisory lock class (with hashtext of the hash) held while an original
- * is written with the row that holds it, and while one is swept: an upload of
- * the same bytes in another workspace never loses them to the sweeper.
+ * The advisory lock class (with hashtext of the hash) held while the row that
+ * holds an original lands, after making sure the original is there, and while
+ * one is swept: an upload of the same bytes in another workspace never loses
+ * them to the sweeper.
  */
 export const BYTES_LOCK = 71;
 

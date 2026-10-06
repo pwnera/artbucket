@@ -1818,9 +1818,23 @@ export function openapi(serverUrl: string) {
           summary: "Trade a code for a token",
           scope: "public",
           description:
-            "Form-encoded (or JSON). `authorization_code` with `code_verifier`, or the device code grant. The token is an API key bound to " +
-            "the person who consented: at most the scope they picked, never more than they can do. It lasts until revoked.",
-          ok: [200, "The token", z.object({ access_token: z.string(), token_type: z.literal("Bearer"), scope: z.enum(GRANTABLE) })],
+            "Form-encoded (or JSON). `authorization_code` with `code_verifier`, the device code grant, or `refresh_token` with the " +
+            "`client_id` it was issued to. The token is an API key bound to the person who consented: at most the scope they picked, never " +
+            "more than they can do. It works for `expires_in` seconds, an hour, and `refresh_token` renews it: each renewal answers a new " +
+            "pair and ends the old one, for as long as the agent renews within 90 days. A client that registered without the " +
+            "`refresh_token` grant gets a token for 30 days and no refresh token. `resource`, when sent, must be this server's API " +
+            "(`/api/v1/mcp`), else `invalid_target`. Revoking it in Connections ends both.",
+          ok: [
+            200,
+            "The token",
+            z.object({
+              access_token: z.string(),
+              token_type: z.literal("Bearer"),
+              scope: z.enum(GRANTABLE),
+              expires_in: z.number().int().optional(),
+              refresh_token: z.string().optional(),
+            }),
+          ],
         }),
       },
       "/api/v1/oauth/device": {

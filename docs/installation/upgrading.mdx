@@ -47,6 +47,14 @@ notes said how. From 0.9, upgrading to 1.0 changes nothing you call.
 
 ## Notes by version
 
+**1.11.** Set `TRUSTED_PROXIES` (`private` behind one reverse proxy): the
+server no longer believes `X-Forwarded-For` unless it names the proxies. Until
+set, every client shares one rate limit. See
+[Security](/configuration/security#client-addresses). Agents connected over
+OAuth (and `artbucket login`) now hold tokens that last an hour and renew
+themselves; those connected before keep working for 30 days, then connect
+again. Keys an admin makes are unchanged.
+
 **1.8.** Sign in with Google, and Google or OIDC sign-in at an organization's
 own domain. Any verified domain may serve the app, each turned on in Settings,
 Domains. Who sees an asset is said plainly and chosen at upload. An MCP tool

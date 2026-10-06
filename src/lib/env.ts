@@ -1,10 +1,18 @@
 import { z } from "zod";
+import { trustedProxies } from "@/lib/client-ip";
 import { EMAIL_PROVIDERS } from "@/lib/email";
 import { limitsFromEnv, organizationsFromEnv } from "@/lib/limits";
 import { parseAnonymous } from "@/lib/scopes";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
+  /**
+   * Seconds any one query may run before Postgres cancels it (lib/db), so a
+   * slow one gives its connection back. Migrations and the sweep's long work
+   * aren't bound by it. 0 sends no limit: for a pooler that refuses startup
+   * parameters (PgBouncer), set statement_timeout on the role instead.
+   */
+  DATABASE_STATEMENT_TIMEOUT: z.coerce.number().int().nonnegative().default(15),
   S3_ENDPOINT: z.string().url(),
   /**
    * Where browsers reach storage, when that isn't where the server does:
@@ -106,6 +114,21 @@ const schema = z.object({
    * this. Unset, they can, and the log says so at start until someone has.
    */
   SETUP_TOKEN: z.string().min(1).optional(),
+  /**
+   * The reverse proxies in front, whose X-Forwarded-For entries the server
+   * believes (lib/client-ip.ts): addresses and ranges, comma-separated, or
+   * `private` for every private range. The client is the last entry that
+   * isn't one of them. Unset: the header is ignored, as a server reached
+   * directly must, and every client shares one rate limit.
+   */
+  TRUSTED_PROXIES: z.string().optional().transform((v, ctx) => {
+    try {
+      return trustedProxies(v) ?? undefined;
+    } catch (e) {
+      ctx.addIssue({ code: "custom", message: (e as Error).message });
+      return z.NEVER;
+    }
+  }),
   /** /api requests per minute per client (lib/rate.ts); 0 turns the limit off. */
   RATE_LIMIT: z.coerce.number().int().nonnegative().default(1200),
   /** Single sign-on with any OpenID Connect provider: all three, or none. */

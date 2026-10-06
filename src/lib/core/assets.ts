@@ -299,11 +299,19 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   const stack = prior ? (prior.stackId ?? prior.id) : null;
   // Public goes with the asset: an embed of /c/{id} follows it to this version, for whoever may put it there.
   const open = !!prior && can(caller, "asset.share", prior) && (prior.stackId ? await takesOverPublic(prior.stackId) : prior.public);
+  // Stored before the transaction, so the upload holds no connection or lock
+  // while the bytes travel. The key is the hash: a retry or a race writes the
+  // same object. A transaction that fails after leaves an original no row
+  // holds, which the sweep removes after its grace day.
+  await putObject(originalKey(sha256), bytes, mime);
   const { row, purged } = await db.transaction(async (tx) => {
     // The bytes and the row that holds them land together: lib/core/sweep.ts
-    // takes the same lock before it removes an original nothing holds.
+    // takes the same lock before it removes an original nothing holds, so
+    // once it is held here the object stays. The sweep may have removed it
+    // just before (an old orphan of the same bytes, listed before our PUT):
+    // then it goes back, under the lock. Rare, so the slow PUT is fine here.
     await tx.execute(sql`select pg_advisory_xact_lock(${BYTES_LOCK}, hashtext(${sha256}))`);
-    await putObject(originalKey(sha256), bytes, mime);
+    if ((await sizeOf(originalKey(sha256))) === null) await putObject(originalKey(sha256), bytes, mime);
     // These bytes, deleted here before: that asset is gone for good, and this is a new one.
     const purged = await tx
       .delete(assets)
