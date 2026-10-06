@@ -700,6 +700,7 @@ const pageFields = {
   aliases: z.array(z.string()).describe("Slugs it had before a rename: they still find it"),
   layout: z.enum(PAGE_LAYOUTS).describe("landing: a front with no nav column, on-this-page or pager; book: a chapter"),
   updatedAt: date.describe("The last change to what it says"),
+  revision: z.string().describe("What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"),
 };
 const pageText = z.object({ title: z.string(), eyebrow: z.string(), lede: z.string() }).partial();
 export const BrandPage = z.object({

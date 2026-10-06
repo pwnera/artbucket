@@ -39,6 +39,8 @@ const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
 const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
 const page = pageSlug.describe("Its slug, e.g. logo (list_pages)");
+// The tool descriptions say how to use it: edit_page's schema has no room for more (mcp-tools.test.ts).
+const revision = z.string().optional().describe("From get_page");
 const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
 const version = z.number().int().min(1).describe("The version's number, from list_versions");
 const portal = z.string().min(1).max(64).describe("Its address (slug), as list_portals names it");
@@ -229,9 +231,9 @@ export const TOOL_INPUTS = {
       .optional(),
   }),
 
-  save_page: PageInput.extend({ brand, page }),
+  save_page: PageInput.extend({ brand, page, revision }),
 
-  edit_page: z.object({ brand, page, ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none") }),
+  edit_page: z.object({ brand, page, ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none"), revision }),
 
   delete_page: z.object({ brand, page }),
 

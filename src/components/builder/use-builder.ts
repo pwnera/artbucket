@@ -22,6 +22,7 @@ import {
   pageOf,
   push,
   pushStep,
+  rebase,
   request,
   shownOn,
   targetOf,
@@ -58,8 +59,8 @@ const blockOf = (id: string) => document.querySelector(`[data-canvas-block="${CS
  */
 
 /** How the builder reaches the API: fetch through lib/send.ts in the app; the dev page records writes in memory instead. */
-export type Transport = (method: string, url: string, body?: unknown) => Promise<Sent>;
-const network: Transport = (method, url, body) => sendResult(method, url, body, { quiet: true });
+export type Transport = (method: string, url: string, body?: unknown, headers?: Record<string, string>) => Promise<Sent>;
+const network: Transport = (method, url, body, headers) => sendResult(method, url, body, { quiet: true, headers });
 
 /** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
 export type Panel = "rules" | "history" | "tokens" | "publish" | null;
@@ -92,8 +93,13 @@ let copied: string | null = null;
 export function useBuilder(brand: string, init: Init, transport: Transport = network) {
   const [state, setState] = useState(() => initState(init));
   const [depth, setDepth] = useState({ past: 0, future: 0 });
+  // Each page as the server last said it, its revision with it: what an edit is made from, and sent as If-Match.
+  // A page not loaded yet has no sections here; only its own fields can be edited until it is.
+  const [known] = useState(
+    () => new Map<string, EchoPage>(init.nav.map((p) => [p.slug, { ...p, sections: p.slug === init.view.page?.slug ? init.view.page.sections : [] }])),
+  );
   // What work outliving a render reads (an answer, a toast's Undo, a Retry): always the latest.
-  const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false });
+  const live = useRef({ state, history: EMPTY as History, brand, transport, queue: [] as Op[], flying: false, stalled: false, known });
   useEffect(() => {
     live.current.brand = brand;
     live.current.transport = transport;
@@ -153,17 +159,22 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     async function flush() {
       const l = live.current;
       if (l.flying || l.stalled) return;
-      const r = request(l.queue, l.brand);
+      const r = request(l.queue, l.brand, (page) => l.known.get(page)?.revision);
       if (!r) return;
       l.flying = true;
-      const res = await l.transport(r.method, r.url, r.body);
+      const res = await l.transport(r.method, r.url, r.body, r.match ? { "If-Match": `"${r.match}"` } : undefined);
       l.flying = false;
+      const head = l.queue[0];
       if (res.ok) {
         const [sent] = l.queue.splice(0, r.take);
         toast.dismiss(SAVE);
         // The server's copy, unless a newer edit to it is still waiting: that one's answer brings it.
         const later = new Set(l.queue.map(targetOf));
         const data = res.data as { page?: EchoPage; settings?: ThemeSettings } | null;
+        if (data?.page) {
+          l.known.set(data.page.slug, data.page);
+          if (sent.kind === "page" && sent.page !== data.page.slug) l.known.delete(sent.page);
+        }
         if (data?.page && !later.has(`page:${data.page.slug}`)) commit(echo(l.state, data.page));
         if (sent.kind === "theme" && data?.settings && !later.has("theme") && canon(data.settings) !== canon(l.state.theme)) {
           commit({ ...l.state, theme: data.settings });
@@ -183,6 +194,24 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
           },
         });
         return;
+      } else if (res.status === 409 && head.kind === "page" && res.error?.detail && "revision" in res.error.detail) {
+        // Someone changed the page since this builder last heard it: catch up, or say what can't be.
+        l.flying = true;
+        const caught = await catchUp(head.page);
+        l.flying = false;
+        if (!caught) {
+          const target = targetOf(head);
+          const section = l.queue.some((o) => targetOf(o) === target && o.kind === "page" && o.op.op !== "page");
+          // Every edit waiting for the page was made on what it said before: none is sent over their change.
+          l.queue = l.queue.filter((o) => targetOf(o) !== target);
+          remember(EMPTY);
+          toast.error(`Someone else changed this ${section ? "section" : "page"}`, {
+            id: SAVE,
+            duration: Infinity,
+            description: "Your change to it wasn't saved. Reload to see theirs.",
+            action: { label: "Reload", onClick: () => location.reload() },
+          });
+        }
       } else {
         l.queue.splice(0, r.take);
         // The server said no to what the canvas shows, so the canvas and its history no longer match it.
@@ -198,6 +227,25 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
         }
       }
       void flush();
+    }
+
+    /**
+     * The page as it is now, with the edits still waiting for it applied
+     * over it (builder-ops rebase), when none of them changes what someone
+     * else changed since. False when one does, or the page can't be read.
+     */
+    async function catchUp(page: string): Promise<boolean> {
+      const l = live.current;
+      const got = await l.transport("GET", `/api/v1/brands/${encodeURIComponent(l.brand)}/pages/${encodeURIComponent(page)}`);
+      const now = got.ok ? (got.data as { page: EchoPage }).page : null;
+      const base = l.known.get(page);
+      const state = now && base && rebase(l.state, base, now, l.queue.filter((o) => targetOf(o) === `page:${page}`));
+      if (!state) return false;
+      l.known.set(page, now);
+      commit(state);
+      // Undo was recorded against the page before their change, and could take it back.
+      remember(EMPTY);
+      return true;
     }
 
     /**
@@ -289,7 +337,12 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
         toast.error(`Couldn't open ${slug}`, { duration: 10_000 });
         return false;
       }
-      commit(load(live.current.state, res.data as PageView));
+      const view = res.data as PageView;
+      const p = view.page;
+      const had = p && l.known.get(p.slug);
+      // Its sections as read, what its edits are made from, unless edits hold them already (load keeps those).
+      if (p && had && !live.current.state.pages.has(p.slug)) l.known.set(p.slug, { ...had, sections: p.sections });
+      commit(load(live.current.state, view));
       return true;
     }
 

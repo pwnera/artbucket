@@ -14,6 +14,15 @@ async function input<T extends z.ZodType>(req: Request, schema: T): Promise<z.ou
   return got.data!;
 }
 
+/** The revision an `If-Match` header names (the page's `revision`, quoted or not); none, or `*`, for any. */
+function ifMatch(req: Request) {
+  const m = req.headers.get("if-match")?.trim().replace(/^W\//, "").replace(/^"(.*)"$/, "$1");
+  return m && m !== "*" ? m : undefined;
+}
+
+/** The page's revision as an ETag, for a client that sends it back in If-Match. */
+const etag = (page: { revision: string }) => ({ ETag: `"${page.revision}"` });
+
 /**
  * GET /api/v1/brands/{slug}/pages/{page}?context=dark-background - the page,
  * the rules it shows resolved for the context, its warnings, as Markdown, and
@@ -21,19 +30,27 @@ async function input<T extends z.ZodType>(req: Request, schema: T): Promise<z.ou
  */
 export const GET = route<P>("brand.read", async (req, { slug, page }, caller) => {
   const context = new URL(req.url).searchParams.get("context") || undefined;
-  return ok({ data: await getPage(caller.workspace.id, slug, page, context) });
+  const data = await getPage(caller.workspace.id, slug, page, context);
+  return ok({ data }, { headers: etag(data.page) });
 });
 
-/** PUT /api/v1/brands/{slug}/pages/{page} - make the page, 201, or replace it whole, 200. */
+/**
+ * PUT /api/v1/brands/{slug}/pages/{page} - make the page, 201, or replace it
+ * whole, 200. With If-Match, a 409 when the page says something else now.
+ */
 export const PUT = route<P>("brand.edit", async (req, { slug, page }, caller) => {
-  const saved = await savePage(caller, slug, page, await input(req, PageInput));
-  return ok({ data: saved }, { status: saved.created ? 201 : 200 });
+  const saved = await savePage(caller, slug, page, await input(req, PageInput), ifMatch(req));
+  return ok({ data: saved }, { status: saved.created ? 201 : 200, headers: etag(saved.page) });
 });
 
-/** PATCH /api/v1/brands/{slug}/pages/{page} - `{ ops }`, applied in order, all or none. */
-export const PATCH = route<P>("brand.edit", async (req, { slug, page }, caller) =>
-  ok({ data: await editPage(caller, slug, page, (await input(req, PageEdit)).ops) }),
-);
+/**
+ * PATCH /api/v1/brands/{slug}/pages/{page} - `{ ops }`, applied in order, all
+ * or none. With If-Match, a 409 when the page says something else now.
+ */
+export const PATCH = route<P>("brand.edit", async (req, { slug, page }, caller) => {
+  const edited = await editPage(caller, slug, page, (await input(req, PageEdit)).ops, ifMatch(req));
+  return ok({ data: edited }, { headers: etag(edited.page) });
+});
 
 /** DELETE /api/v1/brands/{slug}/pages/{page} - 409 while pages sit under it. */
 export const DELETE = route<P>("brand.edit", async (_req, { slug, page }, caller) => {

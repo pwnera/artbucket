@@ -31,13 +31,14 @@ type Op = {
   description?: string;
   body?: z.ZodType;
   query?: Record<string, { schema: object; description: string }>;
+  header?: Record<string, { schema: object; description: string }>;
   ok: [status: number, description: string, schema?: z.ZodType];
   extra?: Record<string, object>;
   /** Kept working, but on its way out: the description says what replaces it (docs/developers/stability.mdx). */
   deprecated?: true;
 };
 
-function op({ summary, scope, description, body, query, ok: [status, desc, res], extra, deprecated }: Op) {
+function op({ summary, scope, description, body, query, header, ok: [status, desc, res], extra, deprecated }: Op) {
   return {
     summary,
     ...(deprecated && { deprecated }),
@@ -48,8 +49,13 @@ function op({ summary, scope, description, body, query, ok: [status, desc, res],
       .filter(Boolean)
       .join("\n\n"),
     ...(scope === "public" ? { security: [] } : scope === "any" ? {} : { "x-scope": scope }),
-    ...(query
-      ? { parameters: Object.entries(query).map(([name, p]) => ({ name, in: "query", ...p })) }
+    ...(query || header
+      ? {
+          parameters: [
+            ...Object.entries(query ?? {}).map(([name, p]) => ({ name, in: "query", ...p })),
+            ...Object.entries(header ?? {}).map(([name, p]) => ({ name, in: "header", ...p })),
+          ],
+        }
       : {}),
     ...(body ? { requestBody: { required: true, content: json(body, "input") } } : {}),
     responses: {
@@ -69,6 +75,20 @@ const path = (name: string, description: string) => ({
 });
 
 const str = { type: "string" };
+
+/** A page write made from a revision (lib/core/pages.ts revisionOf), and the answer when the page moved on. */
+const ifMatch = {
+  "If-Match": {
+    schema: str,
+    description:
+      "The page's `revision` (also its ETag) the change was made from. When the page says something else now, nothing is " +
+      "written: a 409 `conflict` with the revision it has in `detail.revision`. Left out, the write applies to the page as it is.",
+  },
+};
+const stale = {
+  description: "The page changed since the If-Match revision: read it again, redo the change on what it says now",
+  content: json(S.ErrorBody),
+};
 
 /** The server docs/openapi.json names: a self-hosted install, where the docs' playground can reach one. */
 export const DOCS_SERVER = "http://localhost:3000";
@@ -716,8 +736,9 @@ export function openapi(serverUrl: string) {
             "422 lists every problem with its path, e.g. `sections[1].props.chanel: Unrecognized key`. A slug that " +
             "isn't one is a 422 too. A draft until the brand is published.",
           body: S.PageInput,
+          header: ifMatch,
           ok: [201, "Made", data(S.PageSaved)],
-          extra: { 200: { description: "Replaced", content: json(data(S.PageSaved)) } },
+          extra: { 200: { description: "Replaced", content: json(data(S.PageSaved)) }, 409: stale },
         }),
         patch: op({
           summary: "Edit a page an operation at a time",
@@ -727,7 +748,9 @@ export function openapi(serverUrl: string) {
             "`page` with `slug` renames it: the old slug becomes an alias that still finds it, and the pages under it " +
             "follow. All or none: a 422 lists every problem with its path, e.g. `ops[0].section.props.chanel: Unrecognized key`.",
           body: S.PageEdit,
+          header: ifMatch,
           ok: [200, "The page", data(S.PageSaved.omit({ created: true }))],
+          extra: { 409: stale },
         }),
         delete: op({ summary: "Delete a page", scope: "write", description: "409 while pages sit under it: move or delete them first.", ok: [200, "Deleted", S.Deleted] }),
       },

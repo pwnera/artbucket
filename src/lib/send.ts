@@ -24,8 +24,13 @@ let alive = 0;
  * or signed out still toasts, since no field can say that. Every non-GET
  * counts toward SaveStatus.
  */
-export function sendResult(method: string, url: string, payload?: unknown, { quiet = false }: { quiet?: boolean } = {}): Promise<Sent> {
-  const p = attempt(method, url, payload, quiet);
+export function sendResult(
+  method: string,
+  url: string,
+  payload?: unknown,
+  { quiet = false, headers }: { quiet?: boolean; headers?: Record<string, string> } = {},
+): Promise<Sent> {
+  const p = attempt(method, url, payload, quiet, headers);
   if (method !== "GET") void track(p.then((r) => r.ok || null));
   return p;
 }
@@ -34,7 +39,7 @@ export function sendResult(method: string, url: string, payload?: unknown, { qui
 export const send = (method: string, url: string, payload?: unknown): Promise<Json> =>
   sendResult(method, url, payload).then((r) => (r.ok ? r.data : null));
 
-async function attempt(method: string, url: string, payload: unknown, quiet: boolean): Promise<Sent> {
+async function attempt(method: string, url: string, payload: unknown, quiet: boolean, headers?: Record<string, string>): Promise<Sent> {
   const body = payload ? JSON.stringify(payload) : undefined;
   // A save started on blur should survive the tab closing under it.
   const size = body && body.length < KEEPALIVE ? new TextEncoder().encode(body).length : Infinity;
@@ -43,7 +48,7 @@ async function attempt(method: string, url: string, payload: unknown, quiet: boo
   try {
     const res = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body,
       keepalive,
       signal: AbortSignal.timeout(30_000),

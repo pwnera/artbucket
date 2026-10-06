@@ -18,6 +18,7 @@ import {
   type Op,
   pageOf,
   push,
+  rebase,
   request,
   shownOn,
   travel,
@@ -382,4 +383,48 @@ test("applyAll: a section moved to another page, undone as one", () => {
   const no = applyAll(s, [on("logo", { op: "remove", id: "t1" }), on("nowhere", { op: "remove", id: "x" })]);
   assert.equal(no.state, s);
   assert.ok(no.errors.length);
+});
+
+test("someone else's edit: ours goes over theirs only where it changes nothing of theirs", () => {
+  const base = state();
+  // The logo page as the server last said it, and as it is after someone else's edit to t2.
+  const server = (s: BuilderState, revision: string) => ({ ...s.nav[1], revision, sections: structuredClone(s.pages.get("logo")!) });
+  const was = server(base, "r1");
+  const now = server(base, "r2");
+  now.sections[1].body = "Their words.";
+  now.title = "Their title";
+
+  // Ours to t1 (waiting, refused with r1): applies over theirs, and both stand.
+  const ours = on("logo", { op: "update", id: "t1", set: { title: "Our mark" } });
+  const mine = apply(base, ours).state;
+  const both = rebase(mine, was, now, [ours])!;
+  assert.ok(both);
+  assert.deepEqual(
+    both.pages.get("logo")!.map((x) => [x.title, x.body]),
+    [
+      ["Our mark", ""],
+      ["", "Their words."],
+    ],
+  );
+  assert.equal(both.nav[1].title, "Their title");
+  assert.equal(both.nav[1].revision, "r2");
+  // A move and an add touch nobody's words; a page field they left alone is ours to set.
+  assert.ok(rebase(mine, was, now, [on("logo", { op: "move", id: "t1", after: "t2" }), on("logo", { op: "add", section: { template: "text" }, after: "t2" })]));
+  assert.equal(rebase(mine, was, now, [on("logo", { op: "page", set: { lede: "Ours", position: 0 } })])!.nav[0].lede, "Ours");
+
+  // The same section, or the same field: refused, theirs kept.
+  assert.equal(rebase(mine, was, now, [on("logo", { op: "update", id: "t2", set: { body: "Our words." } })]), null);
+  assert.equal(rebase(mine, was, now, [ours, on("logo", { op: "remove", id: "t2" })]), null);
+  assert.equal(rebase(mine, was, now, [on("logo", { op: "page", set: { title: "Our title" } })]), null);
+  // A section they removed: ours no longer applies.
+  const gone = { ...now, sections: now.sections.slice(0, 1) };
+  assert.equal(rebase(mine, was, gone, [on("logo", { op: "move", id: "t2", after: null })]), null);
+});
+
+test("requests: page edits carry the revision they were made from", () => {
+  const pending: Op[] = [on("logo", { op: "update", id: "t1", set: { title: "A" } }), { kind: "theme", set: { radius: 2 } }];
+  assert.equal(request(pending, "blender", (p) => (p === "logo" ? "r1" : undefined))!.match, "r1");
+  // Unknown: no If-Match, the write applies to the page as it is.
+  assert.equal("match" in request(pending, "blender", () => undefined)!, false);
+  assert.equal("match" in request(pending.slice(1), "blender", () => "r1")!, false);
 });
