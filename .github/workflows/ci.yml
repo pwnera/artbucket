@@ -114,6 +114,66 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+      # The build starts as a fresh install would (migrating an empty database
+      # on start) against this job's Postgres and docker-compose.yml's storage,
+      # and its doors answer: health, who am I, sign-in, a 404, MCP.
+      - name: The app boots and answers
+        env:
+          DATABASE_URL: postgres://artbucket:artbucket@localhost:5432/smoke
+        run: |
+          psql "postgres://artbucket:artbucket@localhost:5432/artbucket" -c "create database smoke"
+          docker compose up -d --wait s3
+          pnpm start > ../server.log 2>&1 &
+          for _ in $(seq 60); do curl -sf -o /dev/null http://localhost:3000/api/health && break; sleep 1; done
+          fails=0
+          check() { # expected status, method, path, [body]
+            code=$(curl -sL -o ../body -w '%{http_code}' -X "$2" -H 'content-type: application/json' ${4:+--data "$4"} "http://localhost:3000$3")
+            echo "$2 $3: $code"
+            if [ "$code" != "$1" ]; then echo "::error::$2 $3 answered $code, not $1"; head -c 600 ../body; echo; fails=1; fi
+          }
+          check 200 GET /api/health
+          check 200 GET /api/v1/me
+          grep -q '"signUp":true' ../body || { echo "::error::/api/v1/me doesn't offer the first account"; fails=1; }
+          check 200 GET /login
+          check 404 GET /no-such-page
+          # Before the first account, MCP waits for it, as every /api/v1 route does.
+          check 403 POST /api/v1/mcp '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+          if [ "$fails" = 1 ]; then echo "--- server log"; tail -n 80 ../server.log; exit 1; fi
+
+  # The app's own code against a real Postgres (pnpm test:db): every
+  # src/**/*.db.test.ts, each file in a database of its own.
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: artbucket
+          POSTGRES_PASSWORD: artbucket
+          POSTGRES_DB: artbucket
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U artbucket"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://artbucket:artbucket@localhost:5432/artbucket
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose up -d --wait s3
+      - run: pnpm test:db
+
   # A pull request adds no dependency with a known vulnerability or a license the AGPL can't carry.
   dependencies:
     if: github.event_name == 'pull_request'

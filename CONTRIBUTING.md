@@ -29,6 +29,7 @@ pnpm dev
 pnpm typecheck
 pnpm lint
 pnpm test
+DATABASE_URL=postgres://artbucket:artbucket@localhost:5433/artbucket pnpm test:db
 pnpm build
 ```
 
@@ -45,6 +46,9 @@ These are the conventions the codebase already follows.
    standard library. A new abstraction needs a second caller.
 4. **Non-trivial logic ships with a test.** One `node:test` file next to the
    code, asserting the thing that would break. No frameworks, no fixtures.
+   Code that queries the database is tested through `lib/core` in a
+   `*.db.test.ts`, which gets a migrated database of its own and `signUp()`
+   from `src/test/db.ts`.
 5. **Trust boundaries are never simplified.** Input validation, auth, and
    resource caps get the careful version, always.
 6. **Deliberate shortcuts get a `ponytail:` comment** naming the ceiling and the
