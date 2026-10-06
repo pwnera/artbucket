@@ -39,8 +39,33 @@ instead:
 
 Deleting an asset stops its renditions counting at once.
 
-The server takes the client's address from `X-Forwarded-For`. Run it behind a
-reverse proxy that sets that header, and don't expose its port directly.
+## Client addresses
+
+Rate limits and the audit log go by the client's address, which the server
+only knows from its reverse proxies' `X-Forwarded-For`. Each proxy appends the
+address it saw, after whatever the client sent, so only the right end of the
+list can be believed. `TRUSTED_PROXIES` names the proxies: addresses and
+ranges, comma-separated, or `private` for every private range (`10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`, loopback, link-local and
+carrier-grade NAT). The client is the last entry that isn't one of them;
+without the header, `X-Real-IP`.
+
+Unset, the server believes neither header: reached directly, it would take
+whatever a client wrote there. Every client then shares one rate limit, sign-in
+included, and the audit log records no address. The log says so once.
+
+| In front of the server | `TRUSTED_PROXIES` |
+| --- | --- |
+| Nothing (the port is public) | unset |
+| One reverse proxy: Caddy, nginx, Traefik (Coolify), an ingress, Fly's proxy | `private` |
+| Cloudflare, straight to the server | `private` |
+| Cloudflare, then a proxy of your own | `private` and Cloudflare's ranges ([cloudflare.com/ips](https://www.cloudflare.com/ips/)), with the proxy keeping the chain (nginx's `$proxy_add_x_forwarded_for`; Caddy's `trusted_proxies` set to Cloudflare's ranges) |
+| A proxy with a public address of its own | its address, or its ranges |
+
+With it set, don't expose the server's port directly: a client reaching it past
+the proxies chooses its own address. To check, sign in and open the audit log:
+the sign-in shows your address. One of your proxies' instead means a hop is
+missing from the list.
 
 ## Email
 
@@ -76,6 +101,12 @@ since browsers show them in a viewer the sandbox would stop.
 Writes signed by a session cookie are taken only from `APP_URL`'s origin.
 Fetches from a URL (`ingest_asset`, `POST /api/v1/assets` with `url`) refuse
 loopback, private and link-local addresses, checked on every redirect.
+
+Previews of files the server can't show as they are (PDF, PSD, HEIC, Office
+documents, video) are made by decoders that read whatever an upload holds,
+each in a process of its own with none of the server's secrets: two at once,
+killed after 30 seconds (two minutes for LibreOffice and ffmpeg), and capped in
+memory. A file that is too slow or too big gets no preview; the upload stands.
 
 ## Abuse
 

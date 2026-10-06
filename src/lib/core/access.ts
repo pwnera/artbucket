@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
@@ -13,6 +13,7 @@ import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
+import { ipOf } from "@/lib/client-ip";
 import { hubHome } from "@/lib/hub";
 import { memo } from "@/lib/memo";
 import { upgradeUrl } from "@/lib/limits";
@@ -135,11 +136,11 @@ export async function workspacesOf(userId: string) {
 const cookie = (req: Request, name: string) =>
   req.headers.get("cookie")?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
 
-/** The client's address, as the reverse proxy in front reports it. */
-export const ipOf = (h: Headers) => h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+/** The client's address, as the reverse proxies TRUSTED_PROXIES names report it. */
+export { ipOf };
 
 /**
- * Resolve the caller. A key that is presented but unknown is `undefined`, not
+ * Resolve the caller. A key that is presented but unknown or expired is `undefined`, not
  * anonymous: a revoked key should fail loudly, never quietly fall back to
  * whatever anonymous may do. In a read-only organization everyone reads, and
  * its admins still manage its people and settings, and can leave.
@@ -159,8 +160,12 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
     if (!secret) return undefined;
-    // One secret, a row per workspace it was given: the one asked for, else the first.
-    const rows = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret))).orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
+    // One secret, a row per workspace it was given: the one asked for, else the first. An agent's lapses (lib/core/oauth.ts).
+    const rows = await db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.hash, hashKey(secret)), or(isNull(apiKeys.expiresAt), gt(apiKeys.expiresAt, sql`now()`))))
+      .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
     const key = rows.find((r) => r.workspaceId === workspaceId) ?? rows[0];
     if (!key) return undefined;
     // Connected agents' "last seen": never worth failing or slowing the request for.

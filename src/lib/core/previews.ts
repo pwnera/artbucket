@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import { fetchPublic } from "@/lib/fetch-public";
 import { parseLink, RENDERABLE } from "@/lib/preview";
+import { gate } from "@/lib/pool";
 import { getObject, originalKey, previewKey, putObject } from "@/lib/storage";
 import { INFLATE_LIMIT, unzip } from "@/lib/zip";
 
@@ -117,55 +118,104 @@ type Still = { image: Sharp; size?: { width: number; height: number } };
 
 async function still(bytes: Buffer, mime: string): Promise<Still | null> {
   const magic = bytes.subarray(0, 4).toString("latin1");
-  if (magic === "%PDF") return pdf(bytes);
-  if (magic === "8BPS") return (await psd(bytes)) ?? xmpThumbnail(bytes);
+  if (magic === "%PDF") return decode("pdf", bytes);
+  // A decoder failing on a file is no reason to lose the thumbnail saved in it.
+  if (magic === "8BPS") return (await decode("psd", bytes).catch(() => null)) ?? xmpThumbnail(bytes);
   // LibreOffice failing on a file is no reason to lose the thumbnail saved in it.
   if (magic === "PK\x03\x04") return (await office(bytes).catch(() => null)) ?? zipPreview(bytes);
   if (bytes.readUInt32BE(0) === 0xd0cf11e0) return office(bytes);
   if (bytes.readUInt32BE(0) === 0xc5d0d3c6) return eps(bytes) ?? xmpThumbnail(bytes);
-  if (isHeic(bytes)) return heic(bytes);
+  if (isHeic(bytes)) return decode("heic", bytes);
   if (mime.startsWith("video/") || isVideo(bytes)) return video(bytes);
   return xmpThumbnail(bytes);
 }
 
-async function pdf(bytes: Buffer): Promise<Still> {
-  const mupdf = await import("mupdf");
-  const doc = mupdf.Document.openDocument(bytes, "application/pdf");
-  try {
-    const page = doc.loadPage(0);
-    const [x0, y0, x1, y1] = page.getBounds();
-    // Vector art renders at the size it will be shown at: no upscaled blur.
-    const scale = Math.min(EDGE / Math.max(x1 - x0, y1 - y0), 8);
-    // With alpha: a logo's transparent background stays transparent.
-    const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB, true, true);
-    return { image: sharp(Buffer.from(pixmap.asPNG())) };
-  } finally {
-    doc.destroy();
-  }
-}
+/**
+ * PDF, PSD and HEIC are decoded by WebAssembly and JavaScript that read
+ * whatever an upload holds: in a child process of their own, never in the
+ * server's, so a file that takes too long is killed at DECODE_MS, one that
+ * wants too much memory fails alone (DECODE_MEMORY, and WebAssembly's capped
+ * at 1 GB), and either yields no preview. At most two run at once.
+ *
+ * Plain JavaScript in a string: the child is `node -e`, which finds the
+ * packages from the server's directory (its standalone build ships them,
+ * next.config.ts). It prints a line of JSON, then the pixels: a PNG, or RGBA
+ * at the size the line gives.
+ */
+const DECODE_MS = 30_000;
+const DECODE_MEMORY = 256 * 1024 * 1024;
+const decoding = gate(2);
 
-/** Photoshop saves the composite unless "Maximize compatibility" was turned off. */
-async function psd(bytes: Buffer): Promise<Still | null> {
+const DECODER = String.raw`
+const [, kind, path, edge, memory] = process.argv;
+const { readFileSync } = await import("node:fs");
+const bytes = readFileSync(path);
+const send = (meta, data) => {
+  process.stdout.write(JSON.stringify(meta) + "\n");
+  if (data) process.stdout.write(Buffer.from(data.buffer, data.byteOffset, data.byteLength));
+};
+if (kind === "pdf") {
+  const mupdf = await import("mupdf");
+  const page = mupdf.Document.openDocument(bytes, "application/pdf").loadPage(0);
+  const [x0, y0, x1, y1] = page.getBounds();
+  // Vector art renders at the size it will be shown at: no upscaled blur.
+  const scale = Math.min(Number(edge) / Math.max(x1 - x0, y1 - y0), 8);
+  // With alpha: a logo's transparent background stays transparent.
+  send({ png: true }, page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB, true, true).asPNG());
+} else if (kind === "psd") {
+  // Photoshop saves the composite unless "Maximize compatibility" was turned off.
   const { initializeCanvas, readPsd } = await import("ag-psd");
   // Pixels only, no canvas: ag-psd allocates its 8-bit buffers through this.
   initializeCanvas(
-    () => {
-      throw new Error("No canvas on the server");
-    },
+    () => { throw new Error("No canvas on the server"); },
     (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" }),
   );
-  // A header can claim any size: past 256 MB ag-psd refuses before allocating it.
-  const file = readPsd(bytes, { skipLayerImageData: true, skipThumbnail: true, useImageData: true, totalMemoryLimit: 256 * 1024 * 1024 });
-  const d = file.imageData;
-  if (!d?.data.length) return null;
-  const size = { width: d.width, height: d.height };
-  return { image: sharp(d.data, { raw: { ...size, channels: 4 } }).toColourspace("srgb"), size };
-}
-
-async function heic(bytes: Buffer): Promise<Still> {
+  // A header can claim any size: past the limit ag-psd refuses before allocating it.
+  const d = readPsd(bytes, { skipLayerImageData: true, skipThumbnail: true, useImageData: true, totalMemoryLimit: Number(memory) }).imageData;
+  d?.data.length ? send({ width: d.width, height: d.height }, d.data) : send({});
+} else if (kind === "heic") {
   const { default: decode } = await import("heic-decode");
-  const { width, height, data } = await decode({ buffer: bytes });
-  return { image: sharp(data, { raw: { width, height, channels: 4 } }), size: { width, height } };
+  // The size first, from the header: the pixels are decoded only when they fit.
+  const [image] = await decode.all({ buffer: bytes });
+  if (image.width * image.height * 4 > Number(memory)) throw new Error(image.width + "x" + image.height + " is too big to decode");
+  const { width, height, data } = await image.decode();
+  send({ width, height }, data);
+}
+`;
+
+/**
+ * Never runs: these imports are where the standalone build's tracer finds the
+ * decoders' packages, and what they import, to ship them for the child.
+ * ponytail: an import the server never makes, kept for the tracer. A decoder
+ * file of its own, traced as an entry, if the build ever offers that.
+ */
+if (process.env.ARTBUCKET_TRACE_DECODERS === "never set") void Promise.all([import("mupdf"), import("ag-psd"), import("heic-decode")]);
+
+async function decode(kind: "pdf" | "psd" | "heic", bytes: Buffer): Promise<Still | null> {
+  const out = await decoding
+    .run(1, () =>
+      inTemp(bytes, kind, (input) =>
+        run(
+          [process.execPath],
+          ["--input-type=module", "--max-old-space-size=512", "--wasm-max-mem-pages=16384", "-e", DECODER, kind, input, String(EDGE), String(DECODE_MEMORY)],
+          "",
+          DECODE_MS,
+        ),
+      ),
+    )
+    .catch((err: { killed?: boolean; stderr?: Buffer }) => {
+      // Said in a line, not as the command line execFile puts in its message, which holds the whole decoder.
+      const why = err.killed ? `took over ${DECODE_MS / 1000}s` : (err.stderr?.toString().match(/^\w*Error: .*$/m)?.[0] ?? "failed");
+      throw new Error(`Decoding the ${kind} ${why}`);
+    });
+  const nl = out?.indexOf(0x0a) ?? -1;
+  if (!out || nl === -1) return null;
+  const meta = JSON.parse(out.toString("utf8", 0, nl)) as { png?: true; width?: number; height?: number };
+  const data = out.subarray(nl + 1);
+  if (meta.png) return { image: sharp(data) };
+  if (!meta.width || !meta.height || !data.length) return null;
+  const size = { width: meta.width, height: meta.height };
+  return { image: sharp(data, { raw: { ...size, channels: 4 } }).toColourspace("srgb"), size };
 }
 
 /** The biggest preview or thumbnail image in the archive: Sketch, XD, Keynote, pptx, .fig, Procreate. */
@@ -243,9 +293,9 @@ async function office(bytes: Buffer): Promise<Still | null> {
       "Office documents will show only the thumbnail saved in them",
     );
     if (!done) return null;
-    const page = await pdf(await readFile(join(dir, "document.pdf")));
+    const page = await decode("pdf", await readFile(join(dir, "document.pdf")));
     // A page is paper: LibreOffice leaves it transparent, which a tile would show through.
-    return { image: page.image.flatten({ background: "#ffffff" }) };
+    return page && { image: page.image.flatten({ background: "#ffffff" }) };
   });
 }
 
@@ -291,14 +341,14 @@ const childEnv = () => ({
  * Run the first of `names` that is installed and return what it printed; null
  * when none is, said once in the log, with what goes without it.
  */
-async function run(names: string[], args: string[], without: string): Promise<Buffer | null> {
+async function run(names: string[], args: string[], without: string, timeout = 120_000): Promise<Buffer | null> {
   for (const name of names) {
     if (missing.has(name)) continue;
     try {
       const { stdout } = await promisify(execFile)(name, args, {
         encoding: "buffer",
         maxBuffer: 256 * 1024 * 1024,
-        timeout: 120_000,
+        timeout,
         env: childEnv(),
       });
       return stdout;

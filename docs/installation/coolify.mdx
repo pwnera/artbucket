@@ -20,6 +20,7 @@ S3_SECRET_ACCESS_KEY=...
 S3_FORCE_PATH_STYLE=true
 APP_URL=https://assets.example.com
 BETTER_AUTH_SECRET=<openssl rand -base64 32>
+TRUSTED_PROXIES=private
 ```
 
 Deploy. The app migrates its database and sets up the bucket on start; make

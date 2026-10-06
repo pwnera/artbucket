@@ -285,6 +285,17 @@ export const apiKeys = pgTable(
      * with them. Null for a key an admin made, which answers to nobody.
      */
     userId: text("user_id").references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
+    /**
+     * An agent's token works until then (lib/core/oauth.ts): an hour, renewed
+     * by its refresh token. Null for a key an admin made, which lasts until
+     * revoked.
+     */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** The refresh token that renews it (sha256), until then; a key that can no longer be renewed is swept. */
+    refreshHash: text("refresh_hash"),
+    refreshExpiresAt: timestamp("refresh_expires_at", { withTimezone: true }),
+    /** The OAuth client it was issued to: only that client renews it, and a client holding no key is swept. */
+    clientId: text("client_id").references((): AnyPgColumn => oauthClients.id, { onDelete: "set null" }),
     /** Bumped on every request that presents it: "Connected agents" and "waiting for first call". */
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     calls: integer("calls").notNull().default(0),
@@ -295,6 +306,7 @@ export const apiKeys = pgTable(
   (t) => [
     check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
     unique("api_keys_hash_workspace_unique").on(t.hash, t.workspaceId),
+    index("api_keys_refresh_hash_idx").on(t.refreshHash),
   ],
 );
 
@@ -722,6 +734,10 @@ export const oauthClients = pgTable("oauth_clients", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   redirectUris: jsonb("redirect_uris").$type<string[]>().notNull().default([]),
+  /** The grants it registered for (RFC 7591): one without refresh_token gets a longer token and none to renew it. Null: registered before they were kept. */
+  grantTypes: jsonb("grant_types").$type<string[]>(),
+  /** When a token was last issued or renewed for it: a client unused for long, holding no key, is swept (lib/core/oauth.ts). */
+  usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

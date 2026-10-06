@@ -1,9 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, eq, gt, inArray, lt } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, oauthClients, verifications } from "@/lib/db/schema";
 import { keyWorkspaces, workspacesOf, type Caller } from "@/lib/core/access";
+import { isAppOrigin } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
 import { hashKey } from "@/lib/core/keys";
 import { recordAudit } from "@/lib/core/audit";
@@ -21,9 +22,15 @@ import type { Scope } from "@/lib/scopes";
  * more than they can (lib/core/access.ts), shows up in Connected agents with
  * every other key, and is revoked the same way.
  *
- * ponytail: tokens don't expire and there are no refresh tokens: a key lives
- * until someone revokes it, like one an admin makes. Add expiry and refresh
- * when a client insists on them.
+ * A token works for an hour (TOKEN_TTL) and comes with a refresh token that
+ * renews it, each renewal replacing both (OAuth 2.1 rotation), for as long as
+ * the agent renews within REFRESH_TTL. A client that registered without the
+ * refresh_token grant gets a token for NO_REFRESH_TTL and nothing to renew it.
+ * What can no longer be renewed is swept (sweepTokens), with clients long
+ * unused.
+ *
+ * ponytail: a refresh token used twice fails the second time, nothing more;
+ * revoking the whole connection on reuse waits for a client that needs it.
  */
 
 /** An error the OAuth way, `{error, error_description}` (RFC 6749 §5.2), not the API's shape. */
@@ -38,6 +45,10 @@ export class OAuthError extends Error {
 }
 
 const CODE_TTL = 10 * 60_000;
+const DAY = 86_400_000;
+export const TOKEN_TTL = 60 * 60_000;
+export const REFRESH_TTL = 90 * DAY;
+const NO_REFRESH_TTL = 30 * DAY;
 /** How often the CLI may ask whether its code was approved yet. */
 export const DEVICE_INTERVAL = 5;
 
@@ -51,7 +62,7 @@ export const serverMetadata = () => ({
   registration_endpoint: `${env.APP_URL}/api/v1/oauth/register`,
   device_authorization_endpoint: `${env.APP_URL}/api/v1/oauth/device`,
   response_types_supported: ["code"],
-  grant_types_supported: ["authorization_code", "urn:ietf:params:oauth:grant-type:device_code"],
+  grant_types_supported: ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
   code_challenge_methods_supported: ["S256"],
   token_endpoint_auth_methods_supported: ["none"],
   scopes_supported: [...GRANTABLE],
@@ -88,7 +99,7 @@ export async function registerClient(input: unknown) {
   }
   const [row] = await db
     .insert(oauthClients)
-    .values({ id: `abc_${randomBytes(16).toString("base64url")}`, name: client_name || "An agent", redirectUris: redirect_uris })
+    .values({ id: `abc_${randomBytes(16).toString("base64url")}`, name: client_name || "An agent", redirectUris: redirect_uris, grantTypes: grant_types })
     .returning();
   return {
     client_id: row.id,
@@ -105,6 +116,23 @@ async function clientOf(id: string | null | undefined) {
   const [row] = id ? await db.select().from(oauthClients).where(eq(oauthClients.id, id)) : [];
   return row ?? null;
 }
+
+/**
+ * RFC 8707: a `resource` a client names must be what this server's tokens
+ * are for, its API: the MCP endpoint, or the API or the app it is under, at
+ * APP_URL or an organization's domain for the app.
+ */
+async function served(resource: string | undefined) {
+  if (!resource) return true;
+  let url: URL;
+  try {
+    url = new URL(resource);
+  } catch {
+    return false;
+  }
+  return !url.hash && ["", "/api/v1", "/api/v1/mcp"].includes(url.pathname.replace(/\/+$/, "")) && (await isAppOrigin(url.origin));
+}
+const notServed = (resource: string) => `Tokens here are for ${mcpUrl()}, not ${resource}`;
 
 // ---- consent ----------------------------------------------------------------
 
@@ -177,7 +205,10 @@ export async function regrant(caller: Caller, keyId: string, input: { workspaces
     for (const w of g.workspaces) {
       const row = rows.find((r) => r.workspaceId === w.id);
       if (row && row.scope !== w.scope) await tx.update(apiKeys).set({ scope: w.scope }).where(eq(apiKeys.id, row.id));
-      if (!row) await tx.insert(apiKeys).values({ name: key.name, scope: w.scope, workspaceId: w.id, userId: key.userId, prefix: key.prefix, hash: key.hash });
+      if (!row) {
+        const { prefix, hash, expiresAt, refreshHash, refreshExpiresAt, clientId } = key;
+        await tx.insert(apiKeys).values({ name: key.name, scope: w.scope, workspaceId: w.id, userId: key.userId, prefix, hash, expiresAt, refreshHash, refreshExpiresAt, clientId });
+      }
     }
   });
   for (const r of rows) if (!keep.has(r.workspaceId)) await audit(r.workspaceId, "key.revoked", r.scope);
@@ -211,6 +242,7 @@ export async function checkAuthorize(caller: Caller, params: Record<string, stri
   const client = await clientOf(parsed.data.client_id);
   if (!client) throw new AssetError("not_found", "This agent isn't registered here. Start connecting again from the agent.");
   if (!client.redirectUris.includes(parsed.data.redirect_uri)) throw new AssetError("invalid", "This agent didn't register that redirect_uri");
+  if (!(await served(parsed.data.resource))) throw new AssetError("invalid", notServed(parsed.data.resource!));
   return { request: parsed.data, client: { name: client.name }, scope: askedScope(parsed.data.scope) ?? "propose", ...(await consentOptions(caller)) };
 }
 
@@ -242,9 +274,10 @@ export async function decideAuthorize(caller: Caller, params: Record<string, str
 type Device = { clientId: string; secret: string; asked?: Grantable } & ({ status: "pending" } | { status: "denied" } | ({ status: "approved" } & Granted));
 
 /** RFC 8628: the CLI asks for a code, the person approves it on /device, the CLI polls for its key. */
-export async function startDevice(clientId: string | null, scope?: string | null) {
+export async function startDevice(clientId: string | null, scope?: string | null, resource?: string) {
   const client = await clientOf(clientId);
   if (!client) throw new OAuthError("invalid_client", "Unknown client_id: register first");
+  if (!(await served(resource))) throw new OAuthError("invalid_target", notServed(resource!));
   const code = userCode();
   const secret = randomBytes(32).toString("base64url");
   const asked = askedScope(scope) ?? undefined;
@@ -283,8 +316,10 @@ export async function decideDevice(caller: Caller, typed: string, input: Consent
 
 // ---- tokens -----------------------------------------------------------------
 
-/** POST /api/v1/oauth/token: a code, or an approved device code, for a key. */
+/** POST /api/v1/oauth/token: a code, an approved device code, or a refresh token, for a key. */
 export async function exchange(form: Record<string, string>) {
+  if (!(await served(form.resource))) throw new OAuthError("invalid_target", notServed(form.resource));
+  if (form.grant_type === "refresh_token") return renew(form.refresh_token ?? "", form.client_id ?? "");
   if (form.grant_type === "authorization_code") {
     const row = await take<Granted & { clientId: string; redirectUri: string; challenge: string }>(`oauth-code:${hashKey(form.code ?? "")}`);
     if (!row) throw new OAuthError("invalid_grant", "The code is unknown, used or expired");
@@ -306,7 +341,57 @@ export async function exchange(form: Record<string, string>) {
     if (device.status === "denied") throw new OAuthError("access_denied", "The code was turned down");
     return mint(device.clientId, device);
   }
-  throw new OAuthError("unsupported_grant_type", `grant_type must be authorization_code or the device code grant`);
+  throw new OAuthError("unsupported_grant_type", `grant_type must be authorization_code, refresh_token or the device code grant`);
+}
+
+type Client = typeof oauthClients.$inferSelect;
+
+/**
+ * A new token for a client, and a refresh token when the client renews
+ * (it registered the refresh_token grant, or registered before grants were
+ * kept): the columns the key's rows take, and what to answer.
+ */
+function issue(client: Client) {
+  const renews = !client.grantTypes || client.grantTypes.includes("refresh_token");
+  const secret = `ab_${randomBytes(32).toString("base64url")}`;
+  const refresh = renews ? `abr_${randomBytes(32).toString("base64url")}` : null;
+  const ttl = renews ? TOKEN_TTL : NO_REFRESH_TTL;
+  const now = Date.now();
+  return {
+    columns: {
+      prefix: secret.slice(0, 10),
+      hash: hashKey(secret),
+      expiresAt: new Date(now + ttl),
+      refreshHash: refresh && hashKey(refresh),
+      refreshExpiresAt: refresh ? new Date(now + REFRESH_TTL) : null,
+      clientId: client.id,
+    },
+    answer: (scope: Scope) => ({ access_token: secret, token_type: "Bearer", scope, expires_in: ttl / 1000, ...(refresh && { refresh_token: refresh }) }),
+  };
+}
+
+const used = (clientId: string) => db.update(oauthClients).set({ usedAt: new Date() }).where(eq(oauthClients.id, clientId));
+
+/**
+ * The refresh grant: a new token and refresh token for every row of the
+ * connection, the old ones dead from here. Only the client it was issued
+ * to may, and only once: of two racing, one gets the pair.
+ */
+async function renew(token: string, clientId: string) {
+  const client = await clientOf(clientId);
+  const fresh = client && issue(client);
+  const rows = fresh
+    ? await db
+        .update(apiKeys)
+        .set(fresh.columns)
+        .where(and(eq(apiKeys.refreshHash, hashKey(token)), gt(apiKeys.refreshExpiresAt, sql`now()`), eq(apiKeys.clientId, client.id)))
+        .returning({ scope: apiKeys.scope, createdAt: apiKeys.createdAt, id: apiKeys.id })
+    : [];
+  if (!rows.length) throw new OAuthError("invalid_grant", "The refresh token is unknown, used or expired: connect again");
+  await used(client!.id);
+  // The scope of the first workspace given, as when it was minted.
+  rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+  return fresh!.answer(rows[0].scope);
 }
 
 /**
@@ -314,21 +399,47 @@ export async function exchange(form: Record<string, string>) {
  * Review say whose it was. One secret, a row in each workspace given.
  */
 async function mint(clientId: string, g: Granted) {
+  // Swept between consent and exchange (sweepTokens): the agent registers again.
   const client = await clientOf(clientId);
-  const secret = `ab_${randomBytes(32).toString("base64url")}`;
-  const name = `${client?.name ?? "An agent"} (${g.userName})`.slice(0, 120);
+  if (!client) throw new OAuthError("invalid_client", "This client is no longer registered: connect again");
+  const fresh = issue(client);
+  const name = `${client.name} (${g.userName})`.slice(0, 120);
   const now = Date.now();
   const keys = await db
     .insert(apiKeys)
     // A millisecond apart, in the order picked: the first is where a call that names no workspace goes.
-    .values(g.workspaces.map((w, i) => ({ name, scope: w.scope, workspaceId: w.id, userId: g.userId, prefix: secret.slice(0, 10), hash: hashKey(secret), createdAt: new Date(now + i) })))
+    .values(g.workspaces.map((w, i) => ({ name, scope: w.scope, workspaceId: w.id, userId: g.userId, ...fresh.columns, createdAt: new Date(now + i) })))
     .returning();
+  await used(client.id);
   const open = (await workspacesOf(g.userId)).workspaces;
   for (const k of keys) {
     const workspace = open.find((w) => w.id === k.workspaceId);
     if (workspace) await recordAudit({ actor: g.userName, user: { id: g.userId }, workspace }, "key.created", name, { scope: k.scope, via: "oauth" });
   }
-  return { access_token: secret, token_type: "Bearer", scope: keys[0].scope };
+  return fresh.answer(keys[0].scope);
+}
+
+/**
+ * Tokens that can no longer be renewed, and clients unused for long that
+ * hold no key: a week after registering if nothing was ever issued to them
+ * (a registration nobody finished), else REFRESH_TTL after the last token.
+ * At boot and every six hours (core/sweep.ts).
+ */
+export async function sweepTokens() {
+  const keys = await db
+    .delete(apiKeys)
+    .where(and(lt(apiKeys.expiresAt, sql`now()`), sql`(${apiKeys.refreshExpiresAt} is null or ${apiKeys.refreshExpiresAt} < now())`))
+    .returning({ id: apiKeys.id });
+  const clients = await db
+    .delete(oauthClients)
+    .where(
+      and(
+        sql`coalesce(${oauthClients.usedAt} + make_interval(days => ${REFRESH_TTL / DAY}), ${oauthClients.createdAt} + interval '7 days') < now()`,
+        notExists(db.select({ id: apiKeys.id }).from(apiKeys).where(eq(apiKeys.clientId, oauthClients.id))),
+      ),
+    )
+    .returning({ id: oauthClients.id });
+  return { keys: keys.length, clients: clients.length };
 }
 
 // ---- codes waiting, in better-auth's verifications table ----------------------

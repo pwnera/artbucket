@@ -30,8 +30,10 @@ update assets set superseded_by = '00000000-0000-4000-8000-000000000011' where i
 
 insert into collection_assets (collection_id, asset_id) values ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000011');
 
-insert into api_keys (workspace_id, name, prefix, hash, scope, user_id) values
-  ('00000000-0000-4000-8000-000000000002', 'Claude (Ada)', 'ab_fixture', repeat('e', 64), 'propose', 'fixture-ada');
+insert into oauth_clients (id, name, redirect_uris, grant_types, used_at) values
+  ('abc_fixture', 'Claude', '["https://claude.ai/api/mcp/auth_callback"]', '["authorization_code", "refresh_token"]', now());
+insert into api_keys (workspace_id, name, prefix, hash, scope, user_id, expires_at, refresh_hash, refresh_expires_at, client_id) values
+  ('00000000-0000-4000-8000-000000000002', 'Claude (Ada)', 'ab_fixture', repeat('e', 64), 'propose', 'fixture-ada', now() + interval '1 hour', repeat('f', 64), now() + interval '90 days', 'abc_fixture');
 
 insert into activity (workspace_id, actor, verb, asset_id, label) values
   ('00000000-0000-4000-8000-000000000002', 'Ada', 'added', '00000000-0000-4000-8000-000000000011', 'logo-v2.png');

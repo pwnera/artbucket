@@ -4,6 +4,7 @@ import { IconCircleCheckFilled, IconCircleDashed, IconRobot } from "@tabler/icon
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { scoreDomain } from "@/lib/core/agent-score";
+import { ipOf } from "@/lib/client-ip";
 import { AssetError } from "@/lib/core/errors";
 import { hubBase } from "@/lib/core/hub";
 import { env } from "@/lib/env";
@@ -33,7 +34,7 @@ export default async function ScorePage({ searchParams }: Props) {
   const raw = (await searchParams).domain;
   const domain = (Array.isArray(raw) ? raw[0] : raw)?.trim().slice(0, 300) ?? "";
   const [base, h] = await Promise.all([hubBase(), headers()]);
-  const ip = h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+  const ip = ipOf(h);
   let report = null;
   let error: string | null = null;
   if (domain) {

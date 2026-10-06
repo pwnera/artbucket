@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ipOf } from "@/lib/client-ip";
 import { hostTarget, portalHome } from "@/lib/core/domains";
 import { suspendedAt } from "@/lib/core/suspension";
 import { portalRedirect, underDomain } from "@/lib/portal";
@@ -87,8 +88,8 @@ type Target = Awaited<ReturnType<typeof hostTarget>>;
 // Asset bytes, and the redirect to the current ones (app/a, app/c).
 const bytes = (path: string) => path.startsWith("/a/") || path.startsWith("/c/");
 
-// Per address. Not per Authorization header: nothing here knows whether it holds a key, so a new made-up one each time would be a new count.
-const who = (req: NextRequest) => req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
+// Per address (lib/client-ip.ts). Not per Authorization header: nothing here knows whether it holds a key, so a new made-up one each time would be a new count.
+const who = (req: NextRequest) => ipOf(req.headers) ?? "unknown";
 
 /**
  * A request to a portal's host, a verified domain or a subdomain of
