@@ -139,6 +139,12 @@ The pod migrates the database before it answers; its probes read
 `/icon.svg`, a static file, so they never query the database. Make the first
 account at your domain.
 
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>
+
 ## Replicas and resources
 
 The base runs one replica. More work: migrations run under a lock and the

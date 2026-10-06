@@ -330,6 +330,7 @@ export function AuthForm({
   then,
   forgot = false,
   organization = false,
+  setup = false,
   error: initialError,
   below,
   legal,
@@ -361,6 +362,8 @@ export function AuthForm({
   forgot?: boolean;
   /** First run: name the organization while making its admin. */
   organization?: boolean;
+  /** First run on a server with SETUP_TOKEN: ask for it. */
+  setup?: boolean;
   /** Shown from the start: single sign-on sent them back with one. */
   error?: string;
   /** A muted line under the form. */
@@ -395,6 +398,12 @@ export function AuthForm({
   const emailInput = useCarriedEmail(!!fixed);
   const passwordInput = useRef<HTMLInputElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
+  const setupInput = useRef<HTMLInputElement>(null);
+  /** The setup token goes as a cookie (lib/core/people.ts maySignUp), so single sign-on carries it back too. */
+  const leaveSetup = () => {
+    const v = setupInput.current?.value.trim();
+    if (v) document.cookie = `ab_setup=${encodeURIComponent(v)}; path=/; max-age=3600; samesite=lax`;
+  };
   // From the email step on: the proof of work has the time it takes to type the rest.
   const [checkBox, takeCheck, checking, widget] = useCaptcha(captcha, turnstile, mode === "up" && (step === "password" || captcha === "pow"));
   const done = () => (then ? then(values.current) : go(callbackURL));
@@ -424,6 +433,7 @@ export function AuthForm({
     values.current = v;
     setBusy("form");
     setError(null);
+    leaveSetup();
     beforeSubmit?.();
     const r =
       mode === "in"
@@ -455,6 +465,7 @@ export function AuthForm({
   async function social(provider: "sso" | "google") {
     setBusy(provider);
     setError(null);
+    leaveSetup();
     beforeSubmit?.();
     const r = await authPost("sign-in/social", { provider: provider === "sso" ? "oidc" : provider, callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
     if (r.ok && r.data.url) return window.location.assign(r.data.url);
@@ -470,6 +481,7 @@ export function AuthForm({
     const email = emailInput.current?.value.trim() ?? "";
     setBusy("form");
     setError(null);
+    leaveSetup();
     beforeSubmit?.();
     const r = await authPost("sign-in/sso", { email, callbackURL, newUserCallbackURL: newUserURL, errorCallbackURL: errorURL });
     if (r.ok && r.data.url) {
@@ -574,6 +586,26 @@ export function AuthForm({
               {...about(exists)}
             />
           </div>
+          {setup && (
+            <div className={step === "email" ? "grid gap-2" : "sr-only"} aria-hidden={step === "password" || undefined}>
+              <Label htmlFor={`${id}-setup`}>Setup token</Label>
+              <Input
+                ref={setupInput}
+                id={`${id}-setup`}
+                name="setup"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                readOnly={step === "password"}
+                tabIndex={step === "password" ? -1 : undefined}
+                aria-describedby={`${id}-setup-hint`}
+                {...about(error?.code === "SETUP_TOKEN")}
+              />
+              <p id={`${id}-setup-hint`} className="text-muted-foreground text-xs">
+                The server&apos;s SETUP_TOKEN, from its settings.
+              </p>
+            </div>
+          )}
           {step === "password" && (
             <div className="animate-in fade-in-0 slide-in-from-right-2 grid gap-4 duration-200">
               {mode === "up" && (
@@ -925,6 +957,7 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       errorURL={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
       forgot={auth.passwordReset}
       organization={first}
+      setup={first && auth.setupToken}
       then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
       error={error ? SSO_FAILED : undefined}
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}

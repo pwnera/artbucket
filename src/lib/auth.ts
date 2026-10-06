@@ -13,7 +13,7 @@ import { db, schema } from "@/lib/db";
 import { env } from "@/lib/env";
 import { appOriginAt } from "@/lib/core/domains";
 import { sendPasswordReset, sendSignUpCode } from "@/lib/core/mail";
-import { maySignUp, signedIn, welcome } from "@/lib/core/people";
+import { hasUsers, maySignUp, signedIn, welcome } from "@/lib/core/people";
 import { joinThroughSso, passwordBarred, providerFor, ssoAt } from "@/lib/core/sso";
 import { cookieDomain, expireHostOnly, withoutDomain } from "@/lib/hub";
 import { localPath } from "@/lib/markdown";
@@ -30,7 +30,8 @@ import { lockedBy } from "@/lib/settings";
  * (lib/core/people.ts), read by lib/core/access.ts on every request.
  *
  * Sign-up is closed but for five doors: the first account on a fresh install
- * (which becomes the admin of everything), someone holding an invitation,
+ * (which becomes the admin of everything, so it takes SETUP_TOKEN when that is
+ * set), someone holding an invitation,
  * anyone the OIDC provider vouches for, who arrives with no access until an
  * admin grants some (Google is not that provider: it proves an address, the
  * way an email code does, and opens no door of its own), anyone at an organization's verified domain its own
@@ -115,6 +116,20 @@ export const captchaAt = (origin: string) =>
 /** The check at a host a request came to: its own if it is an organization's domain for the app (authAt), else APP_URL's. */
 export const captchaAtHost = async (host: string | null | undefined) => captchaAt((await appOriginAt(host))[0] ?? appOrigin);
 
+/**
+ * Where a request was sent, as a session records it (sessions.origin): an
+ * organization's domain for the app, else APP_URL's origin, which BrandHub's
+ * host shares (its cookie is the app's, cookieDomain). A session is good at
+ * its own only: one made at an organization's domain, sent to APP_URL or to
+ * another's, is no session there.
+ */
+const originAt = async (headers: Headers | undefined) => (await appOriginAt(headers?.get("x-forwarded-host") ?? headers?.get("host")))[0] ?? appOrigin;
+const withoutCookie = (header: string | null, name: string) =>
+  (header ?? "")
+    .split(/;\s*/)
+    .filter((c) => c && c.split("=")[0] !== name)
+    .join("; ");
+
 /** The path under /api/auth, as better-auth routes it: `//sign-up/email/` is `/sign-up/email`. */
 const authPath = (url: string) => `/${new URL(url).pathname.replace(/^\/api\/auth/, "").replace(/\/{2,}/g, "/").replace(/^\/|\/$/g, "")}`;
 
@@ -176,6 +191,15 @@ export const auth = betterAuth({
         if (ctx.path === "/sign-up/email" && (await ssoAt(email))) throw ssoRequired(email);
         // Held to its organization's provider: the same answer whether or not the account exists.
         if (ctx.path === "/sign-in/email" && (await passwordBarred(email))) throw ssoRequired(email);
+      }
+      // Every endpoint, getSession included: a session cookie made at another origin is dropped before anything reads it.
+      const name = ctx.context.authCookies.sessionToken.name;
+      const token = await ctx.getSignedCookie(name, ctx.context.secret);
+      if (token) {
+        const [s] = await db.select({ origin: schema.sessions.origin }).from(schema.sessions).where(eq(schema.sessions.token, token));
+        if (s && (s.origin ?? appOrigin) !== (await originAt(ctx.headers))) {
+          return { context: { headers: new Headers({ cookie: withoutCookie(ctx.headers?.get("cookie") ?? null, name) }) } };
+        }
       }
     }),
     // Before the plugins' (nextCookies copies the cookies to Next's from here).
@@ -239,6 +263,7 @@ export const auth = betterAuth({
   telemetry: { enabled: false },
   // Single sign-on errors land on the sign-in page, which says so (app/(auth)/login), not on better-auth's own unbranded one.
   onAPIError: { errorURL: "/login" },
+  session: { additionalFields: { origin: { type: "string", required: false, input: false } } },
   // A session and its person in one query (db/schema.ts relations): every request reads one.
   advanced: { database: { joins: true }, ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}) },
   plugins: [
@@ -300,6 +325,8 @@ export const auth = betterAuth({
           // The operator's own provider only: Google vouches for anyone with an address.
           const viaOidc = socialCallback(ctx) === OIDC_PROVIDER;
           if (!(await maySignUp(cookieOf(ctx?.headers), viaOidc, user.email))) {
+            // First run without the setup token. Not a 403: with email codes on, better-auth answers that as if the account were made.
+            if (!(await hasUsers())) throw new APIError("UNAUTHORIZED", { code: "SETUP_TOKEN", message: "That isn't this server's setup token (SETUP_TOKEN)." });
             throw new APIError("FORBIDDEN", { message: "Accounts here are by invitation. Ask an admin for a link." });
           }
         },
@@ -309,11 +336,13 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        // An account that exists, signing in with Google: refused where a password would be.
         before: async (session, ctx) => {
-          if (!viaGoogle(ctx)) return;
-          const [u] = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.id, session.userId));
-          if (u && (await passwordBarred(u.email))) throw ssoRequired(u.email);
+          // An account that exists, signing in with Google: refused where a password would be.
+          if (viaGoogle(ctx)) {
+            const [u] = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.id, session.userId));
+            if (u && (await passwordBarred(u.email))) throw ssoRequired(u.email);
+          }
+          return { data: { ...session, origin: await originAt(ctx?.headers) } };
         },
         after: async (session) => signedIn(session),
       },

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, brands, collections, grants, invitations, organizations, users, workspaces } from "@/lib/db/schema";
@@ -38,6 +38,13 @@ export async function hasUsers() {
   return (someone = !!row);
 }
 
+/** The first-run form sets this from its setup token field (SETUP_TOKEN), so every way of signing up carries it. */
+const SETUP_COOKIE = "ab_setup";
+const digest = (s: string) => createHash("sha256").update(s).digest();
+/** Whether a request may make the first account: anyone without SETUP_TOKEN, else only with it. */
+const holdsSetup = (cookie: string | null) =>
+  !env.SETUP_TOKEN || timingSafeEqual(digest(cookieValue(cookie, SETUP_COOKIE) ?? ""), digest(encodeURIComponent(env.SETUP_TOKEN)));
+
 /** The invite page sets this, so signing up can prove it holds an invitation. */
 export const INVITE_COOKIE = "ab_invite";
 const INVITE_DAYS = 7;
@@ -58,7 +65,9 @@ async function pending(token: string | null) {
 
 /** better-auth asks before it makes an account: see lib/auth.ts for the doors. */
 export async function maySignUp(cookie: string | null, viaOidc: boolean, email: string) {
-  if (env.SIGNUP === "open" || viaOidc || !(await hasUsers())) return true;
+  // The first account, by any door, is the admin of everything: it takes the setup token when there is one.
+  if (!(await hasUsers())) return holdsSetup(cookie);
+  if (env.SIGNUP === "open" || viaOidc) return true;
   // An organization opened its email domain to whoever proves an address there (lib/core/email-domains.ts).
   return !!(await pending(cookieValue(cookie, INVITE_COOKIE))) || !!(await joinableAt(email));
 }

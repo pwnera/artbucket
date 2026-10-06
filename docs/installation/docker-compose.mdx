@@ -40,6 +40,12 @@ The app migrates its database when it starts, and creates the bucket, its CORS
 rule and its lifecycle rules. Make the first account at `APP_URL`: it is the
 admin of everything.
 
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>
+
 ## Two addresses for storage
 
 Browsers upload straight to storage, so storage needs an address a browser can

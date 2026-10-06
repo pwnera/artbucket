@@ -25,6 +25,12 @@ BETTER_AUTH_SECRET=<openssl rand -base64 32>
 Deploy. The app migrates its database and sets up the bucket on start; make
 the first account at your domain.
 
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>
+
 Coolify can also deploy the source repository's
 [`docker-compose.yml`](https://github.com/pwnera/artbucket/blob/main/docker-compose.yml), but its `app`
 service sits behind a Compose profile; the image resource above is simpler.

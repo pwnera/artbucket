@@ -8,7 +8,7 @@ description: One click, with a Render Postgres and your storage.
 The button reads the source repository's
 [`render.yaml`](https://github.com/pwnera/artbucket/blob/main/render.yaml): a web service running
 `ghcr.io/pwnera/artbucket:1` and a Render Postgres, both in Frankfurt.
-`BETTER_AUTH_SECRET` is generated and `DATABASE_URL` wired in.
+`BETTER_AUTH_SECRET` and `SETUP_TOKEN` are generated and `DATABASE_URL` wired in.
 
 ## What Render asks for
 
@@ -35,7 +35,10 @@ the provider's console, as [Storage](/configuration/storage) says.
 ## After
 
 The service migrates its database on start and answers once it has. Make the
-first account at `APP_URL`. Every other variable is in
+first account at `APP_URL`, right away: the address is public, and that account
+is the admin of everything. The form asks for the setup token, `SETUP_TOKEN`
+under the service's Environment, so nobody who finds the address first can.
+Every other variable is in
 [Environment](/configuration/environment): add it under the service's
 Environment.
 

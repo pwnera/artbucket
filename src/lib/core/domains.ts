@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { domains, portalAliases, portals, workspaces } from "@/lib/db/schema";
+import { domains, portalAliases, portals, sessions, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -219,6 +219,8 @@ export async function proveHost(by: Caller, d: typeof domains.$inferSelect, deta
     });
   }
   const [row] = await db.update(domains).set({ verifiedAt: new Date() }).where(eq(domains.host, d.host)).returning();
+  // Sessions made there before, under whoever held it last, end here: proving a domain never inherits them.
+  await db.delete(sessions).where(eq(sessions.origin, `${scheme}//${d.host}`));
   forgetHosts();
   await recordAudit(by, "domain.verified", d.host, detail);
   return row;

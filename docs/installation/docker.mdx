@@ -25,6 +25,12 @@ Keep `BETTER_AUTH_SECRET` somewhere safe: it signs sessions and encrypts
 secrets stored in settings. A new one signs everyone out and makes stored
 secrets unreadable.
 
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>
+
 The container:
 
 - listens on port 3000 as the unprivileged `node` user

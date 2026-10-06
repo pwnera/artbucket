@@ -672,6 +672,9 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    // Where it was made: an organization's domain for the app, or APP_URL's origin. Used anywhere else, it is no session (lib/auth.ts).
+    // Null: made before this was kept, good at APP_URL's only.
+    origin: text("origin"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -100,6 +100,12 @@ const schema = z.object({
    * `open` lets anyone in, each with an organization of their own.
    */
   SIGNUP: z.enum(["invite", "open"]).default("invite"),
+  /**
+   * Asked for by the first account on a fresh server, which is the admin of
+   * everything: whoever reaches the sign-up page first can't take it without
+   * this. Unset, they can, and the log says so at start until someone has.
+   */
+  SETUP_TOKEN: z.string().min(1).optional(),
   /** /api requests per minute per client (lib/rate.ts); 0 turns the limit off. */
   RATE_LIMIT: z.coerce.number().int().nonnegative().default(1200),
   /** Single sign-on with any OpenID Connect provider: all three, or none. */

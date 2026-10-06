@@ -58,6 +58,12 @@ In `fly.toml`, the app listens on 3000:
 
 Keep one machine running: the sweeper runs inside the app, every six hours.
 
+<Warning>
+Until the first account exists, whoever reaches the server can make it, and it
+is the admin of everything. Make it right away, or set `SETUP_TOKEN`
+(`openssl rand -base64 24`): the first-run form then asks for it.
+</Warning>
+
 <Note>
 The rate limit counts per machine. With several, each allows `RATE_LIMIT`
 requests a minute on its own.
