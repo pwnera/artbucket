@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
@@ -140,7 +140,7 @@ const cookie = (req: Request, name: string) =>
 export { ipOf };
 
 /**
- * Resolve the caller. A key that is presented but unknown is `undefined`, not
+ * Resolve the caller. A key that is presented but unknown or expired is `undefined`, not
  * anonymous: a revoked key should fail loudly, never quietly fall back to
  * whatever anonymous may do. In a read-only organization everyone reads, and
  * its admins still manage its people and settings, and can leave.
@@ -160,8 +160,12 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
     if (!secret) return undefined;
-    // One secret, a row per workspace it was given: the one asked for, else the first.
-    const rows = await db.select().from(apiKeys).where(eq(apiKeys.hash, hashKey(secret))).orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
+    // One secret, a row per workspace it was given: the one asked for, else the first. An agent's lapses (lib/core/oauth.ts).
+    const rows = await db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.hash, hashKey(secret)), or(isNull(apiKeys.expiresAt), gt(apiKeys.expiresAt, sql`now()`))))
+      .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
     const key = rows.find((r) => r.workspaceId === workspaceId) ?? rows[0];
     if (!key) return undefined;
     // Connected agents' "last seen": never worth failing or slowing the request for.

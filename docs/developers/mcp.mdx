@@ -21,8 +21,11 @@ claude mcp add --transport http artbucket https://assets.example.com/api/v1/mcp
 ```
 
 That is OAuth 2.1 with PKCE and dynamic client registration, discovered from
-`/.well-known/oauth-protected-resource`. Keys an admin makes still work for
-anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
+`/.well-known/oauth-protected-resource`. The token lasts an hour and the agent
+renews it with its refresh token, a new pair each time, for as long as it does
+so within 90 days; a client that registered without refresh tokens gets one
+for 30 days, then connects again. Keys an admin makes don't expire and still
+work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 
 ## Tools
 

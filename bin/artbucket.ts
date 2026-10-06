@@ -101,9 +101,16 @@ const HELP = `artbucket <command>
 
   --json   print the raw API response`;
 
-/** Keys `artbucket login` saved, one per server, and `default`: the server it signed in to last. Only this user can read the file. */
+/**
+ * Keys `artbucket login` saved, one per server, and `default`: the server it
+ * signed in to last. Only this user can read the file. A key is a string
+ * (an older login's, or one that doesn't renew), or a token that lapses with
+ * what renews it.
+ */
 const CREDENTIALS = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "artbucket", "credentials.json");
-const saved: Record<string, string> = JSON.parse(await readFile(CREDENTIALS, "utf8").catch(() => "{}"));
+type Login = { token: string; refresh: string; client: string; expires: number };
+const readSaved = async (): Promise<Record<string, string | Login>> => JSON.parse(await readFile(CREDENTIALS, "utf8").catch(() => "{}"));
+const saved = await readSaved();
 const save = async () => {
   await mkdir(dirname(CREDENTIALS), { recursive: true });
   await writeFile(CREDENTIALS, JSON.stringify(saved, null, 2), { mode: 0o600 });
@@ -155,8 +162,35 @@ const [cmd, ...args] = positionals;
 
 /** A server as given: app.artbucket.io is https://app.artbucket.io. */
 const origin = (s: string) => (/^https?:\/\//.test(s) ? s : `https://${s}`).replace(/\/+$/, "");
-const BASE = origin((cmd === "login" || cmd === "logout") && args[0] ? args[0] : (process.env.ARTBUCKET_URL ?? saved.default ?? "http://localhost:3000"));
-const KEY = process.env.ARTBUCKET_KEY ?? saved[BASE];
+const BASE = origin((cmd === "login" || cmd === "logout") && args[0] ? args[0] : (process.env.ARTBUCKET_URL ?? (saved.default as string | undefined) ?? "http://localhost:3000"));
+/** Set as a command starts (main): ARTBUCKET_KEY, else the one `login` saved, renewed first when it is about to lapse. */
+let KEY: string | undefined;
+
+/**
+ * The saved key for BASE. A token is renewed a minute before it lapses: the
+ * server answers a new pair and ends the old one, so the new one is saved
+ * at once. ponytail: renewed once per command, so one running past the hour
+ * gets a 401; renew on a 401 too if commands ever run that long.
+ */
+async function savedKey(): Promise<string | undefined> {
+  const s = saved[BASE];
+  if (typeof s !== "object") return s;
+  if (s.expires - 60_000 > Date.now()) return s.token;
+  const t = await oauth("/api/v1/oauth/token", { grant_type: "refresh_token", refresh_token: s.refresh, client_id: s.client });
+  if (!t.ok) {
+    // Another command renewed it a moment ago, and saved what it got: that one works.
+    const now = (await readSaved())[BASE];
+    if (typeof now === "object" && now.refresh !== s.refresh) return (saved[BASE] = now).token;
+    throw new Error(`Signed out of ${BASE} (${t.json.error_description ?? t.json.error}). Run artbucket login again.`);
+  }
+  saved[BASE] = loginOf(t.json, s.client);
+  await save();
+  return t.json.access_token;
+}
+
+/** A token answer as it is saved: a key that lapses with what renews it, or a plain key. */
+const loginOf = (t: { access_token: string; refresh_token?: string; expires_in?: number }, client: string): string | Login =>
+  t.refresh_token && t.expires_in ? { token: t.access_token, refresh: t.refresh_token, client, expires: Date.now() + t.expires_in * 1000 } : t.access_token;
 
 async function api(method: string, path: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
@@ -475,7 +509,7 @@ async function oauth(path: string, body: Record<string, unknown>) {
 async function login() {
   const client = await oauth("/api/v1/oauth/register", {
     client_name: `Artbucket CLI on ${hostname()}`,
-    grant_types: ["urn:ietf:params:oauth:grant-type:device_code"],
+    grant_types: ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
   });
   if (!client.ok) throw new Error(client.json.error_description ?? `Can't reach ${BASE}`);
   // Propose by default, as an agent connected anywhere else gets (decision 0005): pushing a brand asks for --scope write.
@@ -490,7 +524,7 @@ async function login() {
     await new Promise((r) => setTimeout(r, d.interval * 1000));
     const t = await oauth("/api/v1/oauth/token", { grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: d.device_code, client_id: client.json.client_id });
     if (t.ok) {
-      saved[BASE] = t.json.access_token;
+      saved[BASE] = loginOf(t.json, client.json.client_id);
       saved.default = BASE;
       await save();
       return `Signed in to ${BASE}, with ${t.json.scope}. The key is in ${CREDENTIALS}.`;
@@ -501,6 +535,7 @@ async function login() {
 }
 
 async function main() {
+  KEY = process.env.ARTBUCKET_KEY ?? (cmd === "login" || cmd === "logout" ? undefined : await savedKey());
   switch (opt.help ? "help" : cmd) {
     case "login":
       return console.log(await login());
@@ -509,7 +544,7 @@ async function main() {
       delete saved[BASE];
       if (saved.default === BASE) delete saved.default;
       await save();
-      // The key still works until it's revoked: Connections, or `artbucket keys revoke`.
+      // The key still works until it lapses (an hour) or is revoked: Connections, or `artbucket keys revoke`.
       return console.log(had ? `Forgot the key for ${BASE}. Disconnect it on the Connections page to revoke it.` : `Not signed in to ${BASE}.`);
     }
     case "search":
