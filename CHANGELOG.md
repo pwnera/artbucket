@@ -4,6 +4,27 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.10.0](https://github.com/pwnera/artbucket/compare/v1.9.0...v1.10.0) (2026-10-06)
+
+
+### Features
+
+* **auth:** SETUP_TOKEN for the first account ([320e9e2](https://github.com/pwnera/artbucket/commit/320e9e2cf5b4ef60dac72894eb523601e224fb95))
+
+
+### Fixes
+
+* **auth:** keep a session to the origin it was made at ([ab62fec](https://github.com/pwnera/artbucket/commit/ab62feca847cc6149102bb5452113a4edd790ec1))
+
+
+### Documentation
+
+* Pwnera SAS runs the project; no weekend estimates on the roadmap ([7713e3c](https://github.com/pwnera/artbucket/commit/7713e3c4356991edcca30c797528bbd2485cb2ff))
+* Pwnera SAS runs the project; no weekend estimates on the roadmap ([2b443d5](https://github.com/pwnera/artbucket/commit/2b443d5c7d2b0fb0d8eacad86787e288b72188ed))
+* **roadmap:** the status line through 1.9 ([865b571](https://github.com/pwnera/artbucket/commit/865b5713c29fc6ac52899cec92e83f7a28a51f96))
+* **stability:** MCP tools refuse arguments they don't take, since 1.8.0 ([3ef0c38](https://github.com/pwnera/artbucket/commit/3ef0c385d916f88889fc7ffd5b62851f43053ac1))
+* **stability:** say MCP tools refuse arguments they don't take, since 1.8.0 ([6fa90e8](https://github.com/pwnera/artbucket/commit/6fa90e8a69b40ea3ce1203d2d15734f9a7c4db9f))
+
 ## [1.9.0](https://github.com/pwnera/artbucket/compare/v1.8.1...v1.9.0) (2026-10-05)
 
 
