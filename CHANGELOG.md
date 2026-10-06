@@ -4,6 +4,35 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.11.0](https://github.com/pwnera/artbucket/compare/v1.10.2...v1.11.0) (2026-10-06)
+
+
+### Features
+
+* expiring agent tokens, trusted proxies, isolated decoders, untrusted visitor text ([4a81700](https://github.com/pwnera/artbucket/commit/4a817008fca988c9e12e996db6212e7282c72fc8))
+* **oauth:** expire agents' tokens and renew them with refresh tokens ([eddedff](https://github.com/pwnera/artbucket/commit/eddedff70518716f50d5243f0eb5d27b781af07e))
+
+
+### Fixes
+
+* **mcp:** mark what portal visitors wrote as untrusted ([ae56a47](https://github.com/pwnera/artbucket/commit/ae56a47f16b4751a8cf6a8a4b61b08179b910f8d))
+* **previews:** decode PDF, PSD and HEIC in a child process ([968cd93](https://github.com/pwnera/artbucket/commit/968cd93b541990663730899dd4d1cdf4336ecc06))
+* read the client address only from trusted proxies ([77494d9](https://github.com/pwnera/artbucket/commit/77494d900f8ceac3330597633e2eea2bf1d51866))
+
+
+### Performance
+
+* **assets:** store an upload's original before its transaction ([855afbe](https://github.com/pwnera/artbucket/commit/855afbe059fc75ceffc5116b506ceec5080e983f))
+* **db:** bound queries with a statement timeout, prune the Insights rollup ([e623534](https://github.com/pwnera/artbucket/commit/e6235349a6becd6bf1798b47172d4caf15338394))
+* **db:** index renditions by workspace, events and their rollup by brand and day ([94a00f2](https://github.com/pwnera/artbucket/commit/94a00f2925f260a2251e5bc53d95980605184619))
+* **db:** statement timeout, upload PUT outside its transaction, hot-path indexes, rollup retention ([7dcc9ea](https://github.com/pwnera/artbucket/commit/7dcc9eadd0d2848550c10d7ef34c89e8f16a3899))
+
+
+### Documentation
+
+* start on Cloud, paths by role, and the demo seed ([fc0cfa8](https://github.com/pwnera/artbucket/commit/fc0cfa8889b9802ecbc0f2df1650e9ccd36d954b))
+* start on Cloud, paths by role, and the demo seed ([49a39a4](https://github.com/pwnera/artbucket/commit/49a39a4813e0a95ee25e258f7bf793422a74251e))
+
 ## [1.10.2](https://github.com/pwnera/artbucket/compare/v1.10.1...v1.10.2) (2026-10-06)
 
 
