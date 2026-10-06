@@ -32,8 +32,15 @@ export type Surface = (typeof SURFACES)[number];
 export const ACTORS = ["person", "agent", "anonymous"] as const;
 export type Actor = (typeof ACTORS)[number];
 
-/** Raw events are kept this long; the daily rollup (event_days) stays. */
+/** Raw events are kept this long, then only their daily rollup (event_days). */
 export const EVENT_DAYS = 90;
+/**
+ * The rollup is kept this long: a year, past the longest window Insights
+ * reads (WEEKS of weekly charts), with room for a longer one. Longer than
+ * EVENT_DAYS, so the rollup's last day always outlives the raw events
+ * (event_counts reads raw events past it, every one when there is none).
+ */
+export const ROLLUP_DAYS = 366;
 
 /**
  * The host a request came from, from its Referer, and nothing else of it:

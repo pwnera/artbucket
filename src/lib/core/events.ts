@@ -1,8 +1,8 @@
 import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db, unbounded } from "@/lib/db";
 import { eventCounts, eventDays, events } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
-import { EVENT_DAYS, PULL_DAYS, referrerHost, searchWords, type Actor, type Surface } from "@/lib/insights";
+import { EVENT_DAYS, PULL_DAYS, ROLLUP_DAYS, referrerHost, searchWords, type Actor, type Surface } from "@/lib/insights";
 
 /**
  * Insights' one write (PRD INS-1 to INS-3): an event appended as something
@@ -52,11 +52,12 @@ const ROLLUP_LOCK = 74;
  * Roll every day not rolled up yet into event_days, up to the day before
  * yesterday: an event whose day was taken just before midnight may land a
  * moment after it, so a day is left to settle. Then drop raw events past
- * EVENT_DAYS. event_counts reads raw events for whatever is not rolled up,
- * so how often this runs changes nothing a chart shows. Runs with the sweep.
+ * EVENT_DAYS, and rolled-up days past ROLLUP_DAYS. event_counts reads raw
+ * events for whatever is not rolled up, so how often this runs changes
+ * nothing a chart shows. Runs with the sweep, without the statement timeout.
  */
 export async function rollUp() {
-  await db.transaction(async (tx) => {
+  await unbounded(async (tx) => {
     const [{ locked }] = await tx.execute<{ locked: boolean }>(sql`select pg_try_advisory_xact_lock(${ROLLUP_LOCK}, 0) as locked`);
     if (!locked) return;
     await tx
@@ -68,6 +69,7 @@ export async function rollUp() {
           .where(and(gt(eventCounts.day, sql`coalesce((select max(day) from ${eventDays}), '-infinity'::date)`), lt(eventCounts.day, sql`${today} - 1`))),
       );
     await tx.delete(events).where(lt(events.day, sql`${today} - ${EVENT_DAYS}::int`));
+    await tx.delete(eventDays).where(lt(eventDays.day, sql`${today} - ${ROLLUP_DAYS}::int`));
   });
 }
 

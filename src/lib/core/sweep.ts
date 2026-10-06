@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
-import { db } from "@/lib/db";
+import { db, unbounded } from "@/lib/db";
 import { assets, grants, instance, invitations, portalRequests, renditions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { hostFontsBackfill } from "@/lib/core/brand";
@@ -58,7 +58,7 @@ async function otherOwners() {
 /** Rows deleted more than PURGE_DAYS ago, gone for good with their grants. */
 async function purge() {
   // Together: grants and invitations never outlive their asset.
-  return db.transaction(async (tx) => {
+  return unbounded(async (tx) => {
     const gone = await tx
       .delete(assets)
       .where(and(isNotNull(assets.deletedAt), lt(assets.deletedAt, sql`now() - make_interval(days => ${PURGE_DAYS})`)))
@@ -84,9 +84,9 @@ async function forgetRequests() {
 
 /** What is still held: every row's hash, and every still a row points at. */
 async function held() {
-  const rows = await db
-    .selectDistinct({ sha256: assets.sha256, preview: sql<string | null>`${assets.probe} ->> 'preview'` })
-    .from(assets);
+  const rows = await unbounded((tx) =>
+    tx.selectDistinct({ sha256: assets.sha256, preview: sql<string | null>`${assets.probe} ->> 'preview'` }).from(assets),
+  );
   return {
     originals: new Set(rows.map((r) => r.sha256)),
     previews: new Set(rows.flatMap((r) => (r.preview ? [r.preview] : []))),
@@ -112,7 +112,7 @@ async function dropOriginal(sha256: string) {
 export async function sweep() {
   await ensureBucket();
   // Renditions the bucket has expired by now no longer count toward storage (lib/core/usage.ts).
-  await db.delete(renditions).where(lt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`));
+  await unbounded((tx) => tx.delete(renditions).where(lt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`)));
   const forgotten = await forgetRequests();
   const others = await otherOwners();
   if (others.length) {
