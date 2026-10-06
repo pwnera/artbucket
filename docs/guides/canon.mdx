@@ -7,6 +7,11 @@ Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
 `text`, `number`, `list` or `font`), a sentence on how to use it, and the assets
 it points at.
 
+In the app, open the brand under **Brands**, then **Edit**: the builder's
+**Rules** holds every rule, and **Release** puts them in front of readers. A
+new brand starts from its [setup](#brand-pages). Scripts and agents write the
+same records:
+
 ```bash
 artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
 artbucket rules set color.primary '#5bc27a' --type color --context dark-background

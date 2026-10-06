@@ -1,9 +1,10 @@
 ---
-title: Quickstart
+title: Run it yourself
 description: From a fresh clone to a visible thumbnail.
 ---
 
-You need Docker. That is all for the first path; the second runs the app from
+To use Artbucket without running it, [start on Cloud](/cloud). To run it
+yourself, you need Docker. That is all for the first path; the second runs the app from
 source, for working on it.
 
 ## With Docker only
@@ -47,6 +48,33 @@ public, a client workspace, the brand in a Git repository, an agent's first
 MCP call), with connecting a Git repository where it fits, and each step
 checks itself off once it is done. Skipped or unfinished, the list stays
 at the top of the library.
+
+## Fill it with a demo
+
+`pnpm seed:demo` fills a running server with something to look at: Blender
+Foundation open movie artwork from Wikimedia Commons (posters, stills, concept
+art and behind-the-scenes shots, CC BY or CC0, with credit and license read
+from Commons), a collection per film, a Blender brand with its colors and logo
+rules, the films' trailers, a PDF poster, a production PSD and a soundtrack,
+and a **File formats** collection to see every preview at work: AI, EPS,
+HEIC, Sketch, XD, Keynote, Word, Excel, PowerPoint, Figma, Lottie and After
+Effects files from open-source repositories, and Google Docs and Slides kept
+as links.
+
+It calls the app's API with a write key: after making the first account,
+open **Connections**, **API keys**, and make one with **Edit**. It runs from
+the clone with Node 22 or later and needs no `pnpm install`, so it works
+against the Docker-only path too:
+
+```bash
+ARTBUCKET_KEY=ab_... pnpm seed:demo                                  # http://localhost:3000
+APP_URL=https://assets.example.com ARTBUCKET_KEY=ab_... pnpm seed:demo
+node --experimental-strip-types scripts/seed-demo.ts                 # without pnpm, same variables
+```
+
+It downloads from Wikimedia Commons, blender.org and GitHub, and is safe to
+run again: fields and collections are reused, the same bytes upload once, and
+brand rules already there are left alone.
 
 Optional extras for previews: `ffmpeg` on the path for video thumbnails (the
 Docker image has it), and LibreOffice (`soffice`) for Word, Excel and
