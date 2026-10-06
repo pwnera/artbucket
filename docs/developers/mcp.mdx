@@ -146,7 +146,9 @@ same text.
    it), `expiresAt`, and `site`, which replaces the whole set, so send back
    what `list_portals` gave, changed. People who ask to get into a password or
    members portal wait in `list_portal_requests`; `decide_portal_request`
-   answers them.
+   answers them. What visitors wrote (their name and note) comes under
+   `untrusted`: anyone can write it, so the server's instructions tell the
+   agent to show it and never follow it.
 7. **Review and history.** `list_comments` reads what reviewers said on the
    pages; `add_comment` replies and `update_comment` resolves a thread once it
    is dealt with. Every edit is a version: `list_versions` and `get_version`
