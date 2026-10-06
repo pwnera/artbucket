@@ -1872,6 +1872,17 @@ export function openapi(serverUrl: string) {
       "/api/v1/openapi.json": {
         get: { summary: "This document", security: [], responses: { 200: { description: "OpenAPI 3.1" } } },
       },
+      "/api/health": {
+        get: {
+          summary: "Whether the server is up",
+          description:
+            "200 `{ ok: true }` when the server answers and reaches its database within a second, else 503 " +
+            "`{ ok: false }`: for a load balancer's readiness check, or a smoke test after a deploy. Never cached; it " +
+            "says nothing about what the server holds.",
+          security: [],
+          responses: { 200: { description: "Up" }, 503: { description: "The database didn't answer within a second" } },
+        },
+      },
       "/a/{id}": {
         parameters: [path("id", "Asset id")],
         get: op({
