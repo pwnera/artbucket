@@ -13,6 +13,7 @@ import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
+import { ipOf } from "@/lib/client-ip";
 import { hubHome } from "@/lib/hub";
 import { memo } from "@/lib/memo";
 import { upgradeUrl } from "@/lib/limits";
@@ -135,8 +136,8 @@ export async function workspacesOf(userId: string) {
 const cookie = (req: Request, name: string) =>
   req.headers.get("cookie")?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
 
-/** The client's address, as the reverse proxy in front reports it. */
-export const ipOf = (h: Headers) => h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || null;
+/** The client's address, as the reverse proxies TRUSTED_PROXIES names report it. */
+export { ipOf };
 
 /**
  * Resolve the caller. A key that is presented but unknown is `undefined`, not

@@ -91,3 +91,9 @@ test("an API key works in its own workspace only, and an unknown one is refused,
   assert.equal(await callerFrom(request({ authorization: "Bearer ab_not-a-key" })), undefined);
   assert.equal(await callerFrom(request({ authorization: "Basic abc" })), undefined);
 });
+
+test("a caller's address is never taken from X-Forwarded-For while TRUSTED_PROXIES names no proxy", async () => {
+  const caller = await callerFrom(request({ cookie: first.cookie, "x-forwarded-for": "203.0.113.7", "x-real-ip": "203.0.113.8" }));
+  assert.equal(caller?.user?.id, first.user.id);
+  assert.equal(caller?.ip, null);
+});

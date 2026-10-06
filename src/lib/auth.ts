@@ -265,7 +265,12 @@ export const auth = betterAuth({
   onAPIError: { errorURL: "/login" },
   session: { additionalFields: { origin: { type: "string", required: false, input: false } } },
   // A session and its person in one query (db/schema.ts relations): every request reads one.
-  advanced: { database: { joins: true }, ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}) },
+  advanced: {
+    database: { joins: true },
+    ...(shared ? { crossSubDomainCookies: { enabled: true, domain: shared } } : {}),
+    // Its sign-in limits and sessions' addresses read X-Forwarded-For as the rest of the app does (lib/client-ip.ts): not at all, unless TRUSTED_PROXIES says whose to believe.
+    ipAddress: env.TRUSTED_PROXIES ? { trustedProxies: env.TRUSTED_PROXIES } : { ipAddressHeaders: [] },
+  },
   plugins: [
     ...captchaFor(appOrigin),
     ...(verify

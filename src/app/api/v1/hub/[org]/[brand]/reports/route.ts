@@ -1,4 +1,5 @@
 import { body, handle, ok } from "@/lib/api";
+import { ipOf } from "@/lib/client-ip";
 import { reportListing } from "@/lib/core/hub-trust";
 import { HubReportInput } from "@/lib/schemas";
 
@@ -11,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ org: st
   try {
     const { org, brand } = await params;
     const input = await body(req, HubReportInput);
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || null;
+    const ip = ipOf(req.headers);
     return ok({ data: await reportListing(org, brand, input, ip) }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
   } catch (err) {
     return handle(err);

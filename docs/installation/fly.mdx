@@ -41,7 +41,8 @@ fly secrets set \
 ```bash
 fly secrets set \
   APP_URL=https://acme-assets.fly.dev \
-  BETTER_AUTH_SECRET="$(openssl rand -base64 32)"
+  BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
+  TRUSTED_PROXIES=private
 fly deploy
 ```
 
