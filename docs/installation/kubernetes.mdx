@@ -136,8 +136,10 @@ kubectl -n artbucket rollout status deployment/artbucket
 ```
 
 The pod migrates the database before it answers; its probes read
-`/icon.svg`, a static file, so they never query the database. Make the first
-account at your domain.
+`/icon.svg`, a static file, so they never query the database. `/api/health`
+does: 200 when the database answers within a second, else 503, for a load
+balancer that should stop sending traffic while it can't, or a check after
+a deploy. Make the first account at your domain.
 
 <Warning>
 Until the first account exists, whoever reaches the server can make it, and it
