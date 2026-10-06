@@ -4,6 +4,14 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [1.10.1](https://github.com/pwnera/artbucket/compare/v1.10.0...v1.10.1) (2026-10-06)
+
+
+### Fixes
+
+* **pages:** an edit made from an older page is refused, not written over a colleague's ([b14bf54](https://github.com/pwnera/artbucket/commit/b14bf5411a85881910b7bdb4843cbc8728c3a56c))
+* **pages:** refuse an edit made from an older page instead of writing over it ([11b8bd1](https://github.com/pwnera/artbucket/commit/11b8bd1136369507c8cd7b869ce81a34e328f37c))
+
 ## [1.10.0](https://github.com/pwnera/artbucket/compare/v1.9.0...v1.10.0) (2026-10-06)
 
 
