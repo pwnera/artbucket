@@ -17,8 +17,11 @@ slug, or `organization/slug` when two share one); without it, the tool runs in
 the first one picked. The server's instructions list them.
 
 ```bash
-claude mcp add --transport http artbucket https://assets.example.com/api/v1/mcp
+claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
 ```
+
+That is [Artbucket Cloud](/cloud); on your own server, use its address
+(`https://assets.example.com/api/v1/mcp`).
 
 That is OAuth 2.1 with PKCE and dynamic client registration, discovered from
 `/.well-known/oauth-protected-resource`. The token lasts an hour and the agent

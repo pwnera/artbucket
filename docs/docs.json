@@ -30,7 +30,9 @@
         "group": "General",
         "pages": [
           "introduction",
+          "cloud",
           "quickstart",
+          "roles",
           "how-it-works",
           "support"
         ]

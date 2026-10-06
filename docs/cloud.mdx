@@ -1,0 +1,133 @@
+---
+title: Start on Artbucket Cloud
+sidebarTitle: Start on Cloud
+description: From sign-up to a released brand, a public portal and an agent asking it, with nothing to install.
+---
+
+[Artbucket Cloud](https://artbucket.io) is this code, run for you at
+`app.artbucket.io`, hosted in the EU. There is a free plan; the others and
+their limits are on [artbucket.io/pricing](https://artbucket.io/pricing).
+Everything below works the same on a server of your own: swap in its address.
+
+## Try it without an account
+
+BrandHub, at `hub.artbucket.io`, serves every public brand to anyone, with no
+key and no sign-in. Point an agent that reads the web at it, or fetch it
+yourself:
+
+```bash
+curl https://hub.artbucket.io/llms.txt                         # how an agent finds a brand, and the list
+curl https://hub.artbucket.io/artbucket/artbucket/llms.txt     # one brand, in words
+curl https://hub.artbucket.io/artbucket/artbucket/brand.json   # the same brand as an AdCP brand.json
+curl 'https://hub.artbucket.io/artbucket/artbucket/tokens?format=css'
+```
+
+Or hand an agent `https://hub.artbucket.io/artbucket/artbucket/llms.txt` and
+ask it for the primary color and the logo to use on a dark background.
+
+Three portals show what a published brand looks like, its pages and its
+downloads. They are unofficial showcases, made from each project's public
+brand pages:
+
+- [blender.artbucket.page](https://blender.artbucket.page)
+- [firefox.artbucket.page](https://firefox.artbucket.page)
+- [rust.artbucket.page](https://rust.artbucket.page)
+
+Every address BrandHub answers is listed in [Portals, BrandHub](/guides/portals#brandhub).
+
+## 1. Sign up
+
+Make an account at [app.artbucket.io](https://app.artbucket.io) with your
+email and a password, and type the code it emails you. The account gets an
+organization of its own, with a first workspace, and you are its admin.
+
+The library first asks what you want to do (manage your company's brand,
+brand an open-source project, manage brands for clients, build a product's
+design system, or give AI agents the brand) and keeps a short checklist for
+that answer at its top until it is done.
+
+## 2. Upload
+
+Drop files anywhere on the library. Title, credit, keywords and C2PA
+Content Credentials are read from the file as it arrives, and a Figma or
+Google Docs link is kept as the link. See [Assets](/guides/assets).
+
+## 3. Make a brand
+
+**Brands** in the sidebar, then **New brand**. **Build it in the builder**
+offers three starts:
+
+- **Blank**, then the brand's setup: a main color, a heading and a text face,
+  the logo and a sentence of voice.
+- **From a domain**: type it and **Look it up**, and the brand starts from
+  the AdCP `brand.json` published there ([A brand from a domain](/guides/adcp)).
+- **A template**: Blender, Firefox or Rust, with their rules, theme, pages
+  and logos, to edit into your own.
+
+**Start from this brand** on any public BrandHub listing does the same from
+that brand. The other two starts in **New brand** are an AI agent (step 6)
+and a Git repository ([brand as code](/guides/brand-as-code)).
+
+## 4. Write the rules and release
+
+**Edit** opens the builder. **Rules** holds the brand's records: a key, a
+value, a sentence on how to use it, and the context it applies to, such as
+`color.primary` on a dark background. The pages show those rules, so a
+changed color changes every page. Every edit is a draft until **Release**.
+See [The canon](/guides/canon).
+
+## 5. Publish a portal
+
+**Portals** in the sidebar makes one: pick the brand and any collections,
+then who gets in (the workspace's members, whoever has its password, or
+anyone). A portal open to anyone or behind a password answers at
+`{address}.artbucket.page`; a members' one stays at
+`app.artbucket.io/p/{address}`. A domain of your own goes in Settings,
+Domains ([A domain of its own](/guides/portals#a-domain-of-its-own)).
+
+To put the brand on BrandHub, where agents read it without a key, **Make
+public** on its Sharing tab.
+
+## 6. Connect an agent
+
+The MCP server's URL is `https://app.artbucket.io/api/v1/mcp`. In Claude Code:
+
+```bash
+claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
+```
+
+The first call opens a consent screen in the browser: pick the workspaces
+and what the agent may do (Suggest, Read or Edit). **Connections** in the
+sidebar has the steps for Claude, ChatGPT, Cursor and the rest. Then ask:
+*"Give me the approved logo for a dark background."* The agent reads the
+rules, checks the use with `check_use`, and answers with a URL at the size it
+needs. See [MCP](/developers/mcp).
+
+## 7. Or the CLI
+
+```bash
+npx artbucket login app.artbucket.io      # signs in through the browser
+npx artbucket search logo
+npx artbucket check {id} --channel paid-social --territory DE
+npx artbucket url {id} --width 1200 --format webp
+```
+
+`login` asks to suggest by default; add `--scope write` to push a brand. See
+[CLI](/developers/cli).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Where to start" icon="signs-post" href="/roles">
+    The pages for brand teams, developers and agencies.
+  </Card>
+  <Card title="May I use this?" icon="circle-check" href="/guides/check">
+    A yes or no on a use, with what to use instead.
+  </Card>
+  <Card title="Brand as code" icon="code-branch" href="/guides/brand-as-code">
+    The brand in a Git repository, synced both ways.
+  </Card>
+  <Card title="Run it yourself" icon="server" href="/quickstart">
+    The same code on your machine or your servers.
+  </Card>
+</CardGroup>
