@@ -560,11 +560,12 @@ const TOOLS: Record<ToolName, Tool> = {
       "path; `warnings` name what a reader would trip on, and `url` opens the page. Example: " +
       '{ page: "color", title: "Color", parent: "identity", sections: [{ template: "palette", title: "Palette", ' +
       'keys: ["color.primary", "color.ink"] }, { template: "dodont", title: "Contrast", tone: "panel", items: ' +
-      '[{ verdict: "dont", title: "Ink on primary" }] }] }. Changes are drafts until publish.',
+      '[{ verdict: "dont", title: "Ink on primary" }] }] }. Changes are drafts until publish. To replace a page you read, ' +
+      "send its revision: if a person or another agent changed it since, nothing is written and the conflict names the revision it has.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.save_page,
-    run: async ({ brand, page, ...input }, caller) => savePage(caller, brand, page, input),
+    run: async ({ brand, page, revision, ...input }, caller) => savePage(caller, brand, page, input, revision),
   }),
 
   edit_page: tool({
@@ -573,11 +574,13 @@ const TOOLS: Record<ToolName, Tool> = {
       "update one (the fields in `set`; null clears one), move one (after an id, null for the top), remove one, and " +
       "page for the page's own fields (title, parent, audience...; a new slug renames it, and the old one keeps " +
       "working). Applied in order; all or none, and every problem comes back with its path. Section ids come from " +
-      "get_page. Returns the page, its warnings and its url.",
+      "get_page, with the page's revision: send it as `revision`, and if a person or another agent changed the page since, " +
+      "nothing is written and the conflict names the revision it has: get_page again and redo the change on what it says " +
+      "now. Returns the page, its warnings, its url and its new revision in page.revision.",
     action: "brand.edit",
     readOnly: false,
     input: TOOL_INPUTS.edit_page,
-    run: async ({ brand, page, ops }, caller) => editPage(caller, brand, page, ops),
+    run: async ({ brand, page, ops, revision }, caller) => editPage(caller, brand, page, ops, revision),
   }),
 
   delete_page: tool({
