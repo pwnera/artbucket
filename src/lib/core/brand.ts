@@ -1,18 +1,21 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { assets, brandRuleAssets, brandRules, brands, brandVersions, portalBrands } from "@/lib/db/schema";
+import { assets, brandRuleAssets, brandRules, brands, brandSources, brandVersions, portalBrands } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { hubOf, present, resolveBrand, slugify } from "@/lib/core/brands";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
+import { importGoogleFont } from "@/lib/core/fonts";
 import { checkLimit } from "@/lib/core/usage";
+import { fontFiles } from "@/lib/font";
 import { hasPreview } from "@/lib/preview";
 import { renameThemeKey, type ThemeSettings } from "@/lib/brand-theme";
 import { diffRules, extendsLatest, summarize, updatesOf, type SnapRule, type VersionKind } from "@/lib/history";
 import { canon, changedPages, isLive, samePages, type SnapPage } from "@/lib/pages";
 import { can, needs } from "@/lib/permissions";
 import {
+  fontValue,
   renameInSpec,
   resolve,
   RULE_SPEC,
@@ -381,7 +384,7 @@ export async function createRule(caller: Caller, slug: string | undefined, input
   const context = input.context ?? null;
   const value = checkValue(input.type, input.value);
   const spec = checkSpec(input.type, ("spec" in input && input.spec) || null);
-  return tracked(brand.id, caller.actor, [input.key], async (tx) => {
+  const made = await tracked(brand.id, caller.actor, [input.key], async (tx) => {
     // A new version of a key sits with it; a new key goes to the end.
     const inBrand = eq(brandRules.brandId, brand.id);
     const [same] = await tx
@@ -401,6 +404,7 @@ export async function createRule(caller: Caller, slug: string | undefined, input
     await checkSpecRefs(tx, caller.workspace.id, brand.id, [{ at: "spec", spec }]);
     return toRule(row, brand.slug, (await assetsOf([row.id], tx)).get(row.id)!);
   });
+  return (await hostGoogleFonts(caller, brand.id, [made.key])) ? { ...made, assets: (await assetsOf([made.id])).get(made.id)! } : made;
 }
 
 async function ruleWithBrand(ws: string, id: string) {
@@ -429,7 +433,7 @@ export async function updateRule(
   if (!found) return null;
   const { rule: current, brand } = found;
   const changed = [...new Set([current.key, ...(patch.key ? [patch.key] : [])])];
-  return tracked(current.brandId, caller.actor, changed, async (tx) => {
+  const out = await tracked(current.brandId, caller.actor, changed, async (tx) => {
     const set: Partial<Row> = {};
     if (patch.label !== undefined) set.label = patch.label || null;
     if (patch.value !== undefined) set.value = checkValue(current.type, patch.value);
@@ -476,6 +480,64 @@ export async function updateRule(
     if (set.spec) await checkSpecRefs(tx, caller.workspace.id, current.brandId, [{ at: "spec", spec: set.spec }]);
     return toRule(row, brand, (await assetsOf([id], tx)).get(id)!);
   });
+  return out && (await hostGoogleFonts(caller, current.brandId, [out.key])) ? { ...out, assets: (await assetsOf([id])).get(id)! } : out;
+}
+
+/**
+ * A Google Fonts face is served from here, like any font, so no page sends its
+ * readers to Google: a font rule whose spec.source is google and that has no
+ * font file gets its family's files (lib/core/fonts.ts), after the write that
+ * made or changed it (`keys`), and before a publish (every font rule), which
+ * catches rules written before the core did this. A brand kept in Git is left
+ * alone: its files are its repository's to hold. Google out of reach, or a
+ * caller who can't upload: the rule stays without, and pages set it in its
+ * fallback. True when it attached any.
+ */
+async function hostGoogleFonts(caller: Caller, brandId: string, keys?: string[]) {
+  if (keys?.length === 0) return false;
+  const [git] = await db.select({ id: brandSources.brandId }).from(brandSources).where(eq(brandSources.brandId, brandId));
+  if (git) return false;
+  const rows = await db
+    .select({ id: brandRules.id, key: brandRules.key, value: brandRules.value })
+    .from(brandRules)
+    .where(and(eq(brandRules.brandId, brandId), eq(brandRules.type, "font"), sql`${brandRules.spec} ->> 'source' = 'google'`, keys && inArray(brandRules.key, keys)));
+  const files = await assetsOf(rows.map((r) => r.id));
+  const bare = rows.filter((r) => !fontFiles({ assets: files.get(r.id)! }).length);
+  // One import per family: a heading and a text rule in Inter fetch it once.
+  const imported = new Map<string, Promise<string[]>>();
+  const add: { rule: string; key: string; ids: string[] }[] = [];
+  for (const r of bare) {
+    const { family } = fontValue(r.value);
+    const name = family.toLowerCase();
+    if (!imported.has(name)) {
+      imported.set(
+        name,
+        importGoogleFont(caller, { family }).then(
+          (f) => f.assets.map((a) => a.id),
+          (err) => (console.warn(`[artbucket] ${family} from Google Fonts stays unhosted:`, (err as Error).message), []),
+        ),
+      );
+    }
+    const ids = await imported.get(name)!;
+    if (ids.length) add.push({ rule: r.id, key: r.key, ids });
+  }
+  if (!add.length) return false;
+  try {
+    await tracked(brandId, caller.actor, [...new Set(add.map((a) => a.key))], async (tx) => {
+      for (const { rule, ids } of add) {
+        const [last] = await tx.select({ n: max(brandRuleAssets.position) }).from(brandRuleAssets).where(eq(brandRuleAssets.ruleId, rule));
+        const from = (last?.n ?? -1) + 1;
+        // A rule removed since it was read takes nothing.
+        const [live] = await tx.select({ id: brandRules.id }).from(brandRules).where(eq(brandRules.id, rule));
+        if (live) await tx.insert(brandRuleAssets).values(ids.map((assetId, i) => ({ ruleId: rule, assetId, rendition: null, position: from + i }))).onConflictDoNothing();
+      }
+    });
+  } catch (err) {
+    // The write it follows is done: a brand or file deleted meanwhile only leaves the rule as it was.
+    console.warn("[artbucket] Couldn't attach Google Fonts files:", (err as Error).message);
+    return false;
+  }
+  return true;
 }
 
 /** A rule's key changed: other rules' pairs and gradient stops follow it. */
@@ -575,6 +637,7 @@ export async function setRules(
       specs.map((spec, i) => ({ at: `set[${i}].spec`, spec: spec ?? null })),
     );
   });
+  await hostGoogleFonts(caller, brand.id, set.filter((r) => r.type === "font").map((r) => r.key));
   return { brand: brand.slug, ...out };
 }
 
@@ -813,6 +876,8 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
       .where(and(eq(assets.id, image), eq(assets.workspaceId, caller.workspace.id), isNull(assets.deletedAt)));
     if (!found) throw new AssetError("invalid", `image: no asset ${image}`);
   }
+  // What goes out is served from here: Google faces still without files get them first.
+  if (can(caller, "brand.edit")) await hostGoogleFonts(caller, brand.id);
   // An empty change through tracked: a brand with no history gets its baseline first.
   await tracked(brand.id, caller.actor, [], async () => {});
   const out = await db.transaction(async (tx) => {

@@ -27,7 +27,7 @@ export default async function Brands({ searchParams }: { searchParams: Promise<{
       logo: logo ? `/a/${logo.id}/w_320,f_webp` : null,
       background: backgroundOf(rules[i]),
       palette: paletteOf(rules[i]),
-      face: headingFace(rules[i], b.name, (a) => `/a/${a.id}`),
+      face: headingFace(rules[i], (a) => `/a/${a.id}`),
     };
     return { ...b, hub: hubs[i], look };
   }) as BrandRow[];

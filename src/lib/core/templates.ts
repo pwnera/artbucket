@@ -6,7 +6,6 @@ import { pickBrand, readBrandJson } from "@/lib/core/brand-json";
 import { deleteBrand, setHub } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { startFrom } from "@/lib/core/hub";
-import { importGoogleFont } from "@/lib/core/fonts";
 import { savePage } from "@/lib/core/pages";
 import { setTheme } from "@/lib/core/theme";
 import type { BrandJsonFile } from "@/lib/brand-json";
@@ -53,7 +52,7 @@ async function startBrand(caller: Caller, input: Omit<z.output<typeof BrandCreat
   if (domain || brandJson) {
     const read = await readBrandJson({ domain, document: brandJson });
     const b = pickBrand(read.brands, { id: brand, domain: read.domain });
-    const book = { rules: b.rules, theme: {}, pages: [], fonts: [], assets: b.files };
+    const book = { rules: b.rules, theme: {}, pages: [], assets: b.files };
     const made = await fromBook(caller, { name: rest.name ?? b.name, slug: rest.slug ?? b.slug, domain: b.domain ?? read.domain }, book, { tag: b.slug, lenient: true });
     return { ...made, skipped: [...read.skipped, ...made.skipped], dropped: b.dropped };
   }
@@ -67,14 +66,15 @@ async function startBrand(caller: Caller, input: Omit<z.output<typeof BrandCreat
   return createBrand(caller, { ...rest, name });
 }
 
-type Book = Pick<BrandTemplate, "rules" | "theme" | "pages" | "fonts"> & { assets: Record<string, BrandJsonFile> };
+type Book = Pick<BrandTemplate, "rules" | "theme" | "pages"> & { assets: Record<string, BrandJsonFile> };
 
 /**
  * A brand from a book: its files ingested first, into this workspace's
  * library, then its rules, theme and pages with the files' new ids. A file
  * that won't fetch leaves no half-made brand behind; with `lenient` (a
  * brand.json's files, from anywhere) it is left out of its rules instead,
- * and named in `skipped`.
+ * and named in `skipped`. Its Google faces get their files as setRules
+ * writes them (lib/core/brand.ts hostGoogleFonts).
  */
 async function fromBook(caller: Caller, input: { name: string; slug?: string; domain?: string | null }, book: Book, { tag, lenient = false }: { tag: string; lenient?: boolean }) {
   const ids = new Map<string, string>();
@@ -87,7 +87,6 @@ async function fromBook(caller: Caller, input: { name: string; slug?: string; do
       skipped.push(`${url}: ${err.message}`);
     }
   });
-  for (const family of book.fonts) await importGoogleFont(caller, { family });
   const seed: Pick<Book, "rules" | "theme" | "pages"> = JSON.parse(
     JSON.stringify({ rules: book.rules, theme: book.theme, pages: book.pages }).replace(UUID, (id) => ids.get(id) ?? id),
   );

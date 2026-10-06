@@ -167,7 +167,7 @@ async function cards(rows: Row[]) {
       /** The card's look: its ground, its palette band, and the face its name is set in (a font file signed for a day). */
       background: backgroundOf(rules),
       palette: paletteOf(rules),
-      face: headingFace(rules, r.name, (a) => pagePath(a.id)),
+      face: headingFace(rules, (a) => pagePath(a.id)),
       ...countsOf(rules),
       logo: logo && pagePath(logo.id, "/h_240,f_webp"),
     };

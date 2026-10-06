@@ -57,12 +57,14 @@ A test email goes only to whoever sends it, and an organization has at most
 
 Every page carries a Content-Security-Policy (only scripts carrying that
 response's nonce run, frames from Figma and Google's embeds only, uploads to
-your storage only; with `TURNSTILE_*`, Cloudflare Turnstile's script and frame
-too),
+your storage only, fonts from this server only; with `TURNSTILE_*`, Cloudflare
+Turnstile's script and frame too),
 `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, a strict referrer
 policy, a Permissions-Policy that turns off camera, microphone and location,
 and `Cross-Origin-Opener-Policy: same-origin`. With an `https` `APP_URL`, HSTS
-too.
+too. The library and a brand's screens in the app also let in Google Fonts'
+hosts, for the previews of the font picker and a brand's setup; no portal or
+BrandHub page does.
 
 ## Uploaded files
 
@@ -88,7 +90,12 @@ To take only one brand off BrandHub, delist it instead: set its
 
 ## Telemetry
 
-None. Artbucket sends nothing anywhere. The Docker image sets
+None. Artbucket sends nothing anywhere, and nothing a portal or BrandHub
+visitor opens loads from anywhere else: a brand's faces from Google Fonts are
+imported into the library as files and served from `/a/` like any font (see
+[Fonts](/guides/canon#fonts)). The one call a browser makes to Google is in
+the app, signed in: picking a Google font previews the families in the
+picker. The Docker image sets
 `NEXT_TELEMETRY_DISABLED=1`, and better-auth's telemetry is off. For a build
 from source, set `NEXT_TELEMETRY_DISABLED=1` too (the systemd unit in
 [Bare VPS](/installation/vps) does).

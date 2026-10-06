@@ -60,13 +60,16 @@ const turnstile = process.env.TURNSTILE_SITE_KEY ? " https://challenges.cloudfla
  * from jsDelivr (components/media.tsx). Frames: the Figma and Google embeds
  * (lib/preview.ts), and an embed section's hosts (lib/pages.ts EMBED_HOSTS).
  * Turnstile's script and frame when it is on. Connections: browser uploads
- * go straight to storage.
+ * go straight to storage. Fonts: this server's own, but for the previews of
+ * Google Fonts a person picks from in the app (`picking`, the library and a
+ * brand's screens): pages a portal or BrandHub visitor sees load from nowhere else.
  */
-const csp = (nonce: string) => [
+const GOOGLE_FONTS = { style: " https://fonts.googleapis.com", font: " https://fonts.gstatic.com" };
+const csp = (nonce: string, picking: boolean) => [
   "default-src 'self'",
   `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}${turnstile}`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
+  `style-src 'self' 'unsafe-inline'${picking ? GOOGLE_FONTS.style : ""}`,
+  `font-src 'self' data:${picking ? GOOGLE_FONTS.font : ""}`,
   // The app's own address too: on an organization's domain, asset URLs from the API still point at APP_URL.
   `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
@@ -198,12 +201,14 @@ export async function proxy(req: NextRequest) {
   // A page learns its own address (lib/sidebar.ts whoami): someone signed out goes to sign in, then back to it.
   const init = page ? { request: { headers: new Headers(req.headers) } } : undefined;
   init?.request.headers.set("x-path", pathname + req.nextUrl.search);
-  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
-  const policy = csp(nonce);
-  init?.request.headers.set("x-nonce", nonce);
-  init?.request.headers.set("Content-Security-Policy", policy);
   const host = req.headers.get("host") ?? "";
   const target = host && host !== appHost && !onHub ? await hostTarget(host).catch(() => null) : null;
+  // The app's own screens where a person picks a Google font (components/font-preview.tsx, builder/brand-setup.tsx), never a portal's host.
+  const picking = page && !onHub && (host === appHost || !!target?.app) && !target?.portal && /^\/(library|brands(\/.*)?)?$/.test(pathname);
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
+  const policy = csp(nonce, picking);
+  init?.request.headers.set("x-nonce", nonce);
+  init?.request.headers.set("Content-Security-Policy", policy);
   // A suspended organization's portals, links and listings, on every host (lib/suspension.ts). A host it uses for the app stays its people's.
   const off = await suspendedAt(target?.portal ? { organizationId: target.organizationId } : suspendable(pathname, onHub)).catch(() => false);
   const res =

@@ -331,7 +331,8 @@ const TOOLS: Record<ToolName, Tool> = {
     description:
       "Add a Google Fonts family to the library: one font file per weight and italic it has, served from here after. " +
       "The name matches in any case (ibm plex sans is IBM Plex Sans). Like ingest_asset, the files are proposed " +
-      "until a person approves them with a propose key, and in the library at once with a write key; styles already here dedupe. Use it before a brand rule names a Google font.",
+      "until a person approves them with a propose key, and in the library at once with a write key; styles already here dedupe. " +
+      "A font rule with spec.source google that set_rules writes without files gets them this way by itself; pages serve them from here, never from Google.",
     action: "asset.upload",
     readOnly: false,
     input: TOOL_INPUTS.import_google_font,

@@ -1,7 +1,6 @@
 {
   "name": "Firefox",
   "domain": "firefox.com",
-  "fonts": ["Inter"],
   "assets": {
     "87f54351-26e5-4edc-b78f-2b08ff56315e": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-word-hor.svg", "filename": "firefox-lockup-horizontal.svg" },
     "fbfb96be-88ea-4be8-868c-a0b95ce5cfbe": { "url": "https://raw.githubusercontent.com/mozilla/protocol-assets/main/logos/firefox/browser/logo-word-hor-white.svg", "filename": "firefox-lockup-horizontal-white.svg" },

@@ -1,9 +1,6 @@
 {
   "name": "Blender",
   "domain": "blender.org",
-  "fonts": [
-    "Inter"
-  ],
   "assets": {
     "9dfd7f8b-0e2a-41f3-adf3-f76ffdeac98c": {
       "url": "https://download.blender.org/branding/blender_logo.svg",

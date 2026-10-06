@@ -16,7 +16,7 @@ import { ExternalLink } from "@/components/external-link";
 import { stack } from "@/lib/brand-theme";
 import { fileSlug } from "@/lib/branding";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
-import { embedCss, fontFiles, fontStyle, GOOGLE_FAMILY, googleFontsCss, pickFace, SCRIPT_SAMPLES, trackingAt, weightName } from "@/lib/font";
+import { embedCss, fontFiles, fontStyle, pickFace, SCRIPT_SAMPLES, trackingAt, weightName } from "@/lib/font";
 import { type FONT_SPEC, fontValue, ruleName } from "@/lib/rules";
 import type { ViewAsset, ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -283,10 +283,6 @@ function Family({ f, sample, glyphs, embed }: { f: Face; sample?: string; glyphs
   const many = f.scripts.length > 1;
   return (
     <div role="group" aria-labelledby={title} className="space-y-8 border-t pt-8">
-      {/* A Google face with no files here, as the theme loads its own (brand-theme.ts fontFaceCss): the same URL, so one fetch. */}
-      {f.source === "google" && !f.files.length && GOOGLE_FAMILY.test(f.family) && (
-        <link rel="stylesheet" href={`${googleFontsCss(f.family)}&display=swap`} precedence="default" />
-      )}
       <div className="space-y-1">
         <h3 id={title} className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
           {f.family}

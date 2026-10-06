@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { APP_BG, contrast, inkOn, isHex, lift, luminance, mix, rgb } from "./color.ts";
-import { fontFace, fontFiles, googleFontsCss, pickFace } from "./font.ts";
+import { fontFace, fontFiles, pickFace } from "./font.ts";
 import { LANG, type Section } from "./pages.ts";
 import { type COLOR_SPEC, type FONT_SPEC, fontValue, type Rule, type RuleAsset, ruleKey } from "./rules.ts";
 
@@ -22,7 +22,7 @@ export type ThemeFace = {
   files?: FaceFile[];
   /** spec.fallback, after the family in the stack. */
   fallback?: string;
-  /** From Google Fonts, with no files here: its CSS is imported instead. */
+  /** From Google Fonts, with no files here yet: set in its fallback until they are imported, never loaded from Google. */
   google?: true;
 };
 export type BrandTheme = {
@@ -641,17 +641,15 @@ export function sectionGround(t: Theme, s: Pick<Section, "tone" | "background">,
 /**
  * The theme's faces as CSS: one @font-face per file of each mapped font
  * rule, under `b-{family}` (the name its stack leads with), so print and SSR
- * show them. A Google face with no files here imports Google's CSS instead,
- * first, as @import must be.
+ * show them. Only files served here: a face without any, a Google one
+ * included, is its stack's fallback, and the page asks no one else.
  */
 export function fontFaceCss(faces: Theme["faces"], url: (id: string) => string) {
-  const imports = new Set<string>();
   const out = new Map<string, string>();
   for (const f of [faces.head, faces.body, faces.label]) {
     if (!f) continue;
     const name = loaded(f);
     for (const file of f.files ?? []) out.set(`${name} ${file.id}`, fontFace(name!, file, url));
-    if (f.google) imports.add(`@import url(${JSON.stringify(`${googleFontsCss(f.family)}&display=swap`)});`);
   }
-  return [...imports, ...out.values()].join("\n");
+  return [...out.values()].join("\n");
 }
