@@ -5,6 +5,8 @@
  * Pure: `pnpm test` runs it under plain Node.
  */
 
+import { fontValue, type RuleValue } from "./rules.ts";
+
 const SIGNATURES: [string, string][] = [
   ["wOF2", "font/woff2"],
   ["wOFF", "font/woff"],
@@ -29,6 +31,26 @@ type File = { mime?: string | null; filename?: string | null };
 export const isFontAsset = (a: File) => !!a.mime && isFont(a.mime, a.filename ?? "");
 /** The rule's font files, in order. */
 export const fontFiles = <A extends File>(r: { assets: A[] }) => r.assets.filter(isFontAsset);
+
+type Ruled = { type: string; value: unknown; spec?: unknown; assets: { id: string; rendition: string | null }[] };
+
+/**
+ * A Google Fonts face still waiting for its files: a font rule whose
+ * spec.source is google and that holds no font file (`isFont` says which of
+ * its assets are). Its family, else null. lib/core/brand.ts brings the files in.
+ */
+export function bareGoogleFamily(r: Omit<Ruled, "assets"> & { assets: { id: string }[] }, isFont: (id: string) => boolean): string | null {
+  if (r.type !== "font" || (r.spec as { source?: string } | null | undefined)?.source !== "google" || r.assets.some((a) => isFont(a.id))) return null;
+  return fontValue(r.value as RuleValue).family?.trim() || null;
+}
+
+/** Each waiting Google face with its family's files after its own assets, `files` keyed by lowercase family; one with none yet stays as it was. */
+export function withFontFiles<R extends Ruled>(rules: R[], isFont: (id: string) => boolean, files: Map<string, string[]>): R[] {
+  return rules.map((r) => {
+    const ids = files.get(bareGoogleFamily(r, isFont)?.toLowerCase() ?? "");
+    return ids?.length ? { ...r, assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))] } : r;
+  });
+}
 
 /** "Playfair Display": letters, digits and spaces, as Google Fonts names families. */
 export const GOOGLE_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$/;
