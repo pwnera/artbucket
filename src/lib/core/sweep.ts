@@ -3,6 +3,7 @@ import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
 import { db } from "@/lib/db";
 import { assets, grants, instance, invitations, portalRequests, renditions } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { hostFontsBackfill } from "@/lib/core/brand";
 import { rollUp } from "@/lib/core/events";
 import { reprove } from "@/lib/core/reproof";
 import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject, RENDITION_DAYS } from "@/lib/storage";
@@ -142,13 +143,21 @@ export async function sweep() {
 
 const EVERY_MS = 6 * 60 * 60 * 1000;
 
-/** At boot, then every six hours, with Insights' daily rollup and the domains' re-check; a failed run is logged and tried again next time. */
+/**
+ * At boot, then every six hours, with Insights' daily rollup, the domains'
+ * re-check and a batch of the brands still waiting for their Google faces'
+ * files (lib/core/brand.ts hostFontsBackfill); a failed run is logged and
+ * tried again next time.
+ */
 export function scheduleSweep() {
   const run = () => {
     rollUp().catch((err) => console.warn("[artbucket] Insights rollup stopped:", err instanceof Error ? err.message : err));
     reprove()
       .then((n) => n && console.info(`[artbucket] Unverified ${n} domains whose TXT record is gone`))
       .catch((err) => console.warn("[artbucket] Domain re-check stopped:", err instanceof Error ? err.message : err));
+    hostFontsBackfill()
+      .then((n) => n && console.info(`[artbucket] Hosted the Google Fonts faces of ${n} brands`))
+      .catch((err) => console.warn("[artbucket] Font backfill stopped:", err instanceof Error ? err.message : err));
     return sweep()
       .then(({ purged, removed, forgotten }) => {
         if (purged || removed || forgotten) console.info(`[artbucket] Swept: ${purged} deleted assets purged, ${removed} files removed, ${forgotten} portal requests forgotten`);

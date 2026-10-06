@@ -5,6 +5,8 @@
  * Pure: `pnpm test` runs it under plain Node.
  */
 
+import { fontValue, type RuleValue } from "./rules.ts";
+
 const SIGNATURES: [string, string][] = [
   ["wOF2", "font/woff2"],
   ["wOFF", "font/woff"],
@@ -30,21 +32,28 @@ export const isFontAsset = (a: File) => !!a.mime && isFont(a.mime, a.filename ??
 /** The rule's font files, in order. */
 export const fontFiles = <A extends File>(r: { assets: A[] }) => r.assets.filter(isFontAsset);
 
-/** "Playfair Display": letters, digits and spaces, as Google Fonts names families. */
-export const GOOGLE_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$/;
-
-const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|math|emoji|fangsong|system-ui|ui-[a-z-]+)$/i;
+type Ruled = { type: string; value: unknown; spec?: unknown; assets: { id: string; rendition: string | null }[] };
 
 /**
- * The free face a family is shown in where it can't load itself (a foundry's,
- * with no file here): the first of its rule's fallback (spec.fallback, "Outfit,
- * sans-serif"), loaded from Google Fonts. Null when the fallback starts with
- * nothing Google could name.
+ * A Google Fonts face still waiting for its files: a font rule whose
+ * spec.source is google and that holds no font file (`isFont` says which of
+ * its assets are). Its family, else null. lib/core/brand.ts brings the files in.
  */
-export function standIn(fallback: string | null | undefined): string | null {
-  const first = fallback?.split(",")[0]?.trim().replace(/^["']|["']$/g, "");
-  return first && !GENERIC.test(first) && GOOGLE_FAMILY.test(first) ? first : null;
+export function bareGoogleFamily(r: Omit<Ruled, "assets"> & { assets: { id: string }[] }, isFont: (id: string) => boolean): string | null {
+  if (r.type !== "font" || (r.spec as { source?: string } | null | undefined)?.source !== "google" || r.assets.some((a) => isFont(a.id))) return null;
+  return fontValue(r.value as RuleValue).family?.trim() || null;
 }
+
+/** Each waiting Google face with its family's files after its own assets, `files` keyed by lowercase family; one with none yet stays as it was. */
+export function withFontFiles<R extends Ruled>(rules: R[], isFont: (id: string) => boolean, files: Map<string, string[]>): R[] {
+  return rules.map((r) => {
+    const ids = files.get(bareGoogleFamily(r, isFont)?.toLowerCase() ?? "");
+    return ids?.length ? { ...r, assets: [...r.assets, ...ids.map((id) => ({ id, rendition: null }))] } : r;
+  });
+}
+
+/** "Playfair Display": letters, digits and spaces, as Google Fonts names families. */
+export const GOOGLE_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]{0,79}$/;
 
 const STYLES = [0, 1].flatMap((ital) => [100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) => `${ital},${w}`));
 

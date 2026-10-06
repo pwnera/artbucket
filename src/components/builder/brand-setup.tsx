@@ -154,7 +154,8 @@ function rulesFor(e: Essentials, from: ReturnType<typeof fromRules>) {
   const face = (k: "heading" | "body", role: "display" | "body", family: string) => {
     const f = family.trim();
     if (!f || (was[k] && f === from.values[k])) return;
-    out.push({ key: keys[k], type: "font", value: { family: f }, spec: { ...(was[k]?.spec ?? {}), role, source: "google" }, label: was[k]?.label ?? (k === "heading" ? "Headings" : "Text") });
+    // No files: the old family's go, and the server imports this one's (lib/core/brand.ts hostGoogleFonts).
+    out.push({ key: keys[k], type: "font", value: { family: f }, spec: { ...(was[k]?.spec ?? {}), role, source: "google" }, label: was[k]?.label ?? (k === "heading" ? "Headings" : "Text"), assets: [] });
   };
   face("heading", "display", e.heading);
   // One face for both: a text rule too, so each page shows which face sets what.
@@ -167,7 +168,7 @@ function rulesFor(e: Essentials, from: ReturnType<typeof fromRules>) {
   return out;
 }
 
-/** A family's regular and bold, from Google, for the preview beside the form. */
+/** A family's regular and bold, from Google, for the preview beside the form: only here, in the app (src/proxy.ts lets these pages); the brand's pages load its files. */
 const loaded = new Set<string>();
 function useFace(family: string) {
   useEffect(() => {

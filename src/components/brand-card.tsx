@@ -2,7 +2,7 @@ import { IconBook, IconPalette, IconPhoto, IconTypography } from "@tabler/icons-
 import { LogoWell } from "@/components/hub-client";
 import { withSignature } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";
-import { isFont, standIn } from "@/lib/font";
+import { isFont } from "@/lib/font";
 import { renderMarkdown } from "@/lib/markdown";
 import { fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "@/lib/rules";
 
@@ -49,17 +49,14 @@ export function cardParts(b: CardBrand) {
 
 /**
  * Its typefaces, loaded to set their specimens: the rule's own files, signed
- * (relative, so they load from the hub's host as its images do), else Google
- * Fonts for a family the rule says comes from there, else for the free
- * look-alike its fallback names (lib/font.ts standIn), which `shownIn` says.
+ * (relative, so they load from the hub's host as its images do). Without
+ * files, the family by name, then its fallback: nothing loads from elsewhere.
  */
 export function faces(b: CardBrand, fonts: CardRule[]) {
   const css: string[] = [];
-  const google = new Set<string>();
-  const shownIn: (string | null)[] = [];
   const family = fonts.map((r, i) => {
     const v = fontValue(r.value);
-    const spec = (r.spec ?? {}) as { source?: string; fallback?: string };
+    const spec = (r.spec ?? {}) as { fallback?: string };
     const fallback = cssName(spec.fallback ?? "") || "system-ui, sans-serif";
     const files = r.assets.filter((a) => isFont(a.mime ?? "", a.filename ?? "") && opens(b, a.id));
     if (files.length) {
@@ -67,17 +64,9 @@ export function faces(b: CardBrand, fonts: CardRule[]) {
       css.push(`@font-face{font-family:"hub-font-${i}";src:${src};font-display:swap}`);
       return `"hub-font-${i}", ${fallback}`;
     }
-    if (spec.source === "google" && /^[A-Za-z0-9 ]{1,80}$/.test(v.family)) google.add(v.family);
-    else {
-      // The family itself first: where it is installed, it shows as it is.
-      const stand = standIn(spec.fallback);
-      if (stand) google.add(stand);
-      shownIn[i] = stand && stand !== v.family ? stand : null;
-    }
     return `"${cssName(v.family)}", ${fallback}`;
   });
-  const href = google.size ? `https://fonts.googleapis.com/css2?${[...google].map((f) => `family=${f.replace(/ /g, "+")}:wght@400;700`).join("&")}&display=swap` : null;
-  return { css: css.join("\n"), href, family, shownIn };
+  return { css: css.join("\n"), family };
 }
 
 function Section({ id, title, icon: Icon, children }: { id: string; title: string; icon: typeof IconPalette; children: React.ReactNode }) {
@@ -99,7 +88,6 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
   return (
     <>
       {type.css && <style>{type.css}</style>}
-      {type.href && <link rel="stylesheet" href={type.href} precedence="default" />}
 
       {colors.length > 0 && (
         <Section id="colors" title="Colors" icon={IconPalette}>
@@ -134,7 +122,6 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
                     <span>
                       {v.family}
                       {v.weight ? ` · ${v.weight}` : ""}
-                      {type.shownIn[i] && ` · shown in ${type.shownIn[i]}`}
                     </span>
                   </div>
                   <p className="text-6xl leading-none" style={{ fontFamily: type.family[i], fontWeight: v.weight }}>

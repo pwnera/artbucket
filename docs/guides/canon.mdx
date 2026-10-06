@@ -110,6 +110,26 @@ play which part (accent, grounds, ink, faces, logo) and sets the measure,
 navigation and on-this-page for every page. Agents build all of it over
 [MCP](/developers/mcp#brand-pages).
 
+## Fonts
+
+A font rule's files are its typeface: pages set the face in them, served from
+`/a/` like any asset, and readers' browsers call no one else. A rule whose
+`spec.source` is `google` gets its files from Google Fonts on the server: when
+it is written without any (the brand's setup, a template, the rule editor,
+`set_rules`), and again before each release. Brands from before the server did
+this get theirs from its sweep, at start and every six hours, a batch at a
+time: the files go onto the draft's rules and into every release's stored
+rules, so what readers see keeps its look, with no new version. The files are
+the family's every weight and italic, in the library, as **Import from Google
+Fonts**, `import_google_font` and `POST /api/v1/fonts/google` make them;
+brought in with a key that may only propose, they wait for approval like
+anything it adds. A rule still without files (Google out of reach, someone who
+can't add to the library, a brand kept in Git, whose files are its
+repository's to hold) is set in its `spec.fallback`. For a brand kept in Git
+the sweep patches its releases only, and its next push releases what the
+repository holds. Only the font picker and a brand's setup, in the app, show
+families straight from Google while someone chooses.
+
 ## Publishing
 
 Every edit to the rules, the pages or the theme is a draft. Publishing makes

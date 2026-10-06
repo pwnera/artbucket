@@ -13,8 +13,6 @@ export type BrandTemplate = BrandBook & {
   name: string;
   /** Production asset id: the public file it was ingested from. */
   assets: Record<string, { url: string; filename: string }>;
-  /** Google Fonts families the font rules name. */
-  fonts: string[];
   /** The brand's own domain: a brand made from it under the template's name, and its BrandHub listing, carry it, so whoever proves it may claim the listing. */
   domain: string;
 };

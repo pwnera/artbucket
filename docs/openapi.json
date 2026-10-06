@@ -24569,7 +24569,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -24624,7 +24624,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -24679,7 +24679,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     },
@@ -25871,7 +25871,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -25926,7 +25926,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -25981,7 +25981,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     },
@@ -26564,7 +26564,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -26619,7 +26619,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     }
@@ -26674,7 +26674,7 @@
                                       "type": "string"
                                     },
                                     "google": {
-                                      "description": "From Google Fonts, with no files: its CSS is imported",
+                                      "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                       "type": "boolean",
                                       "const": true
                                     },
@@ -32341,7 +32341,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -32396,7 +32396,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -32451,7 +32451,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         },
@@ -39100,7 +39100,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -39155,7 +39155,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -39210,7 +39210,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         },
@@ -44774,7 +44774,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -44829,7 +44829,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         }
@@ -44884,7 +44884,7 @@
                                           "type": "string"
                                         },
                                         "google": {
-                                          "description": "From Google Fonts, with no files: its CSS is imported",
+                                          "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                           "type": "boolean",
                                           "const": true
                                         },
@@ -46667,7 +46667,7 @@
                                               "type": "string"
                                             },
                                             "google": {
-                                              "description": "From Google Fonts, with no files: its CSS is imported",
+                                              "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                               "type": "boolean",
                                               "const": true
                                             }
@@ -46722,7 +46722,7 @@
                                               "type": "string"
                                             },
                                             "google": {
-                                              "description": "From Google Fonts, with no files: its CSS is imported",
+                                              "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                               "type": "boolean",
                                               "const": true
                                             }
@@ -46777,7 +46777,7 @@
                                               "type": "string"
                                             },
                                             "google": {
-                                              "description": "From Google Fonts, with no files: its CSS is imported",
+                                              "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                               "type": "boolean",
                                               "const": true
                                             },

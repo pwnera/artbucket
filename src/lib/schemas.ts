@@ -763,7 +763,7 @@ const ThemeFace = z.object({
   file: uuid.optional().describe("The font file for its weight"),
   files: z.array(z.object({ id: uuid, filename: z.string(), mime: z.string() })).optional().describe("Every font file of the rule, one @font-face each"),
   fallback: z.string().optional(),
-  google: z.literal(true).optional().describe("From Google Fonts, with no files: its CSS is imported"),
+  google: z.literal(true).optional().describe("From Google Fonts, with no files here yet: set in its fallback until they are imported"),
 });
 const color = z.string().describe("A hex color");
 /** What deriveTheme gives (lib/brand-theme.ts): the settings over what the rules say, every ink graded on its ground. */

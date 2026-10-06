@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  bareGoogleFamily,
   embedCss,
   fontFiles,
   fontFileName,
@@ -16,6 +17,7 @@ import {
   SCRIPT_SAMPLES,
   searchCatalog,
   trackingAt,
+  withFontFiles,
 } from "./font.ts";
 
 const bytes = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
@@ -172,4 +174,43 @@ test("a sample and a character set per script, in that script, RTL ones marked",
     assert.deepEqual(letters.filter((c) => !inScript.test(c)), [], code);
     assert.equal(!!s.rtl, code === "Arab" || code === "Hebr", code);
   }
+});
+
+test("a Google face waits for files until it holds a font; only it gets its family's, after its own assets", () => {
+  const fonts = new Set(["f1"]);
+  const isFont = (id: string) => fonts.has(id);
+  const rule = (key: string, value: unknown, spec: object | null, assets: string[] = []) => ({
+    key,
+    type: key.startsWith("color") ? "color" : "font",
+    value,
+    spec,
+    assets: assets.map((id) => ({ id, rendition: null })),
+  });
+  const rules = [
+    rule("type.heading", { family: " Inter ", weight: 700 }, { source: "google" }, ["specimen-png"]),
+    rule("type.body", "Fira Sans", { source: "google" }),
+    rule("type.done", "Inter", { source: "google" }, ["f1"]),
+    rule("type.brand", "Söhne", { source: "files" }),
+    rule("type.plain", "Georgia", null),
+    rule("color.primary", "#000000", { source: "google" }),
+    rule("type.unknown", "Nope Sans", { source: "google" }),
+  ];
+  assert.deepEqual(
+    rules.map((r) => bareGoogleFamily(r, isFont)),
+    ["Inter", "Fira Sans", null, null, null, null, "Nope Sans"],
+    "a non-font asset doesn't count; a font file does",
+  );
+
+  const files = new Map([
+    ["inter", ["i1", "i2"]],
+    ["fira sans", ["s1"]],
+    ["nope sans", []],
+  ]);
+  const out = withFontFiles(rules, isFont, files);
+  assert.deepEqual(out[0].assets.map((a) => a.id), ["specimen-png", "i1", "i2"]);
+  assert.deepEqual(out[1].assets, [{ id: "s1", rendition: null }]);
+  for (const i of [2, 3, 4, 5, 6]) assert.equal(out[i], rules[i], "the rest are the same objects");
+  // Run again with the files known as fonts: nothing changes.
+  for (const id of ["i1", "i2", "s1"]) fonts.add(id);
+  assert.ok(withFontFiles(out, isFont, files).every((r, i) => r === out[i]));
 });

@@ -1,5 +1,5 @@
 import { inkOn, isHex } from "./color.ts";
-import { GOOGLE_FAMILY, isFont, standIn } from "./font.ts";
+import { isFont } from "./font.ts";
 import { fontLabel, fontValue, ruleName, type RuleSpec, type RuleType, type RuleValue } from "./rules.ts";
 
 /**
@@ -124,24 +124,18 @@ export const paletteOf = (rules: (Pick<HubRule, "key" | "type" | "value" | "cont
   rules.filter((r) => r.type === "color" && !r.context && typeof r.value === "string").slice(0, n).map((r) => ({ hex: r.value as string, name: ruleName(r) }));
 
 /**
- * What a card sets its name in: the family, its weight, and how it loads
- * (`css`, Google Fonts; `src`, its own file), neither when it doesn't load
- * cheaply. `named`: the brand's own family, when `family` is a free one
- * standing in for it, which the card says.
+ * What a card sets its name in: the family, its weight, and its own file
+ * (`src`), when it has one; else the card names the family.
  */
-export type CardFace = { family: string; weight: number | null; css: string | null; src: string | null; named: string | null };
+export type CardFace = { family: string; weight: number | null; src: string | null };
 
 /**
  * The face a card sets its name in: the heading typeface (a font rule keyed
  * or marked for headings or display), else the first. It loads from an
- * upright file of its own, through `fileUrl`, else from Google
- * Fonts when the rule says it comes from there, only the glyphs of `text`:
- * a few hundred bytes. Neither: the free look-alike its fallback names
- * (lib/font.ts standIn), from Google the same way; else the card names the family.
+ * upright file of its own, through `fileUrl`; without one, nothing loads.
  */
 export function headingFace<A extends { id: string; mime: string; filename?: string | null }>(
   rules: { key: string; context: string | null; type: RuleType; value: RuleValue; spec?: RuleSpec | null; assets: A[] }[],
-  text: string,
   fileUrl: (a: A) => string,
 ): CardFace | null {
   const fonts = rules.filter((r) => r.type === "font" && !r.context);
@@ -151,18 +145,7 @@ export function headingFace<A extends { id: string; mime: string; filename?: str
   const v = fontValue(r.value);
   // An upright file: a name set in italics would not be the face.
   const file = r.assets.find((a) => isFont(a.mime, a.filename ?? "") && !/italic/i.test(a.filename ?? ""));
-  const spec = (r.spec ?? {}) as { source?: string; fallback?: string };
-  const google = !file && spec.source === "google" && GOOGLE_FAMILY.test(v.family);
-  const stand = !file && !google ? standIn(spec.fallback) : null;
-  const drawn = google ? v.family : stand;
-  return {
-    family: drawn ?? v.family,
-    weight: v.weight ?? null,
-    css: drawn ? `https://fonts.googleapis.com/css2?family=${drawn.replace(/ +/g, "+")}${v.weight ? `:wght@${v.weight}` : ""}&text=${encodeURIComponent(text)}&display=swap` : null,
-    src: file ? fileUrl(file) : null,
-    // A fallback that names the family itself (a Google family not marked as one) is no stand-in.
-    named: stand && stand !== v.family ? v.family : null,
-  };
+  return { family: v.family, weight: v.weight ?? null, src: file ? fileUrl(file) : null };
 }
 
 /** Markdown marks off, one line. */

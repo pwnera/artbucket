@@ -395,8 +395,9 @@ test("fontFaceCss: one @font-face per file, with its weight and style, under the
   const t = deriveTheme(rules);
   const css = fontFaceCss(t.faces, (id) => `/a/${id}`);
   assert.equal(css.match(/@font-face/g)?.length, 4, "one per file, the repeated one once");
-  assert.equal(css.match(/@import/g)?.length, 1);
-  assert.ok(css.startsWith('@import url("https://fonts.googleapis.com/css2?family=Space+Mono:'), "an @import comes first");
+  // A Google face with no files yet is marked, and loads from nowhere: its stack falls back.
+  assert.equal(t.faces.label?.google, true);
+  assert.ok(!/@import|googleapis|gstatic/.test(css), "nothing from Google");
   for (const line of [
     'font-family: "b-ibm-plex-sans";\n  src: url("/a/bi") format("woff2");\n  font-weight: 700;\n  font-style: italic;',
     'font-family: "b-source-serif";\n  src: url("/a/r") format("woff2");\n  font-weight: 400;\n  font-style: normal;',

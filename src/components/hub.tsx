@@ -132,12 +132,11 @@ export const FACES = 8;
 export function BrandTile({ id, look, href, face, badges, children }: { id: string; look: TileLook; href: string; face: boolean; badges?: React.ReactNode; children?: React.ReactNode }) {
   const f = look.face;
   const colors = PALETTE_LOOK;
-  const loads = face && !!f && !!(f.src || f.css);
+  const loads = face && !!f?.src;
   const name = `card-face-${id.replace(/[^a-z0-9-]/gi, "-")}`;
   return (
     <li className="group bg-card focus-within:ring-ring relative flex flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow] duration-200 focus-within:ring-2 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-8px_rgb(0_0_0/0.12)]">
       {loads && f.src && <style>{`@font-face{font-family:"${name}";src:url("${f.src}");font-weight:100 900;font-display:swap}`}</style>}
-      {loads && f.css && <link rel="stylesheet" href={f.css} precedence="default" />}
       <div className="relative h-32">
         <Mark
           name={look.name}
@@ -166,18 +165,12 @@ export function BrandTile({ id, look, href, face, badges, children }: { id: stri
           <Link
             href={href}
             className="font-display inline-flex min-w-0 items-center gap-1.5 text-base font-semibold tracking-tight outline-none after:absolute after:inset-0"
-            style={loads ? { fontFamily: `"${f.src ? name : f.family.replace(/["\\]/g, "")}", var(--font-display)`, fontWeight: f.src ? undefined : (f.weight ?? undefined) } : undefined}
+            style={loads ? { fontFamily: `"${name}", var(--font-display)` } : undefined}
           >
             <LinkSpinner className="text-current" />
             <span className="truncate">{look.name}</span>
           </Link>
           {f && !loads && <span className="text-muted-foreground truncate text-xs">{f.family}</span>}
-          {/* A free look-alike stands in for a face that can't load here: said, never passed off as the brand's. */}
-          {f && loads && f.named && (
-            <span className="text-muted-foreground truncate text-xs" title={`${f.named} isn't served here: the name is set in ${f.family}, a free look-alike`}>
-              {f.named} · shown in {f.family}
-            </span>
-          )}
         </h3>
         {children}
         {colors === "meta" && <Dots colors={look.palette.map((c) => c.hex)} className="mt-3" />}

@@ -40,34 +40,19 @@ test("a card's ground and palette: color.background, and up to six named colors"
   assert.equal(band[1].name, "Primary");
 });
 
-test("a card's face: the heading's own file, else Google Fonts for its glyphs, else only named", () => {
+test("a card's face: the heading's own upright file, else only named, never from Google", () => {
   const url = (a: { id: string }) => `/a/${a.id}`;
   const font = (key: string, family: string, extra: object = {}) => rule(key, "font", { family, weight: 700 }, extra);
   const file = (id: string, filename: string) => ({ ...asset(id, "font/woff2"), filename });
   // The heading, not the first; its upright file.
-  const own = headingFace([font("type.body", "Inter"), font("type.heading", "Metropolis", { assets: [file("i", "M-BoldItalic.woff2"), file("b", "M-Bold.woff2")] })], "Firefox", url);
-  assert.deepEqual(own, { family: "Metropolis", weight: 700, css: null, src: "/a/b", named: null });
-  // A role marks it too; Google Fonts asks only for the name's letters.
-  const google = headingFace([font("type.a", "Fira Sans"), font("type.b", "Alfa Slab One", { spec: { role: "display", source: "google" } })], "Rust & co", url);
-  assert.equal(google?.src, null);
-  assert.equal(google?.css, "https://fonts.googleapis.com/css2?family=Alfa+Slab+One:wght@700&text=Rust%20%26%20co&display=swap");
-  // Only italic files, or neither a file nor from Google: named, not loaded.
-  assert.equal(headingFace([font("type.heading", "Inter", { assets: [file("i", "Inter-BoldItalic.ttf")] })], "X", url)?.src, null);
-  assert.deepEqual(headingFace([font("type.heading", "Söhne")], "X", url), { family: "Söhne", weight: 700, css: null, src: null, named: null });
-  // A foundry's face with a free look-alike for fallback: drawn in that, and said so.
-  const stand = headingFace([font("type.heading", "Mark For MC Lt", { spec: { fallback: "Outfit, sans-serif" } })], "Mastercard", url);
-  assert.deepEqual(stand, {
-    family: "Outfit",
-    weight: 700,
-    css: "https://fonts.googleapis.com/css2?family=Outfit:wght@700&text=Mastercard&display=swap",
-    src: null,
-    named: "Mark For MC Lt",
-  });
-  // A fallback naming the family itself loads it as itself; a generic one stands in for nothing.
-  assert.equal(headingFace([font("type.heading", "DM Sans", { spec: { fallback: "DM Sans" } })], "X", url)?.named, null);
-  assert.equal(headingFace([font("type.heading", "DM Sans", { spec: { fallback: "DM Sans" } })], "X", url)?.css?.includes("family=DM+Sans"), true);
-  assert.equal(headingFace([font("type.heading", "Söhne", { spec: { fallback: "sans-serif" } })], "X", url)?.css, null);
-  assert.equal(headingFace([rule("color.primary", "color", "#000")], "X", url), null);
+  const own = headingFace([font("type.body", "Inter"), font("type.heading", "Metropolis", { assets: [file("i", "M-BoldItalic.woff2"), file("b", "M-Bold.woff2")] })], url);
+  assert.deepEqual(own, { family: "Metropolis", weight: 700, src: "/a/b" });
+  // A role marks it too. A Google face without files, or a foundry's with a look-alike fallback: named, not loaded.
+  assert.deepEqual(headingFace([font("type.a", "Fira Sans"), font("type.b", "Alfa Slab One", { spec: { role: "display", source: "google" } })], url), { family: "Alfa Slab One", weight: 700, src: null });
+  assert.deepEqual(headingFace([font("type.heading", "Mark For MC Lt", { spec: { fallback: "Outfit, sans-serif" } })], url), { family: "Mark For MC Lt", weight: 700, src: null });
+  // Only italic files: named.
+  assert.equal(headingFace([font("type.heading", "Inter", { assets: [file("i", "Inter-BoldItalic.ttf")] })], url)?.src, null);
+  assert.equal(headingFace([rule("color.primary", "color", "#000")], url), null);
 });
 
 test("brandText says who listed it, and every rule with its files", () => {
