@@ -19691,6 +19691,10 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "description": "The last change to what it says"
                           },
+                          "revision": {
+                            "type": "string",
+                            "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                          },
                           "sections": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -19720,6 +19724,7 @@
                           "aliases",
                           "layout",
                           "updatedAt",
+                          "revision",
                           "sections",
                           "keys"
                         ],
@@ -20044,6 +20049,10 @@
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                               "description": "The last change to what it says"
                             },
+                            "revision": {
+                              "type": "string",
+                              "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                            },
                             "translations": {
                               "description": "Its title, eyebrow and lede by language tag",
                               "anyOf": [
@@ -20326,6 +20335,7 @@
                             "aliases",
                             "layout",
                             "updatedAt",
+                            "revision",
                             "sections"
                           ],
                           "additionalProperties": false
@@ -20611,6 +20621,16 @@
         "summary": "Save a page whole",
         "description": "Makes the page, or replaces its title and every section, top to bottom. A page field left out keeps its value; null clears it. Sections keep their ids; new ones get one. Each section is checked against its own template (GET /api/v1/brand/templates), its keys against the rules and its assets against the library: a 422 lists every problem with its path, e.g. `sections[1].props.chanel: Unrecognized key`. A slug that isn't one is a 422 too. A draft until the brand is published.\n\nScope: `write`.",
         "x-scope": "write",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The page's `revision` (also its ETag) the change was made from. When the page says something else now, nothing is written: a 409 `conflict` with the revision it has in `detail.revision`. Left out, the write applies to the page as it is."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -21648,6 +21668,10 @@
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                               "description": "The last change to what it says"
                             },
+                            "revision": {
+                              "type": "string",
+                              "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                            },
                             "translations": {
                               "description": "Its title, eyebrow and lede by language tag",
                               "anyOf": [
@@ -21930,6 +21954,7 @@
                             "aliases",
                             "layout",
                             "updatedAt",
+                            "revision",
                             "sections"
                           ],
                           "additionalProperties": false
@@ -22070,6 +22095,10 @@
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                               "description": "The last change to what it says"
                             },
+                            "revision": {
+                              "type": "string",
+                              "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                            },
                             "translations": {
                               "description": "Its title, eyebrow and lede by language tag",
                               "anyOf": [
@@ -22352,6 +22381,7 @@
                             "aliases",
                             "layout",
                             "updatedAt",
+                            "revision",
                             "sections"
                           ],
                           "additionalProperties": false
@@ -22381,6 +22411,39 @@
                   },
                   "required": [
                     "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The page changed since the If-Match revision: read it again, redo the change on what it says now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
                   ],
                   "additionalProperties": false
                 }
@@ -22426,6 +22489,16 @@
         "summary": "Edit a page an operation at a time",
         "description": "`ops` apply in order: `add`, `update`, `move` and `remove` sections, and `page` for its own fields. `page` with `slug` renames it: the old slug becomes an alias that still finds it, and the pages under it follow. All or none: a 422 lists every problem with its path, e.g. `ops[0].section.props.chanel: Unrecognized key`.\n\nScope: `write`.",
         "x-scope": "write",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The page's `revision` (also its ETag) the change was made from. When the page says something else now, nothing is written: a 409 `conflict` with the revision it has in `detail.revision`. Left out, the write applies to the page as it is."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -23577,6 +23650,10 @@
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                               "description": "The last change to what it says"
                             },
+                            "revision": {
+                              "type": "string",
+                              "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                            },
                             "translations": {
                               "description": "Its title, eyebrow and lede by language tag",
                               "anyOf": [
@@ -23859,6 +23936,7 @@
                             "aliases",
                             "layout",
                             "updatedAt",
+                            "revision",
                             "sections"
                           ],
                           "additionalProperties": false
@@ -23887,6 +23965,39 @@
                   },
                   "required": [
                     "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The page changed since the If-Match revision: read it again, redo the change on what it says now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
                   ],
                   "additionalProperties": false
                 }

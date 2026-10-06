@@ -50,6 +50,8 @@ export type NavEntry = {
   aliases: string[];
   translations?: Record<string, PageText> | null;
   updatedAt: string | null;
+  /** The server's revision of it as last read (core/pages.ts revisionOf); none for a page made here until its save answers. */
+  revision?: string;
   /** The rules its sections show; a loaded page's own sections say it better (shownOn). */
   keys: string[];
 };
@@ -527,19 +529,49 @@ export function echo(s: BuilderState, page: EchoPage): BuilderState {
   return { ...s, nav, pages: unchanged ? s.pages : new Map(s.pages).set(page.slug, kept) };
 }
 
+/**
+ * An edit refused because the page changed since `base`, the page as this
+ * builder last heard it: `now` is the page as it is. The ops still waiting
+ * for it apply over `now` when none of them changes what someone else
+ * changed (a section, by id; a page field), so neither change is lost: the
+ * state with both. Null when one does, or no longer applies (its section is
+ * gone): sending it would write over theirs.
+ */
+export function rebase(s: BuilderState, base: EchoPage, now: EchoPage, pending: Op[]): BuilderState | null {
+  const differ = (a: unknown, b: unknown) => canon(a) !== canon(b);
+  const section = (p: EchoPage, id: string) => p.sections.find((x) => x.id === id);
+  for (const op of pending) {
+    if (op.kind !== "page") continue;
+    const o = op.op;
+    if ((o.op === "update" || o.op === "remove") && differ(section(base, o.id), section(now, o.id))) return null;
+    // Where it sits is no one's words: the last move wins.
+    const field = (k: string) => k !== "position" && differ(base[k as keyof EchoPage], now[k as keyof EchoPage]);
+    if (o.op === "page" && Object.keys(o.set).some(field)) return null;
+  }
+  let state = echo(s, now);
+  for (const op of pending) {
+    const r = apply(state, op);
+    if (r.errors.length) return null;
+    state = r.state;
+  }
+  return state;
+}
+
 /** Which queue an op waits in: ops to the same target go out together, in order. */
 export const targetOf = (op: Op): string =>
   op.kind === "page" ? `page:${op.page}` : op.kind === "add-page" ? `page:${op.page.slug}` : op.kind === "delete-page" ? `page:${op.page}` : op.kind;
 
-export type Request = { take: number; method: "PUT" | "PATCH" | "DELETE"; url: string; body?: unknown };
+/** `match`: the page revision the ops were made from, sent as If-Match, so a change made since is never written over. */
+export type Request = { take: number; method: "PUT" | "PATCH" | "DELETE"; url: string; body?: unknown; match?: string };
 
 /**
  * The next request for the ops waiting, first in first out: consecutive
  * edits to one page as one PATCH of up to 50 ops, consecutive rule sets as
  * one batch (a key's last version wins), consecutive theme patches as one.
- * Everything else goes alone. `take`: how many ops it sends.
+ * Everything else goes alone. `take`: how many ops it sends. `revisionOf`:
+ * the revision of a page as the builder last heard it, for page edits.
  */
-export function request(pending: Op[], brand: string): Request | null {
+export function request(pending: Op[], brand: string, revisionOf?: (page: string) => string | undefined): Request | null {
   const [first] = pending;
   if (!first) return null;
   const b = encodeURIComponent(brand);
@@ -552,7 +584,8 @@ export function request(pending: Op[], brand: string): Request | null {
 
   if (first.kind === "page") {
     const ops = run("page", (op, n) => op.page === first.page && n < 50);
-    return { take: ops.length, method: "PATCH", url: page(first.page), body: { ops: ops.map((o) => o.op) } };
+    const match = revisionOf?.(first.page);
+    return { take: ops.length, method: "PATCH", url: page(first.page), body: { ops: ops.map((o) => o.op) }, ...(match && { match }) };
   }
   if (first.kind === "add-page") {
     const { slug, title, hidden, position, parent, eyebrow, lede, cover, icon, audience, tabs, layout, translations } = first.page;

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -42,6 +43,32 @@ import { guidelinesPath } from "@/lib/site";
  * history like a rule change does. REST, MCP and the editor all come through here.
  */
 
+/** What the page says, not where it sits: its fields and sections, without its position or the time. */
+const said = (p: PageRow) => canon({ ...toSnap(p), position: undefined, updatedAt: undefined });
+
+/**
+ * The page's revision: a hash of what it says. Every change to it, by any
+ * path (an edit, a restore, a sync from Git), makes a new one; moving it in
+ * the order does not. A write given the revision it was made from is refused
+ * when the page says something else now, so it never lands over a change its
+ * sender hasn't seen.
+ */
+export const revisionOf = (p: PageRow) => createHash("sha256").update(said(p)).digest("base64url").slice(0, 16);
+
+/** Refuse a write made from `revision` (left out: any) when the page says something else now, with the revision it has. */
+function checkRevision(slug: string, now: PageRow | undefined, revision: string | undefined) {
+  if (revision === undefined) return;
+  const current = now ? revisionOf(now) : null;
+  if (current === revision) return;
+  throw new AssetError(
+    "conflict",
+    now
+      ? `${slug} changed since that revision: it is at ${current} now. Read it again (get_page), make the change on what it says now, and send revision ${current}`
+      : `${slug} is gone since that revision`,
+    { revision: current },
+  );
+}
+
 const present = (p: PageRow) => ({
   slug: p.slug,
   title: p.title,
@@ -60,6 +87,7 @@ const present = (p: PageRow) => ({
   aliases: p.aliases,
   sections: p.sections,
   updatedAt: p.updatedAt,
+  revision: revisionOf(p),
 });
 export type BrandPage = ReturnType<typeof present>;
 
@@ -166,7 +194,6 @@ const takeSlug = (tx: Tx, brandId: string, slug: string) =>
 
 /** Move `updatedAt` only when what the page says changed (1.2): saving it as it is, or moving it, is not a change. */
 async function touch(tx: Tx, before: PageRow, after: PageRow) {
-  const said = (p: PageRow) => canon({ ...toSnap(p), position: undefined, updatedAt: undefined });
   if (said(before) !== said(after)) await tx.update(brandPages).set({ updatedAt: sql`now()` }).where(eq(brandPages.id, after.id));
 }
 
@@ -228,9 +255,10 @@ export async function getPage(ws: string, brandSlug: string | undefined, slug: s
 /**
  * Make a page, or replace one, whole: its title, place, page fields and every
  * section, top to bottom. Sections keep the ids they are given; new ones get
- * one. A page field left out keeps its value; null clears it.
+ * one. A page field left out keeps its value; null clears it. `revision`:
+ * the one it was made from, refused when the page says something else now.
  */
-export async function savePage(caller: Caller, brandSlug: string | undefined, slug: string, input: z.output<typeof PageInput>) {
+export async function savePage(caller: Caller, brandSlug: string | undefined, slug: string, input: z.output<typeof PageInput>, revision?: string) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
   const named = pageSlug.safeParse(slug);
   refuse(named.success ? [] : issues(named.error, "page"));
@@ -240,6 +268,7 @@ export async function savePage(caller: Caller, brandSlug: string | undefined, sl
   const rules = await check(caller, brand.slug, { cover: input.cover, sections }, boundOf(before?.sections ?? []));
   return tracked(brand.id, caller.actor, [], async (tx) => {
     const now = await pageRow(tx, brand.id, slug);
+    checkRevision(slug, now, revision);
     const tree = await tx.select({ slug: brandPages.slug, parent: brandPages.parent }).from(brandPages).where(eq(brandPages.brandId, brand.id));
     if (!now && tree.length >= MAX_PAGES) throw new AssetError("invalid", `${brand.slug} has ${MAX_PAGES} pages, the most a brand holds`);
     const parent = input.parent !== undefined ? input.parent : (now?.parent ?? null);
@@ -262,29 +291,34 @@ export async function savePage(caller: Caller, brandSlug: string | undefined, sl
  * Edit a page an operation at a time, in order: add, update, move and remove
  * sections, and `page` ops for its own fields. All of them or none: the page
  * is checked once, after the last. A new slug renames it: the old one becomes
- * an alias, and its child pages follow it.
+ * an alias, and its child pages follow it. `revision`: the one the ops were
+ * made from, refused when the page says something else now; without it, they
+ * apply to the page as it is.
  */
-export async function editPage(caller: Caller, brandSlug: string | undefined, slug: string, ops: PageOp[]) {
+export async function editPage(caller: Caller, brandSlug: string | undefined, slug: string, ops: PageOp[], revision?: string) {
   const brand = await resolveBrand(caller.workspace.id, brandSlug);
   // The checks read the library, so they run before the brand's lock is taken. An edit that lands
   // in between would be written over: the ops are applied again to what it wrote instead.
   for (let tries = 1; ; tries++) {
-    const out = await editOnce(caller, brand, slug, ops);
+    const out = await editOnce(caller, brand, slug, ops, revision);
     if (out) return out;
     if (tries === 3) throw new AssetError("conflict", `${slug} kept changing while this edit was checked; send it again`);
   }
 }
 
 /** One try at editPage; null when the page's sections changed after they were read. */
-async function editOnce(caller: Caller, brand: Brand, slug: string, ops: PageOp[]) {
+async function editOnce(caller: Caller, brand: Brand, slug: string, ops: PageOp[], revision?: string) {
   const before = await pageRow(db, brand.id, slug);
   if (!before) throw await noPage(brand.id, brand.slug, slug, "; save_page makes one");
+  // Before the ops are checked: ops made from an older page may not apply to this one, and the conflict says why.
+  checkRevision(slug, before, revision);
   const { sections, page: patch, errors } = applyOps(before.sections, ops, slug);
   refuse(errors);
   const rules = await check(caller, brand.slug, { cover: patch.cover, sections }, boundOf(before.sections));
   const to = patch.slug ?? slug;
   return tracked(brand.id, caller.actor, [], async (tx) => {
     const now = await pageRow(tx, brand.id, slug);
+    if (now) checkRevision(slug, now, revision);
     // Gone or renamed since: the next try's read says which.
     if (!now || canon(now.sections) !== canon(before.sections)) return null;
     const tree = await tx.select({ slug: brandPages.slug, parent: brandPages.parent }).from(brandPages).where(eq(brandPages.brandId, brand.id));
