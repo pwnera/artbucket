@@ -7,10 +7,13 @@ import { followedOrgs, HUB_SORTS, hubBase, hubCollectionsOf, hubListings, hubVie
 import Form from "next/form";
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: { absolute: "BrandHub: brands to build with" },
   description: "Logos, colors, type and voice that open source projects, organizations and companies share, for people and agents.",
+  // Every filter, sort and search is this one page to search engines.
+  ...(env.HUB_URL && { alternates: { canonical: env.HUB_URL } }),
 };
 
 type Search = Record<string, string | string[] | undefined>;

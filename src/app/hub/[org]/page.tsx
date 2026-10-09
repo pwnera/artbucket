@@ -15,9 +15,11 @@ async function load(org: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const got = await load((await params).org);
+  const { org } = await params;
+  const got = await load(org);
   if (!got) return {};
   return {
+    ...(env.HUB_URL && { alternates: { canonical: `${env.HUB_URL}/${org}` } }),
     title: { absolute: `${got.owner.name} on BrandHub` },
     description: `${got.cards.length} ${got.cards.length === 1 ? "brand" : "brands"} from ${got.owner.name}: ${got.cards.map((c) => c.name).join(", ")}.`,
     robots: got.owner.verified ? undefined : { index: false, follow: true },

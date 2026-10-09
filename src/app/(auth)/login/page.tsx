@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 const readMe = cache(() => getBody<{ data?: Me }>("me"));
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await readMe())?.data?.auth.signUp ? "Set up" : "Sign in" };
+  // Linked from every BrandHub page with its own ?next=: one page to search engines, and not one to list.
+  return { title: (await readMe())?.data?.auth.signUp ? "Set up" : "Sign in", robots: { index: false, follow: false } };
 }
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
