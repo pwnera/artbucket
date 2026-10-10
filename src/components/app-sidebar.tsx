@@ -115,8 +115,11 @@ export function AppSidebar({
           <SidebarMenuItem>
             <ProjectSwitcher me={me} />
           </SidebarMenuItem>
+          <SidebarMenuItem className="my-2 group-data-[collapsible=icon]:my-0">
+            <NewMenu me={me} />
+          </SidebarMenuItem>
           <SidebarMenuItem>
-            {/* Jump, Notion style: it looks like a field, and ⌘K opens it from anywhere. The page's own field filters it. */}
+            {/* Jump, Notion style: a quiet row under New, and ⌘K opens it from anywhere. The page's own field filters it. */}
             <SidebarMenuButton
               onClick={openSearch}
               aria-keyshortcuts="Meta+K Control+K"
@@ -128,14 +131,11 @@ export function AppSidebar({
                   </>
                 ),
               }}
-              className="bg-background text-muted-foreground hover:text-foreground border shadow-xs group-data-[collapsible=icon]:border-0"
+              className="text-muted-foreground hover:text-foreground"
             >
               <IconSearch /> <span>Jump to…</span>
               <Kbd keys={["mod", "K"]} className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <NewMenu me={me} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -334,11 +334,15 @@ function NewMenu({ me }: { me: Me }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
+        {/* Databricks' New: a raised white button, its plus in a disc of the brand color; folded to the rail, the disc alone. */}
         <SidebarMenuButton
           tooltip="New"
-          className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground data-[state=open]:bg-primary/90 data-[state=open]:text-primary-foreground h-9 font-medium shadow-sm"
+          className="bg-background hover:bg-background data-[state=open]:bg-background h-10 gap-2.5 rounded-lg border px-2 font-medium shadow-xs transition-shadow hover:shadow-sm data-[state=open]:shadow-sm group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:shadow-none"
         >
-          <IconPlus /> <span>New</span>
+          <span className="bg-primary text-primary-foreground flex size-6 shrink-0 items-center justify-center rounded-full [&>svg]:size-4">
+            <IconPlus stroke={2.5} />
+          </span>
+          <span>New</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <NewMenuContent side="right" />
