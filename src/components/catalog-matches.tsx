@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
 import { TYPE_LABEL, type CatalogType } from "@/lib/catalog";
-import type { CatalogResults } from "@/lib/core/catalog";
+import type { CatalogResults, CatalogItem } from "@/lib/core/catalog";
 
 /**
  * What else a search in Explore finds, beside the assets below it
@@ -40,30 +40,53 @@ export function CatalogMatches({ q }: { q: string }) {
           const list = r.items.filter((i) => i.type === t);
           if (!list.length) return null;
           return (
-            <div key={t} className="min-w-56 flex-1 space-y-1">
-              <h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-                <TypeIcon type={t} className="size-3.5" />
-                {TYPE_LABEL[t].many}
-                <span className="tabular-nums">{r.counts[t]}</span>
-              </h2>
-              <ul className="bg-card divide-y rounded-lg border">
-                {list.slice(0, 4).map((i) => (
-                  <li key={i.id}>
-                    <Link href={`/catalog?o=${i.id}`} className="hover:bg-accent flex items-center gap-2 px-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{i.name}</span>
-                        <span className="text-muted-foreground block truncate text-xs">{i.parent ? `In ${i.parent.name}` : i.project.name}</span>
-                      </span>
-                      {i.status !== "current" && <StatusBadge status={i.status} />}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {list.length > 4 && <p className="text-muted-foreground px-1 text-xs">and {(r.counts[t] ?? list.length) - 4} more</p>}
-            </div>
+            <TypeBlock
+              key={t}
+              type={t}
+              count={r.counts[t]}
+              more={list.length > 4 ? (r.counts[t] ?? list.length) - 4 : 0}
+              rows={list.slice(0, 4).map((i) => ({ key: i.id, href: `/catalog?o=${i.id}`, name: i.name, sub: i.parent ? `In ${i.parent.name}` : i.project.name, status: i.status }))}
+            />
           );
         })}
       </div>
     </section>
+  );
+}
+
+/** A type's block: its name and count over a few rows, each a link. Explore's recents use it too. */
+export function TypeBlock({
+  type,
+  count,
+  more = 0,
+  rows,
+}: {
+  type: CatalogType;
+  count?: number;
+  more?: number;
+  rows: { key: string; href: string; name: string; sub?: string; status?: CatalogItem["status"] }[];
+}) {
+  return (
+    <div className="min-w-56 flex-1 space-y-1">
+      <h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+        <TypeIcon type={type} className="size-3.5" />
+        {TYPE_LABEL[type].many}
+        {count != null && <span className="tabular-nums">{count}</span>}
+      </h2>
+      <ul className="bg-card divide-y rounded-lg border">
+        {rows.map((i) => (
+          <li key={i.key}>
+            <Link href={i.href} className="hover:bg-accent flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{i.name}</span>
+                {i.sub && <span className="text-muted-foreground block truncate text-xs">{i.sub}</span>}
+              </span>
+              {i.status && i.status !== "current" && <StatusBadge status={i.status} />}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <p className="text-muted-foreground px-1 text-xs">and {more} more</p>}
+    </div>
   );
 }

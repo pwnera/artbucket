@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { IconArrowRight, IconBookmark, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@tabler/icons-react";
-import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";
+import { useNavigate, type SavedSearch } from "@/components/app-sidebar";
 import { useCan } from "@/components/can";
+import { TypeIcon } from "@/components/catalog";
+import { TypeBlock } from "@/components/catalog-matches";
 import type { Collection } from "@/components/collections";
 import { useShell } from "@/components/shell";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
@@ -13,8 +15,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Explore before anything is asked: one box that searches everything (the
- * catalog's language, and plain words), what you opened and searched lately,
- * and what was added last. Later, the same box takes questions.
+ * catalog's language, and plain words), a new admin's setup, what you opened
+ * (drawn as a search's results are: a block per type, assets as tiles) and
+ * searched lately, and what was added last. Later, the same box takes questions.
  */
 
 /** What people searched lately in Explore, newest first: kept in the browser, per person. */
@@ -27,19 +30,22 @@ const CHIPS: { label: string; href: string; icon: React.ComponentType<{ classNam
   { label: "Videos", href: "/?type=video", icon: IconMovie },
   { label: "Fonts", href: "/?type=font", icon: IconLetterCase },
   { label: "Documents", href: "/?type=document", icon: IconFileText },
-  { label: "In review", href: "/?review", icon: IconInbox },
+  { label: "In review", href: "/review", icon: IconInbox },
 ];
 
 type Latest = { id: string; filename: string; metadata?: { title?: string } | null };
 
-export function ExploreStart({ latest, collections, searches }: { latest: Latest[]; collections: Collection[]; searches: SavedSearch[] }) {
+export function ExploreStart({ latest, collections, searches, setup }: { latest: Latest[]; collections: Collection[]; searches: SavedSearch[]; setup: React.ReactNode }) {
   const navigate = useNavigate();
   const can = useCan();
   const { forgetSearch } = useShell();
   const [text, setText] = useState("");
   const [queries, setQueries] = useRecentQueries();
   const [stored] = useRecents();
-  const recents = liveRecents(stored, collections, searches).slice(0, 8);
+  // Saved searches opened lately are in Recent searches already.
+  const recents = liveRecents(stored, collections, searches).filter((r) => r.kind !== "search");
+  const opened = (kind: "brand" | "collection") => recents.filter((r) => r.kind === kind).map((r) => ({ key: r.id, href: r.href, name: r.label }));
+  const openedAssets = recents.filter((r) => r.kind === "asset");
   const go = (q: string) => q.trim() && navigate(`/?q=${encodeURIComponent(q.trim())}`);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pt-10 pb-16 md:pt-16">
@@ -81,7 +87,37 @@ export function ExploreStart({ latest, collections, searches }: { latest: Latest
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {setup}
+
+      <section aria-labelledby="opened-title" className="space-y-2">
+        <h2 id="opened-title" className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+          <IconClock className="size-3.5" /> Recently opened
+        </h2>
+        {recents.length ? (
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
+            {(["brand", "collection"] as const).map((k) => {
+              const rows = opened(k);
+              return rows.length ? <TypeBlock key={k} type={k} rows={rows} /> : null;
+            })}
+            {openedAssets.length > 0 && (
+              <div className="w-full space-y-1">
+                <h3 className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                  <TypeIcon type="asset" className="size-3.5" /> Assets
+                </h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {openedAssets.map((a) => (
+                    <Tile key={a.id} id={a.id} name={a.label} onClick={() => navigate(a.href)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-muted-foreground rounded-xl border border-dashed px-3 py-4 text-sm">Assets, brands and collections you open show here.</p>
+        )}
+      </section>
+
+      <div className="grid gap-6">
         <Panel title="Recent searches" icon={IconClock} empty="What you search shows here.">
           {queries.map((q) => (
             <Row key={q} onClick={() => go(q)} icon={<IconSearch className="size-4" />} label={q}>
@@ -116,11 +152,6 @@ export function ExploreStart({ latest, collections, searches }: { latest: Latest
             </Row>
           ))}
         </Panel>
-        <Panel title="Recently opened" icon={IconClock} empty="Assets, brands and collections you open show here.">
-          {recents.map((r) => (
-            <Row key={`${r.kind}:${r.id}`} onClick={() => navigate(r.href)} icon={RECENT_ICON[r.kind]} label={r.label} />
-          ))}
-        </Panel>
       </div>
 
       {latest.length > 0 && (
@@ -133,15 +164,7 @@ export function ExploreStart({ latest, collections, searches }: { latest: Latest
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {latest.slice(0, 12).map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => navigate(`/?browse&asset=${a.id}`)}
-                title={a.metadata?.title || a.filename}
-                className="bg-muted hover:ring-primary/40 aspect-square overflow-hidden rounded-lg border transition-shadow hover:ring-2"
-              >
-                <Thumb id={a.id} name={a.metadata?.title || a.filename} />
-              </button>
+              <Tile key={a.id} id={a.id} name={a.metadata?.title || a.filename} onClick={() => navigate(`/?browse&asset=${a.id}`)} />
             ))}
           </div>
         </section>
@@ -177,6 +200,14 @@ function Row({ onClick, icon, label, children }: { onClick: () => void; icon: Re
         {children}
       </div>
     </li>
+  );
+}
+
+function Tile({ id, name, onClick }: { id: string; name: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} title={name} className="bg-muted hover:ring-primary/40 aspect-square overflow-hidden rounded-lg border transition-shadow hover:ring-2">
+      <Thumb id={id} name={name} />
+    </button>
   );
 }
 

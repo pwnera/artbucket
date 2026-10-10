@@ -1237,7 +1237,12 @@ export function Gallery({
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
         {startScreen ? (
-          <ExploreStart latest={assets} collections={collections} searches={searches} />
+          <ExploreStart
+            latest={assets}
+            collections={collections}
+            searches={searches}
+            setup={<SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
+          />
         ) : (
           <>
         <PageHeader
@@ -1302,8 +1307,6 @@ export function Gallery({
             </IconButton>
           )}
         </PageHeader>
-
-        {!view.review && !activeSearch && !inCollection && !searched && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
 
         {/* Explore searches everything: what else matches, beside the assets. */}
         {searched && <CatalogMatches q={searched} />}
