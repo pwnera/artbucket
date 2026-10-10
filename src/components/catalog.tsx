@@ -20,6 +20,7 @@ import {
   IconLink,
   IconPlus,
   IconArrowUpRight,
+  IconShieldLock,
   IconLayoutSidebarLeftExpand,
   IconShare,
   IconX,
@@ -200,6 +201,9 @@ function ObjectView({
           </div>
           <div className="flex gap-2">
             <PinButton size="icon" pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&]+/, "").replace(/\?$/, "") }} />
+            <IconButton size="icon" label="Who can reach it, and grants" onClick={() => go(o.id, "access")}>
+              <IconShieldLock />
+            </IconButton>
             {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
             <Button asChild>
               <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
@@ -290,6 +294,15 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
             </p>
           </div>
           <div className="flex gap-2">
+            <IconButton
+              asChild
+              size="icon"
+              label={node.kind === "project" ? `Manage who is in ${node.label}` : `Access comes from ${project.label}: manage its members`}
+            >
+              <Link href={membersOf(project.key)}>
+                <IconShieldLock />
+              </Link>
+            </IconButton>
             {list && (
               <IconButton asChild size="icon" label={list.label}>
                 <Link href={list.href}>
@@ -564,6 +577,7 @@ function Access({ o }: { o: Described }) {
   return (
     <div className="space-y-4">
       {data?.on && manage && <Grants on={data.on} granted={data.granted} reload={reload} />}
+      <ManageElsewhere o={o} grantable={!!data?.on} manage={manage} />
     <Card title="Who can reach it">
       <p className="text-muted-foreground text-sm">
         Grants reach down: organization, then project, then this object. The highest role on the way wins.
@@ -604,6 +618,41 @@ function Access({ o }: { o: Described }) {
       )}
     </Card>
     </div>
+  );
+}
+
+/** The project's members settings, in that project (?project= switches to it first). */
+const membersOf = (project: string) => `/settings/project/members?project=${project}`;
+
+/**
+ * Where else who reaches it is decided: a portal's own access, the grant
+ * made in another project, the project's members, the organization's
+ * groups. Each a link to where it is changed.
+ */
+function ManageElsewhere({ o, grantable, manage }: { o: Described; grantable: boolean; manage: boolean }) {
+  const can = useCan();
+  const links = [
+    o.type === "portal" && { href: o.open, label: "Set who sees this portal", hint: "public, password, members or by request, on the portal" },
+    grantable && !manage && { href: `/catalog?o=${o.id}&tab=access&project=${o.project.id}`, label: `Grant access in ${o.project.name}`, hint: "grants are made by its admins, in it" },
+    { href: membersOf(o.project.id), label: `Members of ${o.project.name}`, hint: "their project roles reach everything in it" },
+    can("organization.manage") && { href: "/settings/organization/groups", label: "Groups", hint: "grant many people at once" },
+  ].filter(Boolean) as { href: string; label: string; hint: string }[];
+  return (
+    <Card title="Manage access">
+      <ul className="divide-y">
+        {links.map((l) => (
+          <li key={l.href}>
+            <Link href={l.href} className="group/link flex items-center gap-3 py-2 text-sm">
+              <span className="min-w-0 flex-1">
+                <span className="group-hover/link:text-primary-ink font-medium">{l.label}</span>
+                <span className="text-muted-foreground block text-xs">{l.hint}</span>
+              </span>
+              <IconArrowUpRight className="text-muted-foreground size-4 shrink-0" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
