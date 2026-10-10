@@ -9,9 +9,15 @@ import { DEFAULT_BRAND, type Brand } from "@/lib/branding";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 
+/** A portal as the sidebar lists it, and what other projects shared into this one. */
+export type PortalRow = { id: string; slug: string; name: string; access: "public" | "password" | "members" };
+export type SharedRow = { id: string; type: "brand" | "collection" | "asset"; name: string; sharedFrom: { name: string } };
+
 export type SidebarData = {
   collections: Collection[];
   brands: BrandInfo[];
+  portals: PortalRow[];
+  shared: SharedRow[];
   searches: SavedSearch[];
   /** What waits in Review. */
   reviewCount: number;
@@ -88,12 +94,15 @@ export const brands = cache(() => get("brands", data<BrandInfo[]>, []));
 export const sidebarData = cache(async (): Promise<SidebarData> => {
   // Alongside who is looking, not after: none of these needs it, and a redirect from whoami still wins.
   // The shell's extras never take the page down: one that fails shows empty until the next load.
-  const [me, collections, brandList, searches, reviewCount] = await Promise.all([
+  const [me, collections, brandList, portals, shared, searches, reviewCount] = await Promise.all([
     whoami(),
     get("collections", data<Collection[]>, []).catch(() => []),
     brands().catch(() => []),
+    // Who may not manage portals is answered no, and sees no section.
+    get("portals", data<PortalRow[]>, []).catch(() => []),
+    get("catalog/shared", data<SharedRow[]>, []).catch(() => []),
     get("searches", data<SavedSearch[]>, []).catch(() => []),
     get("assets?review=true&limit=1", (b: { total: number }) => b.total, 0).catch(() => 0),
   ]);
-  return { collections, brands: brandList, searches, reviewCount, me };
+  return { collections, brands: brandList, portals, shared, searches, reviewCount, me };
 });

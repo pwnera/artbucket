@@ -347,6 +347,8 @@ export function Shell({
           me={sidebar.me}
           collections={collections}
           brands={brands}
+          portals={sidebar.portals}
+          shared={sidebar.shared}
           searches={searches}
           reviewCount={reviewCount}
           currentBrand={currentBrand}

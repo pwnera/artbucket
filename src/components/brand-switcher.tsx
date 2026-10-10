@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState } from "react";
-import { IconCopy, IconDots, IconLayoutList, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDots, IconLayoutList, IconList, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
@@ -116,6 +116,11 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
       id="brands"
       label="Brands"
       sortable={section}
+      menu={
+        <DropdownMenuItem onSelect={() => router.push("/brands")}>
+          <IconList /> All brands
+        </DropdownMenuItem>
+      }
       action={
         <Can do="brand.edit">
           <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setCreating(opening(true))} />

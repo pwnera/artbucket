@@ -591,3 +591,12 @@ export async function objectActivity(caller: Caller, ref: string, limit = 30): P
   }
   return [{ at: item.createdAt, who: "", agent: false, what: "created it" }];
 }
+
+/** What other projects shared into the caller's: each object as it is at home, said to come from there. */
+export async function sharedHere(caller: Caller): Promise<CatalogItem[]> {
+  const ids = (await sharedInto([caller.project.id])).map((x) => x.id);
+  if (!ids.length) return [];
+  const reaches = await reachOf(caller);
+  const found = (await rows(and(inArray(o.id, ids), seen(reaches))!).orderBy(asc(o.type), asc(o.name))) as Row[];
+  return (await items(found)).map((i) => ({ ...i, sharedFrom: { id: i.project.id, name: i.project.name } }));
+}

@@ -4,26 +4,24 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Collapsible } from "radix-ui";
 import {
   IconBook,
   IconBookmark,
   IconBookmarks,
   IconChartBar,
   IconChevronRight,
-  IconClock,
   IconCompass,
   IconDots,
   IconFolder,
   IconFolderUp,
   IconFolders,
   IconInbox,
+  IconList,
   IconLayoutSidebarLeftExpand,
   IconPalette,
   IconLock,
   IconPencil,
   IconPhoto,
-  IconSitemap,
   IconPlus,
   IconRobot,
   IconSearch,
@@ -31,7 +29,6 @@ import {
   IconShare,
   IconTrash,
   IconWorld,
-  IconX,
 } from "@tabler/icons-react";
 import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
@@ -41,13 +38,10 @@ import { useCan } from "@/components/can";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import {
   DropLine,
-  FOLD,
   Flyout,
   MoveItems,
   SectionAdd,
   SidebarSection,
-  liveRecents,
-  useRecents,
   useSections,
   useSortable,
   type Recent,
@@ -74,10 +68,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { formatSize } from "@/lib/limits";
-import { short } from "@/lib/time";
 import { canonical, parseView, viewQuery } from "@/lib/view";
 import { useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import type { PortalRow, SharedRow } from "@/lib/sidebar";
 import { LinkIcon } from "@/components/link-pending";
 
 export type SavedSearch = { id: string; name: string; query: string };
@@ -98,6 +92,8 @@ export function AppSidebar({
   me,
   collections,
   brands,
+  portals,
+  shared,
   searches,
   reviewCount,
   currentBrand,
@@ -111,6 +107,8 @@ export function AppSidebar({
   me: Me;
   collections: Collection[];
   brands: BrandInfo[];
+  portals: PortalRow[];
+  shared: SharedRow[];
   searches: SavedSearch[];
   reviewCount: number;
   /** The brand being shown, on its pages (/brands/{slug}/...). */
@@ -145,19 +143,21 @@ export function AppSidebar({
     library: (inLibrary && !view.review && !view.collection && !onSearch) || pathname === "/activity",
   };
 
-  const [stored] = useRecents();
   /** Whether a section has anything to show, so a folded rail offers no empty panel. */
   const shows = (id: SectionId) =>
-    id === "recents"
-      ? liveRecents(stored, collections, searches).length > 0
-      : id === "searches"
-        ? searches.length > 0
-        : id === "brands" || collections.length > 0 || !!newCollection;
+    id === "searches"
+      ? searches.length > 0
+      : id === "portals"
+        ? portals.length > 0
+        : id === "shared"
+          ? shared.length > 0
+          : id === "brands" || collections.length > 0 || !!newCollection;
   /** A section, in the sidebar or in its panel. */
   const section = (id: SectionId) => {
     const sortable = sections.item(id);
-    if (id === "recents") return <Recents key={id} section={sortable} collections={collections} searches={searches} />;
     if (id === "brands") return <Brands key={id} brands={brands} current={currentBrand} section={sortable} />;
+    if (id === "portals") return portals.length > 0 ? <Portals key={id} section={sortable} portals={portals} current={pathname} /> : null;
+    if (id === "shared") return shared.length > 0 ? <Shared key={id} section={sortable} shared={shared} project={me.project.name} current={pathname} /> : null;
     if (id === "collections")
       return (
         <Collections
@@ -206,13 +206,8 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* The places, in the prototype's order. Team lives in Settings; each brand opens on its tabs from Brands. */}
-              <Place href="/" label="Explore" icon={<IconPhoto />} active={at.library} />
-              <Place href="/catalog" label="Catalog" icon={<IconSitemap />} active={at.catalog} />
-              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
-              {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
-              {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
-              <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />
+              {/* The places: finding, what waits on you, and how it is used. Everything else is the catalog's, below. */}
+              <Place href="/" label="Explore" icon={<IconSearch />} active={at.library} />
               <Place
                 href="/?review"
                 label="Review"
@@ -222,6 +217,7 @@ export function AppSidebar({
                 badge={(can("asset.review") && reviewCount) || undefined}
                 hint={can("asset.review") && reviewCount ? `${reviewCount} waiting` : undefined}
               />
+              {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
             </SidebarMenu>
             {/* Out of the app, so set apart from the places: BrandHub, where the project's brands show, private ones too. */}
             {me.hubUrl && (
@@ -251,6 +247,7 @@ export function AppSidebar({
         {can("organization.manage") && <StorageLine />}
         <SidebarMenu>
           <ExpandItem />
+          <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">
@@ -326,9 +323,10 @@ function ExpandItem() {
 
 /** Each section's icon on the folded rail. */
 const RAIL: Record<SectionId, { label: string; icon: React.ReactNode }> = {
-  recents: { label: "Recents", icon: <IconClock /> },
   brands: { label: "Brands", icon: <IconPalette /> },
   collections: { label: "Collections", icon: <IconFolders /> },
+  portals: { label: "Portals", icon: <IconWorld /> },
+  shared: { label: "Shared with this project", icon: <IconShare /> },
   searches: { label: "Saved searches", icon: <IconBookmarks /> },
 };
 
@@ -468,42 +466,58 @@ export const RECENT_ICON: Record<Recent["kind"], React.ReactNode> = {
 };
 
 /** What you opened lately, newest first, with how long ago, under today's names. */
-function Recents({ section, collections, searches }: { section: SortableItem; collections: Collection[]; searches: SavedSearch[] }) {
-  const [stored, setRecents] = useRecents();
-  const recents = liveRecents(stored, collections, searches).slice(0, 5);
+/** The project's portals: each opens its page; the section's menu, every portal to manage. */
+function Portals({ section, portals, current }: { section: SortableItem; portals: PortalRow[]; current: string }) {
   return (
-    // Grows in with the first thing opened, and folds away when cleared, rather than popping.
-    <Collapsible.Root open={recents.length > 0}>
-      <Collapsible.Content className={FOLD}>
-        <SidebarSection
-          id="recents"
-          label="Recents"
-          sortable={section}
-          menu={
-            <DropdownMenuItem onSelect={() => setRecents([])}>
-              <IconX /> Clear recents
-            </DropdownMenuItem>
-          }
-        >
-          <SidebarMenu>
-            {recents.map((r) => (
-              <SidebarMenuItem key={`${r.kind}-${r.id}`}>
-                <SidebarMenuButton asChild tooltip={r.label}>
-                  <NavLink href={r.href}>
-                    {RECENT_ICON[r.kind]} <span>{r.label}</span>
-                  </NavLink>
-                </SidebarMenuButton>
-                <SidebarMenuBadge className="text-muted-foreground font-normal" suppressHydrationWarning>
-                  {short(r.at)}
-                </SidebarMenuBadge>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarSection>
-      </Collapsible.Content>
-    </Collapsible.Root>
+    <SidebarSection id="portals" label="Portals" sortable={section} menu={<AllOf href="/portals" label="Manage portals" />}>
+      <SidebarMenu>
+        {portals.map((p) => (
+          <SidebarMenuItem key={p.id}>
+            <SidebarMenuButton asChild isActive={current === `/catalog/${p.id}`} tooltip={p.name}>
+              <NavLink href={`/catalog/${p.id}`}>
+                <IconWorld /> <span>{p.name}</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </SidebarSection>
   );
 }
+
+/** What other projects shared into this one, read where it lives: each opens its page there. */
+function Shared({ section, shared, project, current }: { section: SortableItem; shared: SharedRow[]; project: string; current: string }) {
+  const ICONS = { brand: IconPalette, collection: IconFolders, asset: IconPhoto } as const;
+  return (
+    <SidebarSection id="shared" label={`Shared with ${project}`} sortable={section}>
+      <SidebarMenu>
+        {shared.map((x) => {
+          const Icon = ICONS[x.type];
+          return (
+            <SidebarMenuItem key={x.id}>
+              <SidebarMenuButton asChild isActive={current === `/catalog/${x.id}`} tooltip={`${x.name}, from ${x.sharedFrom.name}`}>
+                <NavLink href={`/catalog/${x.id}`}>
+                  <Icon /> <span>{x.name}</span>
+                </NavLink>
+              </SidebarMenuButton>
+              <SidebarMenuBadge className="text-muted-foreground font-normal">{x.sharedFrom.name}</SidebarMenuBadge>
+            </SidebarMenuItem>
+          );
+        })}
+      </SidebarMenu>
+    </SidebarSection>
+  );
+}
+
+/** The section menu's way to its full list: Brands, Portals. */
+const AllOf = ({ href, label }: { href: string; label: string }) => {
+  const navigate = useNavigate();
+  return (
+    <DropdownMenuItem onSelect={() => navigate(href)}>
+      <IconList /> {label}
+    </DropdownMenuItem>
+  );
+};
 
 function Collections({
   section,

@@ -551,6 +551,14 @@ export function openapi(serverUrl: string) {
           ok: [200, "Projects", z.object({ projects: z.array(z.object({ id: z.uuid(), slug: z.string(), name: z.string(), role: z.string().nullable(), objects: z.array(CatalogItem) })) })],
         }),
       },
+      "/api/v1/catalog/shared": {
+        get: op({
+          summary: "What is shared into this project",
+          scope: "read",
+          description: "Brands, collections and assets other projects of the organization shared into this one: each as it is at home, `sharedFrom` naming it.",
+          ok: [200, "Shared objects", data(z.array(CatalogItem.extend({ sharedFrom: z.object({ id: z.uuid(), name: z.string() }) })))],
+        }),
+      },
       "/api/v1/catalog/{ref}": {
         parameters: [catalogRef],
         get: op({

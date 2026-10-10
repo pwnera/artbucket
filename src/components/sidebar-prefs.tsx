@@ -234,8 +234,12 @@ export function MoveItems({ s }: { s: SortableItem }) {
 
 // ---- sections ----------------------------------------------------------------
 
-/** The default order; a person's own order wins. Saved searches last: the rest are places, they are queries. */
-export const SECTIONS = ["recents", "collections", "brands", "searches"] as const;
+/**
+ * The catalog, as the sidebar's tree: the project's brands, collections and
+ * portals, what other projects shared into it, and saved searches last (the
+ * rest are things, they are queries). A person's own order wins.
+ */
+export const SECTIONS = ["brands", "collections", "portals", "shared", "searches"] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
 export const useSections = () => useSortable("sections", [...SECTIONS], (s) => s);
