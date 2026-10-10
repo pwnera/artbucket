@@ -100,7 +100,7 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
         brand={brand.slug}
         init={init}
         panel={PANELS.find((p) => p === panel)}
-        header={<AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(brand.slug) }, { label: "Guidelines", href: guidelinesPath(brand.slug) }, { label: "Edit" }]} />}
+        header={<AppHeader key="header" trail={[{ label: "Brands", href: "/brands" }, { label: brand.name, href: brandPath(brand.slug) }, { label: "Guidelines", href: guidelinesPath(brand.slug) }, { label: "Edit" }]} />}
       />
       <GitReturn brand={brand.slug} />
     </>

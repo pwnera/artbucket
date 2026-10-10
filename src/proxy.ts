@@ -204,7 +204,7 @@ export async function proxy(req: NextRequest) {
   init?.request.headers.set("x-path", pathname + req.nextUrl.search);
   const host = req.headers.get("host") ?? "";
   const target = host && host !== appHost && !onHub ? await hostTarget(host).catch(() => null) : null;
-  // The app's own screens where a person picks a Google font (components/font-preview.tsx, builder/brand-setup.tsx), never a portal's host.
+  // The app's own screens where a person picks a Google font (components/font-preview.tsx), never a portal's host.
   const picking = page && !onHub && (host === appHost || !!target?.app) && !target?.portal && /^\/(library|brands(\/.*)?)?$/.test(pathname);
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const policy = csp(nonce, picking);
