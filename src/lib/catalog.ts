@@ -48,6 +48,7 @@ export const EDGE_LABEL = {
   member: "in",
   offered: "offered",
   fork: "forked",
+  built: "built into",
 } as const;
 export type EdgeKind = keyof typeof EDGE_LABEL;
 

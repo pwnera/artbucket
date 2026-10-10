@@ -1617,7 +1617,7 @@ export const catalogObjects = pgView("catalog_objects", {
 export const catalogEdges = pgView("catalog_edges", {
   fromId: uuid("from_id").notNull(),
   toId: uuid("to_id").notNull(),
-  kind: text("kind").$type<"replaced_by" | "derived" | "rule" | "member" | "offered" | "fork">().notNull(),
+  kind: text("kind").$type<"replaced_by" | "derived" | "rule" | "member" | "offered" | "fork" | "built">().notNull(),
   via: text("via"),
 }).as(
   sql`select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from ${assets} a where a.superseded_by is not null
@@ -1636,5 +1636,11 @@ export const catalogEdges = pgView("catalog_edges", {
       join ${organizations} o on o.slug = split_part(b.forked_from, '/', 1)
       join ${projects} w on w.organization_id = o.id
       join ${brands} s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
-    where b.forked_from is not null`,
+    where b.forked_from is not null
+    union all
+    select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x
+    where d.state = 'live' and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    union all
+    select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
+    where d.state = 'live'`,
 );

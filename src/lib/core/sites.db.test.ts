@@ -9,6 +9,7 @@ import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal } from "@/lib/core/portals";
 import { deploy, listDeployments, siteFile } from "@/lib/core/sites";
+import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
 
 const ada = await signUp("Sitesada");
@@ -54,4 +55,15 @@ test("a build whose manifest names a replaced asset fails, and says which", asyn
   assert.equal((await listDeployments(ada.caller, docs.id))![0].state, "failed");
   // The one live before is still what answers.
   assert.equal((await siteFile(docs.slug, {}, "/"))?.status, 200);
+});
+
+test("a live build's manifest is its lineage: the assets it names and its brand flow into the site", async () => {
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#0a7f3c" } }).png().toBuffer();
+  const mark = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "mark.png" })).asset;
+  const site = await createPortal(ada.caller, { name: "Landing", slug: `landing-${Date.now().toString(36)}`, kind: "landing" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "hi", "artbucket.site.json": JSON.stringify({ brand: "default", assets: [mark.id] }) }));
+  const l = (await lineage(ada.caller, mark.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(l.edges.some((e) => e.to === site.id && e.kind === "built" && e.via === "/"));
+  const b = (await lineage(ada.caller, `${ada.caller.project.organization.slug}/${ada.caller.project.slug}/brand/default`, { depth: 1, direction: ["down"] }))!;
+  assert.ok(b.nodes.some((n) => n.id === site.id));
 });
