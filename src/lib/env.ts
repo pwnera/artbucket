@@ -72,7 +72,9 @@ const schema = z.object({
   /**
    * A brand book importer this server offers: a page that turns a brand's
    * guidelines (a PDF) into a draft brand, through the API as the person.
-   * New brand offers it as a fourth way to start, and leaves for it.
+   * New brand offers it as a fourth way to start, framing it at ?embed=1
+   * (&theme=light|dark): it must allow being framed by the app's origin, and
+   * tells the app by postMessage when it is at work and which brand to open.
    * Unset: no such choice.
    */
   BRAND_IMPORT_URL: z.string().url().optional(),

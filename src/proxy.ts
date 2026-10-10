@@ -51,8 +51,10 @@ const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace(":
 
 /** Cloudflare Turnstile's script and frame, on sign-up (lib/auth.ts), when TURNSTILE_* is set. */
 const turnstile = process.env.TURNSTILE_SITE_KEY ? " https://challenges.cloudflare.com" : "";
-// The assistant's panel (ASSISTANT_URL, components/assistant.tsx) frames its page.
+// The assistant's panel (ASSISTANT_URL, components/assistant.tsx) frames its page; New brand frames the brand book
+// importer's (BRAND_IMPORT_URL, components/new-brand.tsx).
 const assistant = origin(process.env.ASSISTANT_URL);
+const brandImport = origin(process.env.BRAND_IMPORT_URL);
 
 /**
  * Scripts: only those carrying this response's nonce, and what they load
@@ -79,7 +81,8 @@ const csp = (nonce: string, picking: boolean) => [
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
   "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com" +
     turnstile +
-    (assistant ? ` ${assistant}` : ""),
+    (assistant ? ` ${assistant}` : "") +
+    (brandImport && brandImport !== assistant ? ` ${brandImport}` : ""),
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

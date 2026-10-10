@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useEffectEvent, useId, useState } from "react";
+import { useTheme } from "next-themes";
 import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFileTypePdf, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
@@ -18,7 +19,7 @@ import { gitLink } from "@/lib/git";
 import { sendResult } from "@/lib/send";
 import { cn } from "@/lib/utils";
 
-type Step = "how" | "builder" | "agent" | "git";
+type Step = "how" | "builder" | "agent" | "git" | "book";
 type Start = "" | "domain" | (typeof TEMPLATE_CARDS)[number]["id"];
 /** GET /api/v1/brand-json: what a domain's brand.json holds. */
 type Found = {
@@ -50,7 +51,8 @@ const brief = (name: string, site: string) =>
  * files already there or made here and kept there as it grows; elsewhere,
  * made here and pushed from the repository with the CLI (artbucket brand push).
  * Where the server offers a brand book importer (me.brandImport,
- * BRAND_IMPORT_URL), a fourth: from the brand's guidelines as a PDF, on its page.
+ * BRAND_IMPORT_URL), a fourth: from the brand's guidelines as a PDF, its page
+ * framed here (?embed=1), which says when it is at work and which brand it made.
  */
 export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (b: BrandInfo) => void }) {
   const id = useId();
@@ -59,6 +61,11 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   const bookImport = me?.brandImport ?? null;
   const [step, setStep] = useState<Step>("how");
   const [how, setHow] = useState<"builder" | "agent" | "git" | "book">("builder");
+  const { resolvedTheme } = useTheme();
+  // The importer's frame: its address fixed when the step opens (a theme change mustn't reload it mid-import), and
+  // whether it is at work, when closing the dialog would end the import.
+  const [bookSrc, setBookSrc] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   // Made here, then kept in a repository: the integration takes over once it exists.
   const [keep, setKeep] = useState(false);
   const [name, setName] = useState("");
@@ -111,9 +118,39 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
     if (b) onDone(b);
   }
 
+  function openBook() {
+    if (!bookImport) return;
+    const u = new URL(bookImport, window.location.href);
+    u.searchParams.set("embed", "1");
+    if (resolvedTheme === "dark" || resolvedTheme === "light") u.searchParams.set("theme", resolvedTheme);
+    setBookSrc(u.toString());
+    setStep("book");
+  }
+
+  // What the importer says, from its own origin only: at work or not, Escape pressed inside it, the brand to open.
+  const onBookMessage = useEffectEvent(async (e: MessageEvent) => {
+    if (!bookImport || e.origin !== new URL(bookImport, window.location.href).origin) return;
+    const data = e.data as { type?: string; busy?: unknown; close?: unknown; open?: unknown } | null;
+    if (data?.type !== "artbucket:brand-import") return;
+    if (typeof data.busy === "boolean") setImporting(data.busy);
+    if (data.close === true && !importing && !busy) onClose();
+    if (typeof data.open === "string") {
+      setBusy(true);
+      const b = (await send("GET", `/api/v1/brands/${encodeURIComponent(data.open)}`)) as BrandInfo | null;
+      setBusy(false);
+      if (b) onDone(b);
+    }
+  });
+  useEffect(() => {
+    if (step !== "book") return;
+    const listen = (e: MessageEvent) => void onBookMessage(e);
+    window.addEventListener("message", listen);
+    return () => window.removeEventListener("message", listen);
+  }, [step]);
+
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && !busy && !importing && onClose()}>
       <DialogContent className="sm:max-w-3xl" guard={{ dirty: !!(name || site), onDiscard: onClose }}>
         {/* Each step slides in from the side it lies on: on from the end, Back from the start. */}
         <div
@@ -146,7 +183,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button type="button" onClick={() => (how === "book" ? bookImport && window.location.assign(bookImport) : setStep(how))}>
+                <Button type="button" onClick={() => (how === "book" ? openBook() : setStep(how))}>
                   Continue
                 </Button>
               </DialogFooter>
@@ -263,6 +300,21 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 </Button>
               </DialogFooter>
             </form>
+          )}
+
+          {step === "book" && bookSrc && (
+            <div className="grid min-w-0 gap-4">
+              <DialogHeader>
+                <DialogTitle>From a brand book</DialogTitle>
+                <DialogDescription>A draft until you release it: you review it first.</DialogDescription>
+              </DialogHeader>
+              <iframe src={bookSrc} title="Import a brand book" className="h-[min(34rem,62vh)] w-full border-0" />
+              <DialogFooter className="sm:justify-start">
+                <Button type="button" variant="ghost" disabled={importing || busy} onClick={() => setStep("how")}>
+                  <IconArrowLeft /> Back
+                </Button>
+              </DialogFooter>
+            </div>
           )}
 
           {step === "git" && git && (
