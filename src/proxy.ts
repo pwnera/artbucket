@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { servesBuild } from "@/lib/sites";
 import { ipOf } from "@/lib/client-ip";
 import { hostTarget, portalHome } from "@/lib/core/domains";
 import { suspendedAt } from "@/lib/core/suspension";
@@ -123,7 +124,7 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   if (!asked) return null;
   const url = req.nextUrl.clone();
   // A path a live build holds is its files (lib/core/sites.ts); a site that is all build, every path. Only here, on the site's own host.
-  const built = home && (home.kind !== "portal" || home.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`))));
+  const built = !!home && servesBuild(home, rest);
   url.pathname = built ? `/sitefiles/${asked}${rest || "/"}` : `/p/${asked}${rest}`;
   return NextResponse.rewrite(url, init);
 }

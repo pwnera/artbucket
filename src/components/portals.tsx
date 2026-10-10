@@ -1,5 +1,6 @@
 "use client";
 
+import { BuildSiteDialog } from "@/components/site-deployments";
 import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,6 +23,7 @@ import {
   IconUserQuestion,
   IconUsers,
   IconWorld,
+  IconUpload,
   IconX,
   } from "@/components/icons";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -164,6 +166,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const [editing, setEditing] = useState<Portal | "new" | null>(() =>
     freshBrand || fresh === "portal" ? "new" : (asked && portals.find((x) => x.id === asked)) || null,
   );
+  // A built site, made or deployed to (components/site-deployments.tsx); ?new=site opens a new one.
+  const [building, setBuilding] = useState<Portal | "new" | null>(() => (fresh === "site" ? "new" : null));
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
@@ -184,9 +188,23 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           title="Sites"
           description="Brand portals Artbucket renders for press, partners and retailers, and the sites you build and deploy."
         >
-          <Button size="sm" onClick={() => setEditing("new")} disabled={!any}>
-            <IconPlus /> New site
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <IconPlus /> New site
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuItem onSelect={() => setEditing("new")} disabled={!any}>
+                <IconWorld /> Brand portal
+                <span className="text-muted-foreground ms-auto ps-3 text-xs whitespace-nowrap">rendered by Artbucket</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setBuilding("new")}>
+                <IconUpload /> Built site
+                <span className="text-muted-foreground ms-auto ps-3 text-xs whitespace-nowrap">a zip of static files</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </PageHeader>
         {only && (
           <p className="text-muted-foreground -mt-2 text-sm">
@@ -211,9 +229,14 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             </EmptyHeader>
             <EmptyContent>
               {any ? (
-                <Button onClick={() => setEditing("new")}>
-                  <IconPlus /> New site
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => setEditing("new")}>
+                    <IconPlus /> Brand portal
+                  </Button>
+                  <Button variant="outline" onClick={() => setBuilding("new")}>
+                    <IconUpload /> Built site
+                  </Button>
+                </div>
               ) : (
                 <Button onClick={() => openCollection("new")}>
                   <IconPlus /> New collection
@@ -234,7 +257,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
                     {/* The whole row opens it: this button's box stretches over the row, under its actions. */}
-                    <button type="button" onClick={() => setEditing(p)} className="truncate text-left after:absolute after:inset-0">
+                    <button type="button" onClick={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
@@ -264,7 +287,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                   </IconButton>
                   <RowMenu
                     portal={p}
-                    onEdit={() => setEditing(p)}
+                    onEdit={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))}
+                    onBuild={() => setBuilding(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
                     onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
                   />
@@ -293,6 +317,21 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             if (said) toastSaved(saved, said);
           }}
           onDeleted={(gone) => collapse(document.querySelector(`[data-portal="${CSS.escape(gone)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== gone)))}
+        />
+      )}
+      {building && (
+        <BuildSiteDialog
+          key={building === "new" ? "new" : building.id}
+          open
+          site={building === "new" ? null : building}
+          onClose={() => {
+            setBuilding(null);
+            if (fresh) router.replace("/sites", { scroll: false });
+          }}
+          onSaved={(saved) => {
+            setRows((rs) => upsert(rs, saved));
+            flash(`[data-portal="${CSS.escape(saved.id)}"]`);
+          }}
         />
       )}
       {shownRequests && (
@@ -324,7 +363,20 @@ export function toastSaved(saved: Portal, said: "made" | "saved") {
  * it back (POST .../close, PATCH expiresAt: null), or delete it. Offline, its
  * address says it is closed, and everything about it stays for its return.
  */
-function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; onEdit: () => void; onChanged: (p: Portal) => void; onDeleted: () => void }) {
+function RowMenu({
+  portal: p,
+  onEdit,
+  onBuild,
+  onChanged,
+  onDeleted,
+}: {
+  portal: Portal;
+  onEdit: () => void;
+  /** Its deployments: a built site's, or builds mounted beside a brand portal. */
+  onBuild: () => void;
+  onChanged: (p: Portal) => void;
+  onDeleted: () => void;
+}) {
   const [deleting, setDeleting] = useState(false);
   const toggle = async () => {
     // The row shows it at once (its Offline badge), and goes back if the server says no.
@@ -349,6 +401,9 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onSelect={onEdit}>
             <IconPencil /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onBuild}>
+            <IconUpload /> {p.kind === "portal" ? "Deploy a build at a path" : "Deployments"}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void toggle()}>
             {p.expired ? <IconPlayerPlay /> : <IconPlayerPause />} {p.expired ? "Bring back online" : "Take offline"}

@@ -97,3 +97,11 @@ export function candidates(rest: string): string[] {
   if (!p || p.endsWith("/")) return [`${p}index.html`, "404.html"];
   return /\.[a-z0-9]+$/i.test(p) ? [p, "404.html"] : [p, `${p}.html`, `${p}/index.html`, "404.html"];
 }
+
+/**
+ * Whether a request to a site's own address is for its build's files rather
+ * than Artbucket's pages: every path of a site that is all build, else a
+ * path under one of its mounts (never /, which a brand portal keeps).
+ */
+export const servesBuild = (site: { kind: string; mounts: string[] }, rest: string) =>
+  site.kind !== "portal" || site.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`)));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILD_KINDS, candidates, contentTypeOf, mountPath, siteFiles } from "./sites.ts";
+import { BUILD_KINDS, candidates, contentTypeOf, mountPath, servesBuild, siteFiles } from "./sites.ts";
 
 test("a mount path is / or lowercase segments, no trailing slash", () => {
   assert.equal(mountPath("/"), "/");
@@ -28,4 +28,14 @@ test("a request finds its file, its index, its .html, then the 404 page", () => 
   assert.deepEqual(candidates("/guides/start"), ["guides/start", "guides/start.html", "guides/start/index.html", "404.html"]);
   assert.equal(contentTypeOf("a/b.CSS"), "text/css; charset=utf-8");
   assert.equal(contentTypeOf("run.exe"), "application/octet-stream");
+});
+
+test("a site's own address serves its build where one is mounted, and the portal everywhere else", () => {
+  const press = { kind: "portal", mounts: ["/docs"] };
+  assert.equal(servesBuild(press, ""), false);
+  assert.equal(servesBuild(press, "/logo"), false);
+  assert.equal(servesBuild(press, "/docs"), true);
+  assert.equal(servesBuild(press, "/docs/start"), true);
+  assert.equal(servesBuild(press, "/docsy"), false);
+  assert.equal(servesBuild({ kind: "docs", mounts: [] }, ""), true);
 });
