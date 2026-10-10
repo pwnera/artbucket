@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   Background,
@@ -14,6 +14,7 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { IconArrowRight, IconExternalLink, IconMinus, IconPlus, IconX } from "@tabler/icons-react";
@@ -39,7 +40,16 @@ type Lineage = { root: string; nodes: LineageNode[]; edges: LineageEdge[]; unsee
 type Dir = "up" | "down";
 /** What one expansion brought in, so folding it takes exactly that away. */
 type Added = { nodes: string[]; edges: string[] };
-type Graph = { nodes: Map<string, LineageNode>; edges: Map<string, LineageEdge>; added: Map<string, Added>; unseen: number; impact: string };
+/** `level`: columns from the root, upstream negative; `at`: where each card sits, kept as hops come and go. */
+type Graph = {
+  nodes: Map<string, LineageNode>;
+  edges: Map<string, LineageEdge>;
+  added: Map<string, Added>;
+  level: Map<string, number>;
+  at: Map<string, { x: number; y: number }>;
+  unseen: number;
+  impact: string;
+};
 
 const W = 264;
 const H = 84;
@@ -63,27 +73,29 @@ const fetchHop = async (id: string, direction: string) => {
   return (await res.json()) as Lineage;
 };
 
-/** Columns by hops from the root: upstream negative, downstream positive; each column centred on the root's row. */
-function layout(root: string, g: Graph): Map<string, { x: number; y: number }> {
-  const level = new Map([[root, 0]]);
-  const queue = [root];
-  while (queue.length) {
-    const id = queue.shift()!;
-    for (const e of g.edges.values()) {
-      const next = e.from === id ? e.to : e.to === id ? e.from : null;
-      if (!next || level.has(next)) continue;
-      level.set(next, level.get(id)! + (e.from === id ? 1 : -1));
-      queue.push(next);
-    }
-  }
-  const columns = new Map<number, string[]>();
-  for (const id of g.nodes.keys()) {
-    const l = level.get(id) ?? 0;
-    columns.set(l, [...(columns.get(l) ?? []), id]);
-  }
-  const at = new Map<string, { x: number; y: number }>();
-  for (const [l, ids] of columns) ids.forEach((id, i) => at.set(id, { x: l * COL, y: (i - (ids.length - 1) / 2) * ROW }));
-  return at;
+/**
+ * Place new cards in their column, centred on the card they came from, below
+ * any card already there: what is on the canvas never moves.
+ */
+function place(g: Graph, from: { x: number; y: number }, ids: string[], level: number) {
+  const x = level * COL;
+  const taken = [...g.at.entries()].filter(([id]) => g.level.get(id) === level).map(([, p]) => p.y);
+  let y = from.y - ((ids.length - 1) / 2) * ROW;
+  // Overlapping what is there: start below it.
+  if (taken.some((t) => t > y - ROW && t < y + ids.length * ROW)) y = Math.max(...taken) + ROW;
+  ids.forEach((id, i) => g.at.set(id, { x, y: y + i * ROW }));
+}
+
+/** The first graph: the root, what it comes from on the left, what uses it on the right. */
+function first(l: Lineage): Graph {
+  const g: Graph = { nodes: new Map(l.nodes.map((n) => [n.id, n])), edges: new Map(l.edges.map((e) => [keyOf(e), e])), added: new Map(), level: new Map([[l.root, 0]]), at: new Map([[l.root, { x: 0, y: 0 }]]), unseen: l.unseen, impact: l.impact.line };
+  const up = l.edges.filter((e) => e.to === l.root).map((e) => e.from);
+  const down = l.edges.filter((e) => e.from === l.root).map((e) => e.to);
+  for (const id of up) g.level.set(id, -1);
+  for (const id of down) if (!g.level.has(id)) g.level.set(id, 1);
+  place(g, { x: 0, y: 0 }, [...new Set(up)], -1);
+  place(g, { x: 0, y: 0 }, [...new Set(down)].filter((id) => g.level.get(id) === 1), 1);
+  return g;
 }
 
 type Data = {
@@ -162,12 +174,14 @@ const nodeTypes = { object: ObjectNode };
 function fold(g: Graph, key: string): Graph {
   const gone = g.added.get(key);
   if (!gone) return g;
-  let next: Graph = { ...g, nodes: new Map(g.nodes), edges: new Map(g.edges), added: new Map(g.added) };
+  let next: Graph = { ...g, nodes: new Map(g.nodes), edges: new Map(g.edges), added: new Map(g.added), level: new Map(g.level), at: new Map(g.at) };
   next.added.delete(key);
   for (const n of gone.nodes) for (const d of ["up", "down"] as Dir[]) next = fold(next, `${n}:${d}`);
   for (const e of gone.edges) next.edges.delete(e);
   for (const n of gone.nodes) {
     next.nodes.delete(n);
+    next.level.delete(n);
+    next.at.delete(n);
     for (const [k, e] of next.edges) if (e.from === n || e.to === n) next.edges.delete(k);
   }
   return next;
@@ -180,15 +194,17 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<{ id: string; dir: Dir } | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
+  const view = useRef<ReactFlowInstance<Node<Data>> | null>(null);
+  const size = graph?.nodes.size ?? 0;
+  // A hop added or folded: the cards stay where they are, and the view eases to take them all in.
+  useEffect(() => {
+    if (size) requestAnimationFrame(() => view.current?.fitView({ padding: 0.25, maxZoom: 1, duration: 300 }));
+  }, [size]);
 
   useEffect(() => {
     let live = true;
     fetchHop(id, "up,down")
-      .then(
-        (l) =>
-          live &&
-          setGraph({ nodes: new Map(l.nodes.map((n) => [n.id, n])), edges: new Map(l.edges.map((e) => [keyOf(e), e])), added: new Map(), unseen: l.unseen, impact: l.impact.line }),
-      )
+      .then((l) => live && setGraph(first(l)))
       .catch((e: Error) => live && setError(e.message));
     return () => {
       live = false;
@@ -207,20 +223,25 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
         const l = await fetchHop(node, dir);
         setGraph((g) => {
           if (!g) return g;
-          const nodes = new Map(g.nodes);
-          const edges = new Map(g.edges);
+          const next: Graph = { ...g, nodes: new Map(g.nodes), edges: new Map(g.edges), level: new Map(g.level), at: new Map(g.at), added: new Map(g.added) };
           const added: Added = { nodes: [], edges: [] };
           for (const n of l.nodes) {
-            if (nodes.has(n.id)) continue;
-            nodes.set(n.id, n);
+            if (next.nodes.has(n.id)) continue;
+            next.nodes.set(n.id, n);
             added.nodes.push(n.id);
           }
           for (const e of l.edges) {
-            if (edges.has(keyOf(e))) continue;
-            edges.set(keyOf(e), e);
+            if (next.edges.has(keyOf(e))) continue;
+            next.edges.set(keyOf(e), e);
             added.edges.push(keyOf(e));
           }
-          return { ...g, nodes, edges, added: new Map(g.added).set(key, added), unseen: g.unseen + l.unseen };
+          // The new hop's column: one further out, on the side it was asked from.
+          const level = (g.level.get(node) ?? 0) + (dir === "down" ? 1 : -1);
+          for (const n of added.nodes) next.level.set(n, level);
+          place(next, g.at.get(node) ?? { x: 0, y: 0 }, added.nodes, level);
+          next.added.set(key, added);
+          next.unseen += l.unseen;
+          return next;
         });
       } catch (e) {
         setError((e as Error).message);
@@ -233,16 +254,19 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
 
   const flow = useMemo(() => {
     if (!graph) return null;
-    const at = layout(id, graph);
     const edgeList = [...graph.edges.values()];
     const shown = (n: string, dir: Dir) => edgeList.filter((e) => (dir === "up" ? e.to === n : e.from === n)).length;
     const lit = picked ? new Set(edgeList.flatMap((e) => (e.from === picked || e.to === picked ? [e.from, e.to] : []))) : null;
     const nodes: Node<Data>[] = [...graph.nodes.values()].map((item) => {
-      const state = (dir: Dir): Data["side"][Dir] => (graph.added.has(`${item.id}:${dir}`) ? "less" : item[dir] > shown(item.id, dir) ? "more" : null);
+      // A + only on the side facing out, where nothing is drawn yet: upstream cards open left, downstream ones right, the root both.
+      const level = graph.level.get(item.id) ?? 0;
+      const outward = (dir: Dir) => level === 0 || (dir === "up" ? level < 0 : level > 0);
+      const state = (dir: Dir): Data["side"][Dir] =>
+        !outward(dir) ? null : graph.added.has(`${item.id}:${dir}`) ? "less" : item[dir] > shown(item.id, dir) ? "more" : null;
       return {
         id: item.id,
         type: "object",
-        position: at.get(item.id) ?? { x: 0, y: 0 },
+        position: graph.at.get(item.id) ?? { x: 0, y: 0 },
         // Its size, said up front: the minimap and fitting draw from it, as nothing records the measured one.
         width: W,
         height: H,
@@ -291,12 +315,11 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
         )}
       </div>
       <div className="bg-muted/20 relative h-[600px] overflow-hidden rounded-xl border">
-        {/* Keyed by its size: a hop added or folded fits the graph back into view. */}
         <ReactFlow
-          key={graph.nodes.size}
           nodes={flow.nodes}
           edges={flow.edges}
           nodeTypes={nodeTypes}
+          onInit={(i) => (view.current = i)}
           colorMode={resolvedTheme === "dark" ? "dark" : "light"}
           fitView
           fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
