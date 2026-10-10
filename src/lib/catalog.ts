@@ -159,11 +159,11 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
     case "asset":
       return `/assets/${item.id}?${w}`;
     case "collection":
-      return `/catalog/${item.id}?${w}`;
+      return `/?collection=${item.id}&${w}`;
     case "brand":
       return `/brands/${item.slug}?${w}`;
     case "portal":
-      return `/catalog/${item.id}?${w}`;
+      return `/portals?${w}`;
     case "rule":
       return `/brands/${brand}/rules?${w}`;
     case "page":

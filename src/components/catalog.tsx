@@ -11,17 +11,20 @@ import {
   IconPalette,
   IconPhoto,
   IconRobot,
+  IconSearch,
   IconStack2,
   IconUser,
   IconWorld,
   IconFolder,
   IconLink,
+  IconLayoutSidebarLeftExpand,
   IconShare,
   IconX,
 } from "@tabler/icons-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { send } from "@/lib/send";
+import { CatalogTree } from "@/components/catalog-tree";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
 import { CopyButton } from "@/components/copy-button";
@@ -67,7 +70,7 @@ export const StatusBadge = ({ status, className }: { status: CatalogStatus; clas
 );
 
 // React Flow measures the window: only in the browser.
-export const LineageGraph = dynamic(() => import("@/components/catalog-lineage").then((m) => m.LineageGraph), {
+const LineageGraph = dynamic(() => import("@/components/catalog-lineage").then((m) => m.LineageGraph), {
   ssr: false,
   loading: () => <div className="bg-muted/40 h-[480px] animate-pulse rounded-xl border" />,
 });
@@ -86,33 +89,44 @@ export type Tab = (typeof TABS)[number];
 
 const day = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
-/**
- * One object's page, the shell every object shares (/catalog/{id}): where it
- * is, its address and status, and its tabs, the governance ones (Lineage,
- * Access, Activity) the same for every type. Brands carry these tabs in their
- * own pages (brands/[slug]); collections and portals live here.
- */
-export function ObjectPage({ object, tab, projects }: { object: Described; tab: Tab; projects: TreeProject[] }) {
+export function CatalogExplorer({ projects, object, tab }: { projects: TreeProject[]; object: Described | null; tab: Tab }) {
   const router = useRouter();
-  const go = useCallback((id: string, t: Tab = tab) => router.push(`/catalog/${id}${t === "overview" ? "" : `?tab=${t}`}`, { scroll: false }), [router, tab]);
+  const [hidden, setHidden] = useState(false);
+  const go = useCallback((id: string, t: Tab = tab) => router.push(`/catalog?o=${id}${t === "overview" ? "" : `&tab=${t}`}`, { scroll: false }), [router, tab]);
   return (
     <>
-      <AppHeader trail={[{ label: TYPE_LABEL[object.type].many, href: object.type === "collection" ? "/" : object.type === "portal" ? "/portals" : undefined }, { label: object.name }]} />
-      <main className="px-4 pt-6 pb-16 md:px-6">
-        <ObjectView object={object} tab={tab} go={go} projects={projects} />
-      </main>
+      <AppHeader trail={[{ label: "Catalog" }]}>
+        <Button asChild variant="outline" size="sm" className="text-muted-foreground w-56 justify-start font-normal max-sm:hidden">
+          <Link href="/">
+            <IconSearch /> Search everything in Explore
+          </Link>
+        </Button>
+      </AppHeader>
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {hidden ? (
+          <div className="hidden shrink-0 border-e p-1.5 md:sticky md:top-14 md:block md:h-[calc(100svh-3.5rem)]">
+            <IconButton variant="ghost" size="icon-sm" label="Show the tree" onClick={() => setHidden(false)}>
+              <IconLayoutSidebarLeftExpand />
+            </IconButton>
+          </div>
+        ) : (
+          <div className="h-80 shrink-0 border-b md:sticky md:top-14 md:h-[calc(100svh-3.5rem)] md:w-80 md:border-e md:border-b-0">
+            <CatalogTree projects={projects} current={object?.id ?? null} onOpen={(id) => go(id)} onHide={() => setHidden(true)} />
+          </div>
+        )}
+        <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
+          {object ? (
+            <ObjectView object={object} tab={tab} go={go} projects={projects} />
+          ) : (
+            <p className="text-muted-foreground text-sm">Nothing in the catalog you can reach yet. Upload an asset or make a brand, and it shows here.</p>
+          )}
+        </main>
+      </div>
     </>
   );
 }
 
-/** One of the governance tabs on its own, for a page with tabs of its own (a brand's). Walking the lineage opens the next object's page. */
-export function GovernanceTab({ id, tab }: { id: string; tab: "lineage" | "access" | "activity" }) {
-  const router = useRouter();
-  if (tab === "lineage") return <LineageGraph key={id} id={id} onOpen={(to) => router.push(`/catalog/${to}?tab=lineage`)} />;
-  return tab === "access" ? <Access key={id} id={id} /> : <Activity key={id} id={id} />;
-}
-
-export function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: Tab; go: (id: string, t?: Tab) => void; projects: TreeProject[] }) {
+function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: Tab; go: (id: string, t?: Tab) => void; projects: TreeProject[] }) {
   const counts: Partial<Record<Tab, number>> = { lineage: o.lineage.up + o.lineage.down };
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -153,13 +167,7 @@ export function ObjectView({ object: o, tab, go, projects }: { object: Described
           <div className="flex gap-2">
             {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
             <Button asChild>
-              {o.type === "collection" ? (
-                <Link href={`/?collection=${o.id}`}>Browse in Explore</Link>
-              ) : o.type === "portal" ? (
-                <Link href="/portals">Manage portals</Link>
-              ) : (
-                <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
-              )}
+              <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
             </Button>
           </div>
         </div>
@@ -250,11 +258,6 @@ function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }
         </Button>
       </Card>
       {SHAREABLE.includes(o.type) && <SharedWith o={o} />}
-      {o.type === "collection" && (
-        <Button asChild variant="outline" className="w-fit">
-          <Link href={`/?collection=${o.id}`}>Browse its assets in Explore</Link>
-        </Button>
-      )}
     </div>
   );
 }
@@ -362,7 +365,7 @@ function useView<T>(path: string) {
 
 const KIND: Record<Holder["kind"], React.ComponentType<{ className?: string }>> = { person: IconUser, agent: IconRobot, project: IconFolder, public: IconWorld, link: IconLink };
 
-export function Access({ id }: { id: string }) {
+function Access({ id }: { id: string }) {
   const { data, error } = useView<{ private: boolean; holders: Holder[] }>(`/api/v1/catalog/${id}/access`);
   return (
     <Card title="Who can reach it">
@@ -407,7 +410,7 @@ export function Access({ id }: { id: string }) {
   );
 }
 
-export function Activity({ id }: { id: string }) {
+function Activity({ id }: { id: string }) {
   const { data, error } = useView<{ data: ActivityLine[] }>(`/api/v1/catalog/${id}/activity`);
   return (
     <Card title="Activity">

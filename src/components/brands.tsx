@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
@@ -65,11 +65,14 @@ export function BrandsPage({
   canEdit,
   q: initialQ = "",
   offers = [],
+  create = false,
 }: {
   brands: BrandRow[];
   canShare: boolean;
   canEdit: boolean;
   q?: string;
+  /** Open on New brand: ?new=brand, a link from elsewhere (the Git integration) that means "start one here". */
+  create?: boolean;
   /** Listings the organization's verified domains claim (GET /api/v1/hub/offers), for its admins. */
   offers?: HubOffer[];
 }) {
@@ -77,7 +80,14 @@ export function BrandsPage({
   // A brand's Settings tab lands here with its name in the search.
   const [q, setQ] = useState(initialQ);
   const [show, setShow] = useState<Show>("all");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(create && canEdit);
+  // Asked once: a reload shouldn't open it again.
+  useEffect(() => {
+    if (!create) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState(window.history.state, "", url);
+  }, [create]);
   const [going, setGoing] = useState<BrandRow | null>(null);
   // Cards until someone picks the list; kept per browser, like the library's layout. Storage may refuse.
   const stored = useSyncExternalStore(

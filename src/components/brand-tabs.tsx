@@ -7,7 +7,7 @@ import { TabNav } from "@/components/hub";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { brandPath, guidelinesPath } from "@/lib/site";
 
-export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "sharing" | "lineage" | "access" | "activity" | "insights" | "settings";
+export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "sharing" | "insights" | "settings";
 
 /**
  * A brand's tabs (PRD section 13, "In the app"), as a repository's are. The
@@ -24,10 +24,6 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     { id: "sharing", label: "Sharing", href: brandPath(brand.slug, "/sharing") },
-    // The catalog's tabs, the same on every object (components/catalog.tsx).
-    { id: "lineage", label: "Lineage", href: brandPath(brand.slug, "/lineage") },
-    { id: "access", label: "Access", href: brandPath(brand.slug, "/access") },
-    { id: "activity", label: "Activity", href: brandPath(brand.slug, "/activity") },
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: brandPath(brand.slug, "/insights") }] : []),
     ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: brandPath(brand.slug, "/settings") }] : []),
   ];

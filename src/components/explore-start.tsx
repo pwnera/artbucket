@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { IconArrowRight, IconBookmark, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@tabler/icons-react";
 import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";
+import { useCan } from "@/components/can";
 import type { Collection } from "@/components/collections";
+import { useShell } from "@/components/shell";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
 import { Kbd } from "@/components/ui/kbd";
 import { canonical } from "@/lib/view";
@@ -32,6 +34,8 @@ type Latest = { id: string; filename: string; metadata?: { title?: string } | nu
 
 export function ExploreStart({ latest, collections, searches }: { latest: Latest[]; collections: Collection[]; searches: SavedSearch[] }) {
   const navigate = useNavigate();
+  const can = useCan();
+  const { forgetSearch } = useShell();
   const [text, setText] = useState("");
   const [queries, setQueries] = useRecentQueries();
   const [stored] = useRecents();
@@ -94,8 +98,22 @@ export function ExploreStart({ latest, collections, searches }: { latest: Latest
               </button>
             </Row>
           ))}
-          {searches.slice(0, 4).map((s) => (
-            <Row key={s.id} onClick={() => navigate(`/?${canonical(s.query)}`)} icon={<IconBookmark className="size-4" />} label={s.name} />
+          {searches.slice(0, 6).map((s) => (
+            <Row key={s.id} onClick={() => navigate(`/?${canonical(s.query)}`)} icon={<IconBookmark className="size-4" />} label={s.name}>
+              {can("search.delete") && (
+                <button
+                  type="button"
+                  aria-label={`Delete the saved search ${s.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    forgetSearch(s.id);
+                  }}
+                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+                >
+                  <IconX className="size-3.5" />
+                </button>
+              )}
+            </Row>
           ))}
         </Panel>
         <Panel title="Recently opened" icon={IconClock} empty="Assets, brands and collections you open show here.">

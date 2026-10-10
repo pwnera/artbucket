@@ -20,6 +20,7 @@ import {
   IconPencil,
   IconPhoto,
   IconShare,
+  IconSitemap,
   IconSparkles,
   IconUpload,
   IconX,
@@ -1050,16 +1051,10 @@ export function AssetEditor({
               Whoever may look at a file may ask what it may be used for.
             */}
             {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
-            {/* The catalog's tabs, as every object has them: the graph and the list want a page of their own. */}
-            <Fold title="Lineage and access" summary="What it comes from, what uses it, who reaches it" remember="catalog">
-              <div className="flex flex-wrap gap-2">
-                {(["lineage", "access", "activity"] as const).map((t) => (
-                  <Button key={t} variant="outline" size="sm" className="capitalize" onClick={() => leave(() => router.push(`/catalog/${asset.id}?tab=${t}`))}>
-                    {t}
-                  </Button>
-                ))}
-              </div>
-            </Fold>
+            {/* Governance lives in the catalog: what it comes from, what uses it, who reaches it, what happened to it. */}
+            <Button variant="outline" size="sm" className="w-fit" onClick={() => leave(() => router.push(`/catalog?o=${asset.id}&tab=lineage`))}>
+              <IconSitemap /> Lineage and access in the catalog
+            </Button>
             <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
               <CanIUse
                 key={asset.id}

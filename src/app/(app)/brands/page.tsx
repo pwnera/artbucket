@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Brands" };
 
 /** The project's brands and who sees each on BrandHub, from /api/v1/brands and each one's /hub like any client's. */
-export default async function Brands({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const [me, list, { q }] = await Promise.all([whoami(), listBrands(), searchParams]);
+export default async function Brands({ searchParams }: { searchParams: Promise<{ q?: string; new?: string }> }) {
+  const [me, list, { q, new: make }] = await Promise.all([whoami(), listBrands(), searchParams]);
   type Rule = Pick<HubRule, "key" | "label" | "type" | "value" | "context"> & { spec?: RuleSpec | null; assets: { id: string; mime: string; filename: string }[] };
   const [hubs, rules, offers] = await Promise.all([
     Promise.all(list.map((b) => get(`brands/${encodeURIComponent(b.slug)}/hub`, (x: { data: BrandHub }) => x.data, null))),
@@ -31,5 +31,5 @@ export default async function Brands({ searchParams }: { searchParams: Promise<{
     };
     return { ...b, hub: hubs[i], look };
   }) as BrandRow[];
-  return <BrandsPage brands={rows} canShare={can(me, "brand.publish")} canEdit={can(me, "brand.create")} q={q} offers={offers} />;
+  return <BrandsPage brands={rows} canShare={can(me, "brand.publish")} canEdit={can(me, "brand.create")} q={q} offers={offers} create={make === "brand"} />;
 }

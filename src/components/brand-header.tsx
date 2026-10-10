@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
-import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@tabler/icons-react";
+import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconSitemap, IconWorld, IconWorldUpload } from "@tabler/icons-react";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
@@ -92,6 +92,12 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     <div className="flex shrink-0 items-center gap-2">
       <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
+      {/* Its lineage, who reaches it and what happened to it: governed in the catalog, with everything else. */}
+      <Button asChild size="sm" variant="outline" title="Lineage, access and activity in the catalog">
+        <Link href={`/catalog?o=${brand.id}`}>
+          <LinkIcon icon={<IconSitemap aria-hidden />} /> <span className={compact ? "sr-only" : undefined}>Catalog</span>
+        </Link>
+      </Button>
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={builderPath(brand.slug, editing)}>

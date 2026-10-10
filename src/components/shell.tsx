@@ -25,6 +25,8 @@ type ShellValue = {
   setCollections: Setter<Collection[]>;
   searches: SavedSearch[];
   setSearches: Setter<SavedSearch[]>;
+  /** Delete a saved search, with Undo. */
+  forgetSearch: (id: string) => void;
   reviewCount: number;
   setReviewCount: Setter<number>;
   brands: BrandInfo[];
@@ -313,6 +315,7 @@ export function Shell({
       setCollections,
       searches,
       setSearches,
+      forgetSearch: (id) => void forget(id),
       reviewCount,
       setReviewCount,
       brands,
@@ -324,13 +327,12 @@ export function Shell({
       setCommands,
       collectionEdits,
     }),
+    // forget reads `searches`, which is here: it is the same function for the same list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [collections, searches, reviewCount, brands, setUpload, setCommands, openCollection, collectionEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
-  // On a brand's pages, /brands/{slug}/...: that brand.
-  const at = pathname.match(/^\/brands\/([^/]+)/)?.[1];
-  const currentBrand = at && decodeURIComponent(at);
 
   return (
     <ShellContext.Provider value={value}>
@@ -345,18 +347,10 @@ export function Shell({
       >
         <AppSidebar
           me={sidebar.me}
-          collections={collections}
-          brands={brands}
-          portals={sidebar.portals}
-          shared={sidebar.shared}
           searches={searches}
           reviewCount={reviewCount}
-          currentBrand={currentBrand}
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
-          onNewCollection={newCollection}
-          onEditCollection={(c) => void openCollection(c)}
-          onDeleteSearch={forget}
         />
         <SidebarInset className="min-w-0">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
