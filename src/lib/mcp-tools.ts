@@ -298,7 +298,7 @@ export const TOOL_INPUTS = {
   search_catalog: z.object({
     q: z.string().max(512).optional().describe('Free words, and filters inline: "logo type:asset status:current uses:acme/corporate/brand/acme"'),
     type: z.array(z.enum(CATALOG_TYPES)).optional(),
-    project: z.array(z.string().max(64)).optional().describe("Projects' slugs"),
+    projects: z.array(z.string().max(64)).optional().describe("Only these projects, by slug"),
     status: z.array(z.enum(CATALOG_STATUSES)).optional().describe("Current, draft and in review when left out: replaced, archived and expired are counted aside"),
     uses: z.string().max(300).optional().describe("Only what is downstream of this address or id"),
     usedby: z.string().max(300).optional().describe("Only what is upstream of this address or id"),
@@ -315,7 +315,7 @@ export const TOOL_INPUTS = {
 
   share_object: z.object({
     object: z.string().min(1).max(300).describe("A brand, collection or asset: its id or address"),
-    project: z.string().min(1).max(64).describe("The project to share it into: its slug, as search_catalog's projects name them"),
+    into: z.string().min(1).max(64).describe("The project to share it into: its slug, as search_catalog's projects name them"),
   }),
 
   who_can: z.object({

@@ -248,10 +248,10 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "catalog.read",
     readOnly: true,
     input: TOOL_INPUTS.search_catalog,
-    run: async ({ q, type, project, status, uses, usedby, limit }, caller) => {
+    run: async ({ q, type, projects: only, status, uses, usedby, limit }, caller) => {
       const query = parseQuery(q ?? "");
       query.types.push(...(type ?? []));
-      query.projects.push(...(project ?? []));
+      query.projects.push(...(only ?? []));
       query.statuses.push(...(status ?? []));
       if (uses) query.uses.push(uses);
       if (usedby) query.usedBy.push(usedby);
@@ -305,7 +305,7 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "catalog.read",
     readOnly: false,
     input: TOOL_INPUTS.share_object,
-    run: async ({ object, project }, caller) => shareObject(caller, object, project),
+    run: async ({ object, into }, caller) => shareObject(caller, object, into),
   }),
 
   who_can: tool({

@@ -5400,8 +5400,8 @@
           ]
         }
       },
-      "project": {
-        "description": "Projects' slugs",
+      "projects": {
+        "description": "Only these projects, by slug",
         "type": "array",
         "items": {
           "type": "string",
@@ -5493,7 +5493,7 @@
         "maxLength": 300,
         "description": "A brand, collection or asset: its id or address"
       },
-      "project": {
+      "into": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
@@ -5502,7 +5502,7 @@
     },
     "required": [
       "object",
-      "project"
+      "into"
     ]
   },
   "who_can": {
