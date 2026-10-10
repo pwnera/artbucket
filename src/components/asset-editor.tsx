@@ -1,5 +1,6 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import { Fragment, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,7 +21,6 @@ import {
   IconPencil,
   IconPhoto,
   IconShare,
-  IconSitemap,
   IconSparkles,
   IconUpload,
   IconX,
@@ -824,6 +824,8 @@ export function AssetEditor({
           <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime, asset.probe)}</Badge>
           <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
           <span className="ml-auto" />
+          {/* Its lineage, who reaches it and what happened to it: in the catalog. */}
+          <CatalogButton id={asset.id} onOpen={(href) => leave(() => router.push(href))} />
           {/* One way out: who can open it is asked in the dialog. */}
           <IconButton label="Share" shortcut={["S"]} onClick={() => setSharing(true)}>
             <IconShare />
@@ -1051,10 +1053,6 @@ export function AssetEditor({
               Whoever may look at a file may ask what it may be used for.
             */}
             {can("insights.read") && <UsedIn assetId={asset.id} leave={leave} />}
-            {/* Governance lives in the catalog: what it comes from, what uses it, who reaches it, what happened to it. */}
-            <Button variant="outline" size="sm" className="w-fit" onClick={() => leave(() => router.push(`/catalog?o=${asset.id}&tab=lineage`))}>
-              <IconSitemap /> Lineage and access in the catalog
-            </Button>
             <Fold title="Can I use this?" summary="Check a use" remember="can-i-use">
               <CanIUse
                 key={asset.id}

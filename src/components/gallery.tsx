@@ -1,5 +1,6 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -1284,6 +1285,7 @@ export function Gallery({
               variant="outline"
             />
           )}
+          {inCollection && !activeSearch && <CatalogButton id={inCollection.id} name={inCollection.name} />}
           {inCollection && !activeSearch && can("collection.share", inCollection) && (
             <IconButton label={`Share ${inCollection.name}`} onClick={() => share({ kind: "view", collection: inCollection })}>
               <IconShare />

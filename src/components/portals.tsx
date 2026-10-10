@@ -1,5 +1,6 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -251,6 +252,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     </Button>
                   )}
                   <CopyButton text={p.url} label="Copy the address" what="the address" size="icon-sm" />
+                  <CatalogButton id={p.id} name={p.name} variant="ghost" />
                   <IconButton variant="ghost" label="Open it in a new tab" asChild>
                     <a href={p.url} target="_blank" rel="noreferrer">
                       <IconExternalLink />
