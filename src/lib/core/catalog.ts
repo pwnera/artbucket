@@ -23,6 +23,7 @@ import {
   EXPIRING_DAYS,
   formatAddress,
   formatQuery,
+  openPath,
   impactLine,
   parseAddress,
   type CatalogQuery,
@@ -404,26 +405,6 @@ export async function describeObject(caller: Caller, ref: string) {
     lineage: { up: up.length, down: down.length },
     open: openPath(item),
   };
-}
-
-/** Where the app shows it, in its own project (the proxy's `?workspace=` opens that one). */
-export function openPath(item: Pick<CatalogItem, "id" | "type" | "slug" | "parent" | "project">) {
-  const w = `workspace=${item.project.id}`;
-  const brand = item.parent?.slug ?? "";
-  switch (item.type) {
-    case "asset":
-      return `/assets/${item.id}?${w}`;
-    case "collection":
-      return `/?collection=${item.id}&${w}`;
-    case "brand":
-      return `/brands/${item.slug}?${w}`;
-    case "portal":
-      return `/portals?${w}`;
-    case "rule":
-      return `/brands/${brand}/rules?${w}`;
-    case "page":
-      return `/brands/${brand}/guidelines?page=${item.slug}&${w}`;
-  }
 }
 
 /** The tree's rows: every object of every project the caller reaches, and their parts (a brand's rules and pages), retired aside. */

@@ -150,3 +150,23 @@ export function impactLine(name: string, things: number, projects: number) {
   if (!things) return `Nothing depends on ${name}: it can change freely.`;
   return `Changing ${name} reaches ${things} ${things === 1 ? "thing" : "things"} downstream, in ${projects} ${projects === 1 ? "project" : "projects"}.`;
 }
+
+/** Where the app shows it, in its own project (the proxy's `?workspace=` opens that one). */
+export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { slug: string } | null; project: { id: string } }) {
+  const w = `workspace=${item.project.id}`;
+  const brand = item.parent?.slug ?? "";
+  switch (item.type) {
+    case "asset":
+      return `/assets/${item.id}?${w}`;
+    case "collection":
+      return `/?collection=${item.id}&${w}`;
+    case "brand":
+      return `/brands/${item.slug}?${w}`;
+    case "portal":
+      return `/portals?${w}`;
+    case "rule":
+      return `/brands/${brand}/rules?${w}`;
+    case "page":
+      return `/brands/${brand}/guidelines?page=${item.slug}&${w}`;
+  }
+}
