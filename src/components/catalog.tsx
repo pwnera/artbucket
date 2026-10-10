@@ -27,6 +27,7 @@ import { send } from "@/lib/send";
 import { CatalogTree } from "@/components/catalog-tree";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
+import { PinButton } from "@/components/pin-button";
 import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,7 @@ function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: 
             </div>
           </div>
           <div className="flex gap-2">
+            <PinButton pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&]+/, "").replace(/\?$/, "") }} />
             {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
             <Button asChild>
               <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>

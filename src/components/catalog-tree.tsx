@@ -2,8 +2,9 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { IconArrowUpRight, IconChevronRight, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@tabler/icons-react";
+import { IconArrowUpRight, IconChevronRight, IconPlus, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@tabler/icons-react";
 import { TypeIcon, type TreeProject } from "@/components/catalog";
+import { useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { Input } from "@/components/ui/input";
 import { TYPE_LABEL, type CatalogType } from "@/lib/catalog";
@@ -21,6 +22,12 @@ import { cn } from "@/lib/utils";
 type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
 
 const ORDER: CatalogType[] = ["brand", "collection", "asset", "portal"];
+const NEW: Partial<Record<CatalogType, { href: string; label: string }>> = {
+  brand: { href: "/brands?new=brand", label: "New brand" },
+  collection: { href: "/collections?new", label: "New collection" },
+  asset: { href: "/?browse", label: "Upload assets in Explore" },
+  portal: { href: "/portals?new=portal", label: "New portal" },
+};
 const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
   asset: { href: "/?browse", label: "Browse the assets in Explore" },
@@ -75,6 +82,8 @@ function pathTo(nodes: Node[], id: string | null, trail: string[] = []): string[
 export function CatalogTree({ projects, current, onOpen, onHide }: { projects: TreeProject[]; current: string | null; onOpen: (id: string) => void; onHide: () => void }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
+  // The project open: new things are made there, so only its folders offer New.
+  const here = useMe()?.project.id;
   const match = useMemo(() => (i: CatalogItem) => !q || i.name.toLowerCase().includes(q) || i.address.includes(q), [q]);
   const tree = useMemo(() => build(projects, match), [projects, match]);
   // Projects start unfolded, and the path to what is open; the rest folds until asked.
@@ -195,6 +204,18 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
               <span className="text-muted-foreground ms-auto ps-2 text-xs tabular-nums">
                 {n.count ?? (n.item?.release ? `@${n.item.release}` : n.item?.status === "draft" ? "draft" : "")}
               </span>
+              {/* New, in the project open: a type's folder makes one there. */}
+              {n.kind === "group" && n.depth === 2 && n.type && NEW[n.type] && n.key.startsWith(`${here}:`) && (
+                <Link
+                  href={NEW[n.type]!.href}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={NEW[n.type]!.label}
+                  title={NEW[n.type]!.label}
+                  className="text-muted-foreground hover:text-foreground flex size-5 items-center justify-center rounded opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+                >
+                  <IconPlus className="size-3.5" />
+                </Link>
+              )}
               {/* A type's folder leads to where its things are made and managed. */}
               {n.kind === "group" && n.depth === 2 && n.type && LIST[n.type] && (
                 <Link

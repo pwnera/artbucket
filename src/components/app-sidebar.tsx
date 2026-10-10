@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -7,19 +8,29 @@ import {
   IconBookmark,
   IconChartBar,
   IconCompass,
+  IconFileText,
   IconFolder,
+  IconFolders,
   IconInbox,
+  IconLayoutGrid,
   IconLayoutSidebarLeftExpand,
+  IconListCheck,
+  IconPalette,
   IconPhoto,
+  IconPinnedOff,
+  IconPlus,
   IconRobot,
   IconSearch,
   IconSettings,
   IconSitemap,
+  IconUpload,
+  IconWorld,
 } from "@tabler/icons-react";
 import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
-import type { Recent } from "@/components/sidebar-prefs";
+import { usePins, type Recent } from "@/components/sidebar-prefs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
@@ -27,8 +38,10 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -39,6 +52,7 @@ import {
 import { formatSize } from "@/lib/limits";
 import { canonical, parseView, viewQuery } from "@/lib/view";
 import { LinkIcon } from "@/components/link-pending";
+
 export type SavedSearch = { id: string; name: string; query: string };
 
 /**
@@ -59,6 +73,8 @@ export function AppSidebar({
   reviewCount,
   openSearch,
   openShortcuts,
+  onUpload,
+  onNewCollection,
   children,
 }: {
   me: Me;
@@ -66,6 +82,9 @@ export function AppSidebar({
   reviewCount: number;
   openSearch: () => void;
   openShortcuts: () => void;
+  /** Explore's file picker, while Explore is open. */
+  onUpload?: () => void;
+  onNewCollection?: () => void;
   children?: React.ReactNode;
 }) {
   const can = useCan();
@@ -79,6 +98,9 @@ export function AppSidebar({
     catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
     insights: pathname.startsWith("/insights"),
+    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
+    collections: pathname === "/collections" || (inLibrary && !!view.collection),
+    portals: pathname === "/portals",
     review: inLibrary && view.review,
     // A collection or saved search is its own item, so none of these is lit for one.
     library: (inLibrary && !view.review && !view.collection && !onSearch) || pathname === "/activity",
@@ -110,6 +132,9 @@ export function AppSidebar({
               <Kbd keys={["mod", "K"]} className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <NewMenu me={me} onUpload={onUpload} onNewCollection={onNewCollection} />
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
@@ -134,6 +159,20 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* What a brand is made of and how it reaches people, apart from the places to find and govern it. */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Content</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
+              <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
+              {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <Pinned current={pathname + (params.size ? `?${params}` : "")} />
 
         {children}
 
@@ -233,6 +272,68 @@ export const RECENT_ICON: Record<Recent["kind"], React.ReactNode> = {
   search: <IconBookmark />,
   brand: <IconBook />,
 };
+
+/** Make something: what this person may make, each landing where it is made. */
+function NewMenu({ me, onUpload, onNewCollection }: { me: Me; onUpload?: () => void; onNewCollection?: () => void }) {
+  const can = useCan();
+  const navigate = useNavigate();
+  const items = [
+    can("project.upload") && { label: "Upload assets", icon: IconUpload, run: () => (onUpload ? onUpload() : navigate("/?browse")) },
+    can("brand.create") && { label: "Brand", icon: IconPalette, run: () => navigate("/brands?new=brand") },
+    onNewCollection && { label: "Collection", icon: IconFolders, run: onNewCollection },
+    can("portal.manage") && { label: "Portal", icon: IconWorld, run: () => navigate("/portals?new=portal") },
+    can("organization.manage") && { label: "Project", icon: IconLayoutGrid, run: () => navigate("/settings/organization/projects") },
+  ].filter(Boolean) as { label: string; icon: typeof IconPlus; run: () => void }[];
+  if (!items.length || !me.user) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton tooltip="New" className="text-muted-foreground hover:text-foreground">
+          <IconPlus /> <span>New</span>
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="right" align="start" className="w-48">
+        {items.map((i) => (
+          <DropdownMenuItem key={i.label} onSelect={i.run}>
+            <i.icon /> {i.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, portal: IconWorld, rule: IconListCheck, page: IconFileText } as const;
+
+/** What this person starred, from the catalog or a brand's page: the one list the sidebar keeps, because they chose it. */
+function Pinned({ current }: { current: string }) {
+  const { pins, unpin } = usePins();
+  if (!pins.length) return null;
+  return (
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroupLabel>Pinned</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {pins.map((p) => {
+            const Icon = PIN_ICON[p.type];
+            return (
+              <SidebarMenuItem key={p.id}>
+                <SidebarMenuButton asChild isActive={current === p.href} tooltip={p.label}>
+                  <NavLink href={p.href}>
+                    <Icon /> <span>{p.label}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+                <SidebarMenuAction showOnHover onClick={() => unpin(p.id)}>
+                  <IconPinnedOff /> <span className="sr-only">Unpin {p.label}</span>
+                </SidebarMenuAction>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
 
 function Place({
   href,

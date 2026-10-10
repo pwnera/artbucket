@@ -351,6 +351,8 @@ export function Shell({
           reviewCount={reviewCount}
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
+          onUpload={upload?.fn}
+          onNewCollection={newCollection}
         />
         <SidebarInset className="min-w-0">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}

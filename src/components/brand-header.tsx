@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, builderPath } from "@/lib/site";
 import { LinkIcon } from "@/components/link-pending";
+import { PinButton } from "@/components/pin-button";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
@@ -92,6 +93,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     <div className="flex shrink-0 items-center gap-2">
       <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
+      {!compact && <PinButton pin={{ id: brand.id, type: "brand", label: brand.name, href: brandPath(brand.slug) }} />}
       {/* Its lineage, who reaches it and what happened to it: governed in the catalog, with everything else. */}
       <Button asChild size="sm" variant="outline" title="Lineage, access and activity in the catalog">
         <Link href={`/catalog?o=${brand.id}`}>

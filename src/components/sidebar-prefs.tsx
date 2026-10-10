@@ -92,6 +92,19 @@ export function useRemember() {
 
 export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.project.id), []);
 
+// ---- pinned ------------------------------------------------------------------
+
+/** What a person starred to keep at hand: any object of the catalog, from any project of the organization. */
+export type Pin = { id: string; type: "brand" | "collection" | "asset" | "portal" | "rule" | "page"; label: string; href: string };
+const pinsKey = (org: string | undefined) => `artbucket:pinned:${org ?? "none"}`;
+
+export function usePins() {
+  const [pins, setPins] = usePref<Pin[]>(pinsKey(useMe()?.project.organization.id), []);
+  const has = (id: string) => pins.some((p) => p.id === id);
+  const toggle = (p: Pin) => setPins(has(p.id) ? pins.filter((x) => x.id !== p.id) : [...pins, p]);
+  return { pins, has, toggle, unpin: (id: string) => setPins(pins.filter((x) => x.id !== id)) };
+}
+
 type Named = { id: string; name: string };
 
 /**

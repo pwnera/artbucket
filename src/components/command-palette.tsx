@@ -26,6 +26,7 @@ import {
   IconSun,
   IconUpload,
   IconUsers,
+  IconPlus,
   IconWorld,
 } from "@tabler/icons-react";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
@@ -396,6 +397,16 @@ export function CommandPalette({
           {onNewCollection && (
             <CommandItem value="New collection create" onSelect={run(onNewCollection)}>
               <IconFolderPlus /> New collection
+            </CommandItem>
+          )}
+          {can("brand.create") && (
+            <CommandItem value="New brand create" onSelect={() => go("/brands?new=brand")}>
+              <IconPlus /> New brand
+            </CommandItem>
+          )}
+          {can("portal.manage") && (
+            <CommandItem value="New portal create press kit" onSelect={() => go("/portals?new=portal")}>
+              <IconPlus /> New portal
             </CommandItem>
           )}
           <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
