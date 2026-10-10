@@ -30,8 +30,9 @@ const listed = (slug?: string) =>
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const host = (await headers()).get("host") ?? "";
   // BrandHub on its own host (src/proxy.ts) is for everyone to find; community listings say noindex themselves.
+  // Its pages' files are signed links that expire: crawled, each would turn up a 404 a day later.
   if (env.HUB_URL && host === new URL(env.HUB_URL).host && host !== new URL(env.APP_URL).host) {
-    return { rules: { userAgent: "*", allow: "/" }, sitemap: `${env.HUB_URL}/sitemap.xml` };
+    return { rules: { userAgent: "*", allow: "/", disallow: ["/api/", "/a/", "/c/"] }, sitemap: `${env.HUB_URL}/sitemap.xml` };
   }
   const portal = host ? await portalAtHost(host).catch(() => null) : null;
   if (portal) {
