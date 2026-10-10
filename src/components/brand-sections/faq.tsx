@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
+import { IconChevronDown } from "@/components/icons";
 import { Body, ItemFold, ItemText, ItemTitle, itemRoot } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 

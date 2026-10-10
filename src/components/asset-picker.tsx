@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@/components/icons";
 import type { Asset } from "@/components/gallery";
 import { IconGlyph } from "@/components/icon-glyph";
 import { Thumb } from "@/components/thumb";

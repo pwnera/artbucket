@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconCircleCheck, IconLock, IconRefresh, IconSend } from "@tabler/icons-react";
+import { IconCircleCheck, IconLock, IconRefresh, IconSend } from "@/components/icons";
 import { ThemeToggle, useAccent } from "@/components/brand";
 import { FloatingEdit } from "@/components/floating-edit";
 import { type Access, type AssetsView, PortalAssets, type PortalBody, type Theme } from "@/components/portal-assets";

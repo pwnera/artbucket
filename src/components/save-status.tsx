@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { cn } from "@/lib/utils";

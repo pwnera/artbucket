@@ -10,7 +10,7 @@ import {
   IconRefresh,
   IconX,
   IconCheck,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/icon-button";
 import { Progress } from "@/components/ui/progress";

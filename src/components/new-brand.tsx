@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles, IconWorld } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
 import type { BrandInfo } from "@/components/brand-switcher";

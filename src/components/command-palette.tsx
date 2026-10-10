@@ -28,7 +28,7 @@ import {
   IconUsers,
   IconPlus,
   IconWorld,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { useTheme } from "next-themes";
 import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";

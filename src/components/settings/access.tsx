@@ -22,7 +22,7 @@ import {
   IconTrash,
   IconUpload,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import type { Me } from "@/components/account";
 import { DayGroups, Initials, useFeed } from "@/components/activity";

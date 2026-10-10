@@ -32,7 +32,7 @@ import {
   IconTypography,
   IconUpload,
   IconWorld,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";

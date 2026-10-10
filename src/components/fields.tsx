@@ -2,7 +2,7 @@
 
 import { useContext, useId, useState } from "react";
 import { Combobox } from "@/components/combobox";
-import { IconChevronRight, IconPencil } from "@tabler/icons-react";
+import { IconChevronRight, IconPencil } from "@/components/icons";
 import { ReadOnly } from "@/components/brand-values";
 import { usePref } from "@/components/sidebar-prefs";
 import { Badge } from "@/components/ui/badge";

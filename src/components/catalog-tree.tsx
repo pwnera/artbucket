@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { IconArrowUpRight, IconChevronRight, IconPlus, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@tabler/icons-react";
+import { IconArrowUpRight, IconChevronRight, IconPlus, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@/components/icons";
 import { TypeIcon, type TreeProject } from "@/components/catalog";
 import { useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { IconDownload, IconPhotoScan } from "@tabler/icons-react";
+import { IconDownload, IconPhotoScan } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { useCan } from "@/components/can";
 import { send } from "@/components/collections";

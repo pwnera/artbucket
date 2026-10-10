@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconLock, IconPlus, IconUserQuestion, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconLock, IconPlus, IconUserQuestion, IconUsers, IconWorld } from "@/components/icons";
 import { Snippet } from "@/components/agent-access";
 import { BrandAddresses } from "@/components/brand-header";
 import type { BrandHub } from "@/components/brands";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconChevronDown, IconRefresh, IconSearch, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconRefresh, IconSearch, IconX } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import type { Transport } from "@/components/builder/use-builder";
 import { FontThumb } from "@/components/font-preview";

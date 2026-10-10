@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { IconChevronRight as ChevronRightIcon, IconCircleFilled as CircleIcon } from "@tabler/icons-react"
+import { IconChevronRight as ChevronRightIcon, IconCircleFilled as CircleIcon } from "@/components/icons"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 // The same look as dropdown-menu.tsx: a right click opens what a "..." would.

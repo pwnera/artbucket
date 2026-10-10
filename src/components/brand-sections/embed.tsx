@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconExternalLink, IconWorld } from "@tabler/icons-react";
+import { IconExternalLink, IconWorld } from "@/components/icons";
 import { HEAD } from "@/components/brand-sections/look";
 import { Body, PropText } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

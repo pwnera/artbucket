@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight } from "@/components/icons";
 import { LABEL } from "@/components/brand-sections/look";
 import { SiteLink } from "@/components/site/nav-tree";
 import { useSite } from "@/components/site/site-context";

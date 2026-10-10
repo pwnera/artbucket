@@ -22,7 +22,7 @@ import {
   IconUsers,
   IconWorld,
   IconX,
-  } from "@tabler/icons-react";
+  } from "@/components/icons";
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";

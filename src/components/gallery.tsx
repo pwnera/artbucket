@@ -25,7 +25,7 @@ import {
   IconSparkles,
   IconUpload,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { AssetViewer } from "@/components/asset-viewer";
 import { useBrand } from "@/components/brand";

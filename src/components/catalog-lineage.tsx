@@ -17,7 +17,7 @@ import {
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { IconArrowRight, IconExternalLink, IconMinus, IconPlus, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconExternalLink, IconMinus, IconPlus, IconX } from "@/components/icons";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";

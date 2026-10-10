@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { IconCheck, IconDownload } from "@tabler/icons-react";
+import { IconCheck, IconDownload } from "@/components/icons";
 import type { z } from "zod";
 import { GRADE_STYLE, Markdown, useCopied } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";

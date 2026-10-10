@@ -1,6 +1,6 @@
 "use client";
 
-import { IconPin, IconPinFilled } from "@tabler/icons-react";
+import { IconPin, IconPinFilled } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { usePins, type Pin } from "@/components/sidebar-prefs";
 

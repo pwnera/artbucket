@@ -20,7 +20,7 @@ import {
   IconPhoto,
   IconPlus,
   IconWorldUpload,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";

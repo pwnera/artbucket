@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconPhoto, IconSparkles } from "@tabler/icons-react";
+import { IconCheck, IconPhoto, IconSparkles } from "@/components/icons";
 import { FontThumb } from "@/components/font-preview";
 import { GLYPH_INK, reviewChips, stateBadge, Thumb, wellClass, type Asset } from "@/components/gallery";
 import { IconGlyph } from "@/components/icon-glyph";

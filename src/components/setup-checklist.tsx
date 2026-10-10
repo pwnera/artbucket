@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@tabler/icons-react";
+import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@/components/icons";
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";

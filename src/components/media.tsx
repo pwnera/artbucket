@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { DotLottie } from "@lottiefiles/dotlottie-web";
-import { IconMovieOff } from "@tabler/icons-react";
+import { IconMovieOff } from "@/components/icons";
 import { toast } from "sonner";
 import { SubmitButton } from "@/components/submit-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconUpload, IconArchive } from "@tabler/icons-react";
+import { IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconUpload, IconArchive } from "@/components/icons";
 import { toast } from "sonner";
 import { send } from "@/components/collections";
 import { useCan } from "@/components/can";

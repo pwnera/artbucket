@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconSend } from "@tabler/icons-react";
+import { IconSend } from "@/components/icons";
 import { Body } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useSite } from "@/components/site/site-context";

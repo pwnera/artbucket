@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconBrandGithub, IconSettings, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconSettings, IconStar, IconTrash } from "@/components/icons";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
 import { Can } from "@/components/can";

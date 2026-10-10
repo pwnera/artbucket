@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useId, useState } from "react";
-import { IconCheck, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";

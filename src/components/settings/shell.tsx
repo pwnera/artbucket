@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { useSelectedLayoutSegments } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { IconLock, type Icon } from "@tabler/icons-react";
+import { IconLock, type Icon } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";

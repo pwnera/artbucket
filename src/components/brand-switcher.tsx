@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState } from "react";
-import { IconCopy, IconDots, IconLayoutList, IconList, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDots, IconLayoutList, IconList, IconPencil, IconPlus, IconStar, IconTrash } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Can } from "@/components/can";

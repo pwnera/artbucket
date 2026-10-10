@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconArrowRight, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@/components/icons";
 import { useNavigate, type SavedSearch } from "@/components/app-sidebar";
 import { useMe } from "@/components/can";
 import { CardGrid, ObjectCard, Section } from "@/components/catalog-matches";

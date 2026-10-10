@@ -1,6 +1,6 @@
 "use client";
 
-import { IconDownload, IconExternalLink, IconFile, IconLink } from "@tabler/icons-react";
+import { IconDownload, IconExternalLink, IconFile, IconLink } from "@/components/icons";
 import { HEAD } from "@/components/brand-sections/look";
 import { Body, ItemText, ItemTitle, itemRoot, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

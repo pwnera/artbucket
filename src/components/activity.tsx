@@ -18,7 +18,7 @@ import {
   IconTrash,
   IconX,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { brandHref } from "@/components/brand-switcher";

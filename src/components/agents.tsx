@@ -15,7 +15,7 @@ import {
   IconStack2,
   IconTrash,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { Initials } from "@/components/activity";
 import { SetupPart, Snippet } from "@/components/agent-access";

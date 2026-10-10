@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react";
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from "@/components/icons";
 import type { z } from "zod";
 import { useGround } from "@/components/brand-sections/frame";
 import { HEAD } from "@/components/brand-sections/look";

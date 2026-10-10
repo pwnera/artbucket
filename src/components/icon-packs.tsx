@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowLeft, IconCheck, IconIcons, IconSearch } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconIcons, IconSearch } from "@/components/icons";
 import { toast } from "sonner";
 import { IconGlyph, svgDataUri } from "@/components/icon-glyph";
 import { Badge } from "@/components/ui/badge";

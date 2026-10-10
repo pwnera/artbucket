@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconAlertTriangle, IconCheck, IconRobot, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck, IconRobot, IconX } from "@/components/icons";
 import { nextFixes, ScoreRing } from "@/components/brand-overview";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";

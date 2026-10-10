@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
-import { IconArrowRight, IconCheck, IconDots, IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
+import { IconArrowRight, IconCheck, IconDots, IconPlus, IconRefresh, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { MakeDialog, pickProject, useGo, type Me } from "@/components/account";
 import { FieldsEditor } from "@/components/field-manager";

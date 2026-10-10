@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { IconAlignLeft, IconChevronDown, IconHash, IconList, IconListDetails, IconPhoto, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
+import { IconAlignLeft, IconChevronDown, IconHash, IconList, IconListDetails, IconPhoto, IconPlus, IconSearch, IconX } from "@/components/icons";
 import { AssetPicker } from "@/components/builder/asset-picker";
 import { SpecForm } from "@/components/builder/spec-form";
 import type { BuilderApi } from "@/components/builder/use-builder";

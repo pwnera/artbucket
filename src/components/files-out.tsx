@@ -1,4 +1,4 @@
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload } from "@/components/icons";
 import { InfoTip } from "@/components/info-tip";
 import type { Status } from "@/components/builder/use-status";
 

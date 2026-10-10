@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { IconChevronDown, IconLock } from "@tabler/icons-react";
+import { IconChevronDown, IconLock } from "@/components/icons";
 import { LABEL } from "@/components/brand-sections/look";
 import { useSite } from "@/components/site/site-context";
 import { type NavNode, trail } from "@/lib/site";

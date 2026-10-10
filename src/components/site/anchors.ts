@@ -1,7 +1,7 @@
 "use client";
 
 import { createElement, useEffect, useState } from "react";
-import { IconHash } from "@tabler/icons-react";
+import { IconHash } from "@/components/icons";
 import { CopyButton } from "@/components/copy-button";
 import { behavior, flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";

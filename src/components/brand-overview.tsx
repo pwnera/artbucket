@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@tabler/icons-react";
+import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@/components/icons";
 import { BrandCard, type CardBrand } from "@/components/brand-card";
 import { InfoTip } from "@/components/info-tip";
 import type { BrandInfo } from "@/components/brand-switcher";

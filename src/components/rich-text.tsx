@@ -27,7 +27,7 @@ import {
   IconTableOff,
   IconX,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { Extension, getMarkAttributes, type ChainedCommands } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";

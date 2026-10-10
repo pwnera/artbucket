@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { IconBrandGit, IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@tabler/icons-react";
+import { IconBrandGit, IconChevronDown, IconPhoto, IconPlus, IconRobot, IconSparkles, IconUpload, IconX } from "@/components/icons";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
 import { useMe } from "@/components/can";

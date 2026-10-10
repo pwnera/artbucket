@@ -1,4 +1,4 @@
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 /**

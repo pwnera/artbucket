@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@/components/icons";
 import { endDrag, startDrag } from "@/components/builder/drag";
 import { CommentsPanel } from "@/components/builder/comments";
 import { FloatingPanel } from "@/components/builder/floating-panel";

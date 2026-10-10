@@ -14,7 +14,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { BrandTabMenu } from "@/components/brand-tabs";
 import { endDrag, payloadOf } from "@/components/builder/drag";
 import { Layers } from "@/components/builder/layers";

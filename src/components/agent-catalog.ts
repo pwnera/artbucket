@@ -19,7 +19,7 @@ import {
   IconTypography,
   IconVectorBezier2,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 
 /**
  * Every agent the Connections page knows, as data: supporting one is an entry

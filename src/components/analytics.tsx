@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowDownRight, IconArrowUpRight } from "@tabler/icons-react";
+import { IconArrowDownRight, IconArrowUpRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useCountUp } from "@/lib/motion";
 

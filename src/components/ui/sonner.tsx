@@ -1,6 +1,6 @@
 "use client"
 
-import { IconCircleCheck as CircleCheckIcon, IconInfoCircle as InfoIcon, IconAlertOctagon as OctagonXIcon, IconAlertTriangle as TriangleAlertIcon } from "@tabler/icons-react"
+import { IconCircleCheck as CircleCheckIcon, IconInfoCircle as InfoIcon, IconAlertOctagon as OctagonXIcon, IconAlertTriangle as TriangleAlertIcon } from "@/components/icons"
 import { Spinner } from "@/components/ui/spinner"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"

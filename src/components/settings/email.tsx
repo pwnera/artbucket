@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
-import { IconSend } from "@tabler/icons-react";
+import { IconSend } from "@/components/icons";
 import { toast } from "sonner";
 import type { Me } from "@/components/account";
 import { Confirm } from "@/components/confirm";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy } from "@/components/icons";
 import { toast } from "sonner";
 import { IconButton } from "@/components/icon-button";
 import { cn } from "@/lib/utils";

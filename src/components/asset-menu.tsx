@@ -15,7 +15,7 @@ import {
   IconShare,
   IconTrash,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
 import { CollectionIcon, type Collection } from "@/components/collections";

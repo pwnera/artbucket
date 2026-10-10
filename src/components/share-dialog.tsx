@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconCheck, IconCopy, IconFolderUp, IconLink, IconLock, IconPlus, IconShare, IconTrash, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconFolderUp, IconLink, IconLock, IconPlus, IconShare, IconTrash, IconUsers, IconWorld } from "@/components/icons";
 import { Snippet } from "@/components/agent-access";
 import { useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";

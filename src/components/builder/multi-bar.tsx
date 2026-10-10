@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowAutofitWidth, IconChevronDown, IconEye, IconEyeOff, IconFileArrowRight, IconTrash, IconX } from "@tabler/icons-react";
+import { IconArrowAutofitWidth, IconChevronDown, IconEye, IconEyeOff, IconFileArrowRight, IconTrash, IconX } from "@/components/icons";
 import { GROUNDS, WIDTHS } from "@/components/builder/section-toolbar";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { Button } from "@/components/ui/button";

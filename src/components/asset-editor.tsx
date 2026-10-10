@@ -26,7 +26,7 @@ import {
   IconX,
   IconZoomIn,
   IconZoomOut,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";

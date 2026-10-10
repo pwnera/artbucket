@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@tabler/icons-react";
+import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@/components/icons";
 import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { Confirm } from "@/components/confirm";

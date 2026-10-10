@@ -1,4 +1,4 @@
-import { IconBook, IconPalette, IconPhoto, IconTypography } from "@tabler/icons-react";
+import { IconBook, IconPalette, IconPhoto, IconTypography } from "@/components/icons";
 import { LogoWell } from "@/components/hub-client";
 import { withSignature } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";

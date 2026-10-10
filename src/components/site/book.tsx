@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { IconPrinter } from "@tabler/icons-react";
+import { IconPrinter } from "@/components/icons";
 import { PageBody } from "@/components/brand-sections";
 import { HEAD, LABEL, useSiteLook } from "@/components/brand-sections/look";
 import { LocalDate } from "@/components/public-grid";

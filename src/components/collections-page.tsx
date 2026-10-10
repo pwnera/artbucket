@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IconFolders, IconLock, IconPencil, IconPlus, IconSitemap } from "@tabler/icons-react";
+import { IconFolders, IconLock, IconPencil, IconPlus, IconSitemap } from "@/components/icons";
 import { useCan } from "@/components/can";
 import { CollectionIcon } from "@/components/collections";
 import { IconButton } from "@/components/icon-button";

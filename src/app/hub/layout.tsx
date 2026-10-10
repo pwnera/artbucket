@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { IconGauge, IconLayoutGrid, IconLogin2, IconPlus, IconRobot } from "@tabler/icons-react";
+import { IconGauge, IconLayoutGrid, IconLogin2, IconPlus, IconRobot } from "@/components/icons";
 import { notFound } from "next/navigation";
 import { AppIcon } from "@/components/brand";
 import { HubSearch } from "@/components/hub-client";

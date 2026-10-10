@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
-import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconSitemap, IconWorld, IconWorldUpload } from "@tabler/icons-react";
+import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconSitemap, IconWorld, IconWorldUpload } from "@/components/icons";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";

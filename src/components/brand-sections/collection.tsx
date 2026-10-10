@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { Body } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

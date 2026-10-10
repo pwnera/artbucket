@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useTransition } from "react";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle } from "@/components/icons";
 import { AppHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";

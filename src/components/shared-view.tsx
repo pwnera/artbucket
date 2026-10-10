@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { IconCircleCheck, IconCloudUpload, IconLock, IconRefresh, IconUpload } from "@tabler/icons-react";
+import { IconCircleCheck, IconCloudUpload, IconLock, IconRefresh, IconUpload } from "@/components/icons";
 import { BrandMark, ThemeToggle, useAccent } from "@/components/brand";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { Downloads, LocalDate, meta, PublicGrid, Stage, type PublicItem } from "@/components/public-grid";

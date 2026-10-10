@@ -19,7 +19,7 @@ import {
   IconSettings,
   IconSunMoon,
   IconUser,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import type { Feature } from "@/lib/limits";
 import { BrandMark, ThemeItems, useBrand } from "@/components/brand";

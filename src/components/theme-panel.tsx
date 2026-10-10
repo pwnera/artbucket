@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { IconAlertTriangle, IconCircleCheck, IconPalette, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCircleCheck, IconPalette, IconPlus, IconTrash } from "@/components/icons";
 import { Fold } from "@/components/fold";
 import { IconButton } from "@/components/icon-button";
 import { SiteLinkIcon } from "@/components/site/link-icon";

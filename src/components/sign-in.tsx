@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@tabler/icons-react";
+import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@/components/icons";
 import { toast } from "sonner";
 import { MakeDialog, pickProject, signOut, useGo, type Legal, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";

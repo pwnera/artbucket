@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { IconX } from "@tabler/icons-react";
+import { IconX } from "@/components/icons";
 import { Initials } from "@/components/activity";
 import { useCan, useMe } from "@/components/can";
 import { type Collection } from "@/components/collections";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconPlus, IconTrash, IconUsersGroup, IconX } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconUsersGroup, IconX } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

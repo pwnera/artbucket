@@ -19,7 +19,7 @@ import {
   IconTagOff,
   IconTrash,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { useBrand } from "@/components/brand";

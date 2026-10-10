@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";

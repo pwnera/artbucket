@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
-import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@/components/icons";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
 import { InfoTip } from "@/components/info-tip";

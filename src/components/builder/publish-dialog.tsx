@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { IconCheck, IconMessageCircle, IconWorldUpload } from "@tabler/icons-react";
+import { IconCheck, IconMessageCircle, IconWorldUpload } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { toast } from "sonner";

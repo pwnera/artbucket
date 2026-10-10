@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { IconCheck as CheckIcon, IconMinus } from "@tabler/icons-react"
+import { IconCheck as CheckIcon, IconMinus } from "@/components/icons"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
 function Checkbox({

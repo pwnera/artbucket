@@ -1,6 +1,6 @@
 "use client";
 
-import { IconSearch, IconSparkles } from "@tabler/icons-react";
+import { IconSearch, IconSparkles } from "@/components/icons";
 import { NavLink } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
 import { useMe } from "@/components/can";

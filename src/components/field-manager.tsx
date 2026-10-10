@@ -12,7 +12,7 @@ import {
   IconTrash,
   IconTypography,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { MultiCombobox } from "@/components/combobox";
 import { Confirm } from "@/components/confirm";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
+import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@/components/icons";
 import type { HubCard } from "@/lib/core/hub";
 import { TileGround } from "@/components/hub-client";
 import { contrast, inkOn, mix } from "@/lib/color";

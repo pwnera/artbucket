@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IconUsers } from "@tabler/icons-react";
+import { IconUsers } from "@/components/icons";
 import { useCan, useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Audit, People, Sharing, type AuditPage, type Members } from "@/components/settings/access";

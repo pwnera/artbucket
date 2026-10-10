@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
-import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@/components/icons";
 import { Collapsible } from "radix-ui";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/components/can";

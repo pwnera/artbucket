@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IconMoodEmpty } from "@tabler/icons-react";
+import { IconMoodEmpty } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { Cards, Preview, TabNav } from "@/components/hub";
 import { HubSearch } from "@/components/hub-client";

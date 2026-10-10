@@ -14,7 +14,7 @@ import {
   IconUsers,
   IconUsersGroup,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import type { Me } from "@/components/account";
 import type { Feature } from "@/lib/limits";
 import { can, type Action } from "@/lib/permissions";

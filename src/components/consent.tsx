@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { IconCircleCheck } from "@tabler/icons-react";
+import { IconCircleCheck } from "@/components/icons";
 import { useGo } from "@/components/account";
 import { useBrand } from "@/components/brand";
 import { Card, FormError, UNREACHABLE } from "@/components/sign-in";

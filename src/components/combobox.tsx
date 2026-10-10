@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { defaultFilter } from "cmdk";
-import { IconCheck, IconPlus, IconSelector, IconX } from "@tabler/icons-react";
+import { IconCheck, IconPlus, IconSelector, IconX } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

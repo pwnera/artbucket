@@ -21,7 +21,7 @@ import {
   IconPictureInPictureOn,
   IconTrash,
   IconWorldUpload,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import type { PageCommand } from "@/components/command-palette";
 import { reveal } from "@/components/builder/layers";
 import { choiceLabel, GROUNDS, templateOptions, variantOf, WIDTHS } from "@/components/builder/section-toolbar";
