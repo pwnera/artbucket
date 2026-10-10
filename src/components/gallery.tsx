@@ -10,9 +10,7 @@ import {
   IconBook,
   IconBookmark,
   IconBookmarkPlus,
-  IconChevronDown,
   IconCloudUpload,
-  IconFolder,
   IconFolderUp,
   IconInbox,
   IconLayoutGrid,
@@ -25,10 +23,7 @@ import {
   IconLock,
   IconShare,
   IconSparkles,
-  IconIcons,
-  IconTypography,
   IconUpload,
-  IconLink,
   IconX,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -39,6 +34,7 @@ import { AssetTable } from "@/components/asset-table";
 import { AppHeader, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
 import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
+import type { AddActions, AddId } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionIcon, send, type Collection } from "@/components/collections";
 import { CopyButton } from "@/components/copy-button";
@@ -57,11 +53,9 @@ import { InfoTip } from "@/components/info-tip";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AssetMenu, type ActionContext } from "@/components/asset-menu";
@@ -380,7 +374,7 @@ export function Gallery({
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
-  const { collections, setCollections, setReviewCount, searches, setSearches, openCollection, setUpload, collectionEdits } =
+  const { collections, setCollections, setReviewCount, searches, setSearches, openCollection, setAdd, collectionEdits } =
     useShell();
   // The field schema can change under an open page (here or elsewhere), so it
   // refreshes with everything else. A stale copy sends values for deleted fields.
@@ -788,11 +782,6 @@ export function Gallery({
   // Into the collection open, or the project itself: whatever the person may add to.
   const canUpload = into ? can("asset.upload", { id: into }) : can("project.upload");
 
-  // ⌘K offers Upload while this page can take one.
-  useEffect(() => {
-    setUpload(canUpload ? () => choose(false) : null);
-    return () => setUpload(null);
-  }, [canUpload, setUpload]);
 
   // Drag is tracked on the whole window: dropping only inside a bordered box
   // is a worse target. Only files from outside count: dragging within the page
@@ -880,6 +869,35 @@ export function Gallery({
 
   // Asking someone without an account to send files there, by link.
   const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_project");
+
+  // Every way in, for New and ⌘K while this page is open; each reads the page as it is when run.
+  const adds = useRef<AddActions>({});
+  useEffect(() => {
+    adds.current = {
+      files: () => choose(false),
+      folder: () => folder.current?.click(),
+      private: () => choose(true),
+      fonts: () => setFonts(true),
+      icons: () => setIcons(true),
+      link: () => setLinking({ open: true, url: "" }),
+      request: () => share(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" }),
+    };
+  });
+  const addKeys = canUpload ? ["files", "folder", !inCollection?.private && "private", "fonts", "icons", "link", canRequest && "request"].filter(Boolean).join() : "";
+  useEffect(() => {
+    if (!addKeys) return setAdd(null);
+    setAdd(Object.fromEntries(addKeys.split(",").map((k) => [k, () => adds.current[k as AddId]?.()])));
+    return () => setAdd(null);
+  }, [addKeys, setAdd]);
+  // New, chosen elsewhere, lands here as ?add= and runs once.
+  const addAsked = useSearchParams().get("add") as AddId | null;
+  useEffect(() => {
+    if (!addAsked || !addKeys) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("add");
+    window.history.replaceState(null, "", url.pathname + url.search.replace("browse=", "browse"));
+    adds.current[addAsked]?.();
+  }, [addAsked, addKeys]);
   const filtered = narrowed || view.collection !== null || view.review;
 
   const activeSearch = searches.find((sv) => canonical(sv.query) === apiQuery) ?? null;
@@ -1121,54 +1139,13 @@ export function Gallery({
           />
           {!text && <Kbd keys={["/"]} className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex" />}
         </div>
-        {/* Every way files come in, in one control: Upload, and the others in its menu. Stays enabled mid-upload: a second batch queues alongside the first. */}
+        {/* Upload, the common case, at hand; every other way in is in New (components/app-sidebar.tsx NewMenuContent). Stays enabled mid-upload: a second batch queues alongside the first. */}
         {canUpload && (
           <div className="flex">
-            <Button size="sm" className="rounded-r-none" onClick={() => choose(false)} aria-busy={uploading}>
+            <Button size="sm" onClick={() => choose(false)} aria-busy={uploading}>
               <IconUpload />
               <span className="hidden sm:inline">Upload</span>
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="border-primary-foreground/20 rounded-l-none border-l px-1.5" aria-label="More ways to add">
-                  <IconChevronDown />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => choose(false)}>
-                  <IconUpload /> Upload files
-                </DropdownMenuItem>
-                {!inCollection?.private && (
-                  <DropdownMenuItem onSelect={() => choose(true)}>
-                    <IconLock /> Upload privately
-                    <span className="text-muted-foreground ml-auto pl-4 text-xs">you choose who</span>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => folder.current?.click()}>
-                  <IconFolder /> Upload a folder
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setFonts(true)}>
-                  <IconTypography /> Import a Google font
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIcons(true)}>
-                  <IconIcons /> Import icons
-                  <span className="text-muted-foreground ml-auto pl-4 text-xs">open source packs</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setLinking({ open: true, url: "" })}>
-                  <IconLink /> Add a link
-                  <span className="text-muted-foreground ml-auto pl-4 text-xs">Figma, Google</span>
-                </DropdownMenuItem>
-                {canRequest && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => share(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" })}>
-                      <IconFolderUp /> Request uploads by link
-                      <span className="text-muted-foreground ml-auto pl-4 text-xs">no account</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={imported} />
             <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={imported} />
             <LinkImport

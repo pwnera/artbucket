@@ -11,10 +11,15 @@ import {
   IconFileText,
   IconFolder,
   IconFolders,
+  IconFolderUp,
+  IconIcons,
   IconInbox,
   IconLayoutGrid,
   IconLayoutSidebarLeftExpand,
+  IconLink,
   IconListCheck,
+  IconLock,
+  IconMailForward,
   IconPalette,
   IconPhoto,
   IconPinnedOff,
@@ -23,6 +28,7 @@ import {
   IconSearch,
   IconSettings,
   IconSitemap,
+  IconTypography,
   IconUpload,
   IconWorld,
 } from "@tabler/icons-react";
@@ -30,7 +36,8 @@ import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
 import { usePins, type Recent } from "@/components/sidebar-prefs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useShell, type AddId } from "@/components/shell";
 import { Kbd } from "@/components/ui/kbd";
 import {
   Sidebar,
@@ -73,8 +80,6 @@ export function AppSidebar({
   reviewCount,
   openSearch,
   openShortcuts,
-  onUpload,
-  onNewCollection,
   children,
 }: {
   me: Me;
@@ -82,9 +87,6 @@ export function AppSidebar({
   reviewCount: number;
   openSearch: () => void;
   openShortcuts: () => void;
-  /** Explore's file picker, while Explore is open. */
-  onUpload?: () => void;
-  onNewCollection?: () => void;
   children?: React.ReactNode;
 }) {
   const can = useCan();
@@ -133,7 +135,7 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <NewMenu me={me} onUpload={onUpload} onNewCollection={onNewCollection} />
+            <NewMenu me={me} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -273,32 +275,73 @@ export const RECENT_ICON: Record<Recent["kind"], React.ReactNode> = {
   brand: <IconBook />,
 };
 
-/** Make something: what this person may make, each landing where it is made. */
-function NewMenu({ me, onUpload, onNewCollection }: { me: Me; onUpload?: () => void; onNewCollection?: () => void }) {
+/** Every way to add files, in the New menu's order: Explore runs them (shell's `add`); from anywhere else, they open Explore to run there. */
+const ADD: { id: AddId; label: string; icon: typeof IconPlus; hint?: string }[] = [
+  { id: "files", label: "Upload files", icon: IconUpload },
+  { id: "folder", label: "Upload a folder", icon: IconFolderUp },
+  { id: "private", label: "Upload privately", icon: IconLock, hint: "you choose who" },
+  { id: "fonts", label: "Import a Google font", icon: IconTypography },
+  { id: "icons", label: "Import icons", icon: IconIcons, hint: "open source" },
+  { id: "link", label: "Add a link", icon: IconLink, hint: "Figma, Google" },
+  { id: "request", label: "Request uploads by link", icon: IconMailForward, hint: "no account" },
+];
+
+/**
+ * Make something, Drive's way: one New, the same wherever it is opened (the
+ * sidebar, Explore's header). Files first, then the things made here, then
+ * imports and asking others for files; only what this person may do.
+ */
+export function NewMenuContent({ side, align = "start" }: { side?: "right" | "bottom"; align?: "start" | "end" }) {
   const can = useCan();
   const navigate = useNavigate();
-  const items = [
-    can("project.upload") && { label: "Upload assets", icon: IconUpload, run: () => (onUpload ? onUpload() : navigate("/?browse")) },
-    can("brand.create") && { label: "Brand", icon: IconPalette, run: () => navigate("/brands?new=brand") },
-    onNewCollection && { label: "Collection", icon: IconFolders, run: onNewCollection },
-    can("portal.manage") && { label: "Portal", icon: IconWorld, run: () => navigate("/portals?new=portal") },
-    can("organization.manage") && { label: "Project", icon: IconLayoutGrid, run: () => navigate("/settings/organization/projects") },
-  ].filter(Boolean) as { label: string; icon: typeof IconPlus; run: () => void }[];
-  if (!items.length || !me.user) return null;
+  const { add, openCollection } = useShell();
+  const addItem = (id: AddId) => {
+    const allowed = add ? !!add[id] : id === "request" ? can("share.collect_project") : can("project.upload");
+    const def = ADD.find((d) => d.id === id)!;
+    return allowed && { ...def, run: () => (add?.[id] ? add[id]!() : navigate(`/?browse&add=${id}`)) };
+  };
+  const groups = [
+    [addItem("files"), addItem("folder"), addItem("private")],
+    [
+      can("brand.create") && { label: "Brand", icon: IconPalette, run: () => navigate("/brands?new=brand") },
+      can("collection.create") && { label: "Collection", icon: IconFolders, run: () => openCollection("new") },
+      can("portal.manage") && { label: "Portal", icon: IconWorld, run: () => navigate("/portals?new=portal") },
+      can("organization.manage") && { label: "Project", icon: IconLayoutGrid, run: () => navigate("/settings/organization/projects") },
+    ],
+    [addItem("fonts"), addItem("icons"), addItem("link")],
+    [addItem("request")],
+  ].map((g) => g.filter(Boolean) as { label: string; icon: typeof IconPlus; hint?: string; run: () => void }[]).filter((g) => g.length);
+  return (
+    <DropdownMenuContent side={side} align={align} className="w-72">
+      {groups.map((g, i) => (
+        <DropdownMenuGroup key={i}>
+          {i > 0 && <DropdownMenuSeparator />}
+          {g.map((item) => (
+            <DropdownMenuItem key={item.label} onSelect={item.run}>
+              <item.icon /> {item.label}
+              {item.hint && <span className="text-muted-foreground ms-auto ps-3 text-xs whitespace-nowrap">{item.hint}</span>}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      ))}
+    </DropdownMenuContent>
+  );
+}
+
+/** The sidebar's New: the one call to action at its top, as Drive's is. */
+function NewMenu({ me }: { me: Me }) {
+  if (!me.user) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton tooltip="New" className="text-muted-foreground hover:text-foreground">
+        <SidebarMenuButton
+          tooltip="New"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground data-[state=open]:bg-primary/90 data-[state=open]:text-primary-foreground h-9 font-medium shadow-sm"
+        >
           <IconPlus /> <span>New</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="start" className="w-48">
-        {items.map((i) => (
-          <DropdownMenuItem key={i.label} onSelect={i.run}>
-            <i.icon /> {i.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
+      <NewMenuContent side="right" />
     </DropdownMenu>
   );
 }

@@ -35,13 +35,18 @@ type ShellValue = {
   setSqueeze: (squeeze: boolean) => void;
   openPalette: () => void;
   openCollection: (c: Collection | "new") => void;
-  /** The page's upload picker, offered in ⌘K while one is registered. */
-  setUpload: (fn: (() => void) | null) => void;
+  /** The page's ways to add files (Explore's), run by the New menu and ⌘K while registered. */
+  add: AddActions | null;
+  setAdd: (actions: AddActions | null) => void;
   /** The page's own commands for ⌘K, asked for as it opens (usePageCommands). */
   setCommands: (fn: (() => PageCommand[]) | null) => void;
   /** Bumped after a collection is saved or deleted here, so a page showing its assets can refetch them. */
   collectionEdits: number;
 };
+
+/** What Explore can add, each run by the New menu (components/app-sidebar.tsx ADD). */
+export type AddId = "files" | "folder" | "private" | "fonts" | "icons" | "link" | "request";
+export type AddActions = Partial<Record<AddId, () => void>>;
 
 const ShellContext = createContext<ShellValue | null>(null);
 
@@ -204,9 +209,7 @@ export function Shell({
   const [squeeze, setSqueeze] = useState(false);
   const [searching, setSearching] = useState(false);
   const [help, setHelp] = useState(false);
-  // Held in a box: a function handed to useState's setter would be called as an updater.
-  const [upload, setUploadBox] = useState<{ fn: () => void } | null>(null);
-  const setUpload = useCallback((fn: (() => void) | null) => setUploadBox(fn && { fn }), []);
+  const [add, setAdd] = useState<AddActions | null>(null);
   const [commands, setCommandsBox] = useState<{ fn: () => PageCommand[] } | null>(null);
   const setCommands = useCallback((fn: (() => PageCommand[]) | null) => setCommandsBox(fn && { fn }), []);
   const [editing, setEditing] = useState<{ collection?: Collection; fields: FieldDef[] } | null>(null);
@@ -323,13 +326,14 @@ export function Shell({
       setSqueeze,
       openPalette: () => setSearching(true),
       openCollection: (c) => void openCollection(c),
-      setUpload,
+      add,
+      setAdd,
       setCommands,
       collectionEdits,
     }),
     // forget reads `searches`, which is here: it is the same function for the same list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collections, searches, reviewCount, brands, setUpload, setCommands, openCollection, collectionEdits],
+    [collections, searches, reviewCount, brands, add, setCommands, openCollection, collectionEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
@@ -351,8 +355,6 @@ export function Shell({
           reviewCount={reviewCount}
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
-          onUpload={upload?.fn}
-          onNewCollection={newCollection}
         />
         <SidebarInset className="min-w-0">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
@@ -365,7 +367,7 @@ export function Shell({
           collections={collections}
           brands={brands}
           searches={searches}
-          onUpload={upload?.fn}
+          onUpload={add?.files}
           onNewCollection={newCollection}
           onShortcuts={() => setHelp(true)}
           commands={commands?.fn}
