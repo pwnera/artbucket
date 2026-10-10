@@ -14320,6 +14320,19 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "license": {
+                          "description": "An asset's license (rights.license); absent on other types",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "versions": {
+                          "description": "How many versions an asset's stack holds; `release` is which one this is",
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -14535,13 +14548,88 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "on": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "asset",
+                              "brand",
+                              "collection"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "What takes a grant here (a rule's or a page's brand); POST /api/v1/grants with it. Null for a portal"
+                  },
+                  "granted": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "grant": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "person",
+                            "group"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "who": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "grant",
+                        "kind",
+                        "id",
+                        "who",
+                        "scope"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "The grants made on it, each changed with POST /api/v1/grants or taken back with DELETE /api/v1/grants/{grant}"
                   }
                 },
                 "required": [
                   "id",
                   "name",
                   "private",
-                  "holders"
+                  "holders",
+                  "on",
+                  "granted"
                 ],
                 "additionalProperties": false
               }
@@ -36967,7 +37055,7 @@
     },
     "post": {
       "summary": "Make an organization",
-      "description": "With a first project, Library. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
+      "description": "With a first project, My First Project. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
       "requestBody": {
         "required": true,
         "content": {

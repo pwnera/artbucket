@@ -1,0 +1,66 @@
+# Breaks of v1 taken in on purpose (pnpm contract:freeze --break), while decision 0017 sets the freeze aside.
+GET /api/v1/assets 200.data[].workspaceId: removed
+POST /api/v1/assets 200.data.workspaceId: removed
+POST /api/v1/assets 201.data.workspaceId: removed
+POST /api/v1/fonts/google 201.data[].workspaceId: removed
+POST /api/v1/icons 201.data[].workspaceId: removed
+GET /api/v1/assets/{id} 200.data.workspaceId: removed
+PATCH /api/v1/assets/{id} 200.data.workspaceId: removed
+POST /api/v1/assets/{id}/restore 200.data.workspaceId: removed
+GET /api/v1/assets/{id}/versions 200.data[].workspaceId: removed
+POST /api/v1/assets/{id}/versions/{number}/current 200.data[].workspaceId: removed
+POST /api/v1/assets/{id}/proposed-tags 200.data.workspaceId: removed
+POST /api/v1/assets/{id}/proposed-fields 200.data.workspaceId: removed
+GET /api/v1/me 200.data.workspace: removed
+GET /api/v1/me 200.data.off: removed
+GET /api/v1/me 200.data.workspaces: removed
+POST /api/v1/organizations 201.data.workspace: removed
+GET /api/v1/usage 200.data.limits.workspaces: removed
+GET /api/v1/usage 200.data.used.workspaces: removed
+GET /api/v1/usage 200.data.traffic.workspaces: removed
+GET /api/v1/workspaces: removed
+POST /api/v1/workspaces: removed
+PATCH /api/v1/workspaces/{id}: removed
+DELETE /api/v1/workspaces/{id}: removed
+GET /api/v1/members query in: no longer takes "workspace"
+GET /api/v1/members 200.data[].grants[].workspaceId: removed
+GET /api/v1/members 200.data[].grants[].limits: removed
+GET /api/v1/members 200.invitations[].limits: removed
+POST /api/v1/grants body: no longer accepts object
+POST /api/v1/grants 200.data.workspaceId: removed
+POST /api/v1/grants 200.data.limits: removed
+POST /api/v1/grants 200.data.id: may now be null
+POST /api/v1/grants 200.data.resource: removed
+POST /api/v1/grants 200.data.resourceId: removed
+POST /api/v1/grants 200.data.label: removed
+POST /api/v1/grants 200.data.scope: removed
+POST /api/v1/grants 200.data.createdAt: removed
+POST /api/v1/invitations body.resource: no longer takes "workspace"
+POST /api/v1/invitations body.limits: removed
+POST /api/v1/invitations 201.data.limits: removed
+POST /api/v1/invitations/{id}/resend 200.data.limits: removed
+POST /api/v1/invite/{token} 200.data.workspaceId: removed
+GET /api/v1/shared/{token} 200.share.workspace: removed
+GET /api/v1/email-domains 200.data[].workspaceId: removed
+POST /api/v1/email-domains 201.data.workspaceId: removed
+PATCH /api/v1/email-domains/{domain} body.workspaceId: removed
+PATCH /api/v1/email-domains/{domain} 200.data.workspaceId: removed
+POST /api/v1/email-domains/{domain}/verify 200.data.workspaceId: removed
+GET /api/v1/hub/reports 200.data[].brand.workspace: removed
+GET /api/v1/sso 200.data.workspaceId: removed
+PUT /api/v1/sso body.workspaceId: removed
+PUT /api/v1/sso 200.data.workspaceId: removed
+PATCH /api/v1/sso 200.data.workspaceId: removed
+POST /api/v1/sso/verify 200.data.workspaceId: removed
+GET /api/v1/audit 200.data[].workspaceId: removed
+GET /api/v1/settings query context: no longer takes "workspace"
+PATCH /api/v1/settings/{key} query context: no longer takes "workspace"
+DELETE /api/v1/settings/{key} query context: no longer takes "workspace"
+GET /api/v1/keys 200.data[].workspaces: removed
+POST /api/v1/keys 201.data.workspaces: removed
+GET /api/v1/keys/{id} 200.data.workspaces: removed
+PATCH /api/v1/keys/{id} body.workspaces: removed
+PATCH /api/v1/keys/{id} body.projects: newly required
+PATCH /api/v1/keys/{id} 200.data.workspaces: removed
+POST /api/v1/oauth/device/{code} body: no longer accepts object
+POST /api/v1/oauth/authorize body: no longer accepts object
