@@ -8,12 +8,14 @@ import { useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { Input } from "@/components/ui/input";
 import { TYPE_LABEL, type CatalogType } from "@/lib/catalog";
+import { ASSET_TYPES, type AssetType } from "@/lib/filters";
 import type { CatalogItem } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
 
 /**
  * The catalog as a tree, Unity Catalog's way: projects, then a folder per
  * type, then objects, and a brand's rules and guideline pages inside it.
+ * Assets fold once more, by their type (images, videos, fonts...).
  * Every level folds; the path to the object open stays unfolded, and a
  * filter unfolds whatever matches. Arrow keys move, Right and Left fold,
  * Enter opens.
@@ -34,6 +36,7 @@ const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   portal: { href: "/portals", label: "Manage portals" },
 };
 const PARTS: CatalogType[] = ["rule", "page"];
+const KIND_LABEL: Record<AssetType, string> = { image: "Images", video: "Videos", audio: "Audio", font: "Fonts", document: "Documents", other: "Other" };
 
 function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Node[] {
   return projects.map((p) => {
@@ -62,7 +65,15 @@ function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Nod
           return { key: o.sharedFrom ? `${p.id}:${o.id}` : o.id, depth: 3, label: o.name, item: o, kind: "object", children: kids };
         })
         .filter((n) => match(n.item!) || n.children.length);
-      return list.length ? [{ key: `${p.id}:${t}`, depth: 2, label: TYPE_LABEL[t].many, count: list.length, kind: "group" as const, type: t, children: list }] : [];
+      // Assets fold once more, by type, a folder for each type there is.
+      const children =
+        t === "asset"
+          ? ASSET_TYPES.flatMap((k) => {
+              const mine = list.filter((n) => (n.item!.kind ?? "other") === k).map((n) => ({ ...n, depth: 4 }));
+              return mine.length ? [{ key: `${p.id}:asset:${k}`, depth: 3, label: KIND_LABEL[k], count: mine.length, kind: "group" as const, type: t, children: mine }] : [];
+            })
+          : list;
+      return list.length ? [{ key: `${p.id}:${t}`, depth: 2, label: TYPE_LABEL[t].many, count: list.length, kind: "group" as const, type: t, children }] : [];
     });
     return { key: p.id, depth: 1, label: p.name, count: groups.reduce((s, g) => s + (g.count ?? 0), 0), kind: "project", children: groups };
   });

@@ -21,7 +21,7 @@ import { linkTitle, previewOf } from "@/lib/core/previews";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
-import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type FieldFilter } from "@/lib/filters";
+import { ASSET_TYPES, FilterError, isFacetable, parseFieldFilters, type AssetType, type FieldFilter } from "@/lib/filters";
 import { fontMime } from "@/lib/font";
 import { entityBomb, isMonochromeSvg } from "@/lib/icons";
 import { originOf, readC2pa } from "@/lib/c2pa";
@@ -567,7 +567,7 @@ export async function collectionId(caller: Caller, ref: string): Promise<string>
  * An asset's type (ASSET_TYPES), from its media type. Fonts go by extension
  * too, like lib/font.ts isFont: a font can arrive as application/octet-stream.
  */
-const assetType = sql<string>`case
+export const assetType = sql<AssetType>`case
   when ${assets.mime} like 'font/%' or ${assets.filename} ~* '\\.(woff2?|[ot]tf)$' then 'font'
   when ${assets.mime} like 'image/%' then 'image'
   when ${assets.mime} like 'video/%' then 'video'

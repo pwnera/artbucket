@@ -33,6 +33,8 @@ import {
 } from "@/lib/catalog";
 import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/core/access";
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
+import { assetType } from "@/lib/core/assets";
+import type { AssetType } from "@/lib/filters";
 
 /**
  * The catalog (PRD: Artbucket Catalog): one search, one describe, one lineage
@@ -146,6 +148,8 @@ export type CatalogItem = Omit<Row, "org" | "projectId" | "parentId"> & {
   parent: { id: string; type: CatalogType; slug: string; name: string } | null;
   /** Listed in another project than its own: shared into it from this one (lib/core/project-shares.ts). */
   sharedFrom?: { id: string; name: string };
+  /** An asset's type, in the tree, which folds its assets by it. */
+  kind?: AssetType;
 };
 
 const rows = (where: SQL) =>
@@ -425,6 +429,12 @@ export async function catalogTree(caller: Caller) {
   const reaches = await reachOf(caller);
   const found = (await rows(and(seen(reaches), ne(o.status, "replaced"))!).orderBy(asc(o.type), asc(o.name))) as Row[];
   const list = await items(found);
+  // Assets fold by type in the tree: image, video, font...
+  const assetIds = list.filter((i) => i.type === "asset").map((i) => i.id);
+  const kinds = new Map(
+    assetIds.length ? (await db.select({ id: assets.id, kind: assetType }).from(assets).where(inArray(assets.id, assetIds))).map((r) => [r.id, r.kind]) : [],
+  );
+  for (const i of list) if (kinds.has(i.id)) i.kind = kinds.get(i.id);
   const byId = new Map(list.map((i) => [i.id, i]));
   // What was shared into each project, beside its own: the same object, said to come from home.
   const shared = await sharedInto(reaches.map((r) => r.project.id));
