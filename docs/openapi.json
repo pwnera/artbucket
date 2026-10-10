@@ -20133,6 +20133,10 @@
                       "private",
                       "public"
                     ]
+                  },
+                  "dryRun": {
+                    "description": "Check that a brand can be made here (write on the project, not read-only, room in the plan's brands), make nothing: before long work that ends in one",
+                    "type": "boolean"
                   }
                 },
                 "additionalProperties": false

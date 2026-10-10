@@ -277,6 +277,10 @@ export const BrandCreate = z
       .optional()
       .describe("Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the project"),
     visibility: z.enum(["private", "public"]).optional().describe("`public` puts its release on BrandHub for anyone, once made; takes `publish`"),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Check that a brand can be made here (write on the project, not read-only, room in the plan's brands), make nothing: before long work that ends in one"),
   })
   .refine((b) => b.name || b.domain || b.brandJson, { message: "Give the brand a name", path: ["name"] })
   .refine((b) => [b.from, b.template, b.domain || b.brandJson].filter(Boolean).length < 2, "Start from a brand, a template or a brand.json, one of them")
