@@ -13179,7 +13179,7 @@
     "/api/v1/catalog/tree": {
       "get": {
         "summary": "The catalog's tree",
-        "description": "Every project you reach and its objects, parts and replaced versions aside: what the explorer lists.\n\nScope: `read`.",
+        "description": "Every project you reach, its objects and their parts (a part names its object in `parent`), replaced versions aside: what the explorer lists.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {

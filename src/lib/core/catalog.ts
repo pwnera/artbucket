@@ -426,10 +426,10 @@ export function openPath(item: Pick<CatalogItem, "id" | "type" | "slug" | "paren
   }
 }
 
-/** The tree's rows: every object of every project the caller reaches, parts aside, retired aside. */
+/** The tree's rows: every object of every project the caller reaches, and their parts (a brand's rules and pages), retired aside. */
 export async function catalogTree(caller: Caller) {
   const reaches = await reachOf(caller);
-  const found = (await rows(and(seen(reaches), sql`${o.parentId} is null`, ne(o.status, "replaced"))!).orderBy(asc(o.type), asc(o.name))) as Row[];
+  const found = (await rows(and(seen(reaches), ne(o.status, "replaced"))!).orderBy(asc(o.type), asc(o.name))) as Row[];
   const list = await items(found);
   return {
     projects: reaches.map((r) => ({

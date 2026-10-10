@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  IconChevronDown,
-  IconChevronRight,
   IconFileText,
   IconListCheck,
   IconLock,
@@ -14,17 +12,18 @@ import {
   IconPhoto,
   IconRobot,
   IconSearch,
-  IconSitemap,
   IconStack2,
   IconUser,
   IconWorld,
   IconLink,
+  IconLayoutSidebarLeftExpand,
 } from "@tabler/icons-react";
+import { CatalogTree } from "@/components/catalog-tree";
+import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
 import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { ActivityLine, CatalogItem, Holder } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
@@ -73,14 +72,6 @@ const LineageGraph = dynamic(() => import("@/components/catalog-lineage").then((
 export type TreeProject = { id: string; slug: string; name: string; role: string | null; objects: CatalogItem[] };
 export type Described = CatalogItem & { usedBy: CatalogItem[]; usedByCount: number; lineage: { up: number; down: number }; open: string };
 
-const ORDER: CatalogType[] = ["brand", "collection", "asset", "portal"];
-const FACETS: { id: string; label: string; types: CatalogType[] | null }[] = [
-  { id: "all", label: "All", types: null },
-  { id: "brand", label: "Brands", types: ["brand"] },
-  { id: "collection", label: "Collections", types: ["collection"] },
-  { id: "asset", label: "Assets", types: ["asset"] },
-  { id: "portal", label: "Portals", types: ["portal"] },
-];
 const TABS = ["overview", "lineage", "access", "activity"] as const;
 export type Tab = (typeof TABS)[number];
 
@@ -88,23 +79,8 @@ const day = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { da
 
 export function CatalogExplorer({ projects, object, tab }: { projects: TreeProject[]; object: Described | null; tab: Tab }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [facet, setFacet] = useState("all");
-  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState(false);
   const go = useCallback((id: string, t: Tab = tab) => router.push(`/catalog?o=${id}${t === "overview" ? "" : `&tab=${t}`}`, { scroll: false }), [router, tab]);
-
-  const types = FACETS.find((f) => f.id === facet)!.types;
-  const q = query.trim().toLowerCase();
-  const shown = useMemo(
-    () =>
-      projects.map((p) => {
-        const objects = p.objects.filter((o) => (!types || types.includes(o.type)) && (!q || o.name.toLowerCase().includes(q) || o.address.includes(q)));
-        return { ...p, objects };
-      }),
-    [projects, types, q],
-  );
-  const total = shown.reduce((s, p) => s + p.objects.length, 0);
-
   return (
     <>
       <AppHeader trail={[{ label: "Catalog" }]}>
@@ -115,80 +91,17 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
         </Button>
       </AppHeader>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <section
-          aria-label="Catalog tree"
-          className="flex shrink-0 flex-col border-b md:sticky md:top-14 md:h-[calc(100svh-3.5rem)] md:w-80 md:border-e md:border-b-0"
-        >
-          <div className="space-y-3 border-b p-4">
-            <div className="flex items-center gap-2">
-              <IconSitemap aria-hidden className="text-muted-foreground size-5" />
-              <h1 className="font-display text-xl font-semibold tracking-tight">Catalog</h1>
-              <span className="text-muted-foreground text-sm tabular-nums">{total}</span>
-            </div>
-            <Input type="search" placeholder="Filter by name or address" aria-label="Filter the tree" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <div className="flex flex-wrap gap-1.5">
-              {FACETS.map((f) => (
-                <Button key={f.id} size="xs" variant={facet === f.id ? "secondary" : "ghost"} aria-pressed={facet === f.id} onClick={() => setFacet(f.id)}>
-                  {f.label}
-                </Button>
-              ))}
-            </div>
+        {hidden ? (
+          <div className="hidden shrink-0 border-e p-1.5 md:sticky md:top-14 md:block md:h-[calc(100svh-3.5rem)]">
+            <IconButton variant="ghost" size="icon-sm" label="Show the tree" onClick={() => setHidden(false)}>
+              <IconLayoutSidebarLeftExpand />
+            </IconButton>
           </div>
-          <div role="tree" aria-label="Projects and objects" className="max-h-80 overflow-y-auto p-2 md:max-h-none md:min-h-0 md:flex-1">
-            {shown.map((p) => {
-              const open = !closed.has(p.id);
-              return (
-                <div key={p.id} role="treeitem" aria-expanded={open} aria-selected={false}>
-                  <button
-                    type="button"
-                    onClick={() => setClosed((c) => (c.delete(p.id) ? new Set(c) : new Set(c).add(p.id)))}
-                    className="hover:bg-accent flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium"
-                  >
-                    {open ? <IconChevronDown aria-hidden className="size-4" /> : <IconChevronRight aria-hidden className="size-4" />}
-                    <span className="truncate">{p.name}</span>
-                    <span className="text-muted-foreground ms-auto text-xs tabular-nums">{p.objects.length}</span>
-                  </button>
-                  {open && (
-                    <div role="group">
-                      {ORDER.map((t) => {
-                        const list = p.objects.filter((o) => o.type === t);
-                        if (!list.length) return null;
-                        return (
-                          <div key={t} className="mb-1">
-                            <div className="text-muted-foreground flex items-center px-2 pt-2 pb-1 ps-8 text-xs">
-                              {TYPE_LABEL[t].many}
-                              <span className="ms-auto tabular-nums">{list.length}</span>
-                            </div>
-                            {list.map((o) => (
-                              <button
-                                key={o.id}
-                                type="button"
-                                role="treeitem"
-                                aria-selected={object?.id === o.id}
-                                aria-current={object?.id === o.id ? "page" : undefined}
-                                onClick={() => go(o.id)}
-                                className={cn(
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 ps-8 text-start text-sm",
-                                  object?.id === o.id ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-accent",
-                                )}
-                              >
-                                <TypeIcon type={o.type} className="text-muted-foreground size-4 shrink-0" />
-                                <span className="truncate">{o.name}</span>
-                                {o.private && <IconLock aria-label="Private" className="text-muted-foreground size-3.5 shrink-0" />}
-                                <span className="text-muted-foreground ms-auto text-xs tabular-nums">{o.release ? `@${o.release}` : o.status === "draft" ? "draft" : ""}</span>
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      })}
-                      {!p.objects.length && <p className="text-muted-foreground px-2 py-1 ps-8 text-xs">{q || types ? "Nothing matches here." : "Nothing here yet."}</p>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        ) : (
+          <div className="h-80 shrink-0 border-b md:sticky md:top-14 md:h-[calc(100svh-3.5rem)] md:w-80 md:border-e md:border-b-0">
+            <CatalogTree projects={projects} current={object?.id ?? null} onOpen={(id) => go(id)} onHide={() => setHidden(true)} />
           </div>
-        </section>
+        )}
         <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
           {object ? (
             <ObjectView object={object} tab={tab} go={go} />

@@ -547,7 +547,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "The catalog's tree",
           scope: "read",
-          description: "Every project you reach and its objects, parts and replaced versions aside: what the explorer lists.",
+          description: "Every project you reach, its objects and their parts (a part names its object in `parent`), replaced versions aside: what the explorer lists.",
           ok: [200, "Projects", z.object({ projects: z.array(z.object({ id: z.uuid(), slug: z.string(), name: z.string(), role: z.string().nullable(), objects: z.array(CatalogItem) })) })],
         }),
       },
