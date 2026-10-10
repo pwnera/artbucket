@@ -31,6 +31,7 @@ import { deletePage, editPage, generatePages, getPage, listPages, savePage } fro
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
 import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
+import { shareObject } from "@/lib/core/project-shares";
 import { parseQuery } from "@/lib/catalog";
 import { record, who } from "@/lib/core/events";
 import { brandTarget, deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
@@ -295,6 +296,16 @@ const TOOLS: Record<ToolName, Tool> = {
         nodes: l.nodes.map(({ id, type, name, address, status, project, up, down }) => ({ id, type, name, address, status, project: project.slug, up, down })),
       };
     },
+  }),
+
+  share_object: tool({
+    description:
+      "Share a brand, collection or asset into another project of the organization: its members read it, as Viewers, where it is, " +
+      "kept and edited in its own project, nothing copied. Takes admin on the object. Only when a person asks.",
+    action: "catalog.read",
+    readOnly: false,
+    input: TOOL_INPUTS.share_object,
+    run: async ({ object, project }, caller) => shareObject(caller, object, project),
   }),
 
   who_can: tool({

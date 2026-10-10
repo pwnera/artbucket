@@ -109,11 +109,8 @@ export function can(who: Who, action: Action, target?: Target | null): boolean {
       return allowsOn(target ? assetLevels(who, { ...target, collections: target.collections ?? [] }) : allLevels(who), scope);
     case "brand":
       // A brand that isn't private reads like the workspace's other things: any grant in it will do.
-      // Without one named, some brand: the workspace's role or a grant on a brand, never a collection's.
-      return (
-        allowsOn(target ? brandLevels(who, target) : [{ scope: who.scope }, ...Object.values(who.narrow.brands).map((s) => ({ scope: s }))], scope) ||
-        (scope === "read" && !target?.private && allowsOn(allLevels(who), scope))
-      );
+      // The workspace's role or a grant on the brand, never a collection's or a share of something else; without one named, some brand.
+      return allowsOn(target ? brandLevels(who, target) : [{ scope: who.scope }, ...Object.values(who.narrow.brands).map((s) => ({ scope: s }))], scope);
   }
 }
 

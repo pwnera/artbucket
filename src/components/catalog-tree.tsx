@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { IconChevronRight, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconSitemap } from "@tabler/icons-react";
+import { IconChevronRight, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@tabler/icons-react";
 import { TypeIcon, type TreeProject } from "@/components/catalog";
 import { IconButton } from "@/components/icon-button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +31,22 @@ function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Nod
         .filter((o) => o.type === t)
         .map((o): Node => {
           const kids = PARTS.flatMap((pt) => {
-            const mine = parts.filter((x) => x.parent?.id === o.id && x.type === pt && match(x));
+            const mine = parts.filter((x) => x.parent?.id === o.id && !!x.sharedFrom === !!o.sharedFrom && x.type === pt && match(x));
             return mine.length
-              ? [{ key: `${o.id}:${pt}`, depth: 4, label: TYPE_LABEL[pt].many, count: mine.length, kind: "group" as const, type: pt, children: mine.map((x) => ({ key: x.id, depth: 5, label: x.name, item: x, kind: "object" as const, children: [] })) }]
+              ? [
+                  {
+                    key: `${p.id}:${o.id}:${pt}`,
+                    depth: 4,
+                    label: TYPE_LABEL[pt].many,
+                    count: mine.length,
+                    kind: "group" as const,
+                    type: pt,
+                    children: mine.map((x) => ({ key: `${p.id}:${x.id}`, depth: 5, label: x.name, item: x, kind: "object" as const, children: [] })),
+                  },
+                ]
               : [];
           });
-          return { key: o.id, depth: 3, label: o.name, item: o, kind: "object", children: kids };
+          return { key: o.sharedFrom ? `${p.id}:${o.id}` : o.id, depth: 3, label: o.name, item: o, kind: "object", children: kids };
         })
         .filter((n) => match(n.item!) || n.children.length);
       return list.length ? [{ key: `${p.id}:${t}`, depth: 2, label: TYPE_LABEL[t].many, count: list.length, kind: "group" as const, type: t, children: list }] : [];
@@ -171,6 +181,11 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
               )}
               <span className="truncate">{n.label}</span>
               {n.item?.private && <IconLock aria-label="Private" className="text-muted-foreground size-3.5 shrink-0" />}
+              {n.kind === "object" && n.depth === 3 && n.item?.sharedFrom && (
+                <span title={`Shared from ${n.item.sharedFrom.name}`} className="bg-primary/10 text-primary-ink inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[10px] font-medium">
+                  <IconShare aria-hidden className="size-3" /> Shared
+                </span>
+              )}
               <span className="text-muted-foreground ms-auto ps-2 text-xs tabular-nums">
                 {n.count ?? (n.item?.release ? `@${n.item.release}` : n.item?.status === "draft" ? "draft" : "")}
               </span>

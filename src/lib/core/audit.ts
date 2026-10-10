@@ -25,6 +25,7 @@ export type AuditAction =
   | "group.renamed"
   | "group.deleted"
   | "group.members"
+  | "share.project"
   | "invitation.created"
   | "invitation.resent"
   | "invitation.revoked"

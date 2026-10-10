@@ -5484,6 +5484,27 @@
       "object"
     ]
   },
+  "share_object": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "A brand, collection or asset: its id or address"
+      },
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "The project to share it into: its slug, as search_catalog's projects name them"
+      }
+    },
+    "required": [
+      "object",
+      "project"
+    ]
+  },
   "who_can": {
     "type": "object",
     "properties": {

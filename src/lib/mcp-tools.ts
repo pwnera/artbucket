@@ -313,6 +313,11 @@ export const TOOL_INPUTS = {
     depth: z.number().int().min(1).max(6).default(3),
   }),
 
+  share_object: z.object({
+    object: z.string().min(1).max(300).describe("A brand, collection or asset: its id or address"),
+    project: z.string().min(1).max(64).describe("The project to share it into: its slug, as search_catalog's projects name them"),
+  }),
+
   who_can: z.object({
     object: z.string().min(1).max(300).describe("An id or an address"),
     who: z.string().max(320).optional().describe("One person, by email: the grant behind their role"),

@@ -825,9 +825,15 @@ export const grants = pgTable(
   "grants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** Who holds it: a person, or a group (its members each have it). Exactly one. */
+    /** Who holds it: a person, a group (its members each have it), or a project (a share). Exactly one. */
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     groupId: uuid("group_id").references((): AnyPgColumn => groups.id, { onDelete: "cascade" }),
+    /**
+     * A share: another project of the organization holds it, always read, and
+     * each of its members has it (lib/core/shares.ts). The thing stays in its own
+     * project, kept once.
+     */
+    holderProjectId: uuid("holder_project_id").references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -841,7 +847,9 @@ export const grants = pgTable(
   (t) => [
     unique("grants_user_resource_unique").on(t.userId, t.resource, t.resourceId),
     unique("grants_group_resource_unique").on(t.groupId, t.resource, t.resourceId),
-    check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}) = 1`),
+    unique("grants_project_resource_unique").on(t.holderProjectId, t.resource, t.resourceId),
+    check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}, ${t.holderProjectId}) = 1`),
+    check("grants_share_check", sql`${t.holderProjectId} is null or (${t.scope} = 'read' and ${t.resource} in ('brand', 'collection', 'asset'))`),
     index("grants_org_idx").on(t.organizationId),
     check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset', 'brand')`),
     check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),

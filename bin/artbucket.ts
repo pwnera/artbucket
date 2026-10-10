@@ -103,6 +103,9 @@ const HELP = `artbucket <command>
   members                 people, their access, and invitations waiting (admin)
   invite <email> --scope s [--collection id]
                           an invitation link to the workspace, or one collection (admin)
+  share <address> --to <project>
+                          share a brand, collection or asset into another project:
+                          its members read it, kept and edited where it is
   share <collection-or-asset-id> [--upload] [--password p] [--expires YYYY-MM-DD] [--name n]
                           a link for someone without an account: to look and
                           download, or with --upload to send files in for review
@@ -134,6 +137,7 @@ const { values: opt, positionals } = parseArgs({
     review: { type: "boolean" },
     limit: { type: "string" },
     project: { type: "string" },
+    to: { type: "string" },
     direction: { type: "string" },
     depth: { type: "string" },
     width: { type: "string" },
@@ -899,6 +903,12 @@ async function main() {
       return out(r, () => `${r.data.url}\n\nShown once. Send it to ${email}; it works for a week.`);
     }
     case "share": {
+      // Into another project: the object, by address or id, read by its members where it is.
+      if (opt.to) {
+        const d = await api("GET", `/api/v1/catalog/${encodeURIComponent(need(args[0], "an address or id"))}`);
+        const r = await api("POST", "/api/v1/grants", { project: opt.to, resource: d.type, resourceId: d.id, scope: "read" });
+        return out(r, () => `${d.name} is shared into ${r.data.project.name}, as Viewer: kept and edited in ${d.project.name}`);
+      }
       const id = need(args[0], "collection or asset id");
       // An id is a collection's if the workspace has one by it; an asset's otherwise.
       const collections = (await api("GET", "/api/v1/collections")).data as { id: string }[];

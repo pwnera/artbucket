@@ -658,6 +658,7 @@ const SAYS: Record<AuditAction, string> = {
   "group.renamed": "renamed the group",
   "group.deleted": "deleted the group",
   "group.members": "changed who is in the group",
+  "share.project": "shared into another project",
   "invitation.created": "invited",
   "invitation.resent": "sent a new invitation to",
   "invitation.revoked": "withdrew the invitation to",

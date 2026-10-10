@@ -9,6 +9,7 @@ import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { checkLimit, checkOrganizations, isEditor } from "@/lib/core/usage";
+import { shareObject } from "@/lib/core/project-shares";
 import { defaultWorkspace, heldBy, placed, type Caller } from "@/lib/core/access";
 import { onlyOrganization } from "@/lib/core/branding";
 import { highest, type Resource } from "@/lib/access";
@@ -431,7 +432,16 @@ async function keepsAnAdmin(tx: Tx, organizationId: string, losing: string) {
  * scope on something, or change it. Only for people already in the
  * organization: anyone else gets an invitation.
  */
-export async function setGrant(caller: Caller, input: ({ user: string; group?: undefined } | { group: string; user?: undefined }) & { resource: Resource; resourceId: string; scope: Scope }) {
+export async function setGrant(
+  caller: Caller,
+  input: ({ user: string; group?: undefined; project?: undefined } | { group: string; user?: undefined; project?: undefined } | { project: string; user?: undefined; group?: undefined }) & {
+    resource: Resource;
+    resourceId: string;
+    scope: Scope;
+  },
+) {
+  // A share: the thing's admin offers it to another project (lib/core/project-shares.ts).
+  if (input.project) return shareObject(caller, input.resourceId, input.project);
   const t = await target(caller, input.resource, input.resourceId);
   if (input.group) return setGroupGrant(caller, input.group, t, input.scope);
   const [member] = await db
@@ -486,6 +496,13 @@ export async function newEditors(tx: Tx, organizationId: string, groupId: string
 }
 
 export async function removeGrant(caller: Caller, id: string) {
+  // A share, taken back by an admin of the project it was shared into: theirs to refuse, wherever it came from.
+  const [share] = await db.select().from(grants).where(and(eq(grants.id, id), eq(grants.holderProjectId, caller.workspace.id)));
+  if (share && can(caller, "member.manage")) {
+    await db.delete(grants).where(eq(grants.id, id));
+    await recordAudit(caller, "grant.removed", caller.workspace.name, { resource: share.resource, scope: share.scope, share: true }, { workspaceId: share.workspaceId });
+    return true;
+  }
   const [g] = await db.select().from(grants).where(and(eq(grants.id, id), visible(caller)));
   if (!g) return false;
   const t = await target(caller, g.resource, g.resourceId);
@@ -497,8 +514,10 @@ export async function removeGrant(caller: Caller, id: string) {
   });
   const holder = g.userId
     ? (await db.select({ name: users.email }).from(users).where(eq(users.id, g.userId)))[0]?.name
-    : (await db.select({ name: groups.name }).from(groups).where(eq(groups.id, g.groupId!)))[0]?.name;
-  await recordAudit(caller, "grant.removed", holder ?? g.userId ?? g.groupId, { resource: g.resource, on: t.label, scope: g.scope }, { workspaceId: g.workspaceId });
+    : g.groupId
+      ? (await db.select({ name: groups.name }).from(groups).where(eq(groups.id, g.groupId)))[0]?.name
+      : (await db.select({ name: workspaces.name }).from(workspaces).where(eq(workspaces.id, g.holderProjectId!)))[0]?.name;
+  await recordAudit(caller, "grant.removed", holder ?? g.userId ?? g.groupId ?? g.holderProjectId, { resource: g.resource, on: t.label, scope: g.scope }, { workspaceId: g.workspaceId });
   return true;
 }
 

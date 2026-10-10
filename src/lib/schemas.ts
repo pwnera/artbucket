@@ -338,6 +338,12 @@ const on = {
 export const GrantInput = z.union([
   z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on }),
   z.strictObject({ group: uuid.describe("A group's id, from /api/v1/groups: each of its members has the grant"), ...on }),
+  z.strictObject({
+    project: z.string().min(1).max(64).describe("A share: another project of the organization, by id or slug. Its members read the brand, collection or asset where it is"),
+    resource: z.enum(["brand", "collection", "asset"]),
+    resourceId: uuid,
+    scope: z.literal("read").describe("A share is always read: edits happen in its own project"),
+  }),
 ]);
 export const GroupInput = z.strictObject({ name: z.string().trim().min(1).max(80) });
 export const GroupMembersChange = z.strictObject({

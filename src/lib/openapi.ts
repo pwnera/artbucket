@@ -563,6 +563,7 @@ export function openapi(serverUrl: string) {
               usedBy: z.array(CatalogItem),
               usedByCount: z.number().int(),
               lineage: z.object({ up: z.number().int(), down: z.number().int() }),
+              sharedWith: z.array(z.object({ grant: z.uuid(), project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }), role: z.string() })),
               open: z.string().describe("Where the app shows it"),
             }),
           ],
@@ -1238,9 +1239,19 @@ export function openapi(serverUrl: string) {
           description:
             "A scope on the organization (its admins only), a workspace, a collection or one asset (admins of the " +
             "workspace), held by a member (`user`) or a group (`group`). Grants add up and reach down. Only for people " +
-            "already in the organization; invite anyone else.",
+            "already in the organization; invite anyone else. With `project`, a share: another project of the organization " +
+            "reads a brand, collection or asset where it is (admin on it shares it).",
           body: S.GrantInput,
-          ok: [200, "The grant", data(S.Grant)],
+          ok: [
+            200,
+            "The grant, or the share",
+            data(
+              z.union([
+                S.Grant,
+                z.object({ id: z.uuid().nullable(), object: z.string(), project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }), role: z.literal("Viewer") }),
+              ]),
+            ),
+          ],
         }),
       },
       "/api/v1/grants/{id}": {

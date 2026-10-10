@@ -128,9 +128,24 @@ export async function hiddenIn(workspaceId: string): Promise<string[]> {
   return (await privateCollections(eq(workspaces.id, workspaceId))).map((r) => r.id);
 }
 
-/** The grants a person holds: their own, and their groups' (lib/core/groups.ts). */
-export const heldBy = (userId: string) =>
+/** A person's own grants, and their groups' (lib/core/groups.ts). */
+const ownOrGroups = (userId: string) =>
   or(eq(grants.userId, userId), inArray(grants.groupId, db.select({ id: groupMembers.groupId }).from(groupMembers).where(eq(groupMembers.userId, userId))))!;
+
+/**
+ * The grants a person holds: their own, their groups', and the shares held by
+ * every project they are a member of (a role on it, or on its organization):
+ * a share is each member's read on what was shared (lib/core/project-shares.ts).
+ */
+export const heldBy = (userId: string) => {
+  const roles = (resource: "workspace" | "organization") =>
+    db.select({ id: grants.resourceId }).from(grants).where(and(ownOrGroups(userId), eq(grants.resource, resource)));
+  const memberOf = db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(or(inArray(workspaces.id, roles("workspace")), inArray(workspaces.organizationId, roles("organization"))));
+  return or(ownOrGroups(userId), inArray(grants.holderProjectId, memberOf))!;
+};
 
 /** Workspaces a person can open: all of an organization they have a grant on, and any they have a grant in. */
 const reachable = (userId: string) =>

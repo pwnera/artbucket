@@ -15,9 +15,15 @@ import {
   IconStack2,
   IconUser,
   IconWorld,
+  IconFolder,
   IconLink,
   IconLayoutSidebarLeftExpand,
+  IconShare,
+  IconX,
 } from "@tabler/icons-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { send } from "@/lib/send";
 import { CatalogTree } from "@/components/catalog-tree";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
@@ -70,7 +76,13 @@ const LineageGraph = dynamic(() => import("@/components/catalog-lineage").then((
 });
 
 export type TreeProject = { id: string; slug: string; name: string; role: string | null; objects: CatalogItem[] };
-export type Described = CatalogItem & { usedBy: CatalogItem[]; usedByCount: number; lineage: { up: number; down: number }; open: string };
+export type Described = CatalogItem & {
+  usedBy: CatalogItem[];
+  usedByCount: number;
+  lineage: { up: number; down: number };
+  sharedWith: { grant: string; project: { id: string; slug: string; name: string }; role: string }[];
+  open: string;
+};
 
 const TABS = ["overview", "lineage", "access", "activity"] as const;
 export type Tab = (typeof TABS)[number];
@@ -104,7 +116,7 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
         )}
         <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
           {object ? (
-            <ObjectView object={object} tab={tab} go={go} />
+            <ObjectView object={object} tab={tab} go={go} projects={projects} />
           ) : (
             <p className="text-muted-foreground text-sm">Nothing in the catalog you can reach yet. Upload an asset or make a brand, and it shows here.</p>
           )}
@@ -114,7 +126,7 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
   );
 }
 
-function ObjectView({ object: o, tab, go }: { object: Described; tab: Tab; go: (id: string, t?: Tab) => void }) {
+function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: Tab; go: (id: string, t?: Tab) => void; projects: TreeProject[] }) {
   const counts: Partial<Record<Tab, number>> = { lineage: o.lineage.up + o.lineage.down };
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -152,9 +164,12 @@ function ObjectView({ object: o, tab, go }: { object: Described; tab: Tab; go: (
               <CopyButton text={o.address} label="Copy address" what="Address" />
             </div>
           </div>
-          <Button asChild>
-            <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
-          </Button>
+          <div className="flex gap-2">
+            {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
+            <Button asChild>
+              <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
+            </Button>
+          </div>
         </div>
       </div>
       <nav aria-label="Object" className="flex gap-5 overflow-x-auto border-b">
@@ -242,7 +257,92 @@ function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }
           See lineage
         </Button>
       </Card>
+      {SHAREABLE.includes(o.type) && <SharedWith o={o} />}
     </div>
+  );
+}
+
+const SHAREABLE: CatalogType[] = ["brand", "collection", "asset"];
+
+/** Where it is shared, each taken back by its X (an admin of either project). */
+function SharedWith({ o }: { o: Described }) {
+  const router = useRouter();
+  return (
+    <Card title="Shared with" aside={<span className="text-muted-foreground text-sm tabular-nums">{o.sharedWith.length}</span>}>
+      {o.sharedWith.length ? (
+        <ul className="space-y-1">
+          {o.sharedWith.map((x) => (
+            <li key={x.grant} className="flex items-center gap-2 text-sm">
+              <IconFolder aria-hidden className="text-muted-foreground size-4" />
+              <span className="truncate">{x.project.name}</span>
+              <Badge variant="outline" className="ms-auto">
+                {x.role}
+              </Badge>
+              <IconButton
+                variant="ghost"
+                size="icon-xs"
+                label={`Stop sharing with ${x.project.name}`}
+                className="text-muted-foreground hover:text-destructive"
+                onClick={async () => (await send("DELETE", `/api/v1/grants/${x.grant}`)) && router.refresh()}
+              >
+                <IconX />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-sm">Only {o.project.name} reaches it.</p>
+      )}
+    </Card>
+  );
+}
+
+/** Share into another project of the organization: Viewer for its members, kept and edited here. */
+function ShareToProject({ o, projects }: { o: Described; projects: TreeProject[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const others = projects.filter((p) => p.id !== o.project.id && !o.sharedWith.some((x) => x.project.id === p.id));
+  const [to, setTo] = useState(others[0]?.id ?? "");
+  if (!others.length) return null;
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <IconShare /> Share to project
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share {o.name}</DialogTitle>
+          <DialogDescription>
+            Its members read it, as a Viewer, where it is: it is kept and edited in {o.project.name}, and nothing is copied.
+          </DialogDescription>
+        </DialogHeader>
+        <Select value={to} onValueChange={setTo}>
+          <SelectTrigger className="w-full" aria-label="Into">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {others.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button
+            onClick={async () => {
+              if (!(await send("POST", "/api/v1/grants", { project: to, resource: o.type, resourceId: o.id, scope: "read" }))) return;
+              setOpen(false);
+              router.refresh();
+            }}
+          >
+            Share
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -263,7 +363,7 @@ function useView<T>(path: string) {
   return { data, error };
 }
 
-const KIND: Record<Holder["kind"], React.ComponentType<{ className?: string }>> = { person: IconUser, agent: IconRobot, public: IconWorld, link: IconLink };
+const KIND: Record<Holder["kind"], React.ComponentType<{ className?: string }>> = { person: IconUser, agent: IconRobot, project: IconFolder, public: IconWorld, link: IconLink };
 
 function Access({ id }: { id: string }) {
   const { data, error } = useView<{ private: boolean; holders: Holder[] }>(`/api/v1/catalog/${id}/access`);

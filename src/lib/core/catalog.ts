@@ -32,6 +32,7 @@ import {
   type EdgeKind,
 } from "@/lib/catalog";
 import { heldBy, hiddenIn, workspacesOf, type Caller, type Workspace } from "@/lib/core/access";
+import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 
 /**
  * The catalog (PRD: Artbucket Catalog): one search, one describe, one lineage
@@ -81,13 +82,15 @@ function seenIn({ workspace, access }: Reach): SQL {
     r.collections.length ? sql`${o.collections} && ${uuids(r.collections)}` : undefined,
   )!;
   const collection = or(open, r.collections.length ? inArray(o.id, r.collections) : undefined)!;
-  // A brand and its parts: any grant here reads one that isn't private; a private one takes a grant on it.
+  // A brand and its parts: the workspace's role reads one that isn't private; a grant on it (or a share of it) reads it anyway.
   const granted = (col: typeof o.id | typeof o.parentId) => (r.brands.length ? inArray(col, r.brands) : sql`false`);
-  const brand = or(sql`not ${o.private}`, granted(o.id))!;
-  const part = or(sql`not ${o.private}`, granted(o.parentId))!;
+  const brand = or(open, granted(o.id))!;
+  const part = or(open, granted(o.parentId))!;
+  // A portal: the workspace's role.
+  const portal = allows(access.scope, "read") ? sql`true` : sql`false`;
   return and(
     inW,
-    sql`(case ${o.type} when 'asset' then ${asset} when 'collection' then ${collection} when 'brand' then ${brand} when 'rule' then ${part} when 'page' then ${part} else true end)`,
+    sql`(case ${o.type} when 'asset' then ${asset} when 'collection' then ${collection} when 'brand' then ${brand} when 'rule' then ${part} when 'page' then ${part} else ${portal} end)`,
   )!;
 }
 
@@ -141,6 +144,8 @@ type Row = {
 export type CatalogItem = Omit<Row, "org" | "workspaceId" | "parentId"> & {
   address: string;
   parent: { id: string; type: CatalogType; slug: string; name: string } | null;
+  /** Listed in another project than its own: shared into it from this one (lib/core/project-shares.ts). */
+  sharedFrom?: { id: string; name: string };
 };
 
 const rows = (where: SQL) =>
@@ -410,6 +415,7 @@ export async function describeObject(caller: Caller, ref: string) {
     usedBy: used.slice(0, 5),
     usedByCount: used.length,
     lineage: { up: up.length, down: down.length },
+    sharedWith: (await sharesOf(item.id)).map((x) => ({ grant: x.id, project: x.project, role: "Viewer" })),
     open: openPath(item),
   };
 }
@@ -419,19 +425,32 @@ export async function catalogTree(caller: Caller) {
   const reaches = await reachOf(caller);
   const found = (await rows(and(seen(reaches), ne(o.status, "replaced"))!).orderBy(asc(o.type), asc(o.name))) as Row[];
   const list = await items(found);
+  const byId = new Map(list.map((i) => [i.id, i]));
+  // What was shared into each project, beside its own: the same object, said to come from home.
+  const shared = await sharedInto(reaches.map((r) => r.workspace.id));
   return {
     projects: reaches.map((r) => ({
       id: r.workspace.id,
       slug: r.workspace.slug,
       name: r.workspace.name,
       role: widest(r.access),
-      objects: list.filter((i) => i.project.id === r.workspace.id),
+      objects: [
+        ...list.filter((i) => i.project.id === r.workspace.id),
+        ...shared.flatMap((x) => {
+          const i = x.project === r.workspace.id ? byId.get(x.id) : undefined;
+          return i ? [{ ...i, sharedFrom: { id: i.project.id, name: i.project.name } }] : [];
+        }),
+        // A shared brand's rules and pages come with it.
+        ...shared.flatMap((x) =>
+          x.project === r.workspace.id ? list.filter((p) => p.parent?.id === x.id).map((p) => ({ ...p, sharedFrom: { id: p.project.id, name: p.project.name } })) : [],
+        ),
+      ],
     })),
   };
 }
 
 export type Holder = {
-  kind: "person" | "agent" | "public" | "link";
+  kind: "person" | "agent" | "project" | "public" | "link";
   who: string;
   role: string;
   scope: Scope | null;
@@ -512,6 +531,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
         scope: k.scope,
         via: k.userId ? `Agent key on ${item.project.name}, capped at ${k.person}` : `Agent key on ${item.project.name}`,
       });
+    for (const x of await sharesOf(objectId)) holders.push({ kind: "project", who: x.project.name, role: "Viewer", scope: "read", via: `Shared from ${item.project.name}: its members read the latest release` });
     holders.push(...(await delivery(objectType, objectId)));
   }
   return { id: item.id, name: item.name, private: obj.private, holders };

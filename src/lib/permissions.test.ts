@@ -71,7 +71,9 @@ test("a brand: the workspace's role, or a grant on it; a private one turns the w
   const brandEditor: Who = { ...base, scope: "read", orgScope: null, narrow: { ...none, brands: { kids: "write" } } };
   assert.equal(can(brandEditor, "brand.edit", { id: "kids" }), true, "a grant on the brand");
   assert.equal(can(brandEditor, "brand.edit", { id: "acme" }), false, "not another brand");
-  assert.equal(can(brandEditor, "brand.read", { id: "acme" }), true, "reads the workspace's brands");
+  assert.equal(can(brandEditor, "brand.read", { id: "acme" }), true, "reads the workspace's brands, as its viewer");
+  const contractor_: Who = { ...base, scope: null, orgScope: null, narrow: { ...none, collections: { c1: "write" } } };
+  assert.equal(can(contractor_, "brand.read", { id: "acme" }), false, "a collection grant reaches no brand");
   assert.equal(can(brandEditor, "brand.create"), false, "making brands is the workspace's");
   assert.equal(can(editor, "brand.read", { id: "draft", private: true }), false, "private: the workspace role turns away");
   assert.equal(can(orgAdmin, "brand.edit", { id: "draft", private: true }), true, "admins excepted");
