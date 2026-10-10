@@ -38,6 +38,7 @@ import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
 import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
+import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionIcon, send, type Collection } from "@/components/collections";
 import { CopyButton } from "@/components/copy-button";
@@ -1029,6 +1030,15 @@ export function Gallery({
   }, [recentKey, rememberRecent]);
   // A search of the whole library is named by its words, as the prototype's “winter” is.
   const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
+  // Explore before anything is asked opens on its search (components/explore-start.tsx); ?browse is the plain grid.
+  const browsing = useSearchParams().has("browse");
+  const startScreen =
+    !browsing && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
+  // A search that settled is one to come back to.
+  const [recentQueries, setRecentQueries] = useRecentQueries();
+  useEffect(() => {
+    if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
+  }, [searched, searching, recentQueries, setRecentQueries]);
   const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : undefined)));
 
@@ -1077,7 +1087,8 @@ export function Gallery({
   return (
     <>
       <AppHeader trail={where ? [{ label: "Explore", href: "/" }, { label: where }] : [{ label: "Explore" }]}>
-        <div className="relative w-36 min-w-20 shrink! sm:w-64">
+        {/* The start screen's own box is the search there: one, not two. */}
+        <div className={cn("relative w-36 min-w-20 shrink! sm:w-64", startScreen && "hidden")}>
           {searching ? (
             <Spinner className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           ) : (
@@ -1212,6 +1223,10 @@ export function Gallery({
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
         <LibraryTabs at={view.review ? "review" : "assets"} />
+        {startScreen ? (
+          <ExploreStart latest={assets} collections={collections} searches={searches} />
+        ) : (
+          <>
         <PageHeader
           icon={
             view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : <IconPhoto />
@@ -1275,7 +1290,7 @@ export function Gallery({
           )}
         </PageHeader>
 
-        {!view.review && !activeSearch && !inCollection && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
+        {!view.review && !activeSearch && !inCollection && !searched && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
 
         {/* Explore searches everything: what else matches, beside the assets. */}
         {searched && <CatalogMatches q={searched} />}
@@ -1587,6 +1602,8 @@ export function Gallery({
                 Showing all {total.toLocaleString()} {total === 1 ? "asset" : "assets"}
               </p>
             )}
+          </>
+        )}
           </>
         )}
       </div>
