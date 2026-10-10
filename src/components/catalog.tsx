@@ -232,20 +232,23 @@ function ObjectView({
 }
 
 /**
- * A folder's page, Drive's way: a project, a type's folder (Brands, Assets),
- * an asset type's (Images) or a brand's rules or pages. Where it sits, what
- * can be made in it, its folders as cards, then what it holds as a list: a
- * project's lately updated, a folder's all of it.
+ * A tree level's page: a project, a type (Brands, Assets), an asset type
+ * (Images) or a brand's rules or pages. Where it sits, what can be made in
+ * it, what it groups as cards, then what it holds as a list: a project's
+ * lately updated, a type's all of it.
  */
 function FolderView({ projects, folder, go, openFolder }: { projects: TreeProject[]; folder: string; go: (id: string) => void; openFolder: (key: string) => void }) {
   const here = useMe()?.project.id;
   const tree = useMemo(() => build(projects, () => true), [projects]);
   const [shown, setShown] = useState(100);
   const found = findNode(tree, folder);
-  if (!found) return <p className="text-muted-foreground text-sm">This folder is empty or gone. Pick another in the tree.</p>;
+  if (!found) return <p className="text-muted-foreground text-sm">Nothing is here any more. Pick another place in the tree.</p>;
   const { node, trail } = found;
   const project = node.kind === "project" ? node : trail[0];
   const folders = node.children.filter((c) => c.kind === "group");
+  // Named for what they hold: a project's brands, collections...; assets by type; then the things themselves.
+  const groupsTitle = node.kind === "project" ? "In this project" : "By type";
+  const itemsTitle = node.kind === "project" ? "Updated lately" : node.type && node.depth === 2 ? `All ${TYPE_LABEL[node.type].many.toLowerCase()}` : node.label;
   const leaves: CatalogItem[] = [];
   // What it holds, in every folder below: an object's own parts (a brand's rules and pages) stay the object's.
   const walk = (n: Node) => n.children.forEach((c) => (c.kind === "object" ? leaves.push(c.item!) : walk(c)));
@@ -303,8 +306,8 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
       </div>
 
       {folders.length > 0 && (
-        <section aria-label="Folders" className="space-y-3">
-          <h3 className="text-sm font-medium">Folders</h3>
+        <section aria-label={groupsTitle} className="space-y-3">
+          <h3 className="text-sm font-medium">{groupsTitle}</h3>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
             {folders.map((f) => (
               <li key={f.key}>
@@ -324,8 +327,8 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
       )}
 
       {items.length > 0 && (
-        <section aria-label={node.kind === "project" ? "Updated lately" : "Items"} className="space-y-3">
-          <h3 className="text-sm font-medium">{node.kind === "project" ? "Updated lately" : "Items"}</h3>
+        <section aria-label={itemsTitle} className="space-y-3">
+          <h3 className="text-sm font-medium">{itemsTitle}</h3>
           <div className="overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-muted-foreground text-left text-xs">

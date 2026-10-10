@@ -9,7 +9,7 @@ import type { CatalogResults } from "@/lib/core/catalog";
 /**
  * What else a search in Explore finds, beside the assets below it
  * (GET /api/v1/catalog): brands, collections, portals, and brands' rules and
- * guideline pages, as Drive shows folders above files. Each opens in the catalog.
+ * guideline pages, as cards above the assets. Each opens in the catalog.
  */
 
 const OTHERS: CatalogType[] = ["brand", "collection", "portal", "rule", "page"];
@@ -55,7 +55,7 @@ export function CatalogMatches({ q }: { q: string }) {
   );
 }
 
-/** A titled part of Explore: Drive's "Suggested folders", "Files". */
+/** A titled part of Explore or the catalog: "Brands and collections", "Assets for you". */
 export function Section({ title, count, aside, children }: { title: string; count?: number; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section aria-label={title} className="space-y-3">
@@ -74,7 +74,7 @@ export const CardGrid = ({ children }: { children: React.ReactNode }) => <ul cla
 const CARD =
   "bg-card hover:bg-accent focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-start transition-colors outline-none focus-visible:ring-2";
 
-/** A brand, collection, portal or saved search as Drive draws a folder: its icon, its name, what it is and where. */
+/** A brand, collection, portal or rule as a card: its icon, its name, what it is and where. */
 export function ObjectCard({
   type,
   icon,

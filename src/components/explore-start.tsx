@@ -14,12 +14,11 @@ import { ago, day, short } from "@/lib/time";
 import { canonical } from "@/lib/view";
 
 /**
- * Explore before anything is asked, Drive's home: one box that searches
- * everything (its recent and saved searches drop down under it), the
- * filters people reach for, a new admin's setup, then suggested folders
- * (brands and collections opened lately, then the rest) and suggested
- * files (opened lately, then added lately), each with why. Later, the same
- * box takes questions.
+ * Explore before anything is asked, laid out like Drive's home: one box
+ * that searches everything (its recent and saved searches drop down under
+ * it), the filters people reach for, a new admin's setup, then brands and
+ * collections (opened lately, then the rest) and assets (opened lately,
+ * then added lately), each with why. Later, the same box takes questions.
  */
 
 /** What people searched lately in Explore, newest first: kept in the browser, per person. */
@@ -82,7 +81,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
       {setup}
 
       {folders.length > 0 && (
-        <Section title="Suggested folders" aside={<ViewAll href="/catalog">All in the catalog</ViewAll>}>
+        <Section title="Brands and collections" aside={<ViewAll href="/catalog">All in the catalog</ViewAll>}>
           <CardGrid>
             {folders.map((f) => (
               <ObjectCard key={f.key} type={f.type} name={f.name} sub={f.sub} onClick={() => navigate(f.href)} />
@@ -92,7 +91,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
       )}
 
       {files.length > 0 && (
-        <Section title="Suggested files" aside={<ViewAll href="/?browse">All assets</ViewAll>}>
+        <Section title="Assets for you" aside={<ViewAll href="/?browse">All assets</ViewAll>}>
           <div className="overflow-hidden rounded-xl border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-muted-foreground text-left text-xs">
