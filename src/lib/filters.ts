@@ -76,3 +76,4 @@ export const isFacetable = (d: FieldDef) => d.type === "select" || d.type === "b
  * Derived from its media type, so nobody has to set it.
  */
 export const ASSET_TYPES = ["image", "video", "audio", "font", "document", "other"] as const;
+export type AssetType = (typeof ASSET_TYPES)[number];

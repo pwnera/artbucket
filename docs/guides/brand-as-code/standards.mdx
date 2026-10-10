@@ -23,7 +23,7 @@ The same formats come from two places:
 
 | | Reads | Who |
 |---|---|---|
-| `GET /api/v1/brand/tokens?format=css&brand=acme` | The brand as it stands now, draft included | Anyone who can read the workspace, with a key or signed in |
+| `GET /api/v1/brand/tokens?format=css&brand=acme` | The brand as it stands now, draft included | Anyone who can read the project, with a key or signed in |
 | `https://{hub}/{org}/{brand}/tokens?format=css` | The latest release, or `@{n}` for one: `/{org}/{brand}@4/tokens` | Anyone, for a public brand on [BrandHub](/guides/portals#brandhub) |
 
 Both take `context`: `?context=dark-background` gives each rule's version for

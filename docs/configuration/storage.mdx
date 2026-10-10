@@ -30,10 +30,10 @@ warning instead: set those three in the provider's console.
 
 | Prefix | |
 |---|---|
-| `assets/{sha256}` | Originals, by the hash of their bytes. Never overwritten; shared by every workspace holding the same bytes |
+| `assets/{sha256}` | Originals, by the hash of their bytes. Never overwritten; shared by every project holding the same bytes |
 | `previews/{sha256}` | Stills for files that aren't images (PDF, PSD, video) |
 | `renditions/` | Sizes and formats made on request. Expire after 30 days and come back on the next request |
-| `staging/{workspace}/` | Browser uploads before they are filed. Expire after a day |
+| `staging/{project}/` | Browser uploads before they are filed. Expire after a day |
 | `sweep-owners/{id}` | One per database that sweeps the bucket, holding its `APP_URL` |
 
 Back up `assets/` and `previews/`. Renditions and staged uploads are
@@ -43,7 +43,7 @@ disposable.
 
 Deleting an asset keeps it, restorable, for 30 days. Then the sweeper, which
 runs in the app every six hours, removes the row, and the original once no
-asset in any workspace holds those bytes. Deleting a workspace or an
+asset in any project holds those bytes. Deleting a project or an
 organization removes its rows at once, and its files at the next sweep. A file
 written in the last day is never swept, so an upload in flight is safe.
 

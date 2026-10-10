@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { IconCircleCheckFilled, IconCircleDashed, IconRobot } from "@tabler/icons-react";
+import { IconCircleCheckFilled, IconCircleDashed, IconRobot } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { scoreDomain } from "@/lib/core/agent-score";

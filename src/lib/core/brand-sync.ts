@@ -73,7 +73,7 @@ async function resolveAssets(ws: string, given: Record<string, string>) {
   if (bad.length) throw new AssetError("invalid", `assets: ${bad.map(([p]) => p).join(", ")}: give each file's asset id or the SHA-256 of its bytes`);
   const ids = entries.filter(([, v]) => UUID.test(v)).map(([, v]) => v);
   const shas = entries.filter(([, v]) => SHA256.test(v)).map(([, v]) => v);
-  const live = and(eq(assets.workspaceId, ws), isNull(assets.deletedAt));
+  const live = and(eq(assets.projectId, ws), isNull(assets.deletedAt));
   const rows = [
     ...(ids.length ? await db.select({ id: assets.id, sha256: assets.sha256 }).from(assets).where(and(live, inArray(assets.id, ids))) : []),
     ...(shas.length ? await db.select({ id: assets.id, sha256: assets.sha256 }).from(assets).where(and(live, inArray(assets.sha256, shas))) : []),
@@ -97,7 +97,7 @@ type Checked = { state: BrandState | null; used: Record<string, string>; errors:
  * are for, which a brand.yaml naming another refuses.
  */
 async function check(caller: Caller, slug: string, files: Files, given: Record<string, string>): Promise<Checked> {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const resolved = await resolveAssets(ws, given);
   const parsed = fromFiles(files, { assets: resolved.map, slug });
   const missing = [...new Set([...parsed.missing, ...resolved.unknown.filter((p) => p.startsWith(ASSETS_DIR) && Object.values(files).some((t) => t.includes(p)))])].sort();
@@ -115,7 +115,7 @@ async function check(caller: Caller, slug: string, files: Files, given: Record<s
     ].filter((id) => id !== MISSING_ASSET);
     if (named.length) {
       const live = new Set(
-        (await db.select({ id: assets.id }).from(assets).where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, [...new Set(named)])))).map((a) => a.id),
+        (await db.select({ id: assets.id }).from(assets).where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, [...new Set(named)])))).map((a) => a.id),
       );
       for (const id of new Set(named)) if (!live.has(id)) errors.push(locate(files, { value: id, message: `no asset ${id}` }));
     }
@@ -161,7 +161,7 @@ export async function exportBrand(ws: string, slug: string | undefined, o: { pre
     ? await db
         .select({ id: assets.id, filename: assets.filename, mime: assets.mime, size: assets.size, sha256: assets.sha256 })
         .from(assets)
-        .where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))
+        .where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))
     : [];
   const paths: Record<string, string> = Object.fromEntries(Object.entries(source?.paths ?? {}).filter(([id]) => rows.some((r) => r.id === id)));
   if (o.assets === "files") {
@@ -249,7 +249,7 @@ export type ImportInput = {
    * no source to agree with: what changed here since is kept, as a source's base keeps it. The CLI sends them.
    */
   base?: Files;
-  /** Publish after, with this note (true: no note). Takes share on the workspace. */
+  /** Publish after, with this note (true: no note). Takes share on the project. */
   publish?: boolean | string;
 };
 
@@ -262,7 +262,7 @@ export type ImportInput = {
  * still holds changes the files lack: export them back.
  */
 export async function importBrand(caller: Caller, slug: string | undefined, input: ImportInput) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const brand = await resolveBrand(ws, slug);
   if (input.publish && !can(caller, "brand.publish")) throw new AssetError("forbidden", `Publishing takes ${needs("brand.publish")}`);
   const checked = await check(caller, brand.slug, input.files, input.assets ?? {});
@@ -350,7 +350,7 @@ function folder(path: string | undefined) {
  * are what both sides agree on now, so nothing is merged or exported again.
  */
 export async function setSource(caller: Caller, slug: string | undefined, input: SourceInput) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const brand = await resolveBrand(ws, slug);
   const where = { remote: input.remote, branch: input.branch ?? "main", path: folder(input.path) };
   const old = await sourceRow(brand.id);
@@ -369,7 +369,7 @@ export async function setSource(caller: Caller, slug: string | undefined, input:
 }
 
 export async function deleteSource(caller: Caller, slug: string | undefined) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const gone = await db.delete(brandSources).where(eq(brandSources.brandId, brand.id)).returning({ id: brandSources.brandId });
   return gone.length > 0;
 }
@@ -388,7 +388,7 @@ export type PreviewInput = { ref: string; title?: string; commit?: string; files
  * with it reads the preview, and nothing else.
  */
 export async function savePreview(caller: Caller, slug: string | undefined, input: PreviewInput) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const checked = await check(caller, brand.slug, input.files, input.assets ?? {});
   refuseFiles(checked);
   const state = canonical(checked.state!);
@@ -414,7 +414,7 @@ export async function savePreview(caller: Caller, slug: string | undefined, inpu
 }
 
 export async function deletePreview(caller: Caller, slug: string | undefined, ref: string) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const gone = await db
     .delete(brandPreviews)
     .where(and(eq(brandPreviews.brandId, brand.id), eq(brandPreviews.ref, ref)))
@@ -422,7 +422,7 @@ export async function deletePreview(caller: Caller, slug: string | undefined, re
   return gone.length > 0;
 }
 
-/** A preview by its link's token, while it opens: its state, and the brand and workspace it belongs to. */
+/** A preview by its link's token, while it opens: its state, and the brand and project it belongs to. */
 export async function previewByToken(token: string) {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return null;
   const [row] = await db
@@ -450,9 +450,9 @@ export async function viewPreview(token: string, page: string | null, o: { conte
     theme: p.state.theme,
     version: null,
     brandId: brand.id,
-    workspaceId: brand.workspaceId,
+    projectId: brand.projectId,
   };
-  const view = await viewPage(brand.workspaceId, src, page, { ...o, level: "members", sign: (id) => pageSig(id), presets: DEFAULT_PRESETS });
+  const view = await viewPage(brand.projectId, src, page, { ...o, level: "members", sign: (id) => pageSig(id), presets: DEFAULT_PRESETS });
   return {
     preview: { brand: brand.slug, name: p.state.name, ref: p.ref, title: p.title, commit: p.commit, updatedAt: p.updatedAt, expiresAt: p.expiresAt },
     view,

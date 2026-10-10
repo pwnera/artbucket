@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBrandGit } from "@tabler/icons-react";
+import { IconBrandGit } from "@/components/icons";
 import type { Source } from "@/components/builder/use-status";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";

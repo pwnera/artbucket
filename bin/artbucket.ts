@@ -5,7 +5,7 @@
  *   ARTBUCKET_URL   the server; without it, the one `artbucket login <server>`
  *                   last signed in to, or else http://localhost:3000
  *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one; it
- *                   decides the workspace. Without one, the key
+ *                   decides the project. Without one, the key
  *                   `artbucket login` saved for this server
  */
 import { execFile } from "node:child_process";
@@ -39,6 +39,16 @@ const HELP = `artbucket <command>
   reject <id> [--reason text]
                           turn down a proposed asset (kept, with the reason,
                           for whoever proposed it), or dismiss its suggested tags
+  catalog search [words] [--type t,t] [--project p] [--status s]...
+                          search every type at once; words take filters too
+                          (logo status:current uses:acme/corporate/brand/acme)
+  catalog show <address-or-id>
+                          one object: what it is, where, and what uses it
+  catalog lineage <address-or-id> [--direction up|down] [--depth n]
+                          what it comes from and what uses it, and what
+                          changing it reaches
+  catalog access <address-or-id>
+                          who reaches it, and the grant behind each role
   brands                  list brands; the default is starred
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
@@ -82,17 +92,20 @@ const HELP = `artbucket <command>
                           what push would change; exits 1 on problems in the files,
                           not on files under assets/ that push would upload
                           The brand is --brand, or the slug: in brand.yaml (pull
-                          writes it), never the workspace's default
+                          writes it), never the project's default
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
-  keys                    list the workspace's API keys
+  keys                    list the project's API keys
   keys create <name> --scope read|propose|write|admin
   keys revoke <id>
-  whoami                  the key, its workspace and its scope
+  whoami                  the key, its project and its scope
   members                 people, their access, and invitations waiting (admin)
   invite <email> --scope s [--collection id]
-                          an invitation link to the workspace, or one collection (admin)
+                          an invitation link to the project, or one collection (admin)
+  share <address> --to <project>
+                          share a brand, collection or asset into another project:
+                          its members read it, kept and edited where it is
   share <collection-or-asset-id> [--upload] [--password p] [--expires YYYY-MM-DD] [--name n]
                           a link for someone without an account: to look and
                           download, or with --upload to send files in for review
@@ -123,6 +136,10 @@ const { values: opt, positionals } = parseArgs({
     collection: { type: "string" },
     review: { type: "boolean" },
     limit: { type: "string" },
+    project: { type: "string" },
+    to: { type: "string" },
+    direction: { type: "string" },
+    depth: { type: "string" },
     width: { type: "string" },
     height: { type: "string" },
     fit: { type: "string" },
@@ -233,7 +250,7 @@ const need = (v: string | undefined, what: string) => {
   return v;
 };
 
-/** The brand a command acts on: --brand, or the workspace's default. */
+/** The brand a command acts on: --brand, or the project's default. */
 const brandSlug = async (): Promise<string> =>
   opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
 const brandPath = async (slug?: string) => `/api/v1/brands/${encodeURIComponent(slug ?? (await brandSlug()))}`;
@@ -297,7 +314,7 @@ async function brandFiles(dir: string): Promise<Record<string, string>> {
   return files;
 }
 
-/** The brand files are for: --brand, or the slug: in their brand.yaml. Never the workspace's default. */
+/** The brand files are for: --brand, or the slug: in their brand.yaml. Never the project's default. */
 const filesBrand = (files: Record<string, string>, dir: string) =>
   need(
     opt.brand ?? /^slug:\s*["']?([a-z0-9-]+)["']?\s*(#.*)?$/m.exec(files["brand.yaml"] ?? files["brand.yml"] ?? "")?.[1],
@@ -625,6 +642,54 @@ async function main() {
       const r = await api("PATCH", `/api/v1/assets/${a.id}`, { proposedTags: [] });
       return out(r, () => `dismissed ${a.proposedTags.join(", ") || "nothing"} on ${a.filename}`);
     }
+    case "catalog": {
+      const [sub, ...rest] = args;
+      const ref = () => encodeURIComponent(need(rest[0], "an address or id"));
+      if (sub === "search") {
+        const p = new URLSearchParams();
+        if (rest.length) p.set("q", rest.join(" "));
+        if (opt.type) p.set("type", opt.type);
+        if (opt.project) p.set("project", opt.project);
+        for (const st of opt.status ?? []) p.append("status", st);
+        if (opt.limit) p.set("limit", opt.limit);
+        const r = await api("GET", `/api/v1/catalog?${p}`);
+        return out(r, () =>
+          [
+            ...r.items.map((i: { type: string; status: string; address: string }) => `${i.type.padEnd(11)} ${i.status.padEnd(10)} ${i.address}`),
+            ...(r.hidden.count ? [`(${r.hidden.example}${r.hidden.count > 1 ? ` ${r.hidden.count - 1} more left out.` : ""})`] : []),
+          ].join("\n") || "Nothing found.",
+        );
+      }
+      if (sub === "show") {
+        const r = await api("GET", `/api/v1/catalog/${ref()}`);
+        return out(r, () =>
+          [
+            `${r.name}  (${r.type}, ${r.status}${r.release ? ` @${r.release}` : ""})`,
+            `  ${r.address}`,
+            `  in ${r.project.name}${r.parent ? `, part of ${r.parent.name}` : ""}`,
+            `  used by ${r.usedByCount}${r.usedBy.length ? `: ${r.usedBy.map((u: { name: string }) => u.name).join(", ")}${r.usedByCount > r.usedBy.length ? ", ..." : ""}` : ""}`,
+          ].join("\n"),
+        );
+      }
+      if (sub === "lineage") {
+        const p = new URLSearchParams({ direction: opt.direction ?? "up,down", depth: opt.depth ?? "3" });
+        const r = await api("GET", `/api/v1/catalog/${ref()}/lineage?${p}`);
+        type N = { id: string; name: string; type: string; address: string };
+        return out(r, () => {
+          const name = new Map<string, N>(r.nodes.map((n: N) => [n.id, n]));
+          return [
+            ...r.edges.map((e: { from: string; to: string; kind: string; via: string | null }) => `${name.get(e.from)?.address}  -${e.kind}${e.via ? ` (${e.via})` : ""}->  ${name.get(e.to)?.address}`),
+            ...(r.unseen ? [`and ${r.unseen} you can't see`] : []),
+            r.impact.line,
+          ].join("\n");
+        });
+      }
+      if (sub === "access") {
+        const r = await api("GET", `/api/v1/catalog/${ref()}/access`);
+        return out(r, () => r.holders.map((h: { who: string; role: string; via: string }) => `${h.role.padEnd(12)} ${h.who.padEnd(28)} ${h.via}`).join("\n"));
+      }
+      throw new Error("artbucket catalog search|show|lineage|access");
+    }
     case "brands": {
       const r = await api("GET", "/api/v1/brands");
       return out(r, () =>
@@ -810,7 +875,7 @@ async function main() {
       const r = await api("GET", "/api/v1/me");
       const d = r.data;
       return out(r, () =>
-        `${d.actor}${d.user ? ` <${d.user.email}>` : d.key ? " (API key)" : ""}  ${d.scope ?? (d.narrowed ? "some collections" : "no access")} in ${d.workspace.name} (${d.workspace.organization.name})`,
+        `${d.actor}${d.user ? ` <${d.user.email}>` : d.key ? " (API key)" : ""}  ${d.scope ?? (d.narrowed ? "some collections" : "no access")} in ${d.project.name} (${d.project.organization.name})`,
       );
     }
     case "members": {
@@ -832,14 +897,20 @@ async function main() {
       const r = await api("POST", "/api/v1/invitations", {
         email,
         scope: need(opt.scope, "--scope"),
-        resource: opt.collection ? "collection" : "workspace",
-        resourceId: opt.collection ?? me.workspace.id,
+        resource: opt.collection ? "collection" : "project",
+        resourceId: opt.collection ?? me.project.id,
       });
       return out(r, () => `${r.data.url}\n\nShown once. Send it to ${email}; it works for a week.`);
     }
     case "share": {
+      // Into another project: the object, by address or id, read by its members where it is.
+      if (opt.to) {
+        const d = await api("GET", `/api/v1/catalog/${encodeURIComponent(need(args[0], "an address or id"))}`);
+        const r = await api("POST", "/api/v1/grants", { project: opt.to, resource: d.type, resourceId: d.id, scope: "read" });
+        return out(r, () => `${d.name} is shared into ${r.data.project.name}, as Viewer: kept and edited in ${d.project.name}`);
+      }
       const id = need(args[0], "collection or asset id");
-      // An id is a collection's if the workspace has one by it; an asset's otherwise.
+      // An id is a collection's if the project has one by it; an asset's otherwise.
       const collections = (await api("GET", "/api/v1/collections")).data as { id: string }[];
       const isCollection = collections.some((c) => c.id === id);
       const r = await api("POST", "/api/v1/shares", {

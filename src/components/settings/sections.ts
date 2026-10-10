@@ -14,19 +14,19 @@ import {
   IconUsers,
   IconUsersGroup,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import type { Me } from "@/components/account";
 import type { Feature } from "@/lib/limits";
 import { can, type Action } from "@/lib/permissions";
 
 /**
- * Settings, as a list of sections. Each belongs to a context (the workspace
+ * Settings, as a list of sections. Each belongs to a context (the project
  * you are in, its organization, or your own account), names the action that
  * opening it takes (lib/permissions.ts), and lives at /settings/{context}/{id}. The page, its menu and ⌘K all read
  * this list; adding a section is an entry here and a case in the page.
  */
 
-export const CONTEXTS = ["workspace", "organization", "account", "development"] as const;
+export const CONTEXTS = ["project", "organization", "account", "development"] as const;
 export type Context = (typeof CONTEXTS)[number];
 
 export type Section = {
@@ -50,23 +50,23 @@ export type Section = {
 
 export const SECTIONS: Section[] = [
   {
-    context: "workspace",
+    context: "project",
     id: "general",
     label: "General",
     icon: IconLayoutGrid,
-    description: "The workspace's name.",
-    action: "workspace.manage",
+    description: "The project's name.",
+    action: "project.manage",
   },
   {
-    context: "workspace",
+    context: "project",
     id: "members",
     label: "Members",
     icon: IconUsers,
-    description: "Who can open this workspace, and as what.",
+    description: "Who can open this project, and as what.",
     action: "member.manage",
   },
   {
-    context: "workspace",
+    context: "project",
     id: "team",
     label: "Team",
     icon: IconUsersGroup,
@@ -75,7 +75,7 @@ export const SECTIONS: Section[] = [
     href: "/team",
   },
   {
-    context: "workspace",
+    context: "project",
     id: "fields",
     label: "Custom fields",
     icon: IconAdjustments,
@@ -92,10 +92,18 @@ export const SECTIONS: Section[] = [
   },
   {
     context: "organization",
-    id: "workspaces",
-    label: "Workspaces",
+    id: "projects",
+    label: "Projects",
     icon: IconLayoutGrid,
     description: "The organization's libraries.",
+    action: "organization.manage",
+  },
+  {
+    context: "organization",
+    id: "groups",
+    label: "Groups",
+    icon: IconUsersGroup,
+    description: "People who share access: give a group a role, and each of its members has it.",
     action: "organization.manage",
   },
   {
@@ -195,12 +203,12 @@ export const hrefFor = (me: Me, s: Section) => (locked(me, s) ? me.upgrade! : hr
 export const allowedFor = (me: Me) => SECTIONS.filter((s) => opens(me, s) && (!locked(me, s) || !!me.upgrade));
 export const find = (context: string, id: string) => SECTIONS.find((s) => s.context === context && s.id === id);
 
-/** How a context is headed in the menu: "Workspace · Library". */
+/** How a context is headed in the menu: "Project · Library". */
 export const contextTitle = (c: Context, me: Me) =>
-  c === "workspace"
-    ? `Workspace · ${me.workspace.name}`
+  c === "project"
+    ? `Project · ${me.project.name}`
     : c === "organization"
-      ? `Organization · ${me.workspace.organization.name}`
+      ? `Organization · ${me.project.organization.name}`
       : c === "account"
         ? "Account"
         : "Development";

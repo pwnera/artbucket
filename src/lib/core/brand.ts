@@ -2,8 +2,8 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql, type SQL 
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, brandRuleAssets, brandRules, brands, brandSources, brandVersions, portalBrands } from "@/lib/db/schema";
-import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
-import { NO_OFF, NONE } from "@/lib/access";
+import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
+import { NONE } from "@/lib/access";
 import { hubOf, present, resolveBrand, slugify } from "@/lib/core/brands";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -91,7 +91,7 @@ async function checkSpecRefs(tx: Tx, ws: string, brandId: string, written: { at:
   const ids = [...new Set(named.flatMap((w) => specAssets(w.spec)))];
   const live = new Set(
     ids.length
-      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))).map((a) => a.id)
+      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))).map((a) => a.id)
       : [],
   );
   const errors = named.flatMap((w) => [
@@ -141,7 +141,7 @@ async function setAssets(tx: Tx, ws: string, ruleId: string, list: RuleAsset[]) 
     const found = await tx
       .select({ id: assets.id, mime: assets.mime, filename: assets.filename, probe: assets.probe })
       .from(assets)
-      .where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, list.map((a) => a.id))));
+      .where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, list.map((a) => a.id))));
     const missing = list.filter((a) => !found.some((f) => f.id === a.id));
     if (missing.length) throw new AssetError("invalid", `No such asset: ${missing.map((a) => a.id).join(", ")}`);
     const flat = found.find((f) => !hasPreview(f) && list.some((a) => a.id === f.id && a.rendition));
@@ -330,7 +330,7 @@ export async function listRules(ws: string, opts: { brand?: string; context?: st
     .innerJoin(brands, eq(brands.id, brandRules.brandId))
     .where(
       and(
-        eq(brands.workspaceId, ws),
+        eq(brands.projectId, ws),
         brand ? eq(brandRules.brandId, brand.id) : undefined,
         asset === undefined
           ? undefined
@@ -362,7 +362,7 @@ export async function listContexts(ws: string, slug?: string): Promise<string[]>
  * so a section can be ordered on its own; a key's context versions move with it.
  */
 export async function orderRules(caller: Caller, slug: string | undefined, keys: string[]) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   return tracked(brand.id, caller.actor, keys, async (tx) => {
     const found = await tx
       .selectDistinct({ key: brandRules.key })
@@ -380,7 +380,7 @@ export async function orderRules(caller: Caller, slug: string | undefined, keys:
 }
 
 export async function createRule(caller: Caller, slug: string | undefined, input: RuleInput) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const context = input.context ?? null;
   const value = checkValue(input.type, input.value);
   const spec = checkSpec(input.type, ("spec" in input && input.spec) || null);
@@ -400,8 +400,8 @@ export async function createRule(caller: Caller, slug: string | undefined, input
       .onConflictDoNothing()
       .returning();
     if (!row) throw new AssetError("conflict", `${label(input.key, context)} already exists; edit it instead`);
-    await setAssets(tx, caller.workspace.id, row.id, input.assets ?? []);
-    await checkSpecRefs(tx, caller.workspace.id, brand.id, [{ at: "spec", spec }]);
+    await setAssets(tx, caller.project.id, row.id, input.assets ?? []);
+    await checkSpecRefs(tx, caller.project.id, brand.id, [{ at: "spec", spec }]);
     return toRule(row, brand.slug, (await assetsOf([row.id], tx)).get(row.id)!);
   });
   return (await hostGoogleFonts(caller, brand.id, [made.key])) ? { ...made, assets: (await assetsOf([made.id])).get(made.id)! } : made;
@@ -412,7 +412,7 @@ async function ruleWithBrand(ws: string, id: string) {
     .select({ rule: brandRules, brand: brands.slug })
     .from(brandRules)
     .innerJoin(brands, eq(brands.id, brandRules.brandId))
-    .where(and(eq(brandRules.id, id), eq(brands.workspaceId, ws)));
+    .where(and(eq(brandRules.id, id), eq(brands.projectId, ws)));
   return r;
 }
 
@@ -429,7 +429,7 @@ export async function updateRule(
     assets?: RuleAsset[];
   },
 ) {
-  const found = await ruleWithBrand(caller.workspace.id, id);
+  const found = await ruleWithBrand(caller.project.id, id);
   if (!found) return null;
   const { rule: current, brand } = found;
   const changed = [...new Set([current.key, ...(patch.key ? [patch.key] : [])])];
@@ -447,7 +447,7 @@ export async function updateRule(
       if (taken) throw new AssetError("conflict", `${label(current.key, patch.context)} already exists`);
       set.context = patch.context;
     }
-    if (patch.assets) await setAssets(tx, caller.workspace.id, id, patch.assets);
+    if (patch.assets) await setAssets(tx, caller.project.id, id, patch.assets);
     // A key is shared by a rule's context versions: renaming one renames them all.
     if (patch.key !== undefined && patch.key !== current.key) {
       const [taken] = await tx
@@ -477,7 +477,7 @@ export async function updateRule(
         : [current];
     // Deleted since it was read.
     if (!row) return null;
-    if (set.spec) await checkSpecRefs(tx, caller.workspace.id, current.brandId, [{ at: "spec", spec: set.spec }]);
+    if (set.spec) await checkSpecRefs(tx, caller.project.id, current.brandId, [{ at: "spec", spec: set.spec }]);
     return toRule(row, brand, (await assetsOf([id], tx)).get(id)!);
   });
   return out && (await hostGoogleFonts(caller, current.brandId, [out.key])) ? { ...out, assets: (await assetsOf([id])).get(id)! } : out;
@@ -568,7 +568,7 @@ const IS_FONT = sql.raw(`(a.deleted_at is null and (a.mime like 'font/%' or a.fi
  * get their files, so what they published keeps its look: up to `limit`
  * brands a run, from the sweep (lib/core/sweep.ts), whose draft rules or any
  * version hold a Google face with no font file. Each family is imported
- * once a run, as the workspace's own; its files go onto the draft's rules,
+ * once a run, as the project's own; its files go onto the draft's rules,
  * and into every version's stored rules, so releases (portals, BrandHub,
  * brand.json) and history read the same as the draft: no version is made,
  * and none changes its number, note or publish. A brand kept in Git keeps
@@ -578,8 +578,8 @@ const IS_FONT = sql.raw(`(a.deleted_at is null and (a.mime like 'font/%' or a.fi
  * have (tried again each run, and logged) never holds up the rest.
  */
 export async function hostFontsBackfill(limit = FONT_BATCH) {
-  const picked = await db.execute<{ id: string; workspace_id: string; git: boolean }>(sql`
-    select b.id, b.workspace_id, exists (select 1 from brand_sources s where s.brand_id = b.id) as git
+  const picked = await db.execute<{ id: string; project_id: string; git: boolean }>(sql`
+    select b.id, b.project_id, exists (select 1 from brand_sources s where s.brand_id = b.id) as git
     from brands b
     where exists (
       select 1 from brand_rules r
@@ -596,7 +596,7 @@ export async function hostFontsBackfill(limit = FONT_BATCH) {
   let hosted = 0;
   for (const b of picked) {
     try {
-      if (await backfillBrand(b.id, b.workspace_id, b.git)) hosted++;
+      if (await backfillBrand(b.id, b.project_id, b.git)) hosted++;
     } catch (err) {
       console.warn(`[artbucket] Brand ${b.id}'s Google faces stay unhosted this run:`, (err as Error).message);
     }
@@ -605,9 +605,9 @@ export async function hostFontsBackfill(limit = FONT_BATCH) {
 }
 
 async function backfillBrand(brandId: string, ws: string, git: boolean) {
-  const [workspace, hidden] = await Promise.all([workspaceById(ws), hiddenIn(ws)]);
-  if (!workspace) return false;
-  const caller: Caller = { workspace, scope: "write", narrow: NONE, off: NO_OFF, hidden, orgScope: null, actor: SYSTEM, user: null, key: null, ip: null };
+  const [project, hidden] = await Promise.all([projectById(ws), hiddenIn(ws)]);
+  if (!project) return false;
+  const caller: Caller = { project, scope: "write", narrow: NONE, hidden, orgScope: null, actor: SYSTEM, user: null, key: null, ip: null };
   // Read twice: once to know what to import (outside a transaction, it fetches), then under the brand's lock to write.
   const read = async (tx: Db) => {
     const rules = git ? [] : await tx.select().from(brandRules).where(and(eq(brandRules.brandId, brandId), eq(brandRules.type, "font")));
@@ -658,7 +658,7 @@ async function renameInSpecs(tx: Tx, brandId: string, from: string, to: string) 
 }
 
 export async function deleteRule(caller: Caller, id: string) {
-  const found = await ruleWithBrand(caller.workspace.id, id);
+  const found = await ruleWithBrand(caller.project.id, id);
   if (!found) return false;
   return tracked(found.rule.brandId, caller.actor, [found.rule.key], async (tx) => {
     const gone = await tx.delete(brandRules).where(eq(brandRules.id, id)).returning({ id: brandRules.id });
@@ -677,7 +677,7 @@ export async function setRules(
   slug: string | undefined,
   input: { set?: RuleInput[]; remove?: { key: string; context?: string | null }[] },
 ) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const set = input.set ?? [];
   const remove = input.remove ?? [];
   const values = set.map((r) => checkValue(r.type, r.value));
@@ -733,11 +733,11 @@ export async function setRules(
         id = made.id;
         out.created.push(label(r.key, context));
       }
-      if (r.assets || !row) await setAssets(tx, caller.workspace.id, id!, r.assets ?? []);
+      if (r.assets || !row) await setAssets(tx, caller.project.id, id!, r.assets ?? []);
     }
     await checkSpecRefs(
       tx,
-      caller.workspace.id,
+      caller.project.id,
       brand.id,
       specs.map((spec, i) => ({ at: `set[${i}].spec`, spec: spec ?? null })),
     );
@@ -751,7 +751,7 @@ export async function writeRules(tx: Tx, ws: string, brandId: string, rules: Sna
   const ids = [...new Set(rules.flatMap((r) => r.assets.map((a) => a.id)))];
   const live = new Set(
     ids.length
-      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.workspaceId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))).map((a) => a.id)
+      ? (await tx.select({ id: assets.id }).from(assets).where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, ids)))).map((a) => a.id)
       : [],
   );
   let dropped = 0;
@@ -788,7 +788,7 @@ export async function writeRules(tx: Tx, ws: string, brandId: string, rules: Sna
  * theme. Its history starts with that state as version 1.
  */
 /**
- * A new brand: empty, a copy of another of the workspace's (`from`), or
+ * A new brand: empty, a copy of another of the project's (`from`), or
  * `seed`, what a BrandHub brand's release holds, its files already copied
  * here (lib/core/hub.ts startFrom).
  */
@@ -797,17 +797,17 @@ export async function createBrand(
   input: { name: string; slug?: string; from?: string; domain?: string | null },
   seed?: { rules: SnapRule[]; pages: SnapPage[]; theme: ThemeSettings; forkedFrom: string },
 ) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const slug = input.slug ?? slugify(input.name);
   if (!slug) throw new AssetError("invalid", "Give the brand a name with a letter or a number in it");
-  await checkLimit(caller.workspace.organizationId, "brands");
+  await checkLimit(caller.project.organizationId, "brands");
   const source = input.from && !seed ? await resolveBrand(ws, input.from) : null;
   return db.transaction(async (tx) => {
-    await checkLimit(caller.workspace.organizationId, "brands", { tx });
+    await checkLimit(caller.project.organizationId, "brands", { tx });
     const theme = seed?.theme ?? (source ? source.theme : {});
     const [row] = await tx
       .insert(brands)
-      .values({ workspaceId: ws, slug, name: input.name, theme, forkedFrom: seed?.forkedFrom ?? null, domain: input.domain ?? null })
+      .values({ projectId: ws, slug, name: input.name, theme, forkedFrom: seed?.forkedFrom ?? null, domain: input.domain ?? null })
       .onConflictDoNothing()
       .returning();
     if (!row) throw new AssetError("conflict", `A brand "${slug}" exists`);
@@ -925,7 +925,7 @@ export async function nameVersion(ws: string, slug: string, number: number, name
  * and the restore is itself a new version, so restoring can be undone the same way.
  */
 export async function restoreVersion(caller: Caller, slug: string, number: number) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   const v = await version(brand.id, number);
   if (!v) return null;
   return db.transaction(async (tx) => {
@@ -934,7 +934,7 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
     const pagesBefore = await pageSnapshot(tx, brand.id);
     const themeBefore = await themeOf(tx, brand.id);
     await tx.delete(brandRules).where(eq(brandRules.brandId, brand.id));
-    const dropped = await writeRules(tx, caller.workspace.id, brand.id, v.snapshot);
+    const dropped = await writeRules(tx, caller.project.id, brand.id, v.snapshot);
     // A version from before pages, or before themes, says nothing about them: they stay as they are.
     if (v.pages) await writePages(tx, brand.id, v.pages);
     if (v.theme !== null) await tx.update(brands).set({ theme: v.theme }).where(eq(brands.id, brand.id));
@@ -973,12 +973,12 @@ export async function restoreVersion(caller: Caller, slug: string, number: numbe
  * it there, and where (lib/core/brands.ts hubOf).
  */
 export async function publishBrand(caller: Caller, slug: string | undefined, { note, image }: { note?: string; image?: string | null } = {}) {
-  const brand = await resolveBrand(caller.workspace.id, slug);
+  const brand = await resolveBrand(caller.project.id, slug);
   if (image) {
     const [found] = await db
       .select({ id: assets.id })
       .from(assets)
-      .where(and(eq(assets.id, image), eq(assets.workspaceId, caller.workspace.id), isNull(assets.deletedAt)));
+      .where(and(eq(assets.id, image), eq(assets.projectId, caller.project.id), isNull(assets.deletedAt)));
     if (!found) throw new AssetError("invalid", `image: no asset ${image}`);
   }
   // What goes out is served from here: Google faces still without files get them first.

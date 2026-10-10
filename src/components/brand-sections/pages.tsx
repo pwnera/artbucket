@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { IconLock } from "@tabler/icons-react";
+import { IconLock } from "@/components/icons";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { Body, ItemText, ItemTitle, itemRoot, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

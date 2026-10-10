@@ -28,7 +28,7 @@ export const SIZES = [
   2000, 2048, 2400, 2560, 3000, 3200, 3840, 4000, 4096, 5000, 6000, 7680, MAX_DIMENSION,
 ] as const;
 
-/** The largest side people outside the workspace get of a file they may see but not take (lib/rights.ts isDownloadable): a portal's preview. */
+/** The largest side people outside the project get of a file they may see but not take (lib/rights.ts isDownloadable): a portal's preview. */
 export const SHOWN_MAX = 1600;
 
 /** A transform within SHOWN_MAX: a side asked larger, or not asked, is SHOWN_MAX, which the default fit (inside) keeps the aspect within. */
@@ -61,7 +61,7 @@ export function isStock(t: Transform, presets: readonly (string | null)[]) {
   return presets.some((p) => p !== null && serializeTransform(parseTransform(p) ?? {}) === spec);
 }
 
-/** The largest side an AVIF or a drawn SVG gets for people outside the workspace: neither stops at a render's time limit. */
+/** The largest side an AVIF or a drawn SVG gets for people outside the project: neither stops at a render's time limit. */
 export const OUTSIDE_MAX = 4096;
 
 /** The sides asked, at most `max`; a side not asked stays unasked. */
@@ -71,7 +71,7 @@ export const capSides = (t: Transform, max: number): Transform => ({
   ...(t.h && { h: Math.min(t.h, max) }),
 });
 
-/** Renditions of one file, past the stock ones, that people outside its workspace may have made while the bucket keeps them. */
+/** Renditions of one file, past the stock ones, that people outside its project may have made while the bucket keeps them. */
 export const OUTSIDE_RENDITIONS = 16;
 
 /** "Web" for a preset's spec, the spec itself otherwise, "Original" for none. */

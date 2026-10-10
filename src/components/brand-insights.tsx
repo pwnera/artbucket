@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle } from "@/components/icons";
 import { Breakdown, ComboChart, Kpis, short } from "@/components/analytics";
 import { AssetLink, date, None, SURFACE, type Asset } from "@/components/insights";
 

@@ -29,10 +29,10 @@ Without signing in, two variables say where and as whom:
 | Variable | |
 |---|---|
 | `ARTBUCKET_URL` | The server, e.g. `https://app.artbucket.io`. Wins over the one `login` saved |
-| `ARTBUCKET_KEY` | An API key (`ab_...`). It decides the workspace. Wins over the saved one |
+| `ARTBUCKET_KEY` | An API key (`ab_...`). It decides the project. Wins over the saved one |
 
-A key for CI is made by a workspace admin, in the app (Agents) or with
-`POST /api/v1/keys`. Pushing takes `write` on the workspace; `--publish`
+A key for CI is made by a project admin, in the app (Agents) or with
+`POST /api/v1/keys`. Pushing takes `write` on the project; `--publish`
 also takes sharing, which a grant can switch off.
 
 ### With Docker
@@ -60,7 +60,7 @@ Or, without the volume, pass `-e ARTBUCKET_URL -e ARTBUCKET_KEY`.
 ## The brand a command acts on
 
 Every `brand` command acts on the brand `--brand` names, or else the one the
-`slug:` in the folder's `brand.yaml` names. Never the workspace's default:
+`slug:` in the folder's `brand.yaml` names. Never the project's default:
 a folder pushed without either is refused. `pull` writes `slug:`, so after
 the first pull the folder says which brand it is.
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ABILITIES, RESOURCES } from "./access.ts";
+import { RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { SURFACES } from "./insights.ts";
 import { FEATURES } from "./limits.ts";
@@ -245,7 +245,7 @@ export const BrandCreate = z
     from: z
       .union([brandSlug, z.string().max(130).regex(HUB_REF, "A BrandHub brand, e.g. rust-lang/rust@12")])
       .optional()
-      .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace"),
+      .describe("Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this project"),
     template: z
       .enum(["firefox", "rust", "blender"])
       .optional()
@@ -269,7 +269,7 @@ export const BrandCreate = z
     publish: z
       .union([z.boolean(), PublishInput])
       .optional()
-      .describe("Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace"),
+      .describe("Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the project"),
     visibility: z.enum(["private", "public"]).optional().describe("`public` puts its release on BrandHub for anyone, once made; takes `publish`"),
   })
   .refine((b) => b.name || b.domain || b.brandJson, { message: "Give the brand a name", path: ["name"] })
@@ -280,6 +280,7 @@ export const BrandPatch = z.strictObject({
   slug: brandSlug.optional(),
   default: z.literal(true).optional().describe("Make this the default brand"),
   domain: z.string().trim().max(253).nullable().optional().describe("Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it"),
+  private: z.boolean().optional().describe("Only grants on it, and admins, reach it in the app: a draft kept from the rest of the project"),
 });
 export const VersionPatch = z.strictObject({
   name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
@@ -319,27 +320,36 @@ export const CreateKey = z.strictObject({
 
 /** PATCH /api/v1/keys/{id}: where an agent you connected works, and what it may do there, as consent gives them. */
 export const Regrant = z.strictObject({
-  workspaces: z.array(z.uuid()).min(1, { error: "Pick a workspace, or disconnect it" }).max(100),
+  projects: z.array(z.uuid()).min(1, { error: "Pick a project, or disconnect it" }).max(100),
   scope: z.enum(GRANTABLE),
 });
 
 const named = z.strictObject({ name: z.string().trim().min(1).max(80) });
 export const CreateOrganization = named;
 export const OrganizationPatch = named;
-export const CreateWorkspace = named;
-export const WorkspacePatch = named;
+export const CreateProject = named;
+export const ProjectPatch = named;
 
-const abilities = z.array(z.enum(ABILITIES));
 const on = {
   resource: z.enum(RESOURCES).describe("What the grant is on; it reaches everything inside it"),
-  resourceId: uuid.describe("The organization's, workspace's, collection's or asset's id"),
+  resourceId: uuid.describe("The organization's, project's, collection's or asset's id"),
   scope: z.enum(SCOPES),
-  limits: abilities
-    .max(ABILITIES.length)
-    .optional()
-    .describe("What the scope would allow but this grant doesn't: delete, share (links and upload requests), approve (review), setup (fields and brand)"),
 };
-export const GrantInput = z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on });
+export const GrantInput = z.union([
+  z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on }),
+  z.strictObject({ group: uuid.describe("A group's id, from /api/v1/groups: each of its members has the grant"), ...on }),
+  z.strictObject({
+    project: z.string().min(1).max(64).describe("A share: another project of the organization, by id or slug. Its members read the brand, collection or asset where it is"),
+    resource: z.enum(["brand", "collection", "asset"]),
+    resourceId: uuid,
+    scope: z.literal("read").describe("A share is always read: edits happen in its own project"),
+  }),
+]);
+export const GroupInput = z.strictObject({ name: z.string().trim().min(1).max(80) });
+export const GroupMembersChange = z.strictObject({
+  add: z.array(z.string().min(1).max(64)).max(200).optional().describe("Members' user ids, from /api/v1/members"),
+  remove: z.array(z.string().min(1).max(64)).max(200).optional(),
+});
 export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
 
 export const ShareCreate = z.strictObject({
@@ -362,7 +372,7 @@ const portal = {
   name: z.string().trim().min(1).max(120).describe("What visitors see it called, e.g. Press kit"),
   slug: z.string().regex(PORTAL_SLUG).describe("Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"),
   intro: z.string().trim().max(4000).nullable().optional().describe("A few paragraphs under the name"),
-  access: z.enum(PORTAL_ACCESS).describe("public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"),
+  access: z.enum(PORTAL_ACCESS).describe("public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"),
   password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
   expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
   presets: z.array(z.enum(PRESET_IDS)).max(PRESET_IDS.length).optional().describe("What images download as; web, print and social when left out"),
@@ -397,12 +407,12 @@ export const SsoInput = z.strictObject({
   clientId: z.string().trim().min(1).max(500).describe("The app's client ID at the provider"),
   clientSecret: z.string().min(1).max(2000).optional().describe("The app's client secret. Needed to set it up; left out on a change, the one kept stays"),
   domain: z.string().min(1).max(253).describe("The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"),
-  workspaceId: z.uuid().nullable().optional().describe("The workspace its people land in the first time, able to read; null for the organization's oldest. Left out, it stays"),
+  projectId: z.uuid().nullable().optional().describe("The project its people land in the first time, able to read; null for the organization's oldest. Left out, it stays"),
 });
 export const EmailDomainInput = z.strictObject({ domain: z.string().min(1).max(253).describe("A domain your people have their email at, e.g. acme.com") });
 export const EmailDomainPatch = z.strictObject({
-  join: z.boolean().optional().describe("Let anyone whose address is at exactly this domain join, able to read its landing workspace. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
-  workspaceId: z.uuid().nullable().optional().describe("The workspace whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays"),
+  join: z.boolean().optional().describe("Let anyone whose address is at exactly this domain join, able to read its landing project. Needs it proved, not free mail, no single sign-on over it, and the server's own email"),
+  projectId: z.uuid().nullable().optional().describe("The project whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays"),
 });
 export const SsoRequiredInput = z.strictObject({
   required: z.boolean().describe("Hold everyone at the domain to the provider: no password sign-in or reset, but for the organization's admins"),
@@ -417,7 +427,7 @@ export const HubClaimInput = z.strictObject({
   note: z.string().trim().max(2000).optional().describe("Who you are to the brand, and whether you want the listing handed over or taken down"),
 });
 export const HubOfferAccept = z.strictObject({
-  slug: brandSlug.optional().describe("The new brand's slug in your workspace; the listing's when left out"),
+  slug: brandSlug.optional().describe("The new brand's slug in your project; the listing's when left out"),
 });
 export const HubReportPatch = z.strictObject({
   status: z.enum(["open", "resolved"]).optional(),
@@ -488,7 +498,7 @@ const fieldValues = z.record(z.string(), z.union([z.string(), z.number(), z.bool
 
 export const Asset = z.object({
   id: uuid,
-  workspaceId: uuid,
+  projectId: uuid,
   sha256: z.string(),
   filename: z.string(),
   mime: z.string(),
@@ -603,9 +613,11 @@ export const BrandRules = z.object({
 });
 
 export const Brand = z.object({
+  id: uuid,
   slug: z.string(),
   name: z.string(),
   default: z.boolean(),
+  private: z.boolean().describe("Only grants on it, and admins, reach it in the app"),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
   from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
   domain: z.string().nullable().optional().describe("Its own domain (acme.com): whoever proves it may claim its BrandHub listing"),
@@ -867,7 +879,7 @@ export const Version = VersionMeta.extend({
   themeChanged: z.boolean().describe("The theme differs; against current, whether a restore would change it"),
 });
 export const BrandHub = z.object({
-  visibility: z.enum(["private", "public"]).describe("private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"),
+  visibility: z.enum(["private", "public"]).describe("private: the project's people see it on BrandHub, signed in; public: anyone and any agent"),
   url: z.url().describe("Its page there: BrandHub's own address when public, the app's /hub when private"),
   published: z.object({ number: z.number().int(), publishedAt: date }).nullable().describe("What BrandHub shows: the latest publish; null: nothing yet"),
   portal: z.object({ slug: z.string(), name: z.string() }).nullable().describe("The portal it links as its guidelines"),
@@ -932,7 +944,7 @@ export const BrandStatus = z.object({
       downloadable: z.number().int().describe("Its rules' files anyone shown them may download"),
       shownOnly: z
         .array(z.object({ id: uuid, filename: z.string(), font: z.boolean() }))
-        .describe("Those people outside the workspace see but can't download (an asset's rights.downloadable, else its license)"),
+        .describe("Those people outside the project see but can't download (an asset's rights.downloadable, else its license)"),
     })
     .describe("Its rules' files as its portals and BrandHub hand them out"),
   url: z.url().describe("Its guidelines in the app, to read"),
@@ -986,22 +998,22 @@ export const ApiKey = z.object({
   calls: z.number().int().describe("Requests that presented it"),
   owner: z.string().nullable().describe("Whose agent it is, for one a person connected; null for a key an admin made"),
   waiting: z.number().int().describe("Assets it proposed that wait in Review"),
-  workspaces: z
+  projects: z
     .array(z.string())
     .nullable()
     .optional()
-    .describe("For an agent you connected, the names of every workspace it works in; null for anyone else's"),
+    .describe("For an agent you connected, the names of every project it works in; null for anyone else's"),
 });
 /** What `GET` and `PATCH /api/v1/keys/{id}` return: an agent you connected, where it works and where it could. */
 export const Connection = z.object({
   id: uuid,
   name: z.string(),
-  workspaces: z
+  projects: z
     .array(z.object({ id: uuid, name: z.string(), organization: z.string(), scope: z.enum(SCOPES) }))
-    .describe("Where it works, the first where a call without `workspace` goes"),
+    .describe("Where it works, the first where a call without `project` goes"),
   givable: z
     .array(z.object({ id: uuid, name: z.string(), organization: z.string(), max: z.enum(GRANTABLE) }))
-    .describe("Every workspace you could give it, with the most you may give there"),
+    .describe("Every project you could give it, with the most you may give there"),
 });
 export const ApiKeyCreated = ApiKey.extend({
   secret: z.string().describe("Shown once. Send as `Authorization: Bearer <secret>`"),
@@ -1037,7 +1049,7 @@ export const Description = z.object({
   downloadable: z
     .boolean()
     .describe(
-      "Whether people outside the workspace may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes",
+      "Whether people outside the project may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes",
     ),
   urls: z.object({
     original: z.url(),
@@ -1120,8 +1132,8 @@ export const Usage = z.object({
   limits: z.object({
     storage: limit("Bytes of assets"),
     editors: limit("People with write or admin, invitations included"),
-    workspaces: limit("Workspaces"),
-    brands: limit("Brands, over all workspaces"),
+    projects: limit("Projects"),
+    brands: limit("Brands, over all projects"),
     domains: limit("Custom domains, the app's and its portals'"),
     emails: limit("Emails a day: invitations, share links, tests"),
     features: z.array(z.enum(["agents", "shares", "sso"])).nullable().describe("What it may use; null: everything"),
@@ -1132,10 +1144,10 @@ export const Usage = z.object({
       .describe("Suspended by whoever runs the server, and why: its portals, links, listings and public files are unavailable (451), and it is read-only; null: not"),
   }).describe("Set by whoever runs the server; never by the organization"),
   billing: z.string().url().nullable().describe("Where the organization's admins manage the plan behind these limits; null when this server has no such place"),
-  used: z.object({ storage: z.number(), editors: z.number().int(), workspaces: z.number().int(), brands: z.number().int(), domains: z.number().int() }),
+  used: z.object({ storage: z.number(), editors: z.number().int(), projects: z.number().int(), brands: z.number().int(), domains: z.number().int() }),
   traffic: z.object({
     days: z.number().int().describe("How far back"),
-    workspaces: z.array(z.object({ id: uuid, name: z.string(), storage: z.number(), requests: z.number().int(), bytes: z.number() })),
+    projects: z.array(z.object({ id: uuid, name: z.string(), storage: z.number(), requests: z.number().int(), bytes: z.number() })),
     daily: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })),
   }).describe("What /a/{id} served: originals, renditions and downloads"),
 });
@@ -1144,9 +1156,9 @@ export const Usage = z.object({
 
 const scope = z.enum(SCOPES).nullable();
 export const Organization = z.object({ id: uuid, slug: z.string(), name: z.string() });
-export const WorkspaceRef = z.object({ id: uuid, slug: z.string(), name: z.string(), organization: Organization });
-export const WorkspaceItem = z.object({ id: uuid, slug: z.string(), name: z.string(), scope: scope.describe("Yours on all of it; null when a grant inside it is all you have") });
-export const OrganizationCreated = Organization.extend({ workspace: z.object({ id: uuid, slug: z.string(), name: z.string() }) });
+export const ProjectRef = z.object({ id: uuid, slug: z.string(), name: z.string(), organization: Organization });
+export const ProjectItem = z.object({ id: uuid, slug: z.string(), name: z.string(), scope: scope.describe("Yours on all of it; null when a grant inside it is all you have") });
+export const OrganizationCreated = Organization.extend({ project: z.object({ id: uuid, slug: z.string(), name: z.string() }) });
 
 export const JoinOffer = z.object({
   organization: z.object({ id: z.uuid(), name: z.string() }),
@@ -1156,20 +1168,17 @@ export const Me = z.object({
   user: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().describe("Signed in as; null for a key or nobody"),
   key: z.boolean().describe("Calling with an API key"),
   actor: z.string().describe("How history names you"),
-  workspace: WorkspaceRef.describe("Where this request acts: a key's workspace, or the one picked in the app"),
-  scope: scope.describe("On the whole workspace"),
-  orgScope: scope.describe("On its organization; admin there manages people and workspaces"),
+  project: ProjectRef.describe("Where this request acts: a key's project, or the one picked in the app"),
+  scope: scope.describe("On the whole project"),
+  orgScope: scope.describe("On its organization; admin there manages people and projects"),
   readOnly: z.boolean().describe("The organization is read-only: whatever the grants say, the scope is read at most"),
-  narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
+  narrowed: z.boolean().describe("No scope on the project, but grants on some collections or assets in it"),
   email: z.boolean().describe("The organization can send email now: invitations and links go out by mail"),
   narrow: z
-    .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)) })
-    .describe("Grants on single collections and assets here, by id: what reaches past the workspace scope"),
-  off: z
-    .object({ workspace: abilities, collections: z.record(uuid, abilities), assets: z.record(uuid, abilities) })
-    .describe("Abilities your grants have switched off, on the workspace and on single collections and assets"),
-  hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
-  workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
+    .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)), brands: z.record(uuid, z.enum(SCOPES)) })
+    .describe("Grants on single collections, assets and brands here, by id: what reaches past the project scope"),
+  hidden: z.array(uuid).describe("The project's private collections and brands: only a grant on one, or admin, reaches it"),
+  projects: z.array(ProjectRef).describe("Every project you can switch to"),
   features: z
     .array(z.enum(FEATURES))
     .nullable()
@@ -1187,9 +1196,9 @@ export const Me = z.object({
   git: z
     .string()
     .nullable()
-    .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null"),
+    .describe("Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a project admin, else null"),
   hub: z.boolean().describe("This server runs BrandHub (HUB_URL)"),
-  hubUrl: z.string().url().nullable().describe("Where BrandHub shows the workspace's brands, private ones too; null when the server has none"),
+  hubUrl: z.string().url().nullable().describe("Where BrandHub shows the project's brands, private ones too; null when the server has none"),
   notice: z
     .object({ text: z.string(), href: z.string().nullable() })
     .nullable()
@@ -1230,11 +1239,18 @@ export const Grant = z.object({
   id: uuid,
   resource: z.enum(RESOURCES),
   resourceId: uuid,
-  workspaceId: uuid.nullable(),
+  projectId: uuid.nullable(),
   label: z.string().nullable().describe("The name of what it is on"),
   scope: z.enum(SCOPES),
-  limits: abilities.describe("What the scope would allow but this grant doesn't"),
   createdAt: date,
+});
+export const GroupInfo = z.object({
+  id: uuid,
+  name: z.string(),
+  source: z.enum(["manual", "sso"]).describe("Made by an admin, or synced from single sign-on"),
+  createdAt: date,
+  members: z.array(z.object({ id: z.string(), name: z.string(), email: z.string() })),
+  grants: z.array(Grant),
 });
 export const Invitation = z.object({
   id: uuid,
@@ -1243,7 +1259,6 @@ export const Invitation = z.object({
   resourceId: uuid,
   label: z.string().nullable(),
   scope: z.enum(SCOPES),
-  limits: abilities,
   invitedBy: z.string(),
   expiresAt: date,
   createdAt: date,
@@ -1267,13 +1282,13 @@ export const InvitationInfo = z.object({
   expiresAt: date,
   signUp: z.boolean().describe("No account has this email yet"),
 });
-export const Accepted = z.object({ organizationId: uuid, workspaceId: uuid.nullable(), resource: z.enum(RESOURCES), scope: z.enum(SCOPES) });
+export const Accepted = z.object({ organizationId: uuid, projectId: uuid.nullable(), resource: z.enum(RESOURCES), scope: z.enum(SCOPES) });
 
 export const Share = z.object({
   id: uuid,
   kind: z.enum(["view", "upload"]),
   name: z.string().nullable(),
-  target: z.object({ type: z.enum(["collection", "asset", "workspace"]), id: uuid.nullable(), label: z.string().nullable() }),
+  target: z.object({ type: z.enum(["collection", "asset", "project"]), id: uuid.nullable(), label: z.string().nullable() }),
   url: z.url(),
   password: z.boolean(),
   expiresAt: date.nullable(),
@@ -1291,12 +1306,12 @@ export const Shared = z.object({
   share: z.object({
     kind: z.enum(["view", "upload"]),
     name: z.string().nullable(),
-    workspace: z.string().nullable(),
+    project: z.string().nullable(),
     organization: z.string().nullable(),
     target: Share.shape.target,
     expiresAt: date.nullable(),
     brand: Branding.describe("Whose link this is, and how it looks"),
-    look: Look.describe("How to draw it: the workspace's brand site once published; else the organization's accent over the app's own"),
+    look: Look.describe("How to draw it: the project's brand site once published; else the organization's accent over the app's own"),
   }),
   data: z.array(
     z.object({
@@ -1460,7 +1475,7 @@ export const Insights = z.object({
         .describe("The latest refusals, newest first"),
     })
     .describe("The use-check log: check_use and POST /api/v1/check answers"),
-  delivery: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })).describe("What /a/{id} served in this workspace, per day"),
+  delivery: z.array(z.object({ day: z.string(), requests: z.number().int(), bytes: z.number() })).describe("What /a/{id} served in this project, per day"),
   pageViews: z
     .array(
       z.object({
@@ -1543,15 +1558,15 @@ export const Sso = z.object({
   domain: z.string(),
   verified: z.boolean().describe("The domain is proved: its people sign in through the provider"),
   required: z.boolean().describe("Addresses at the domain sign in only through the provider, but for the organization's admins"),
-  workspaceId: z.string().nullable().describe("The workspace its people land in the first time, able to read; null for the organization's oldest"),
+  projectId: z.string().nullable().describe("The project its people land in the first time, able to read; null for the organization's oldest"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
   redirectUri: z.url().describe("Register this with the provider as the app's redirect URI"),
 });
 export const EmailDomain = z.object({
   domain: z.string(),
   verified: z.boolean().describe("Proved by its TXT record: single sign-on and joining by domain may use it"),
-  join: z.boolean().describe("Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"),
-  workspaceId: z.string().nullable().describe("The workspace whoever joins lands in, able to read; null for the organization's oldest"),
+  join: z.boolean().describe("Anyone whose address is at exactly this domain may join the organization, able to read its landing project"),
+  projectId: z.string().nullable().describe("The project whoever joins lands in, able to read; null for the organization's oldest"),
   sso: z.boolean().describe("The organization's single sign-on uses it"),
   record: z.object({ type: z.literal("TXT"), name: z.string(), value: z.string() }).describe("What proves the domain: add this record at your DNS host"),
 });
@@ -1572,7 +1587,7 @@ export const HubReport = z.object({
   claimant: z.object({ name: z.string(), proof: z.string().nullable().describe("What it proved it holds: a domain, or github.com/{login}") }).nullable(),
   status: z.enum(["open", "resolved"]),
   createdAt: date,
-  brand: z.object({ slug: z.string(), name: z.string(), workspace: z.string(), visibility: z.enum(["private", "public"]) }),
+  brand: z.object({ slug: z.string(), name: z.string(), project: z.string(), visibility: z.enum(["private", "public"]) }),
 });
 export const HubOffer = z.object({
   id: uuid.describe("The listing's brand"),
@@ -1733,7 +1748,7 @@ export const AuditEntry = z.object({
   id: uuid,
   at: date,
   organizationId: uuid.nullable(),
-  workspaceId: uuid.nullable(),
+  projectId: uuid.nullable(),
   actor: z.string(),
   userId: z.string().nullable(),
   keyId: uuid.nullable(),
@@ -1748,8 +1763,8 @@ export const SettingItem = z.object({
   context: z.enum(SETTING_CONTEXTS),
   value: z.record(z.string(), z.unknown()).describe("As it applies here; secret properties are null"),
   secrets: z.record(z.string(), z.boolean()).describe("Whether each secret property is set"),
-  source: z.enum(["workspace", "organization", "environment", "default"]).describe("The narrowest place any of it comes from"),
-  sources: z.record(z.string(), z.enum(["workspace", "organization", "environment", "default"])).describe("Where each property comes from"),
+  source: z.enum(["project", "organization", "environment", "default"]).describe("The narrowest place any of it comes from"),
+  sources: z.record(z.string(), z.enum(["project", "organization", "environment", "default"])).describe("Where each property comes from"),
   own: z.boolean().describe("Set here: resetting it lets what is above apply"),
 });
 export const SettingPatch = z.record(z.string(), z.unknown()).describe("Properties to change; a blank secret keeps it, null clears it");
@@ -1895,7 +1910,7 @@ export const BrandSource = z.object({
 });
 export const BrandSourceView = z.object({
   source: BrandSource.nullable().describe("null: the brand lives here alone"),
-  connect: z.url().nullable().describe("Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a workspace admin, else null"),
+  connect: z.url().nullable().describe("Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a project admin, else null"),
 });
 export const BrandExport = z.object({
   brand: z.string(),

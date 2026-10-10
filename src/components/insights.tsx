@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
-import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@/components/icons";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
 import { InfoTip } from "@/components/info-tip";
@@ -69,19 +69,24 @@ export type InsightsTab = "overview" | "checks";
  * changes; the tab on show is read from the address.
  */
 export function InsightsFrame({ refused, children }: { refused: number | undefined; children: React.ReactNode }) {
-  const checks = useSelectedLayoutSegment() === "checks";
+  const tab = useSelectedLayoutSegment();
+  const checks = tab === "checks";
+  const activity = tab === "activity";
+  const title = checks ? "Use checks" : activity ? "Activity" : null;
   return (
     <>
-      <AppHeader trail={checks ? [{ label: "Insights", href: "/insights" }, { label: "Use checks" }] : [{ label: "Insights" }]} />
+      <AppHeader trail={title ? [{ label: "Insights", href: "/insights" }, { label: title }] : [{ label: "Insights" }]} />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconChartBar />}
-          title={checks ? "Use checks" : "Insights"}
+          title={title ?? "Insights"}
           aside={
             <InfoTip>
               {checks
                 ? "Every use checked, by a person, a portal visitor or an agent: what was refused, why, what was offered instead, and whether it was taken."
-                : "Brand answers count every file served, listing read, use checked and search that finds something. Counted in this server's own database: no IP addresses, no names of people, no full URLs, nothing sent anywhere."}
+                : activity
+                  ? "Who did what in this project: uploads, reviews, deletes and brand changes, by people and by agents."
+                  : "Brand answers count every file served, listing read, use checked and search that finds something. Counted in this server's own database: no IP addresses, no names of people, no full URLs, nothing sent anywhere."}
             </InfoTip>
           }
         />
@@ -89,8 +94,9 @@ export function InsightsFrame({ refused, children }: { refused: number | undefin
           <TabNav
             label="Insights"
             items={[
-              { href: "/insights", label: "Overview", current: !checks },
+              { href: "/insights", label: "Overview", current: !title },
               { href: "/insights/checks", label: "Use checks", current: checks, count: refused || undefined },
+              { href: "/insights/activity", label: "Activity", current: activity },
             ]}
           />
         </div>

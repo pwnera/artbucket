@@ -125,8 +125,8 @@ _This is the moat._
 **Question:** can a team use it?
 
 - better-auth: email + OIDC. **OIDC stays free forever** - no SSO tax.
-- Organizations, workspaces
-- RBAC: org → workspace → collection → asset
+- Organizations, projects
+- RBAC: org → project → collection → asset
 - Share links with expiry and password; guest collect-upload links
 - Audit log (also free - cheap trust)
 
@@ -202,19 +202,19 @@ image generated in Recraft lands in Review with its generator and prompt.
 - Migration path guarantees across versions
 - S3 lifecycle rules: `staging/` expires after a day, `renditions/` after 30
 - **Limits per organization:** one `limits` setting (storage, editors,
-  workspaces, brands, features, read-only), unlimited by default, checked by one
-  `checkLimit` at upload, grant and invitation, workspace, brand and API key
+  projects, brands, features, read-only), unlimited by default, checked by one
+  `checkLimit` at upload, grant and invitation, project, brand and API key
   creation. Settable only by the operator (environment or database), never by
   the organization's own admins
 - **Usage accounting:** storage as the sum of asset sizes per organization,
-  traffic as a daily per-workspace counter written by the delivery route, both
+  traffic as a daily per-project counter written by the delivery route, both
   shown in Settings
-- Upload tickets know their workspace, so a quota is checked before any bytes
+- Upload tickets know their project, so a quota is checked before any bytes
   move and again, authoritatively, at finalize
 - **Soft delete:** a deleted asset keeps its bytes for 30 days, then a sweeper
   removes originals nothing references. Undo, and no race with an identical
-  upload in another workspace
-- Deleting a workspace or an organization, through the same path, so no bytes
+  upload in another project
+- Deleting a project or an organization, through the same path, so no bytes
   are orphaned
 - Open sign-up as an option (`SIGNUP=open`): a new account gets its own
   organization. Closed stays the default
@@ -253,7 +253,7 @@ _The unglamorous one that decides adoption._
 ## v1.1 - Brand portals
 **Question:** can people outside the team self-serve the right assets?
 
-- Public or login-gated portals per workspace: a curated, branded front door
+- Public or login-gated portals per project: a curated, branded front door
   onto chosen collections (press kit, partner hub, retailer assets)
 - Theming: logo, colors, custom domain, intro copy
 - Only approved, unexpired assets show; expiry and lifecycle rules from v0.8
@@ -429,7 +429,7 @@ R2 jurisdiction) and to contractual isolation.
   wherever the bytes live. An operator can leave bytes in an organization's own
   bucket out of its storage limit
 
-**Not in this one:** a bucket per workspace, storage classes and cold tiers,
+**Not in this one:** a bucket per project, storage classes and cold tiers,
 client-side encryption, non-S3 backends.
 **Done when:** an organization on a shared server points at its own R2 bucket,
 moves a 10k-asset library there with zero lost files, and the server's bucket

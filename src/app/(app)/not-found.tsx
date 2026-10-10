@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconBook, IconMapQuestion, IconPhoto } from "@tabler/icons-react";
+import { IconBook, IconMapQuestion, IconPhoto } from "@/components/icons";
 import { AppHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";

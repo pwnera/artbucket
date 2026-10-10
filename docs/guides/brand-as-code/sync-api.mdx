@@ -23,7 +23,7 @@ All of them are under `/api/v1/brands/{slug}`, with
 | `DELETE .../previews?ref=pull/12` | write | Close a preview's link |
 | `GET /api/v1/previews/{token}` | none | A page of a preview, for whoever has its link |
 
-Writing takes `write` on the workspace. An import that publishes also takes
+Writing takes `write` on the project. An import that publishes also takes
 sharing, which a grant can switch off. The full schemas are in the
 [API reference](/developers/api).
 
@@ -77,7 +77,7 @@ caller last had them, as the CLI does).
 | `syncedAt` | When, or null |
 | `pending` | The brand changed in the app since: an export is due |
 | `files` | How many of its assets are files in the repository |
-| `connect` | Where this server's integration connects a brand (`GIT_CONNECT_URL`), for a workspace admin signed in; else null |
+| `connect` | Where this server's integration connects a brand (`GIT_CONNECT_URL`), for a project admin signed in; else null |
 
 `source` is null for a brand that lives in Artbucket alone.
 
@@ -355,7 +355,7 @@ put each at its line, under the folder's path. The messages are listed in
 
 Set `GIT_CONNECT_URL` on the server to where your integration starts, with
 `{brand}` for the brand's slug: `https://git.example.com/connect?brand={brand}`.
-New brand, a new brand's setup and the builder link there for workspace
+New brand, a new brand's setup and the builder link there for project
 admins, with `{brand}` empty when the brand is to come from a repository.
 When it is done, send the person back to the brand's Overview,
 `{APP_URL}/brands/{slug}?git=connected`, which says when the first sync has

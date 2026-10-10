@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useState, useTransition } from "react";
-import { IconCheck, IconPhoto, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCheck, IconPhoto, IconPlus, IconTrash, IconX } from "@/components/icons";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
 import { BrandMark } from "@/components/brand";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconCheck, IconCopy, IconDownload, IconSearch } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDownload, IconSearch } from "@/components/icons";
 import { Body } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { copyText } from "@/components/copy-button";

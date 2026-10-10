@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconPhoto, IconSearch } from "@tabler/icons-react";
+import { IconPhoto, IconSearch } from "@/components/icons";
 import { asMedia } from "@/components/brand-sections/slots";
 import { startDrag, endDrag } from "@/components/builder/drag";
 import { FloatingPanel } from "@/components/builder/floating-panel";

@@ -12,7 +12,7 @@ import {
   IconBrandX,
   IconBrandYoutube,
   IconExternalLink,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { type LinkKind, linkKind } from "@/lib/site";
 
 const ICONS: Record<LinkKind, typeof IconExternalLink> = {

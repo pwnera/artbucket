@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect } from "react";
-import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { IconDeviceDesktop, IconMoon, IconSun } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { useTheme } from "next-themes";
 import {

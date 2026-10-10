@@ -13,7 +13,7 @@ import {
   IconPlus,
   IconSquares,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { Editable, Markdown, RichText, ValueEditor } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { AssetTile, DoCards, LogoTile, pictured } from "@/components/brand-sections/parts";

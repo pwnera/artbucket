@@ -10,7 +10,7 @@ import {
   IconRestore,
   IconSparkles,
   IconWorldUpload,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import type { Me } from "@/components/account";
 import { Can, useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";

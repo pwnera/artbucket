@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { IconCheck, IconDots, IconMessageCircle, IconRestore } from "@tabler/icons-react";
+import { IconCheck, IconDots, IconMessageCircle, IconRestore } from "@/components/icons";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { useCan, useMe } from "@/components/can";

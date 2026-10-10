@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconHistory, IconWorldUpload } from "@tabler/icons-react";
+import { IconHistory, IconWorldUpload } from "@/components/icons";
 import { ReleaseForm } from "@/components/builder/publish-dialog";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";

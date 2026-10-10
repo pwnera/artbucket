@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { IconDots, IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from "@tabler/icons-react";
+import { IconDots, IconLock, IconMenu2, IconPrinter, IconSearch, IconSend } from "@/components/icons";
 import { PageBody } from "@/components/brand-sections";
 import { LABEL, LookProvider, useSiteLook } from "@/components/brand-sections/look";
 import { goTo, TYPING, useHashFlash } from "@/components/site/anchors";

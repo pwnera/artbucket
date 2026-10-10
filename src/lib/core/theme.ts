@@ -31,7 +31,7 @@ async function unmet(ws: string, s: ThemeSettings, rules: BrandRule[]): Promise<
     const [a] = await db
       .select({ mime: assets.mime })
       .from(assets)
-      .where(and(eq(assets.id, s.device), eq(assets.workspaceId, ws), isNull(assets.deletedAt)));
+      .where(and(eq(assets.id, s.device), eq(assets.projectId, ws), isNull(assets.deletedAt)));
     if (!a?.mime.startsWith("image/")) out.push(["device", a ? `device: ${s.device} is ${a.mime}, not an image` : `device: no asset ${s.device}`]);
   }
   return out;
@@ -64,7 +64,7 @@ export async function getTheme(ws: string, slug?: string) {
  * falls back to the default with a warning, and never blocks an unrelated change.
  */
 export async function setTheme(caller: Caller, slug: string | undefined, { look, ...own }: ThemePatch) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   // A look is applied, not stored: its layout settings, under whatever the patch names beside it.
   const patch: Omit<ThemePatch, "look"> = look ? { ...LOOKS[look].patch, ...own } : own;
   const brand = await resolveBrand(ws, slug);

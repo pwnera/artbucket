@@ -167,19 +167,19 @@ function movedGuidelines(req: NextRequest) {
 }
 
 /**
- * A link into the app that names a workspace (?workspace=, the floating Edit
+ * A link into the app that names a project (?project=, the floating Edit
  * on BrandHub and portals): it becomes the open one, the cookie
- * components/account.tsx pickWorkspace writes, and the address goes on
+ * components/account.tsx pickProject writes, and the address goes on
  * without it. A preference, not access: lib/core/access.ts opens it only for
  * someone who may, else their first.
  */
-function openWorkspace(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get("workspace");
+function openProject(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("project");
   if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
   const url = req.nextUrl.clone();
-  url.searchParams.delete("workspace");
+  url.searchParams.delete("project");
   const res = NextResponse.redirect(url, 307);
-  res.cookies.set("ab_workspace", id, { path: "/", maxAge: 31536000, sameSite: "lax", secure: https });
+  res.cookies.set("ab_project", id, { path: "/", maxAge: 31536000, sameSite: "lax", secure: https });
   return res;
 }
 
@@ -204,7 +204,7 @@ export async function proxy(req: NextRequest) {
   init?.request.headers.set("x-path", pathname + req.nextUrl.search);
   const host = req.headers.get("host") ?? "";
   const target = host && host !== appHost && !onHub ? await hostTarget(host).catch(() => null) : null;
-  // The app's own screens where a person picks a Google font (components/font-preview.tsx, builder/brand-setup.tsx), never a portal's host.
+  // The app's own screens where a person picks a Google font (components/font-preview.tsx), never a portal's host.
   const picking = page && !onHub && (host === appHost || !!target?.app) && !target?.portal && /^\/(library|brands(\/.*)?)?$/.test(pathname);
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const policy = csp(nonce, picking);
@@ -217,7 +217,7 @@ export async function proxy(req: NextRequest) {
     hubRoute(req, onHub, init) ??
     (onHub ? null : await portalRoute(req, target, init)) ??
     movedGuidelines(req) ??
-    (page && host === appHost ? openWorkspace(req) : null) ??
+    (page && host === appHost ? openProject(req) : null) ??
     NextResponse.next(init);
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.

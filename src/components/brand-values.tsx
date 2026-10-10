@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, lazy, Suspense, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { IconCheck, IconX } from "@/components/icons";
 import { toast } from "sonner";
 import { copyText, CopyButton } from "@/components/copy-button";
 import { useAssetFont } from "@/components/font-preview";

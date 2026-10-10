@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { IconPhoto, IconUpload } from "@tabler/icons-react";
+import { IconPhoto, IconUpload } from "@/components/icons";
 import { toast } from "sonner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { BrandIcon, markOf } from "@/components/brand-sections/parts";

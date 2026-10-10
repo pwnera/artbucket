@@ -6,7 +6,7 @@ import { AssetError } from "@/lib/core/errors";
 /**
  * The audit log: who changed who may do what. Asset events are `activity`;
  * this is sign-ins, members, grants, invitations, keys, share links,
- * workspaces, settings, and what portals publish. Free, like OIDC: trust
+ * projects, settings, and what portals publish. Free, like OIDC: trust
  * shouldn't be a paid tier.
  */
 
@@ -16,11 +16,16 @@ export type AuditAction =
   | "organization.created"
   | "organization.renamed"
   | "organization.deleted"
-  | "workspace.created"
-  | "workspace.renamed"
-  | "workspace.deleted"
+  | "project.created"
+  | "project.renamed"
+  | "project.deleted"
   | "grant.set"
   | "grant.removed"
+  | "group.created"
+  | "group.renamed"
+  | "group.deleted"
+  | "group.members"
+  | "share.project"
   | "invitation.created"
   | "invitation.resent"
   | "invitation.revoked"
@@ -76,7 +81,7 @@ export type AuditBy = {
   user?: { id: string } | null;
   key?: string | null;
   ip?: string | null;
-  workspace?: { id: string; organizationId: string } | null;
+  project?: { id: string; organizationId: string } | null;
 };
 
 /** Write one entry. Never fails the change it describes. */
@@ -85,13 +90,13 @@ export async function recordAudit(
   action: AuditAction,
   target: string | null,
   detail?: Record<string, unknown>,
-  where: { organizationId?: string | null; workspaceId?: string | null } = {},
+  where: { organizationId?: string | null; projectId?: string | null } = {},
 ) {
   await db
     .insert(audit)
     .values({
-      organizationId: where.organizationId !== undefined ? where.organizationId : (by.workspace?.organizationId ?? null),
-      workspaceId: where.workspaceId !== undefined ? where.workspaceId : (by.workspace?.id ?? null),
+      organizationId: where.organizationId !== undefined ? where.organizationId : (by.project?.organizationId ?? null),
+      projectId: where.projectId !== undefined ? where.projectId : (by.project?.id ?? null),
       actor: by.actor,
       userId: by.user?.id ?? null,
       keyId: by.key ?? null,
@@ -108,11 +113,11 @@ export async function recordAudit(
  * reader's (`self`) own sign-ins. Entries in no organization (sign-ups and
  * sign-ins, with their address and browser) are the person's alone: an
  * organization's admins never see another person's, whoever else they work
- * for. A workspace admin who isn't an organization admin sees that
- * workspace's entries only. Page with `before`.
+ * for. A project admin who isn't an organization admin sees that
+ * project's entries only. Page with `before`.
  */
 export async function listAudit(
-  scope: { organizationId: string; workspaceId?: string; self?: string | null },
+  scope: { organizationId: string; projectId?: string; self?: string | null },
   { before, limit = 50 }: { before?: string; limit?: number } = {},
 ) {
   const until = before ? new Date(before) : undefined;
@@ -123,8 +128,8 @@ export async function listAudit(
     .from(audit)
     .where(
       and(
-        scope.workspaceId
-          ? eq(audit.workspaceId, scope.workspaceId)
+        scope.projectId
+          ? eq(audit.projectId, scope.projectId)
           : or(eq(audit.organizationId, scope.organizationId), scope.self ? and(isNull(audit.organizationId), eq(audit.userId, scope.self)) : undefined),
         until ? lt(audit.at, until) : undefined,
       ),

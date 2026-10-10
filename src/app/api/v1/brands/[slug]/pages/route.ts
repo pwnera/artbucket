@@ -5,7 +5,7 @@ import { GeneratePagesInput } from "@/lib/schemas";
 type P = { slug: string };
 
 /** GET /api/v1/brands/{slug}/pages - its pages in order, with their tree fields and without their sections. */
-export const GET = route<P>("brand.read", async (_req, { slug }, caller) => ok({ data: (await listPages(caller.workspace.id, slug)).pages }));
+export const GET = route<P>("brand.read", async (_req, { slug }, caller) => ok({ data: (await listPages(caller.project.id, slug)).pages }));
 
 /**
  * POST /api/v1/brands/{slug}/pages - lay out a first set of pages from the rules; 409 when it has pages.

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { HEAD, LABEL } from "@/components/brand-sections/look";
 import { LocalDate, PublicGrid, type PublicItem } from "@/components/public-grid";

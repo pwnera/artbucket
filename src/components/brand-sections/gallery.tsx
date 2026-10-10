@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconFile, IconPlayerPauseFilled, IconPlayerPlayFilled } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconFile, IconPlayerPauseFilled, IconPlayerPlayFilled } from "@/components/icons";
 import { HEAD } from "@/components/brand-sections/look";
 import { Body, ItemCaption, ItemTitle, itemRoot, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

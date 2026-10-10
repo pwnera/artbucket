@@ -1,5 +1,6 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -22,7 +23,7 @@ import {
   IconUsers,
   IconWorld,
   IconX,
-  } from "@tabler/icons-react";
+  } from "@/components/icons";
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";
@@ -100,7 +101,7 @@ const ASKED: Record<Exclude<Request["kind"], "access">, string> = { asset: "Asse
 const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
   public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it", icon: IconWorld },
   password: { label: "Whoever has the password", hint: "Anyone else can ask for access", icon: IconLock },
-  members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
+  members: { label: "People in this project", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
 };
 
 /** The Select's value for "no domain": /p/{slug} only. */
@@ -154,7 +155,12 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   // Arriving from a brand (publish, the launch checklist): a new portal showing it, named for it, open at once.
   const fresh = params.get("new");
   const freshBrand = fresh ? brands.find((b) => b.slug === fresh) : undefined;
-  const [editing, setEditing] = useState<Portal | "new" | null>(() => (freshBrand ? "new" : null));
+  // Arriving from the catalog (Open portal): that portal's editor, open at once.
+  const asked = params.get("edit");
+  // ?new=portal (the sidebar's New): a new portal, open at once.
+  const [editing, setEditing] = useState<Portal | "new" | null>(() =>
+    freshBrand || fresh === "portal" ? "new" : (asked && portals.find((x) => x.id === asked)) || null,
+  );
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
@@ -246,6 +252,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     </Button>
                   )}
                   <CopyButton text={p.url} label="Copy the address" what="the address" size="icon-sm" />
+                  <CatalogButton id={p.id} name={p.name} variant="ghost" />
                   <IconButton variant="ghost" label="Open it in a new tab" asChild>
                     <a href={p.url} target="_blank" rel="noreferrer">
                       <IconExternalLink />

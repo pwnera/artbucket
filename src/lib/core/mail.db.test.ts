@@ -11,9 +11,9 @@ const ada = await signUp("Ada");
 const grace = await signUp("Grace");
 for (const { caller } of [ada, grace]) {
   await updateSetting(caller, "organization", "email", { enabled: true, provider: "console", from: "Test <test@example.com>" });
-  await plan(caller.workspace.organizationId, { emails: 2 });
+  await plan(caller.project.organizationId, { emails: 2 });
 }
-const send = (who: typeof ada, options?: { capped: boolean }) => sendAs(who.caller.workspace.organizationId, testEmail("someone@example.com", "Test", "http://localhost:3000"), options);
+const send = (who: typeof ada, options?: { capped: boolean }) => sendAs(who.caller.project.organizationId, testEmail("someone@example.com", "Test", "http://localhost:3000"), options);
 
 test("an organization sends its emails for the day, then is refused, and another organization's count is its own", async () => {
   assert.deepEqual(await send(ada), { sent: true });

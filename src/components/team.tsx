@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IconUsers } from "@tabler/icons-react";
+import { IconUsers } from "@/components/icons";
 import { useCan, useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Audit, People, Sharing, type AuditPage, type Members } from "@/components/settings/access";
@@ -45,12 +45,12 @@ export function Team({
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconUsers />}
-          title={`Team · ${me.workspace.organization.name}`}
+          title={`Team · ${me.project.organization.name}`}
           description="People, share links and the audit log."
         >
           {can("member.manage") && (
             <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-              <Link href="/settings/workspace/members">Workspace members in Settings</Link>
+              <Link href="/settings/project/members">Project members in Settings</Link>
             </Button>
           )}
         </PageHeader>

@@ -1,4 +1,4 @@
-import { IconExternalLink } from "@tabler/icons-react";
+import { IconExternalLink } from "@/components/icons";
 
 /**
  * A link that leaves the app (BrandHub, a portal, GitHub, the docs), drawn

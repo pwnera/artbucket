@@ -8,5 +8,5 @@ import { resolveBrand } from "@/lib/core/brands";
  * publish before it.
  */
 export const GET = route<{ slug: string }>("brand.read", async (_req, { slug }, caller) =>
-  ok({ data: await listUpdates((await resolveBrand(caller.workspace.id, slug)).id) }),
+  ok({ data: await listUpdates((await resolveBrand(caller.project.id, slug)).id) }),
 );

@@ -16,7 +16,7 @@ import {
   IconMusic,
   IconPlayerPlayFilled,
   IconTypography,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { HEAD, usePortaledLook } from "@/components/brand-sections/look";
 import { CanIUse, type Use } from "@/components/can-i-use";
 import { IconButton } from "@/components/icon-button";

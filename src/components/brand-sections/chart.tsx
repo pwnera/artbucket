@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle } from "@/components/icons";
 import type { z } from "zod";
 import { Body, Opens } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

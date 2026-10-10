@@ -30,7 +30,7 @@ const title = (a: Pick<Asset, "filename" | "metadata">) => a.metadata?.title ?? 
 const url = (id: string, rendition?: string | null) => `${env.APP_URL}/a/${id}${rendition ? `/${rendition}` : ""}`;
 
 export async function checkUse(caller: Caller, { asset: id, context, brand, ...use }: Check, surface: Surface = caller.key ? "api" : "app") {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const asset = await getAsset(caller, id);
   if (!asset) throw new AssetError("not_found", `No asset ${id}`);
   const date = use.date ?? today();
@@ -91,7 +91,7 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
 
   const allowed = !reasons.some((r) => r.blocking);
   record({
-    workspaceId: ws,
+    projectId: ws,
     kind: "check",
     surface,
     ...who(caller),

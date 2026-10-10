@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
-import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@/components/icons";
 import { Collapsible } from "radix-ui";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/components/can";
@@ -74,23 +74,36 @@ export function usePref<T>(key: string, fallback: T): [T, (v: T) => void] {
 // ---- recents -----------------------------------------------------------------
 
 export type Recent = { kind: "asset" | "collection" | "search" | "brand"; id: string; label: string; href: string; at: number };
-/** Recents belong to a workspace: what you opened in one is not what you opened in another. */
-const recentsKey = (workspace: string | undefined) => `artbucket:recents:${workspace ?? "none"}`;
+/** Recents belong to a project: what you opened in one is not what you opened in another. */
+const recentsKey = (project: string | undefined) => `artbucket:recents:${project ?? "none"}`;
 
-/** `remember(item)`: note that something was opened in this workspace; it goes to the top of its Recents. */
+/** `remember(item)`: note that something was opened in this project; it goes to the top of its Recents. */
 export function useRemember() {
-  const workspace = useMe()?.workspace.id;
+  const project = useMe()?.project.id;
   return useCallback(
     (r: Omit<Recent, "at">) => {
-      const key = recentsKey(workspace);
+      const key = recentsKey(project);
       const rest = (read<Recent[]>(key) ?? []).filter((x) => !(x.kind === r.kind && x.id === r.id));
       writePref(key, [{ ...r, at: Date.now() }, ...rest].slice(0, 8));
     },
-    [workspace],
+    [project],
   );
 }
 
-export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.workspace.id), []);
+export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.project.id), []);
+
+// ---- pinned ------------------------------------------------------------------
+
+/** What a person starred to keep at hand: any object of the catalog, from any project of the organization. */
+export type Pin = { id: string; type: "brand" | "collection" | "asset" | "portal" | "rule" | "page"; label: string; href: string };
+const pinsKey = (org: string | undefined) => `artbucket:pinned:${org ?? "none"}`;
+
+export function usePins() {
+  const [pins, setPins] = usePref<Pin[]>(pinsKey(useMe()?.project.organization.id), []);
+  const has = (id: string) => pins.some((p) => p.id === id);
+  const toggle = (p: Pin) => setPins(has(p.id) ? pins.filter((x) => x.id !== p.id) : [...pins, p]);
+  return { pins, has, toggle, unpin: (id: string) => setPins(pins.filter((x) => x.id !== id)) };
+}
 
 type Named = { id: string; name: string };
 
@@ -234,8 +247,12 @@ export function MoveItems({ s }: { s: SortableItem }) {
 
 // ---- sections ----------------------------------------------------------------
 
-/** The default order; a person's own order wins. Saved searches last: the rest are places, they are queries. */
-export const SECTIONS = ["recents", "collections", "brands", "searches"] as const;
+/**
+ * The catalog, as the sidebar's tree: the project's brands, collections and
+ * portals, what other projects shared into it, and saved searches last (the
+ * rest are things, they are queries). A person's own order wins.
+ */
+export const SECTIONS = ["brands", "collections", "portals", "shared", "searches"] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
 export const useSections = () => useSortable("sections", [...SECTIONS], (s) => s);

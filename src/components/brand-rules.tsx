@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconCode, IconDownload } from "@tabler/icons-react";
+import { IconCode, IconDownload } from "@/components/icons";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { InfoTip } from "@/components/info-tip";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";

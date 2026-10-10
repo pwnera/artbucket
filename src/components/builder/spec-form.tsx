@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconPlus, IconX } from "@/components/icons";
 import { z } from "zod";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";

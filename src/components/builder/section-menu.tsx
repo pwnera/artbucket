@@ -22,7 +22,7 @@ import {
   IconScissors,
   IconSquareDashed,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { blankItem, PICTURED } from "@/components/builder/items";
 import { choiceLabel, COLUMNS, GROUNDS, pictureFields, templateOptions, variantOf, WIDTHS } from "@/components/builder/section-toolbar";
 import { starter } from "@/components/builder/seam";

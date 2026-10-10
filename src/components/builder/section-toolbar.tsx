@@ -27,7 +27,7 @@ import {
   IconViewportNarrow,
   IconViewportWide,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { AssetPicker } from "@/components/builder/asset-picker";
 import { PictureField } from "@/components/builder/picture-field";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload } from "@/components/icons";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { HEAD, LABEL } from "@/components/brand-sections/look";

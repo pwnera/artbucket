@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 /**
- * /library, the prototype's address for the library, is the library at /
+ * /library, Explore's old name and the prototype's address for it, is Explore at /
  * with the same query (/library?q=winter is /?q=winter). The library stays
  * at /: it moves between its views in the page, which it can do only there.
  */

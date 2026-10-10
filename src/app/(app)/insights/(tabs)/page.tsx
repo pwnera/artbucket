@@ -7,7 +7,7 @@ import { insights } from "./data";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Insights" };
 
-/** What the workspace's events say, from /api/v1/insights like any client's. */
+/** What the project's events say, from /api/v1/insights like any client's. */
 export default function InsightsPage() {
   return (
     <Suspense

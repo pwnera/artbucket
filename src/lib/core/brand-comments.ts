@@ -19,7 +19,7 @@ import type { CommentCreate, CommentPatch } from "@/lib/schemas";
  * Reading takes brand.read; writing takes brand.comment. A comment is its
  * author's to edit; deleting someone else's takes brand.edit. A person's is
  * theirs by account, an agent's by its key. Every row is found by its id, its
- * brand and the caller's workspace together, so an id from elsewhere is a 404.
+ * brand and the caller's project together, so an id from elsewhere is a 404.
  */
 
 type Row = typeof brandComments.$inferSelect;
@@ -61,7 +61,7 @@ async function commentRow(caller: Caller, brand: Brand, id: string) {
     ? await db
         .select()
         .from(brandComments)
-        .where(and(eq(brandComments.id, id), eq(brandComments.brandId, brand.id), eq(brandComments.workspaceId, caller.workspace.id)))
+        .where(and(eq(brandComments.id, id), eq(brandComments.brandId, brand.id), eq(brandComments.projectId, caller.project.id)))
     : [];
   if (!c) throw new AssetError("not_found", `No comment ${id} in ${brand.slug}`);
   return c;
@@ -75,9 +75,9 @@ async function commentRow(caller: Caller, brand: Brand, id: string) {
  * comments made on it before its rename.
  */
 export async function listComments(caller: Caller, brandSlug: string | undefined, { page }: { page?: string } = {}) {
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const pages = await pagesOf(brand.id);
-  const where = [eq(brandComments.brandId, brand.id), eq(brandComments.workspaceId, caller.workspace.id)];
+  const where = [eq(brandComments.brandId, brand.id), eq(brandComments.projectId, caller.project.id)];
   if (page) {
     const p = findPage(pages, page);
     // A page deleted since: its comments are still under the slug it had.
@@ -101,7 +101,7 @@ export async function listComments(caller: Caller, brandSlug: string | undefined
  */
 export async function createComment(caller: Caller, brandSlug: string | undefined, input: z.output<typeof CommentCreate>) {
   allow(caller, "brand.comment");
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const pages = await pagesOf(brand.id);
   let at: { page: string; section: string | null; parentId: string | null };
   let reopen: Row | null = null;
@@ -121,7 +121,7 @@ export async function createComment(caller: Caller, brandSlug: string | undefine
     const [made] = await tx
       .insert(brandComments)
       .values({
-        workspaceId: caller.workspace.id,
+        projectId: caller.project.id,
         brandId: brand.id,
         ...at,
         body: input.body,
@@ -143,7 +143,7 @@ export async function createComment(caller: Caller, brandSlug: string | undefine
  */
 export async function updateComment(caller: Caller, brandSlug: string | undefined, id: string, patch: z.output<typeof CommentPatch>) {
   allow(caller, "brand.comment");
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const c = await commentRow(caller, brand, id);
   if (patch.body !== undefined && !mine(caller, c)) throw new AssetError("forbidden", "Only its author can edit a comment");
   if (patch.resolved !== undefined && c.parentId) throw new AssetError("invalid", "A reply isn't resolved on its own: resolve its thread");
@@ -166,7 +166,7 @@ export async function updateComment(caller: Caller, brandSlug: string | undefine
 /** Delete a comment, and with a thread's first one, its replies. One's own, or anyone's with brand.edit. */
 export async function deleteComment(caller: Caller, brandSlug: string | undefined, id: string) {
   allow(caller, "brand.comment");
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const c = await commentRow(caller, brand, id);
   if (!mine(caller, c) && !can(caller, "brand.edit")) {
     throw new AssetError("forbidden", `Only its author can delete a comment, or someone with ${needs("brand.edit")}`);

@@ -17,7 +17,7 @@ import { hasPreview } from "@/lib/preview";
  * brands have hundreds of pages.
  */
 export async function brandAssets(caller: Caller, slug: string) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const b = await resolveBrand(ws, slug);
   const [rules, pages] = await Promise.all([
     listRules(ws, { brand: b.slug }),

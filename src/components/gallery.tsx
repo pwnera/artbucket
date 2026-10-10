@@ -1,18 +1,17 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   IconAlertTriangle,
-  IconBackground,
+  IconAdjustmentsHorizontal,
   IconBook,
   IconBookmark,
-  IconBookmarkPlus,
-  IconChevronDown,
+  IconFolderPlus,
   IconCloudUpload,
-  IconFolder,
   IconFolderUp,
   IconInbox,
   IconLayoutGrid,
@@ -25,18 +24,18 @@ import {
   IconLock,
   IconShare,
   IconSparkles,
-  IconIcons,
-  IconTypography,
   IconUpload,
-  IconLink,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { AssetViewer } from "@/components/asset-viewer";
 import { useBrand } from "@/components/brand";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
-import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
+import { AppHeader, PageHeader } from "@/components/page";
+import { CatalogMatches } from "@/components/catalog-matches";
+import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
+import type { AddActions, AddId } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionIcon, send, type Collection } from "@/components/collections";
 import { CopyButton } from "@/components/copy-button";
@@ -46,7 +45,6 @@ import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { IconGlyph } from "@/components/icon-glyph";
 import { IconPackImport } from "@/components/icon-packs";
 import { LinkImport, Lottie } from "@/components/media";
-import type { SavedSearch } from "@/components/app-sidebar";
 import { deciding, SelectionBar, useBulk, type Patch } from "@/components/selection-bar";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { useCan } from "@/components/can";
@@ -55,7 +53,6 @@ import { InfoTip } from "@/components/info-tip";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -170,16 +167,26 @@ const describe = (k: string, v: string) => {
   return `${key} ${op === "gte" ? "≥" : op === "lte" ? "≤" : "="} ${v}`;
 };
 
+/** Review is a page of its own (/review): the same library, always showing what waits. */
+const REVIEW = "/review";
+const onReview = () => window.location.pathname === REVIEW;
+
 /** The URL's view, whatever the page's closure last saw. */
-const currentView = () => parseView(new URLSearchParams(window.location.search));
+const currentView = () => {
+  const v = parseView(new URLSearchParams(window.location.search));
+  return onReview() ? { ...v, review: true } : v;
+};
 
 /**
  * Move to another view. Push for a place you would go Back from (a
  * collection, an open asset); replace for tweaking the one you're in.
  */
 function go(patch: Partial<View>, push = false) {
-  const qs = viewQuery({ ...currentView(), ...patch });
-  window.history[push ? "pushState" : "replaceState"](null, "", qs ? `/?${qs}` : "/");
+  const next = { ...currentView(), ...patch };
+  // On Review, review is the page, not a parameter.
+  const base = onReview() && next.review ? REVIEW : "/";
+  const qs = viewQuery(base === REVIEW ? { ...next, review: false } : next);
+  window.history[push ? "pushState" : "replaceState"](null, "", qs ? `${base}?${qs}` : base);
 }
 
 // Back and Forward restore their own scroll; any other move to a new place starts at the top.
@@ -352,7 +359,11 @@ export function Gallery({
 }) {
   // A string, so the view derived from it is a value the compiler can trust.
   const search = useSearchParams().toString();
-  const view = useMemo(() => parseView(new URLSearchParams(search)), [search]);
+  const reviewPage = usePathname() === REVIEW;
+  const view = useMemo(() => {
+    const v = parseView(new URLSearchParams(search));
+    return reviewPage ? { ...v, review: true } : v;
+  }, [search, reviewPage]);
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
   const can = useCan();
   const brand = useBrand();
@@ -364,7 +375,7 @@ export function Gallery({
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
-  const { collections, setCollections, setReviewCount, searches, setSearches, openCollection, setUpload, collectionEdits } =
+  const { collections, setCollections, setReviewCount, searches, openCollection, setAdd, collectionEdits } =
     useShell();
   // The field schema can change under an open page (here or elsewhere), so it
   // refreshes with everything else. A stale copy sends values for deleted fields.
@@ -633,11 +644,22 @@ export function Gallery({
     if (!view.asset) pushedViewer = false;
   }, [view.asset]);
 
-  async function saveSearch(name: string) {
-    const saved: SavedSearch | null = await send("POST", "/api/v1/searches", { name, query: apiQuery });
-    if (!saved) return false;
-    setSearches((ss) => [...ss, saved].sort((a, b) => a.name.localeCompare(b.name)));
-    toast.success(`Saved "${name}"`);
+  /** Every asset this view finds, page by page, put in a new collection; then the collection opens. */
+  async function saveAsCollection(name: string) {
+    const ids: string[] = [];
+    for (let offset = 0; offset < total; offset += 200) {
+      const page = await fetch(`/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`).then((r) => (r.ok ? r.json() : null));
+      if (!page?.data?.length) break;
+      ids.push(...page.data.map((a: { id: string }) => a.id));
+    }
+    const made: Collection | null = await send("POST", "/api/v1/collections", { name });
+    if (!made) return false;
+    for (let i = 0; i < ids.length; i += 1000) {
+      if (!(await send("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(i, i + 1000) }))) return false;
+    }
+    setCollections((cs) => [...cs, made].sort((a, b) => a.name.localeCompare(b.name)));
+    toast.success(`Saved ${ids.length.toLocaleString()} ${ids.length === 1 ? "asset" : "assets"} as "${name}"`);
+    go({ collection: made.id, q: "", tags: [], types: [], status: [], filters: {}, extra: [] }, true);
     return true;
   }
 
@@ -769,14 +791,9 @@ export function Gallery({
   }, [uploading]);
 
   const narrowed = isNarrowed(view);
-  // Into the collection open, or the workspace itself: whatever the person may add to.
-  const canUpload = into ? can("asset.upload", { id: into }) : can("workspace.upload");
+  // Into the collection open, or the project itself: whatever the person may add to.
+  const canUpload = into ? can("asset.upload", { id: into }) : can("project.upload");
 
-  // ⌘K offers Upload while this page can take one.
-  useEffect(() => {
-    setUpload(canUpload ? () => choose(false) : null);
-    return () => setUpload(null);
-  }, [canUpload, setUpload]);
 
   // Drag is tracked on the whole window: dropping only inside a bordered box
   // is a worse target. Only files from outside count: dragging within the page
@@ -863,7 +880,36 @@ export function Gallery({
   }, []);
 
   // Asking someone without an account to send files there, by link.
-  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_workspace");
+  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_project");
+
+  // Every way in, for New and ⌘K while this page is open; each reads the page as it is when run.
+  const adds = useRef<AddActions>({});
+  useEffect(() => {
+    adds.current = {
+      files: () => choose(false),
+      folder: () => folder.current?.click(),
+      private: () => choose(true),
+      fonts: () => setFonts(true),
+      icons: () => setIcons(true),
+      link: () => setLinking({ open: true, url: "" }),
+      request: () => share(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" }),
+    };
+  });
+  const addKeys = canUpload ? ["files", "folder", !inCollection?.private && "private", "fonts", "icons", "link", canRequest && "request"].filter(Boolean).join() : "";
+  useEffect(() => {
+    if (!addKeys) return setAdd(null);
+    setAdd(Object.fromEntries(addKeys.split(",").map((k) => [k, () => adds.current[k as AddId]?.()])));
+    return () => setAdd(null);
+  }, [addKeys, setAdd]);
+  // New, chosen elsewhere, lands here as ?add= and runs once.
+  const addAsked = useSearchParams().get("add") as AddId | null;
+  useEffect(() => {
+    if (!addAsked || !addKeys) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("add");
+    window.history.replaceState(null, "", url.pathname + url.search.replace("browse=", "browse"));
+    adds.current[addAsked]?.();
+  }, [addAsked, addKeys]);
   const filtered = narrowed || view.collection !== null || view.review;
 
   const activeSearch = searches.find((sv) => canonical(sv.query) === apiQuery) ?? null;
@@ -1028,6 +1074,15 @@ export function Gallery({
   }, [recentKey, rememberRecent]);
   // A search of the whole library is named by its words, as the prototype's “winter” is.
   const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
+  // Explore before anything is asked opens on its search (components/explore-start.tsx); ?browse is the plain grid.
+  const browsing = useSearchParams().has("browse");
+  const startScreen =
+    !browsing && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
+  // A search that settled is one to come back to.
+  const [recentQueries, setRecentQueries] = useRecentQueries();
+  useEffect(() => {
+    if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
+  }, [searched, searching, recentQueries, setRecentQueries]);
   const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : undefined)));
 
@@ -1075,8 +1130,9 @@ export function Gallery({
 
   return (
     <>
-      <AppHeader trail={where ? [{ label: "Library", href: "/" }, { label: where }] : [{ label: "Library" }]}>
-        <div className="relative w-36 min-w-20 shrink! sm:w-64">
+      <AppHeader trail={reviewPage ? [{ label: "Review" }] : where ? [{ label: "Explore", href: "/" }, { label: where }] : [{ label: "Explore" }]}>
+        {/* The start screen's own box is the search there: one, not two. */}
+        <div className={cn("relative w-36 min-w-20 shrink! sm:w-64", startScreen && "hidden")}>
           {searching ? (
             <Spinner className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           ) : (
@@ -1089,60 +1145,19 @@ export function Gallery({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && !text && e.currentTarget.blur()}
-            placeholder="Filter this view"
-            aria-label="Filter this view"
+            placeholder={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
+            aria-label={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
             className="h-8 pl-8 sm:pr-8"
           />
           {!text && <Kbd keys={["/"]} className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex" />}
         </div>
-        {/* Every way files come in, in one control: Upload, and the others in its menu. Stays enabled mid-upload: a second batch queues alongside the first. */}
+        {/* Upload, the common case, at hand; every other way in is in New (components/app-sidebar.tsx NewMenuContent). Stays enabled mid-upload: a second batch queues alongside the first. */}
         {canUpload && (
           <div className="flex">
-            <Button size="sm" className="rounded-r-none" onClick={() => choose(false)} aria-busy={uploading}>
+            <Button size="sm" onClick={() => choose(false)} aria-busy={uploading}>
               <IconUpload />
               <span className="hidden sm:inline">Upload</span>
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="border-primary-foreground/20 rounded-l-none border-l px-1.5" aria-label="More ways to add">
-                  <IconChevronDown />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => choose(false)}>
-                  <IconUpload /> Upload files
-                </DropdownMenuItem>
-                {!inCollection?.private && (
-                  <DropdownMenuItem onSelect={() => choose(true)}>
-                    <IconLock /> Upload privately
-                    <span className="text-muted-foreground ml-auto pl-4 text-xs">you choose who</span>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => folder.current?.click()}>
-                  <IconFolder /> Upload a folder
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setFonts(true)}>
-                  <IconTypography /> Import a Google font
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIcons(true)}>
-                  <IconIcons /> Import icons
-                  <span className="text-muted-foreground ml-auto pl-4 text-xs">open source packs</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setLinking({ open: true, url: "" })}>
-                  <IconLink /> Add a link
-                  <span className="text-muted-foreground ml-auto pl-4 text-xs">Figma, Google</span>
-                </DropdownMenuItem>
-                {canRequest && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => share(inCollection ? { kind: "upload", collection: inCollection } : { kind: "upload" })}>
-                      <IconFolderUp /> Request uploads by link
-                      <span className="text-muted-foreground ml-auto pl-4 text-xs">no account</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <GoogleFontImport open={fonts} onOpenChange={setFonts} into={into} onDone={imported} />
             <IconPackImport open={icons} onOpenChange={setIcons} into={into} onDone={imported} />
             <LinkImport
@@ -1207,10 +1222,18 @@ export function Gallery({
       </AppHeader>
 
       <div
-        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", selecting && "pb-24 md:pb-24")}
+        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", !startScreen && "pt-4 md:pt-6", selecting && "pb-24 md:pb-24")}
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
-        <LibraryTabs at={view.review ? "review" : "assets"} />
+        {startScreen ? (
+          <ExploreStart
+            latest={assets}
+            collections={collections}
+            searches={searches}
+            setup={<SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
+          />
+        ) : (
+          <>
         <PageHeader
           icon={
             view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : <IconPhoto />
@@ -1262,6 +1285,7 @@ export function Gallery({
               variant="outline"
             />
           )}
+          {inCollection && !activeSearch && <CatalogButton id={inCollection.id} name={inCollection.name} />}
           {inCollection && !activeSearch && can("collection.share", inCollection) && (
             <IconButton label={`Share ${inCollection.name}`} onClick={() => share({ kind: "view", collection: inCollection })}>
               <IconShare />
@@ -1274,7 +1298,9 @@ export function Gallery({
           )}
         </PageHeader>
 
-        {!view.review && !activeSearch && !inCollection && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
+        {/* Explore searches everything: what else matches, as folders above the files. */}
+        {searched && <CatalogMatches q={searched} />}
+        {searched && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
 
         {/* Heard once a search settles, not per keystroke. */}
         <span className="sr-only" aria-live="polite">
@@ -1349,20 +1375,38 @@ export function Gallery({
               </Button>
             )}
             <span className="ml-auto" />
-            {/* Only a search or filter is worth naming; a collection or Review is already in the sidebar. */}
-            {narrowed && !activeSearch && can("search.save") && <SaveSearch onSave={saveSearch} />}
+            {/* What a search or filter finds can be kept as a collection; a collection or Review already is one. */}
+            {narrowed && total > 0 && !inCollection && !view.review && can("collection.create") && (
+              <SaveAsCollection suggested={searched ?? activeSearch?.name ?? ""} total={total} onSave={saveAsCollection} />
+            )}
+            {/* How the tiles look, in one menu beside the layout: their size (also - and =) and what is behind the art. */}
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon-sm" aria-label="Tile backdrop">
-                      <IconBackground />
+                    <Button variant="outline" size="icon-sm" aria-label="View options">
+                      <IconAdjustmentsHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Tile backdrop</TooltipContent>
+                <TooltipContent>View options</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-60">
+                {layout === "grid" && (
+                  <>
+                    <DropdownMenuLabel>Tile size</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={density} onValueChange={(v) => transition(() => setDensity(v as Density))}>
+                      {DENSITIES.map((d, i) => (
+                        <DropdownMenuRadioItem key={d} value={d}>
+                          {["Small", "Medium", "Large"][i]}
+                          {i === 0 && <Kbd keys={["-"]} className="ml-auto" />}
+                          {i === 2 && <Kbd keys={["="]} className="ml-auto" />}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuLabel>Behind the art</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={well} onValueChange={(v) => transition(() => setWell(v as Well))}>
                   <DropdownMenuRadioItem value="auto">
@@ -1374,32 +1418,6 @@ export function Gallery({
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            {layout === "grid" && (
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={density}
-                onValueChange={(v) => v && transition(() => setDensity(v as Density))}
-                aria-label="Tile size"
-                className="hidden sm:flex"
-              >
-                {DENSITIES.map((d, i) => (
-                  <Tooltip key={d}>
-                    <TooltipTrigger asChild>
-                      <ToggleGroupItem value={d} aria-label={["Small tiles", "Medium tiles", "Large tiles"][i]}>
-                        <span aria-hidden className="bg-current rounded-[2px]" style={{ width: 6 + i * 3, height: 6 + i * 3 }} />
-                      </ToggleGroupItem>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {["Small tiles", "Medium tiles", "Large tiles"][i]}
-                      <Kbd keys={["-"]} className="ml-2" />
-                      <Kbd keys={["="]} className="ml-1" />
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </ToggleGroup>
-            )}
             <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && transition(() => setLayout(v as Layout))} aria-label="Layout">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1451,7 +1469,7 @@ export function Gallery({
               <EmptyDescription>Uploads from agents, contributors and upload links wait here for approval.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center">
-              {can("share.collect_workspace") && (
+              {can("share.collect_project") && (
                 <Button onClick={() => share({ kind: "upload" })}>
                   <IconFolderUp /> Request uploads by link
                 </Button>
@@ -1583,6 +1601,8 @@ export function Gallery({
                 Showing all {total.toLocaleString()} {total === 1 ? "asset" : "assets"}
               </p>
             )}
+          </>
+        )}
           </>
         )}
       </div>
@@ -2046,16 +2066,26 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
 }
 
 /** Name the current view and keep it in the sidebar. */
-function SaveSearch({ onSave }: { onSave: (name: string) => Promise<boolean> }) {
+/** Save what this search finds as a collection: named, by default, for the words searched. */
+function SaveAsCollection({ suggested, total, onSave }: { suggested: string; total: number; onSave: (name: string) => Promise<boolean> }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8">
-          <IconBookmarkPlus /> Save search
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon-sm" aria-label="Save as collection">
+              <IconFolderPlus />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Save as collection</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" className="w-80 space-y-2">
+        <p className="text-sm font-medium">Save as collection</p>
+        <p className="text-muted-foreground text-xs">
+          A new collection with the {total.toLocaleString()} {total === 1 ? "asset" : "assets"} this finds now. Later uploads don&apos;t join it on their own.
+        </p>
         <form
           action={async (form) => {
             const name = String(form.get("name") ?? "").trim();
@@ -2063,7 +2093,7 @@ function SaveSearch({ onSave }: { onSave: (name: string) => Promise<boolean> }) 
           }}
           className="flex gap-2"
         >
-          <Input name="name" placeholder="Name this search" required maxLength={120} autoFocus className="h-8" />
+          <Input name="name" defaultValue={suggested} placeholder="Name the collection" required maxLength={120} autoFocus className="h-8" />
           <SubmitButton size="sm">Save</SubmitButton>
         </form>
       </PopoverContent>

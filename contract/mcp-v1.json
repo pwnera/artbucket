@@ -341,7 +341,7 @@
             ]
           },
           "downloadable": {
-            "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+            "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
             "type": [
               "boolean",
               "null"
@@ -915,7 +915,7 @@
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
       },
       "from": {
-        "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace",
+        "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this project",
         "anyOf": [
           {
             "type": "string",
@@ -959,7 +959,7 @@
         "pattern": "^[a-z0-9_]+$"
       },
       "publish": {
-        "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace",
+        "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the project",
         "anyOf": [
           {
             "type": "boolean"
@@ -1022,6 +1022,10 @@
             "type": "null"
           }
         ]
+      },
+      "private": {
+        "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the project",
+        "type": "boolean"
       },
       "brand": {
         "type": "string",
@@ -3021,6 +3025,10 @@
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
         "description": "Its slug, e.g. logo (list_pages)"
+      },
+      "revision": {
+        "description": "From get_page",
+        "type": "string"
       }
     },
     "required": [
@@ -4067,6 +4075,10 @@
           ]
         },
         "description": "Applied in order; all or none"
+      },
+      "revision": {
+        "description": "From get_page",
+        "type": "string"
       }
     },
     "required": [
@@ -4833,7 +4845,7 @@
           "password",
           "members"
         ],
-        "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+        "description": "public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"
       },
       "password": {
         "description": "For access: password. Left out on a change, it stays",
@@ -5083,7 +5095,7 @@
           "password",
           "members"
         ],
-        "description": "members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"
+        "description": "members: people with access to the project; password: whoever has `password`; public: anyone with the address"
       },
       "password": {
         "description": "For access: password. Left out on a change, it stays",
@@ -5365,6 +5377,152 @@
       "request"
     ],
     "additionalProperties": false
+  },
+  "search_catalog": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "description": "Free words, and filters inline: \"logo type:asset status:current uses:acme/corporate/brand/acme\"",
+        "type": "string",
+        "maxLength": 512
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "brand",
+            "collection",
+            "asset",
+            "portal",
+            "rule",
+            "page"
+          ]
+        }
+      },
+      "projects": {
+        "description": "Only these projects, by slug",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "status": {
+        "description": "Current, draft and in review when left out: replaced, archived and expired are counted aside",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "in_review",
+            "current",
+            "replaced",
+            "archived"
+          ]
+        }
+      },
+      "uses": {
+        "description": "Only what is downstream of this address or id",
+        "type": "string",
+        "maxLength": 300
+      },
+      "usedby": {
+        "description": "Only what is upstream of this address or id",
+        "type": "string",
+        "maxLength": 300
+      },
+      "limit": {
+        "default": 20,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    }
+  },
+  "describe_object": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address, as search_catalog gives them"
+      }
+    },
+    "required": [
+      "object"
+    ]
+  },
+  "lineage": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address"
+      },
+      "direction": {
+        "default": "both",
+        "description": "up: what it comes from; down: what uses it",
+        "type": "string",
+        "enum": [
+          "up",
+          "down",
+          "both"
+        ]
+      },
+      "depth": {
+        "default": 3,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 6
+      }
+    },
+    "required": [
+      "object"
+    ]
+  },
+  "share_object": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "A brand, collection or asset: its id or address"
+      },
+      "into": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "The project to share it into: its slug, as search_catalog's projects name them"
+      }
+    },
+    "required": [
+      "object",
+      "into"
+    ]
+  },
+  "who_can": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address"
+      },
+      "who": {
+        "description": "One person, by email: the grant behind their role",
+        "type": "string",
+        "maxLength": 320
+      }
+    },
+    "required": [
+      "object"
+    ]
   },
   "propose_fields": {
     "type": "object",

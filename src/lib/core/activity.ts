@@ -7,7 +7,7 @@ import { visible } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { summarize } from "@/lib/history";
 
-type Asset = { id: string; workspaceId: string; filename: string; metadata: { title?: string } | null };
+type Asset = { id: string; projectId: string; filename: string; metadata: { title?: string } | null };
 
 /** Note that something happened to an asset. Never fails the change it describes. */
 export async function record(
@@ -19,7 +19,7 @@ export async function record(
   await db
     .insert(activity)
     .values({
-      workspaceId: asset.workspaceId,
+      projectId: asset.projectId,
       actor: by.actor,
       agent: !!by.key,
       verb,
@@ -60,7 +60,7 @@ const publishId = (id: string) =>
  * can't see (a private one) leaves its events out.
  */
 export async function listActivity(caller: Caller, { before, limit = 50 }: { before?: string; limit?: number } = {}) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const until = before ? new Date(before) : undefined;
   if (until && Number.isNaN(until.getTime())) throw new AssetError("invalid", `Not a time: "${before}"`);
   const n = Math.min(Math.max(limit, 1), 100);
@@ -79,7 +79,7 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
       .from(activity)
       .where(
         and(
-          eq(activity.workspaceId, ws),
+          eq(activity.projectId, ws),
           until ? lt(activity.at, until) : undefined,
           sql`not exists (select 1 from ${assets} where ${assets.id} = ${activity.assetId} and not (${visible(caller)}))`,
         ),
@@ -90,14 +90,14 @@ export async function listActivity(caller: Caller, { before, limit = 50 }: { bef
       .select({ v: brandVersions, slug: brands.slug, name: brands.name })
       .from(brandVersions)
       .innerJoin(brands, eq(brands.id, brandVersions.brandId))
-      .where(and(eq(brands.workspaceId, ws), ne(brandVersions.kind, "baseline"), until ? lt(brandVersions.updatedAt, until) : undefined))
+      .where(and(eq(brands.projectId, ws), ne(brandVersions.kind, "baseline"), until ? lt(brandVersions.updatedAt, until) : undefined))
       .orderBy(desc(brandVersions.updatedAt))
       .limit(n),
     db
       .select({ id: brandVersions.id, number: brandVersions.number, at: brandVersions.publishedAt, by: brandVersions.publishedBy, note: brandVersions.note, slug: brands.slug, name: brands.name })
       .from(brandVersions)
       .innerJoin(brands, eq(brands.id, brandVersions.brandId))
-      .where(and(eq(brands.workspaceId, ws), isNotNull(brandVersions.publishedAt), until ? lt(brandVersions.publishedAt, until) : undefined))
+      .where(and(eq(brands.projectId, ws), isNotNull(brandVersions.publishedAt), until ? lt(brandVersions.publishedAt, until) : undefined))
       .orderBy(desc(brandVersions.publishedAt))
       .limit(n),
   ]);

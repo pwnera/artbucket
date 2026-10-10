@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { IconChevronDown, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconX } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 /**

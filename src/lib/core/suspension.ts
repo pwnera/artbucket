@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { organizations, shareLinks, workspaces } from "@/lib/db/schema";
+import { organizations, shareLinks, projects } from "@/lib/db/schema";
 import { portalNamed } from "@/lib/core/domains";
 import { limitsOf } from "@/lib/core/usage";
 import { memo } from "@/lib/memo";
@@ -12,15 +12,15 @@ import type { Suspendable } from "@/lib/suspension";
  */
 export const suspended = async (organizationId: string) => !!(await limitsOf(organizationId)).suspended;
 
-/** A workspace's organization, which never changes: kept, as every file served asks it. */
-const orgOf = memo(10 * 60_000, async (workspaceId: string) => {
-  const [w] = await db.select({ id: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, workspaceId));
+/** A project's organization, which never changes: kept, as every file served asks it. */
+const orgOf = memo(10 * 60_000, async (projectId: string) => {
+  const [w] = await db.select({ id: projects.organizationId }).from(projects).where(eq(projects.id, projectId));
   return w?.id ?? null;
 });
 
-/** Whether the organization a workspace is in is suspended: for its files and share links. */
-export async function suspendedIn(workspaceId: string) {
-  const org = await orgOf(workspaceId);
+/** Whether the organization a project is in is suspended: for its files and share links. */
+export async function suspendedIn(projectId: string) {
+  const org = await orgOf(projectId);
   return !!org && suspended(org);
 }
 
@@ -33,7 +33,7 @@ export async function suspendedAt(at: Suspendable | null) {
     return !!named && suspended(named.organizationId);
   }
   if ("share" in at) {
-    const [link] = await db.select({ ws: shareLinks.workspaceId }).from(shareLinks).where(eq(shareLinks.token, at.share));
+    const [link] = await db.select({ ws: shareLinks.projectId }).from(shareLinks).where(eq(shareLinks.token, at.share));
     return !!link && suspendedIn(link.ws);
   }
   const [o] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, at.org));

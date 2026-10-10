@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ThemePatch } from "./brand-theme.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
+import { CATALOG_TYPES, STATUSES as CATALOG_STATUSES } from "./catalog.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
 import { PageInput, PageOp, pageSlug } from "./pages.ts";
 import { PORTAL_ACCESS } from "./portal.ts";
@@ -283,7 +284,7 @@ export const TOOL_INPUTS = {
     slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
     access: z
       .enum(PORTAL_ACCESS)
-      .describe("members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"),
+      .describe("members: people with access to the project; password: whoever has `password`; public: anyone with the address"),
   }),
 
   close_portal: z.object({ portal }),
@@ -293,6 +294,34 @@ export const TOOL_INPUTS = {
   list_portal_requests: z.object({ portal }),
 
   decide_portal_request: PortalDecision.extend({ portal, request: z.uuid().describe("The request's id, from list_portal_requests") }),
+
+  search_catalog: z.object({
+    q: z.string().max(512).optional().describe('Free words, and filters inline: "logo type:asset status:current uses:acme/corporate/brand/acme"'),
+    type: z.array(z.enum(CATALOG_TYPES)).optional(),
+    projects: z.array(z.string().max(64)).optional().describe("Only these projects, by slug"),
+    status: z.array(z.enum(CATALOG_STATUSES)).optional().describe("Current, draft and in review when left out: replaced, archived and expired are counted aside"),
+    uses: z.string().max(300).optional().describe("Only what is downstream of this address or id"),
+    usedby: z.string().max(300).optional().describe("Only what is upstream of this address or id"),
+    limit: z.number().int().min(1).max(50).default(20),
+  }),
+
+  describe_object: z.object({ object: z.string().min(1).max(300).describe("An id or an address, as search_catalog gives them") }),
+
+  lineage: z.object({
+    object: z.string().min(1).max(300).describe("An id or an address"),
+    direction: z.enum(["up", "down", "both"]).default("both").describe("up: what it comes from; down: what uses it"),
+    depth: z.number().int().min(1).max(6).default(3),
+  }),
+
+  share_object: z.object({
+    object: z.string().min(1).max(300).describe("A brand, collection or asset: its id or address"),
+    into: z.string().min(1).max(64).describe("The project to share it into: its slug, as search_catalog's projects name them"),
+  }),
+
+  who_can: z.object({
+    object: z.string().min(1).max(300).describe("An id or an address"),
+    who: z.string().max(320).optional().describe("One person, by email: the grant behind their role"),
+  }),
 
   propose_fields: z.object({
     id,

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { IconX as XIcon } from "@tabler/icons-react"
+import { IconX as XIcon } from "@/components/icons"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"

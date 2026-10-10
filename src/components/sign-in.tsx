@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@tabler/icons-react";
+import { IconBuilding, IconCheck, IconKey, IconLogout, IconMail, IconRefresh, IconUsers } from "@/components/icons";
 import { toast } from "sonner";
-import { MakeDialog, pickWorkspace, signOut, useGo, type Legal, type Me } from "@/components/account";
+import { MakeDialog, pickProject, signOut, useGo, type Legal, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";
 import type { Brand } from "@/lib/branding";
 import { send } from "@/lib/send";
@@ -859,7 +859,7 @@ async function nameOrganization(name: string) {
   if (!name) return;
   try {
     const me = await fetch("/api/v1/me").then((r) => r.json());
-    const org = me?.data?.workspace?.organization?.id;
+    const org = me?.data?.project?.organization?.id;
     if (org) {
       await fetch(`/api/v1/organizations/${encodeURIComponent(org)}`, {
         method: "PATCH",
@@ -1016,7 +1016,7 @@ export function Welcome({ me }: { me: Me }) {
       lead={
         offer
           ? `Your ${offer.domain} address can join ${offer.organization.name}, or start your own.`
-          : "No workspace yet. Ask an admin for an invitation, or start your own."
+          : "No project yet. Ask an admin for an invitation, or start your own."
       }
     >
       <div className="grid gap-2">
@@ -1041,7 +1041,7 @@ export function Welcome({ me }: { me: Me }) {
 export type InvitationInfo = {
   email: string;
   organization: string;
-  resource: "organization" | "workspace" | "collection" | "asset";
+  resource: "organization" | "project" | "collection" | "asset";
   label: string | null;
   scope: string;
   invitedBy: string;
@@ -1105,7 +1105,7 @@ export function InvitePage({
       return setError(message);
     }
     joined.current = true;
-    if (body.data?.workspaceId) pickWorkspace(body.data.workspaceId);
+    if (body.data?.projectId) pickProject(body.data.projectId);
     toast.success(`You joined ${where}`, { id: "joined" });
     go("/");
   };

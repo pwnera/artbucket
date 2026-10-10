@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useSyncExternalStore } from "react";
-import { IconArrowRight, IconCheck, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconCheck, IconX } from "@/components/icons";
 import { HEAD } from "@/components/brand-sections/look";
 import { ItemText, ItemTitle, itemRoot, RuleValue, useRuleAnchor, useSection } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

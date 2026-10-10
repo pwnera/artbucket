@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useId, useState } from "react";
-import { IconCheck, IconTrash } from "@tabler/icons-react";
+import { IconCheck, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
@@ -21,22 +21,22 @@ export type Sso = {
   domain: string;
   verified: boolean;
   required: boolean;
-  workspaceId: string | null;
+  projectId: string | null;
   record: { type: "TXT"; name: string; value: string };
   redirectUri: string;
 };
 
-export type Workspace = { id: string; name: string };
+export type Project = { id: string; name: string };
 
-/** The workspace people who join land in, able to read: one of the organization's, oldest first. */
-export function Landing({ id, workspaces, value, onChange, disabled }: { id: string; workspaces: Workspace[]; value: string | null; onChange: (id: string) => void; disabled?: boolean }) {
+/** The project people who join land in, able to read: one of the organization's, oldest first. */
+export function Landing({ id, projects, value, onChange, disabled }: { id: string; projects: Project[]; value: string | null; onChange: (id: string) => void; disabled?: boolean }) {
   return (
-    <Select value={value ?? workspaces[0]?.id} onValueChange={onChange} disabled={disabled}>
+    <Select value={value ?? projects[0]?.id} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger id={id} className="w-full sm:w-64">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {workspaces.map((w) => (
+        {projects.map((w) => (
           <SelectItem key={w.id} value={w.id}>
             {w.name}
           </SelectItem>
@@ -66,12 +66,12 @@ export function Values({ rows }: { rows: [label: string, value: string, what: st
  * with the provider, save its client here, prove the email domain. The page
  * remounts it from what the server has after each save.
  */
-export function SsoPanel({ sso, redirectUris, workspaces }: { sso: Sso | null; redirectUris: string[]; workspaces: Workspace[] }) {
+export function SsoPanel({ sso, redirectUris, projects }: { sso: Sso | null; redirectUris: string[]; projects: Project[] }) {
   const id = useId();
   const router = useRouter();
   const [busy, setBusy] = useState<"save" | "check" | "optional" | null>(null);
-  // Only an organization with more than one workspace has a choice to make: the oldest, unless picked.
-  const [landing, setLanding] = useState(sso?.workspaceId ?? null);
+  // Only an organization with more than one project has a choice to make: the oldest, unless picked.
+  const [landing, setLanding] = useState(sso?.projectId ?? null);
 
   async function save(form: FormData) {
     const clientSecret = String(form.get("clientSecret") ?? "");
@@ -81,7 +81,7 @@ export function SsoPanel({ sso, redirectUris, workspaces }: { sso: Sso | null; r
       clientId: String(form.get("clientId") ?? "").trim(),
       ...(clientSecret ? { clientSecret } : {}),
       domain: String(form.get("domain") ?? "").trim(),
-      ...(workspaces.length > 1 ? { workspaceId: landing ?? workspaces[0].id } : {}),
+      ...(projects.length > 1 ? { projectId: landing ?? projects[0].id } : {}),
     });
     setBusy(null);
     if (!ok) return;
@@ -113,7 +113,7 @@ export function SsoPanel({ sso, redirectUris, workspaces }: { sso: Sso | null; r
       <Group
         title="Single sign-on"
         description="Okta, Entra ID, Google Workspace or any OpenID Connect provider."
-        info="Your people sign in with their work email. The first time, they join able to read one workspace, never the whole organization; raise anyone's access in Team."
+        info="Your people sign in with their work email. The first time, they join able to read one project, never the whole organization; raise anyone's access in Team."
       >
         <div className="grid gap-2 text-sm">
           <p>
@@ -172,11 +172,11 @@ export function SsoPanel({ sso, redirectUris, workspaces }: { sso: Sso | null; r
               Joins your email domains, proved once for both.
             </p>
           </div>
-          {workspaces.length > 1 && (
+          {projects.length > 1 && (
             <div className="grid gap-2">
               <Label htmlFor={`${id}-landing`}>They land in</Label>
-              <Landing id={`${id}-landing`} workspaces={workspaces} value={landing} onChange={setLanding} />
-              <p className="text-muted-foreground text-xs">The first time they sign in, able to read this workspace only.</p>
+              <Landing id={`${id}-landing`} projects={projects} value={landing} onChange={setLanding} />
+              <p className="text-muted-foreground text-xs">The first time they sign in, able to read this project only.</p>
             </div>
           )}
           <Button type="submit" className="justify-self-start" pending={busy === "save"} disabled={busy === "check"}>

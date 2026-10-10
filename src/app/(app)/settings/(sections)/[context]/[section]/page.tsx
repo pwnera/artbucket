@@ -3,13 +3,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { People, type Members } from "@/components/settings/access";
+import { GroupsPanel, type GroupRow } from "@/components/settings/groups";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import type { HubOffer } from "@/components/hub-offers";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
 import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
-import { SsoPanel, type Sso, type Workspace } from "@/components/settings/sso";
-import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, WorkspacesPanel, type Usage } from "@/components/settings/panels";
+import { SsoPanel, type Sso, type Project } from "@/components/settings/sso";
+import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, ProjectsPanel, type Usage } from "@/components/settings/panels";
 import { find, has, locked, opens } from "@/components/settings/sections";
 import { SectionSkeleton } from "@/components/skeletons";
 import type { FieldDef } from "@/lib/fields";
@@ -30,10 +31,11 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 /** The API path each section reads, by `{context}/{section}`. */
 const LOADS: Record<string, string> = {
-  "workspace/fields": "fields",
-  "workspace/members": "members?in=workspace",
+  "project/fields": "fields",
+  "project/members": "members?in=project",
   "organization/usage": "usage",
-  "organization/workspaces": "workspaces",
+  "organization/projects": "projects",
+  "organization/groups": "groups",
   "organization/email": "settings?context=organization",
   "organization/branding": "settings?context=organization",
   "organization/hub": "github-orgs",
@@ -48,6 +50,8 @@ const LOADS: Record<string, string> = {
  */
 export default async function SettingsSection({ params }: { params: Promise<Params> }) {
   const { context, section } = await params;
+  // The workspace is the project now: its old addresses lead there.
+  if (context === "workspace") redirect(`/settings/project/${section}`);
   const s = find(context, section);
   if (!s) notFound();
   // A page of its own elsewhere (Team): the menu links there, and so does this URL.
@@ -63,15 +67,18 @@ export default async function SettingsSection({ params }: { params: Promise<Para
 async function Section({ context, section, s }: Params & { s: NonNullable<ReturnType<typeof find>> }) {
   // What the section reads, fetched alongside who is looking: the API checks access itself, and a redirect drops it.
   const loading = LOADS[`${context}/${section}`];
-  const forMembers = `${context}/${section}` === "workspace/members";
+  const forMembers = `${context}/${section}` === "project/members";
   const forHub = `${context}/${section}` === "organization/hub";
   const forDomains = `${context}/${section}` === "organization/domains";
   const forSso = `${context}/${section}` === "organization/sso";
-  const [me, loaded, collections, reports, domains, offers, spaces] = await Promise.all([
+  const forGroups = `${context}/${section}` === "organization/groups";
+  const [me, loaded, collections, brandList, reports, domains, offers, spaces] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
     // What a member's access can be scoped to.
     forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
+    // And its brands.
+    forMembers ? get("brands", (b: { data: { id: string; name: string; private?: boolean }[] }) => b.data, []) : [],
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
     // And its domains: a verified one proves its listings as a GitHub account does.
@@ -80,20 +87,22 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     // And the listings those domains claim.
     forHub ? get("hub/offers", (b: { data: HubOffer[] }) => b.data, []) : [],
     // Where people joining by email domain or single sign-on land, when there is more than one.
-    forDomains || forSso ? get("workspaces", (b: { data: Workspace[] }) => b.data, []) : [],
+    forDomains || forSso || forGroups ? get("projects", (b: { data: Project[] }) => b.data, []) : [],
   ]);
+  // Who can be put in a group: the organization's people.
+  const people = forGroups ? await get("members", (b: Members) => b.data.map(({ id, name, email }) => ({ id, name, email })), []) : [];
   if (!opens(me, s)) redirect("/settings");
   // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
   if (locked(me, s)) redirect(me.upgrade ?? "/settings");
   // Failed, not empty: "No custom fields yet" would invite making them all again.
   if (loading && loaded === null) return <LoadFailed />;
   const data = <T,>() => (loaded as { data: T }).data;
-  const ws = me.workspace;
+  const ws = me.project;
 
   switch (`${context}/${section}`) {
-    case "workspace/general":
-      return <NameForm what="workspace" url={`/api/v1/workspaces/${ws.id}`} name={ws.name} />;
-    case "workspace/fields":
+    case "project/general":
+      return <NameForm what="project" url={`/api/v1/projects/${ws.id}`} name={ws.name} />;
+    case "project/fields":
       return <FieldsPanel fields={data<FieldDef[]>()} />;
     case "organization/general":
       return (
@@ -104,7 +113,18 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
       );
     case "organization/usage":
       return <UsagePanel usage={data<Usage>()} />;
-    case "workspace/members":
+    case "organization/groups":
+      return (
+        <GroupsPanel
+          groups={data<GroupRow[]>()}
+          people={people}
+          places={[
+            { resource: "organization", resourceId: ws.organization.id, label: `${ws.organization.name} (every project)` },
+            ...spaces.map((w) => ({ resource: "project" as const, resourceId: w.id, label: w.name })),
+          ]}
+        />
+      );
+    case "project/members":
       return (
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
@@ -114,11 +134,11 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
             </Link>
             .
           </p>
-          <People me={me} members={loaded as Members} collections={collections} view="workspace" />
+          <People me={me} members={loaded as Members} collections={collections} brands={brandList} view="project" />
         </div>
       );
-    case "organization/workspaces":
-      return <WorkspacesPanel me={me} workspaces={data<{ id: string; slug: string; name: string; scope: Scope | null }[]>()} />;
+    case "organization/projects":
+      return <ProjectsPanel me={me} projects={data<{ id: string; slug: string; name: string; scope: Scope | null }[]>()} />;
     case "organization/email": {
       const email = data<(EmailSetting & { key: string })[]>().find((x) => x.key === "email");
       // Keyed by what the server has: after a save or a reset the form starts from it, not from stale choices.
@@ -144,7 +164,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
               </p>
             )
           )}
-          <EmailDomainsPanel domains={data<EmailDomain[]>()} workspaces={spaces} />
+          <EmailDomainsPanel domains={data<EmailDomain[]>()} projects={spaces} />
         </div>
       );
     case "organization/hub":
@@ -154,7 +174,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     case "organization/sso": {
       const { data: sso, redirectUris } = loaded as { data: Sso | null; redirectUris: string[] };
       // Keyed by what the server has: after a save the form starts from it.
-      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUris={redirectUris} workspaces={spaces} />;
+      return <SsoPanel key={JSON.stringify(sso)} sso={sso} redirectUris={redirectUris} projects={spaces} />;
     }
     case "account/profile":
       return <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;

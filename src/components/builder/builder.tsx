@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { History } from "@/components/brand-history";
-import { BrandSetup } from "@/components/builder/brand-setup";
 import { Canvas, ringItem } from "@/components/builder/canvas";
 import { builderCommands } from "@/components/builder/commands";
 import { reveal } from "@/components/builder/layers";
@@ -22,13 +22,15 @@ import { duplicateItem, type Init, moveItem, removeItem } from "@/lib/builder-op
 import { hiddenSlugs, type Section } from "@/lib/pages";
 import { firstBinding, guidelinesPath, legacyAnchor, neighbors, tree } from "@/lib/site";
 import { transition } from "@/lib/motion";
+import { sendResult } from "@/lib/send";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The brand builder (build spec 3.5, W6.7): canvas first, the page as readers
  * see it, in the brand's theme. /brands/{slug}/guidelines/edit renders it keyed by brand slug, and
  * /design/builder on fixtures. It lays out TopBar over Canvas (the page list
  * beside it) and draws the panel b.panel names and the page settings
- * b.pageSettings opens; a brand with no pages gets BrandSetup instead; it owns the keys (SHORTCUTS in components/shortcuts.tsx)
+ * b.pageSettings opens; a brand with no pages gets them first (FirstPages); it owns the keys (SHORTCUTS in components/shortcuts.tsx)
  * and the address: the page on show is `?page=`, and a v1 link
  * (#rule-{key}, #section-{name}) lands where lib/site.ts legacyAnchor says.
  * A phone gets the reader, with "Edit on a larger screen".
@@ -52,8 +54,36 @@ export type BuilderProps = {
 };
 
 export function Builder(props: BuilderProps) {
-  // A brand with no pages starts from its essentials, then the builder opens on the pages they make.
-  return props.init.nav.length ? <Editor {...props} /> : <BrandSetup {...props} />;
+  return props.init.nav.length ? <Editor {...props} /> : <FirstPages {...props} />;
+}
+
+/** Brands whose first pages are on their way, so a remount (Strict Mode, a refresh) asks once. */
+const laying = new Set<string>();
+
+/**
+ * A brand with no pages opens in the editor all the same: its pages are laid
+ * out from its rules first (POST .../pages, lib/pages.ts initialPages), and
+ * the route loads again on them. Its colors, faces and logo are edited there,
+ * in Rules, like any other.
+ */
+function FirstPages({ brand, transport, header }: BuilderProps) {
+  const router = useRouter();
+  useEffect(() => {
+    if (laying.has(brand)) return;
+    laying.add(brand);
+    void (transport ?? sendResult)("POST", `/api/v1/brands/${encodeURIComponent(brand)}/pages`).finally(() => {
+      laying.delete(brand);
+      router.refresh();
+    });
+  }, [brand, transport, router]);
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      {header}
+      <div role="status" className="text-muted-foreground flex flex-1 items-center justify-center gap-2 text-sm">
+        <Spinner className="size-4" /> Laying out the pages
+      </div>
+    </div>
+  );
 }
 
 /** A field's own undo comes first (as lib/undo.ts has it). */

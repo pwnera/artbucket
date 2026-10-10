@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { switchedElsewhere, workspaceChannel, type Me } from "@/components/account";
+import { switchedElsewhere, projectChannel, type Me } from "@/components/account";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
@@ -25,6 +25,8 @@ type ShellValue = {
   setCollections: Setter<Collection[]>;
   searches: SavedSearch[];
   setSearches: Setter<SavedSearch[]>;
+  /** Delete a saved search, with Undo. */
+  forgetSearch: (id: string) => void;
   reviewCount: number;
   setReviewCount: Setter<number>;
   brands: BrandInfo[];
@@ -33,13 +35,18 @@ type ShellValue = {
   setSqueeze: (squeeze: boolean) => void;
   openPalette: () => void;
   openCollection: (c: Collection | "new") => void;
-  /** The page's upload picker, offered in ⌘K while one is registered. */
-  setUpload: (fn: (() => void) | null) => void;
+  /** The page's ways to add files (Explore's), run by the New menu and ⌘K while registered. */
+  add: AddActions | null;
+  setAdd: (actions: AddActions | null) => void;
   /** The page's own commands for ⌘K, asked for as it opens (usePageCommands). */
   setCommands: (fn: (() => PageCommand[]) | null) => void;
   /** Bumped after a collection is saved or deleted here, so a page showing its assets can refetch them. */
   collectionEdits: number;
 };
+
+/** What Explore can add, each run by the New menu (components/app-sidebar.tsx ADD). */
+export type AddId = "files" | "folder" | "private" | "fonts" | "icons" | "link" | "request";
+export type AddActions = Partial<Record<AddId, () => void>>;
 
 const ShellContext = createContext<ShellValue | null>(null);
 
@@ -151,7 +158,7 @@ function JoinBanner({ offer }: { offer: NonNullable<Me["joinable"]> }) {
     setBusy(null);
     if (!ok) return;
     setGone(true);
-    if (method === "POST") toast.success(`You joined ${offer.organization.name}`, { description: "Switch to it from the workspace menu." });
+    if (method === "POST") toast.success(`You joined ${offer.organization.name}`, { description: "Switch to it from the project menu." });
     router.refresh();
   };
   return (
@@ -202,9 +209,7 @@ export function Shell({
   const [squeeze, setSqueeze] = useState(false);
   const [searching, setSearching] = useState(false);
   const [help, setHelp] = useState(false);
-  // Held in a box: a function handed to useState's setter would be called as an updater.
-  const [upload, setUploadBox] = useState<{ fn: () => void } | null>(null);
-  const setUpload = useCallback((fn: (() => void) | null) => setUploadBox(fn && { fn }), []);
+  const [add, setAdd] = useState<AddActions | null>(null);
   const [commands, setCommandsBox] = useState<{ fn: () => PageCommand[] } | null>(null);
   const setCommands = useCallback((fn: (() => PageCommand[]) | null) => setCommandsBox(fn && { fn }), []);
   const [editing, setEditing] = useState<{ collection?: Collection; fields: FieldDef[] } | null>(null);
@@ -215,20 +220,20 @@ export function Shell({
 
   const chord = useShortcuts({ setPalette: setSearching, setHelp });
 
-  // The workspace is a cookie every tab shares, so a switch in another tab
+  // The project is a cookie every tab shares, so a switch in another tab
   // silently points this one's requests (uploads, new collections) at it.
   // Catch up when this tab is looked at again, or at once when told.
-  const workspace = sidebar.me.workspace.id;
+  const project = sidebar.me.project.id;
   useEffect(() => {
     switchedElsewhere(); // what the cookie says now is what this page was drawn for
     const check = () => {
       const to = switchedElsewhere();
-      if (!to || to === workspace) return;
-      toast.info("You switched workspace in another tab", { id: "workspace" });
+      if (!to || to === project) return;
+      toast.info("You switched project in another tab", { id: "project" });
       router.refresh();
     };
     const onVisible = () => document.visibilityState === "visible" && check();
-    const channel = workspaceChannel();
+    const channel = projectChannel();
     window.addEventListener("focus", check);
     document.addEventListener("visibilitychange", onVisible);
     channel?.addEventListener("message", check);
@@ -237,7 +242,7 @@ export function Shell({
       document.removeEventListener("visibilitychange", onVisible);
       channel?.removeEventListener("message", check);
     };
-  }, [workspace, router]);
+  }, [project, router]);
 
   // The layout's counts load once, not per navigation. As pages change they
   // refresh in the background, at most every 15s, so Review stays current.
@@ -313,6 +318,7 @@ export function Shell({
       setCollections,
       searches,
       setSearches,
+      forgetSearch: (id) => void forget(id),
       reviewCount,
       setReviewCount,
       brands,
@@ -320,17 +326,17 @@ export function Shell({
       setSqueeze,
       openPalette: () => setSearching(true),
       openCollection: (c) => void openCollection(c),
-      setUpload,
+      add,
+      setAdd,
       setCommands,
       collectionEdits,
     }),
-    [collections, searches, reviewCount, brands, setUpload, setCommands, openCollection, collectionEdits],
+    // forget reads `searches`, which is here: it is the same function for the same list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [collections, searches, reviewCount, brands, add, setCommands, openCollection, collectionEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
-  // On a brand's pages, /brands/{slug}/...: that brand.
-  const at = pathname.match(/^\/brands\/([^/]+)/)?.[1];
-  const currentBrand = at && decodeURIComponent(at);
 
   return (
     <ShellContext.Provider value={value}>
@@ -345,16 +351,10 @@ export function Shell({
       >
         <AppSidebar
           me={sidebar.me}
-          collections={collections}
-          brands={brands}
           searches={searches}
           reviewCount={reviewCount}
-          currentBrand={currentBrand}
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
-          onNewCollection={newCollection}
-          onEditCollection={(c) => void openCollection(c)}
-          onDeleteSearch={forget}
         />
         <SidebarInset className="min-w-0">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
@@ -367,7 +367,7 @@ export function Shell({
           collections={collections}
           brands={brands}
           searches={searches}
-          onUpload={upload?.fn}
+          onUpload={add?.files}
           onNewCollection={newCollection}
           onShortcuts={() => setHelp(true)}
           commands={commands?.fn}

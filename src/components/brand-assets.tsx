@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconFile } from "@tabler/icons-react";
+import { IconFile } from "@/components/icons";
 import { Thumb } from "@/components/thumb";
 
 /** GET /api/v1/brands/{slug}/assets, as lib/schemas.ts BrandAsset has it. */

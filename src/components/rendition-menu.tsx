@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";

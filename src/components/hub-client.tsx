@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
@@ -359,7 +359,7 @@ export function HubToggle({
 
 /**
  * Start from this brand (lib/core/hub.ts startFrom): a new brand in the
- * workspace the person has open, from this release's rules, pages, theme and
+ * project the person has open, from this release's rules, pages, theme and
  * files, then on to it in the app.
  */
 export function StartFrom({ from, name, app }: { from: string; name: string; app: string }) {
@@ -390,7 +390,7 @@ export function StartFrom({ from, name, app }: { from: string; name: string; app
           <DialogHeader>
             <DialogTitle>Start from {name}</DialogTitle>
             <DialogDescription>
-              A new brand in your workspace from {from}: its rules, pages, theme and files, copied, to make your own. It remembers where it came from.
+              A new brand in your project from {from}: its rules, pages, theme and files, copied, to make your own. It remembers where it came from.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">

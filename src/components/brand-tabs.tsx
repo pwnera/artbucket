@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconCheck, IconChevronDown } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown } from "@/components/icons";
 import { useCan } from "@/components/can";
 import { TabNav } from "@/components/hub";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { IconArrowUp, IconPalette, IconPencil } from "@tabler/icons-react";
+import { IconArrowUp, IconPalette, IconPencil } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
 import { behavior } from "@/lib/motion";

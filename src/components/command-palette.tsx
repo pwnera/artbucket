@@ -26,8 +26,9 @@ import {
   IconSun,
   IconUpload,
   IconUsers,
+  IconPlus,
   IconWorld,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { useTheme } from "next-themes";
 import { RECENT_ICON, useNavigate, type SavedSearch } from "@/components/app-sidebar";
@@ -62,12 +63,12 @@ type PageHit = { slug: string; title: string; hidden: boolean; parent: string | 
 /**
  * Something of every brand's (its rules, its pages), kept for a minute
  * across openings: there are dozens, not thousands, and ⌘K opens often. One
- * promise per workspace and brand list, so two quick openings share a fetch;
+ * promise per project and brand list, so two quick openings share a fetch;
  * a brand that fails is left out.
  */
 const perBrandCache = new Map<string, { key: string; at: number; data: Promise<unknown[]> }>();
-function perBrand<T>(what: string, url: (slug: string) => string, workspace: string, brands: BrandInfo[]): Promise<(T & { brandInfo: BrandInfo })[]> {
-  const key = `${workspace} ${brands.map((b) => b.slug).join(" ")}`;
+function perBrand<T>(what: string, url: (slug: string) => string, project: string, brands: BrandInfo[]): Promise<(T & { brandInfo: BrandInfo })[]> {
+  const key = `${project} ${brands.map((b) => b.slug).join(" ")}`;
   let hit = perBrandCache.get(what);
   if (!hit || hit.key !== key || Date.now() - hit.at > 60_000) {
     const data = Promise.all(
@@ -83,8 +84,8 @@ function perBrand<T>(what: string, url: (slug: string) => string, workspace: str
   }
   return hit.data as Promise<(T & { brandInfo: BrandInfo })[]>;
 }
-const allRules = (workspace: string, brands: BrandInfo[]) => perBrand<Rule>("rules", (b) => `/api/v1/brand/rules?brand=${b}`, workspace, brands);
-const allPages = (workspace: string, brands: BrandInfo[]) => perBrand<Omit<PageHit, "brandInfo">>("pages", (b) => `/api/v1/brands/${b}/pages`, workspace, brands);
+const allRules = (project: string, brands: BrandInfo[]) => perBrand<Rule>("rules", (b) => `/api/v1/brand/rules?brand=${b}`, project, brands);
+const allPages = (project: string, brands: BrandInfo[]) => perBrand<Omit<PageHit, "brandInfo">>("pages", (b) => `/api/v1/brands/${b}/pages`, project, brands);
 
 /** Hidden, or under a hidden page: only editors open it (lib/pages.ts hiddenSlugs, kept out of every page's bundle). */
 function hidden(p: PageHit, all: PageHit[]): boolean {
@@ -121,7 +122,7 @@ const filter = (value: string, search: string, keywords?: string[]) => {
 /** An asset's item value: its id keeps it unique, its title and filename are what matches. */
 const assetValue = (a: Pick<Asset, "id" | "filename" | "metadata">) => `asset ${a.id} ${a.metadata?.title ?? ""} ${a.filename}`;
 
-const CONTEXT = { workspace: "Workspace", organization: "Organization", account: "Account", development: "Development" };
+const CONTEXT = { project: "Project", organization: "Organization", account: "Account", development: "Development" };
 const THEMES = [
   { value: "light", label: "Light", icon: IconSun },
   { value: "dark", label: "Dark", icon: IconMoon },
@@ -176,7 +177,7 @@ export function CommandPalette({
   const can = useCan();
   const me = useMe();
   const help = useHelp(me);
-  const workspace = me?.workspace.id ?? "";
+  const project = me?.project.id ?? "";
   const { setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const [stored] = useRecents();
@@ -219,12 +220,12 @@ export function CommandPalette({
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void allRules(workspace, brands).then((r) => live && setRules(r));
-    void allPages(workspace, brands).then((p) => live && setPages(p));
+    void allRules(project, brands).then((r) => live && setRules(r));
+    void allPages(project, brands).then((p) => live && setPages(p));
     return () => {
       live = false;
     };
-  }, [open, workspace, brands]);
+  }, [open, project, brands]);
 
   const close = () => {
     onOpenChange(false);
@@ -398,6 +399,16 @@ export function CommandPalette({
               <IconFolderPlus /> New collection
             </CommandItem>
           )}
+          {can("brand.create") && (
+            <CommandItem value="New brand create" onSelect={() => go("/brands?new=brand")}>
+              <IconPlus /> New brand
+            </CommandItem>
+          )}
+          {can("portal.manage") && (
+            <CommandItem value="New portal create press kit" onSelect={() => go("/portals?new=portal")}>
+              <IconPlus /> New portal
+            </CommandItem>
+          )}
           <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
             <IconRobot /> Agents: connect one, manage keys
           </CommandItem>
@@ -428,8 +439,8 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading="Go to">
-          <CommandItem value="Assets library all" onSelect={() => go("/")}>
-            <IconPhoto /> Assets
+          <CommandItem value="Explore assets library all" onSelect={() => go("/")}>
+            <IconPhoto /> Explore
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/" />
             </CommandShortcut>
@@ -440,16 +451,16 @@ export function CommandPalette({
               <GoKeys to="/brand" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Review suggested approve" onSelect={() => go("/?review")}>
+          <CommandItem value="Review suggested approve" onSelect={() => go("/review")}>
             <IconInbox /> Review
             <CommandShortcut className="tracking-normal">
-              <GoKeys to="/?review" />
+              <GoKeys to="/review" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Activity history" onSelect={() => go("/activity")}>
+          <CommandItem value="Activity history" onSelect={() => go("/insights/activity")}>
             <IconActivity /> Activity
             <CommandShortcut className="tracking-normal">
-              <GoKeys to="/activity" />
+              <GoKeys to="/insights/activity" />
             </CommandShortcut>
           </CommandItem>
           {team && (
@@ -480,7 +491,7 @@ export function CommandPalette({
               <IconHistory /> Audit log
             </CommandItem>
           )}
-          <CommandItem value="Settings workspace organization members fields domains branding email usage profile" onSelect={() => go("/settings")}>
+          <CommandItem value="Settings project organization members fields domains branding email usage profile" onSelect={() => go("/settings")}>
             <IconSettings /> Settings
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/settings" />
@@ -546,7 +557,7 @@ export function CommandPalette({
         {term && (
           <CommandGroup>
             <CommandItem value={LIBRARY} onSelect={() => go(`/?q=${encodeURIComponent(term)}`)}>
-              <IconFileSearch /> <span className="truncate">Search the library for &ldquo;{term}&rdquo;</span>
+              <IconFileSearch /> <span className="truncate">Explore for &ldquo;{term}&rdquo;</span>
             </CommandItem>
           </CommandGroup>
         )}

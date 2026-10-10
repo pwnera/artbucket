@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { domains, portalAliases, portals, sessions, workspaces } from "@/lib/db/schema";
+import { domains, portalAliases, portals, sessions, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -62,14 +62,14 @@ export async function hostTarget(rawHost: string): Promise<Target | null> {
 /** The portal a slug names, now or before a rename (portal_aliases), with its organization. */
 export async function portalNamed(slug: string) {
   const q = () =>
-    db.select({ p: portals, organizationId: workspaces.organizationId }).from(portals).innerJoin(workspaces, eq(workspaces.id, portals.workspaceId));
+    db.select({ p: portals, organizationId: projects.organizationId }).from(portals).innerJoin(projects, eq(projects.id, portals.projectId));
   const [now] = await q().where(eq(portals.slug, slug));
   if (now) return now;
   const [was] = await q().innerJoin(portalAliases, eq(portalAliases.portalId, portals.id)).where(eq(portalAliases.slug, slug));
   return was ?? null;
 }
 
-type PortalRef = { slug: string; access: string; workspaceId: string };
+type PortalRef = { slug: string; access: string; projectId: string };
 
 /**
  * Where a portal answers: its own domain once verified; else
@@ -83,7 +83,7 @@ export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: D
   if (env.PORTAL_DOMAIN && p.access !== "members" && !subdomainRefusal(p.slug)) {
     return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
   }
-  const [ws] = await db.select({ organizationId: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, p.workspaceId));
+  const [ws] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, p.projectId));
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
 }
 
@@ -262,7 +262,7 @@ export async function listDomains(caller: Caller) {
     .select({ d: domains, portal: portals.slug })
     .from(domains)
     .leftJoin(portals, eq(portals.id, domains.portalId))
-    .where(eq(domains.organizationId, caller.workspace.organizationId))
+    .where(eq(domains.organizationId, caller.project.organizationId))
     .orderBy(asc(domains.createdAt));
   return rows.map((r) => presentDomain(r.d, r.portal));
 }
@@ -270,8 +270,8 @@ export async function listDomains(caller: Caller) {
 /** An address of the organization's own: the app's until a portal picks it. */
 export async function addDomain(caller: Caller, raw: string) {
   mayManage(caller);
-  await checkLimit(caller.workspace.organizationId, "domains");
-  const d = await claimHost(caller.workspace.organizationId, raw);
+  await checkLimit(caller.project.organizationId, "domains");
+  const d = await claimHost(caller.project.organizationId, raw);
   await recordAudit(caller, "domain.added", d.host);
   return presentDomain(d);
 }
@@ -283,7 +283,7 @@ async function ownRow(caller: Caller, host: string) {
     .select({ d: domains, portal: portals.slug })
     .from(domains)
     .leftJoin(portals, eq(portals.id, domains.portalId))
-    .where(own(caller.workspace.organizationId, host));
+    .where(own(caller.project.organizationId, host));
   return row ?? null;
 }
 
@@ -346,7 +346,7 @@ export async function portalDomains(caller: Caller) {
     .select({ host: domains.host, portal: portals.slug })
     .from(domains)
     .leftJoin(portals, eq(portals.id, domains.portalId))
-    .where(and(eq(domains.organizationId, caller.workspace.organizationId), isNotNull(domains.verifiedAt)))
+    .where(and(eq(domains.organizationId, caller.project.organizationId), isNotNull(domains.verifiedAt)))
     .orderBy(asc(domains.host));
   return rows;
 }

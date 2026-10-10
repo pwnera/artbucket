@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { IconFileText, IconHash, IconPalette, IconPhoto, IconSearch } from "@tabler/icons-react";
+import { IconFileText, IconHash, IconPalette, IconPhoto, IconSearch } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { TYPING } from "@/components/site/anchors";
 import { useSite } from "@/components/site/site-context";

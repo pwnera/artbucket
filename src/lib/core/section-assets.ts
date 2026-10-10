@@ -2,10 +2,10 @@ import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, savedSearches } from "@/lib/db/schema";
-import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
+import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
 import { assetWhere, deliverableSql, notSuperseded, parseAssetQuery } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
-import { NO_OFF, NONE } from "@/lib/access";
+import { NONE } from "@/lib/access";
 import { collectionQuery, issues, type TEMPLATE_PROPS } from "@/lib/pages";
 import { downloadsFor, type PortalPreset } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
@@ -57,19 +57,18 @@ export function presentAsset(a: AssetRow, o: { sign: Sign; presets: PortalPreset
 }
 
 /**
- * A reader of the workspace, never a person: the guest pattern of
- * core/shares.ts. Read on the workspace, so private collections and assets
+ * A reader of the project, never a person: the guest pattern of
+ * core/shares.ts. Read on the project, so private collections and assets
  * stay out, plus read on the one collection a section names, so a private
  * collection its editor chose still shows, as portals do.
  */
 export async function readerCaller(ws: string, collection?: string): Promise<Caller> {
-  const [workspace, hidden] = await Promise.all([workspaceById(ws), hiddenIn(ws)]);
-  if (!workspace) throw new AssetError("not_found", "No such workspace");
+  const [project, hidden] = await Promise.all([projectById(ws), hiddenIn(ws)]);
+  if (!project) throw new AssetError("not_found", "No such project");
   return {
-    workspace,
+    project,
     scope: "read",
     narrow: collection ? { ...NONE, collections: { [collection]: "read" } } : NONE,
-    off: NO_OFF,
     hidden,
     orgScope: null,
     actor: "reader",
@@ -93,7 +92,7 @@ const SORT = {
  *
  * `as`: a signed-in reader sees what they may see in the library, no more; a
  * section can't list a collection they can't open. Portal visitors, who have
- * no grants, read as the workspace's reader.
+ * no grants, read as the project's reader.
  *
  * ponytail: one query and one count per collection section; batch them when
  * pages carry more than a few.
@@ -102,7 +101,7 @@ export async function collectionItems(ws: string, props: CollectionProps, o: { s
   let where;
   try {
     const [saved] = props.search
-      ? await db.select({ query: savedSearches.query }).from(savedSearches).where(and(eq(savedSearches.id, props.search), eq(savedSearches.workspaceId, ws)))
+      ? await db.select({ query: savedSearches.query }).from(savedSearches).where(and(eq(savedSearches.id, props.search), eq(savedSearches.projectId, ws)))
       : [{ query: null }];
     if (!saved) throw new AssetError("not_found", "Its saved search has been deleted");
     const caller = o.as ?? (await readerCaller(ws, props.collection));

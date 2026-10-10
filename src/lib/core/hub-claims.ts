@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { brands, brandVersions, domains, hubOffersRefused, hubReports, organizations, workspaces } from "@/lib/db/schema";
+import { brands, brandVersions, domains, hubOffersRefused, hubReports, organizations, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { publishBrand } from "@/lib/core/brand";
@@ -47,18 +47,18 @@ const verifiedHosts = async (orgIds: string[]) => {
  */
 export async function claimOffers(caller: Caller) {
   mayManage(caller);
-  const mine = caller.workspace.organizationId;
+  const mine = caller.project.organizationId;
   const hosts = (await verifiedHosts([mine])).get(mine) ?? [];
   if (!hosts.length) return [];
   const rows = await db
     .select({ id: brands.id, org: organizations.slug, orgId: organizations.id, owner: organizations.name, brand: brands.slug, name: brands.name, domain: brands.domain })
     .from(brands)
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(
       and(
         or(inArray(brands.domain, hosts.flatMap(domainsAbove)), ...hosts.map((h) => like(brands.domain, `%.${h.replace(/^www\./, "")}`))),
-        ne(workspaces.organizationId, mine),
+        ne(projects.organizationId, mine),
         eq(brands.visibility, "public"),
         isNull(brands.hubDelisted),
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
@@ -99,14 +99,14 @@ export async function acceptOffer(caller: Caller, org: string, slug: string, inp
     await publishBrand(caller, made.slug, { note: `Claimed from ${org}/${slug} on BrandHub, by proving ${offer.proof}` });
     hub = await setHub(caller, made.slug, { visibility: "public" });
   } catch (err) {
-    await deleteBrand(caller.workspace.id, made.slug).catch(() => {});
+    await deleteBrand(caller.project.id, made.slug).catch(() => {});
     throw err;
   }
   const [was] = await db
     .update(brands)
     .set({ visibility: "private", hubMovedTo: hub.ref })
     .where(eq(brands.id, offer.id))
-    .returning({ workspaceId: brands.workspaceId });
+    .returning({ projectId: brands.projectId });
   await db.insert(hubReports).values({
     brandId: offer.id,
     kind: "claim",
@@ -114,11 +114,11 @@ export async function acceptOffer(caller: Caller, org: string, slug: string, inp
     status: "resolved",
     note: `Claimed by proving ${offer.domain}: taken off BrandHub, its address now leads to ${hub.ref}`,
     contact: caller.user.email,
-    claimantId: caller.workspace.organizationId,
+    claimantId: caller.project.organizationId,
     proof: offer.proof,
   });
-  const [owner] = await db.select({ organizationId: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, was.workspaceId));
-  await recordAudit(caller, "brand.private", offer.name, { brand: offer.brand, claimedBy: hub.ref, proof: offer.proof }, { organizationId: owner.organizationId, workspaceId: was.workspaceId });
+  const [owner] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, was.projectId));
+  await recordAudit(caller, "brand.private", offer.name, { brand: offer.brand, claimedBy: hub.ref, proof: offer.proof }, { organizationId: owner.organizationId, projectId: was.projectId });
   await recordAudit(caller, "brand.claimed", made.name, { brand: made.slug, from: `${org}/${slug}`, proof: offer.proof });
   return { ...made, hub };
 }
@@ -126,7 +126,7 @@ export async function acceptOffer(caller: Caller, org: string, slug: string, inp
 /** Say a listing offered isn't the organization's brand: it is offered no more. */
 export async function refuseOffer(caller: Caller, org: string, slug: string) {
   const offer = await offerAt(caller, org, slug);
-  await db.insert(hubOffersRefused).values({ organizationId: caller.workspace.organizationId, brandId: offer.id }).onConflictDoNothing();
+  await db.insert(hubOffersRefused).values({ organizationId: caller.project.organizationId, brandId: offer.id }).onConflictDoNothing();
   return { refused: true as const };
 }
 
@@ -135,8 +135,8 @@ export async function hubMoved(org: string, slug: string) {
   const [b] = await db
     .select({ to: brands.hubMovedTo })
     .from(brands)
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(and(eq(organizations.slug, org), eq(brands.slug, slug), isNotNull(brands.hubMovedTo), eq(brands.visibility, "private")));
   const [o, s] = b?.to?.split("/") ?? [];
   return o && s ? { org: o, brand: s } : null;

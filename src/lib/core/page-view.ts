@@ -26,13 +26,13 @@ import type { PageView, ViewRule } from "@/lib/site";
  * reader, the builder canvas and portals all come through here.
  */
 
-export type BrandSource = Source & { brandId: string; workspaceId: string };
+export type BrandSource = Source & { brandId: string; projectId: string };
 
 /** The brand as it stands now, unpublished: its rules, pages and theme. */
 export async function draftSource(ws: string, brandSlug?: string): Promise<BrandSource> {
   const b = await resolveBrand(ws, brandSlug);
   const [rules, pages] = await Promise.all([snapshot(db, b.id), pageSnapshot(db, b.id)]);
-  return { brand: { slug: b.slug, name: b.name }, rules, pages, theme: b.theme, version: null, brandId: b.id, workspaceId: ws };
+  return { brand: { slug: b.slug, name: b.name }, rules, pages, theme: b.theme, version: null, brandId: b.id, projectId: ws };
 }
 
 /**
@@ -53,7 +53,7 @@ export async function publishedSource(ws: string, brandSlug?: string, number?: n
     theme: v.theme ?? {},
     version: { number: v.number, publishedAt: v.publishedAt!.toISOString() },
     brandId: b.id,
-    workspaceId: ws,
+    projectId: ws,
   };
 }
 
@@ -75,7 +75,7 @@ export async function viewLook(ws: string, src: BrandSource | null, sign: Sign, 
     ? await db
         .select({ id: assets.id, filename: assets.filename, mime: assets.mime })
         .from(assets)
-        .where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))
+        .where(and(inArray(assets.id, ids), eq(assets.projectId, ws), deliverableSql))
     : [];
   const described = new Map(rows.map((a) => [a.id, a]));
   const theme = deriveTheme(
@@ -135,7 +135,7 @@ export async function viewPage(
     ? await db
         .select({ asset: assets, ok: sql<boolean>`${deliverableSql}`, state: stateSql })
         .from(assets)
-        .where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws)))
+        .where(and(inArray(assets.id, ids), eq(assets.projectId, ws)))
     : [];
   const usable = new Map(rows.filter((r) => r.ok).map((r) => [r.asset.id, r.asset]));
   const media = Object.fromEntries([...usable.values()].map((a) => [a.id, presentAsset(a, o)]));
@@ -184,7 +184,7 @@ export async function viewPage(
         const q = o.find?.section === s.id ? o.find.q.trim() : "";
         // The words join the section's own query: collectionQuery joins two `q`s into one.
         const got = await collectionItems(ws, q ? { ...props, query: `${props.query ?? ""}&${new URLSearchParams({ q })}` } : props, o);
-        // The reason is for editors: it can name the workspace's collections.
+        // The reason is for editors: it can name the project's collections.
         return [s.id, editor ? got : { ...got, error: null }] as const;
       }),
     ),

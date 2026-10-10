@@ -10,7 +10,7 @@ type P = { slug: string };
  * server connects one (GIT_CONNECT_URL).
  */
 export const GET = route<P>("brand.read", async (_req, { slug }, caller) =>
-  ok({ data: await getSource(caller.workspace.id, slug, !!caller.user && caller.scope === "admin") }),
+  ok({ data: await getSource(caller.project.id, slug, !!caller.user && caller.scope === "admin") }),
 );
 
 /** PUT /api/v1/brands/{slug}/source - where its files live; with `synced`, the files just pushed, as agreed. */

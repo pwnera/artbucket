@@ -11,7 +11,7 @@ export async function listSearches(ws: string) {
   return db
     .select({ id: savedSearches.id, name: savedSearches.name, query: savedSearches.query, createdAt: savedSearches.createdAt })
     .from(savedSearches)
-    .where(eq(savedSearches.workspaceId, ws))
+    .where(eq(savedSearches.projectId, ws))
     .orderBy(asc(savedSearches.name));
 }
 
@@ -30,7 +30,7 @@ export async function saveSearch(caller: Caller, input: { name: string; query: s
   params.sort();
   const [row] = await db
     .insert(savedSearches)
-    .values({ workspaceId: caller.workspace.id, name: input.name, query: params.toString() })
+    .values({ projectId: caller.project.id, name: input.name, query: params.toString() })
     .returning({ id: savedSearches.id, name: savedSearches.name, query: savedSearches.query, createdAt: savedSearches.createdAt });
   return row;
 }
@@ -38,7 +38,7 @@ export async function saveSearch(caller: Caller, input: { name: string; query: s
 export async function deleteSearch(ws: string, id: string) {
   const gone = await db
     .delete(savedSearches)
-    .where(and(eq(savedSearches.id, id), eq(savedSearches.workspaceId, ws)))
+    .where(and(eq(savedSearches.id, id), eq(savedSearches.projectId, ws)))
     .returning();
   return gone.length > 0;
 }

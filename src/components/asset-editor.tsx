@@ -1,5 +1,6 @@
 "use client";
 
+import { CatalogButton } from "@/components/catalog-button";
 import { Fragment, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,7 +26,7 @@ import {
   IconX,
   IconZoomIn,
   IconZoomOut,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { type Collection } from "@/components/collections";
 import { Combobox, MultiCombobox, type Option } from "@/components/combobox";
@@ -823,6 +824,8 @@ export function AssetEditor({
           <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime, asset.probe)}</Badge>
           <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
           <span className="ml-auto" />
+          {/* Its lineage, who reaches it and what happened to it: in the catalog. */}
+          <CatalogButton id={asset.id} onOpen={(href) => leave(() => router.push(href))} />
           {/* One way out: who can open it is asked in the dialog. */}
           <IconButton label="Share" shortcut={["S"]} onClick={() => setSharing(true)}>
             <IconShare />
@@ -1161,7 +1164,7 @@ export function AssetEditor({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="everyone">Everyone in {me?.workspace.name ?? "the workspace"}</SelectItem>
+                          <SelectItem value="everyone">Everyone in {me?.project.name ?? "the project"}</SelectItem>
                           <SelectItem value="on">Only people added</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1169,7 +1172,7 @@ export function AssetEditor({
                   </Property>
                   <p className="text-muted-foreground pb-1 text-xs">
                     {privateOn
-                      ? "The people below and admins. Nobody else in the workspace finds it."
+                      ? "The people below and admins. Nobody else in the project finds it."
                       : hiddenByCollections
                         ? "Its collections are all private, so only people added to them, and admins, see it."
                         : "Anyone who can open the library finds it. This is about your team: links and embeds are in Share."}
@@ -1466,7 +1469,7 @@ const DOWNLOADS: Option[] = [
 ];
 
 /**
- * Whether people outside the workspace may take the file (lib/rights.ts
+ * Whether people outside the project may take the file (lib/rights.ts
  * isDownloadable), saying what that means as it is picked: whoever it is
  * shown to downloads it, or sees it and can't. Left to the license, it says
  * which way that goes and why.

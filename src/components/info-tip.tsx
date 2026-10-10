@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { IconInfoCircle } from "@/components/icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 

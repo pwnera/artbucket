@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isPath, onboardingSteps, PATHS, type Facts } from "./onboarding.ts";
 
-const none: Facts = { named: false, branded: false, noEmail: false, uploaded: false, brand: null, hub: false, team: false, workspaces: 1, agent: false, mcp: false, git: null };
+const none: Facts = { named: false, branded: false, noEmail: false, uploaded: false, brand: null, hub: false, team: false, projects: 1, agent: false, mcp: false, git: null };
 const brand = { slug: "acme", basics: true, tokens: true, published: false, git: false, public: false, portal: false };
 
 test("every path ends in its first win, and only there", () => {
@@ -19,7 +19,7 @@ test("each win is read from what happened", () => {
   assert.equal(win("company", { brand: { ...brand, published: true } }), true);
   assert.equal(win("product", { brand: { ...brand, git: true } }), true);
   assert.equal(win("product", { brand }), false);
-  assert.equal(win("clients", { workspaces: 2 }), true);
+  assert.equal(win("clients", { projects: 2 }), true);
   assert.equal(win("oss", { hub: true, brand: { ...brand, published: true } }), false, "released is not public");
   assert.equal(win("oss", { hub: true, brand: { ...brand, public: true } }), true);
   assert.equal(win("oss", { hub: false, brand: { ...brand, portal: true } }), true, "without a hub, a public portal is the win");

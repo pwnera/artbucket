@@ -7,7 +7,7 @@
  *   DATABASE_URL=postgres://.../artbucket_bench RATE_LIMIT=0 PORT=3100 pnpm start
  *   BENCH_DATABASE_URL=postgres://.../artbucket_bench BENCH_URL=http://localhost:3100 pnpm bench run
  *
- * `seed` migrates the database and fills its first workspace with synthetic
+ * `seed` migrates the database and fills its first project with synthetic
  * rows: filenames, tags from a long-tailed vocabulary, custom fields, 100
  * collections, a mix of states. No bytes: this measures search, filters,
  * facets and the verdict, not storage. It refuses a database that already has
@@ -35,18 +35,18 @@ async function seed() {
   await migrate(drizzle(sql), { migrationsFolder: join(import.meta.dirname, "..", "drizzle") });
   const [{ people }] = await sql`select count(*)::int as people from users where id <> 'bench'`;
   if (people) throw new Error("This database has accounts in it: the benchmark only fills an empty one");
-  const [ws] = await sql`select id from workspaces order by created_at limit 1`;
-  const [{ have }] = await sql`select count(*)::int as have from assets where workspace_id = ${ws.id}`;
+  const [ws] = await sql`select id from projects order by created_at limit 1`;
+  const [{ have }] = await sql`select count(*)::int as have from assets where project_id = ${ws.id}`;
   if (have >= N) return console.log(`Already ${have} assets`);
 
   await sql`insert into users (id, name, email) values ('bench', 'Bench', 'bench@example.invalid') on conflict do nothing`;
-  await sql`insert into fields (workspace_id, key, label, type, options, position) values
+  await sql`insert into fields (project_id, key, label, type, options, position) values
     (${ws.id}, 'channel', 'Channel', 'select', '["web","print","social","email","ooh"]', 0),
     (${ws.id}, 'region', 'Region', 'select', '["emea","amer","apac"]', 1),
     (${ws.id}, 'year', 'Year', 'number', '[]', 2),
     (${ws.id}, 'campaign', 'Campaign', 'text', '[]', 3)
     on conflict do nothing`;
-  await sql`insert into collections (workspace_id, name) select ${ws.id}, 'Collection ' || i from generate_series(1, 100) i`;
+  await sql`insert into collections (project_id, name) select ${ws.id}, 'Collection ' || i from generate_series(1, 100) i`;
 
   const t0 = performance.now();
   // Tags: a head of common words everyone uses, and a long tail of clients and products.
@@ -55,7 +55,7 @@ async function seed() {
       'poster','icon','illustration','photo','video','social','print','web','campaign','launch','spring','summer','autumn',
       'winter','outdoor','studio','night','city','nature','people','food','travel','sport','tech','fashion','interior',
       'abstract','texture','pattern','mockup'] as w)
-    insert into assets (workspace_id, sha256, filename, mime, size, width, height, tags, fields, metadata, status, created_at)
+    insert into assets (project_id, sha256, filename, mime, size, width, height, tags, fields, metadata, status, created_at)
     select '${ws.id}',
       encode(sha256(('bench' || i)::text::bytea), 'hex'),
       w[1 + i % 40] || '_' || w[1 + (i / 40) % 40] || '_' || i || (array['.jpg','.png','.webp','.svg','.pdf','.mp4'])[1 + i % 6],
@@ -72,18 +72,18 @@ async function seed() {
   await sql`
     insert into collection_assets (collection_id, asset_id)
     select c.id, a.id
-    from (select id, row_number() over (order by created_at) - 1 as n from collections where workspace_id = ${ws.id}) c
-    join (select id, row_number() over (order by created_at) as n from assets where workspace_id = ${ws.id}) a on a.n % 100 = c.n
+    from (select id, row_number() over (order by created_at) - 1 as n from collections where project_id = ${ws.id}) c
+    join (select id, row_number() over (order by created_at) as n from assets where project_id = ${ws.id}) a on a.n % 100 = c.n
     on conflict do nothing`;
   await sql`analyze`;
   console.log(`Seeded ${N} assets in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
 }
 
 async function key() {
-  const [ws] = await sql`select id from workspaces order by created_at limit 1`;
+  const [ws] = await sql`select id from projects order by created_at limit 1`;
   const secret = `ab_${randomBytes(32).toString("base64url")}`;
   await sql`delete from api_keys where name = 'bench'`;
-  await sql`insert into api_keys (workspace_id, name, prefix, hash, scope) values
+  await sql`insert into api_keys (project_id, name, prefix, hash, scope) values
     (${ws.id}, 'bench', ${secret.slice(0, 10)}, ${createHash("sha256").update(secret).digest("hex")}, 'read')`;
   return secret;
 }

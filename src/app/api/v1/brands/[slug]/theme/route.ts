@@ -7,7 +7,7 @@ import { ThemePatch } from "@/lib/schemas";
 type P = { slug: string };
 
 /** GET /api/v1/brands/{slug}/theme - its theme settings and the look they give. */
-export const GET = route<P>("brand.read", async (_req, { slug }, caller) => ok({ data: await getTheme(caller.workspace.id, slug) }));
+export const GET = route<P>("brand.read", async (_req, { slug }, caller) => ok({ data: await getTheme(caller.project.id, slug) }));
 
 /** PATCH /api/v1/brands/{slug}/theme - merges: a key left out keeps its value, null clears it. A draft until published. */
 export const PATCH = route<P>("brand.edit", async (req, { slug }, caller) => {

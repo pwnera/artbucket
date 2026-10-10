@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconTag, IconTypography, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconTag, IconTypography, IconWorld } from "@/components/icons";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
 import { FloatingEdit } from "@/components/floating-edit";
@@ -55,8 +55,8 @@ export default async function HubListing(props: Props) {
   const type = faces(b, fonts);
   const here = base + hubPath(b.org, b.brand, pinned ? b.version : null);
 
-  // Someone signed in who may edit it (where the session reaches): the floating Edit, into the builder in its workspace.
-  const edit = !!viewer && (await viewer.may(b.workspaceId, "brand.edit"));
+  // Someone signed in who may edit it (where the session reaches): the floating Edit, into the builder in its project.
+  const edit = !!viewer && (await viewer.may(b.projectId, "brand.edit"));
 
   // It names a domain its organization never proved: whoever proves it is offered the listing (lib/core/hub-claims.ts).
   const claimable = open && !b.verified && !!b.domain;
@@ -177,7 +177,7 @@ export default async function HubListing(props: Props) {
             {!open && (
               <p role="note" className="bg-muted mt-3 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
                 <IconLock aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                <span>Private: only {b.owner}&apos;s workspace sees this.</span>
+                <span>Private: only {b.owner}&apos;s project sees this.</span>
               </p>
             )}
             {open && !b.verified && (
@@ -272,7 +272,7 @@ export default async function HubListing(props: Props) {
           )}
         </aside>
       </div>
-      {edit && <FloatingEdit always label="Edit this brand" href={env.APP_URL + builderPath(b.brand, { workspace: b.workspaceId })} />}
+      {edit && <FloatingEdit always label="Edit this brand" href={env.APP_URL + builderPath(b.brand, { project: b.projectId })} />}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { brands, brandVersions, domains, githubOrgs, hubReports, organizations, workspaces } from "@/lib/db/schema";
+import { brands, brandVersions, domains, githubOrgs, hubReports, organizations, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
@@ -67,7 +67,7 @@ const presentGithub = (g: typeof githubOrgs.$inferSelect) => ({
 /** The GitHub accounts the organization named, proved or not. */
 export async function listGithub(caller: Caller) {
   mayManage(caller);
-  const rows = await db.select().from(githubOrgs).where(eq(githubOrgs.organizationId, caller.workspace.organizationId)).orderBy(asc(githubOrgs.createdAt));
+  const rows = await db.select().from(githubOrgs).where(eq(githubOrgs.organizationId, caller.project.organizationId)).orderBy(asc(githubOrgs.createdAt));
   return rows.map(presentGithub);
 }
 
@@ -83,7 +83,7 @@ export async function addGithub(caller: Caller, raw: string) {
   await db.delete(githubOrgs).where(and(eq(githubOrgs.login, login), isNull(githubOrgs.verifiedAt), lt(githubOrgs.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`)));
   const [row] = await db
     .insert(githubOrgs)
-    .values({ login, organizationId: caller.workspace.organizationId, token: `artbucket-${randomBytes(16).toString("hex")}` })
+    .values({ login, organizationId: caller.project.organizationId, token: `artbucket-${randomBytes(16).toString("hex")}` })
     .onConflictDoNothing()
     .returning();
   if (!row) throw new AssetError("conflict", `github.com/${login} is already named here`);
@@ -95,7 +95,7 @@ const ownGithub = async (caller: Caller, raw: string) => {
   const [row] = await db
     .select()
     .from(githubOrgs)
-    .where(and(eq(githubOrgs.login, githubLogin(raw) ?? ""), eq(githubOrgs.organizationId, caller.workspace.organizationId)));
+    .where(and(eq(githubOrgs.login, githubLogin(raw) ?? ""), eq(githubOrgs.organizationId, caller.project.organizationId)));
   return row ?? null;
 };
 
@@ -140,8 +140,8 @@ export async function publicListing(org: string, slug: string) {
   const [b] = await db
     .select({ id: brands.id, name: brands.name, orgId: organizations.id })
     .from(brands)
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(
       and(
         eq(organizations.slug, org),
@@ -199,7 +199,7 @@ export async function claimListing(caller: Caller, org: string, slug: string, in
   mayManage(caller);
   if (!caller.user) throw new AssetError("forbidden", "A person claims a listing, signed in: not a key");
   const b = await publicListing(org, slug);
-  const mine = caller.workspace.organizationId;
+  const mine = caller.project.organizationId;
   if (b.orgId === mine) throw new AssetError("invalid", "This listing is your organization's already");
   const proof = (await proofsOf([mine])).get(mine);
   if (!proof) throw new AssetError("invalid", "Prove a domain (Settings, Domains) or a GitHub account (Settings, BrandHub) first: a claim names what you hold");
@@ -220,11 +220,11 @@ export async function listReports(caller: Caller) {
   mayManage(caller);
   const claimant = sql<string | null>`(select o.name from ${organizations} o where o.id = ${hubReports.claimantId})`;
   const rows = await db
-    .select({ r: hubReports, brand: brands.slug, name: brands.name, visibility: brands.visibility, workspace: workspaces.slug, claimant })
+    .select({ r: hubReports, brand: brands.slug, name: brands.name, visibility: brands.visibility, project: projects.slug, claimant })
     .from(hubReports)
     .innerJoin(brands, eq(brands.id, hubReports.brandId))
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .where(eq(workspaces.organizationId, caller.workspace.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .where(eq(projects.organizationId, caller.project.organizationId))
     .orderBy(sql`${hubReports.status} = 'open' desc`, desc(hubReports.createdAt))
     .limit(200);
   return rows.map(({ r, ...b }) => ({
@@ -236,7 +236,7 @@ export async function listReports(caller: Caller) {
     claimant: r.claimantId ? { name: b.claimant ?? "A deleted organization", proof: r.proof } : null,
     status: r.status,
     createdAt: r.createdAt,
-    brand: { slug: b.brand, name: b.name, workspace: b.workspace, visibility: b.visibility },
+    brand: { slug: b.brand, name: b.name, project: b.project, visibility: b.visibility },
   }));
 }
 
@@ -250,8 +250,8 @@ export async function decideReport(caller: Caller, id: string, patch: { status?:
     .select({ r: hubReports, brand: brands })
     .from(hubReports)
     .innerJoin(brands, eq(brands.id, hubReports.brandId))
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .where(and(eq(hubReports.id, id), eq(workspaces.organizationId, caller.workspace.organizationId)));
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .where(and(eq(hubReports.id, id), eq(projects.organizationId, caller.project.organizationId)));
   if (!row) return null;
   const delist = patch.delist && row.brand.visibility === "public";
   if (delist) {

@@ -13,7 +13,7 @@ import { hasPreview } from "@/lib/preview";
 
 /**
  * Insights (PRD section 11): what the events lib/core/events.ts records say,
- * for the people who look after the workspace. Every chart reads the
+ * for the people who look after the project. Every chart reads the
  * event_counts view, so the rollup and today's raw events read as one.
  */
 
@@ -48,7 +48,7 @@ async function describe(ids: string[]) {
  * raw events, so it goes back EVENT_DAYS at most; the counts read the rollup.
  */
 async function checkLog(ws: string) {
-  const recent = and(eq(eventCounts.workspaceId, ws), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`), eq(eventCounts.kind, "check"));
+  const recent = and(eq(eventCounts.projectId, ws), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`), eq(eventCounts.kind, "check"));
   const code = sql<string>`unnest(${eventCounts.reasons})`;
   const [[totals], reasons, refusals] = await Promise.all([
     db.select({ allowed: n(sql`verdict = 'allowed'`), refused: n(sql`verdict = 'refused'`) }).from(eventCounts).where(recent),
@@ -60,7 +60,7 @@ async function checkLog(ws: string) {
     db
       .select({ id: events.id, at: events.at, asset: events.assetId, surface: events.surface, client: events.client, context: events.subject, reasons: events.reasons, offered: events.offered })
       .from(events)
-      .where(and(eq(events.workspaceId, ws), eq(events.kind, "check"), eq(events.verdict, "refused"), gte(events.day, sql`${since(INSIGHT_DAYS)}`)))
+      .where(and(eq(events.projectId, ws), eq(events.kind, "check"), eq(events.verdict, "refused"), gte(events.day, sql`${since(INSIGHT_DAYS)}`)))
       .orderBy(desc(events.at))
       .limit(50),
   ]);
@@ -72,7 +72,7 @@ async function checkLog(ws: string) {
         .from(events)
         .where(
           and(
-            eq(events.workspaceId, ws),
+            eq(events.projectId, ws),
             inArray(events.assetId, offered),
             gte(events.at, refusals.at(-1)!.at),
             or(eq(events.kind, "fetch"), and(eq(events.kind, "check"), eq(events.verdict, "allowed"))),
@@ -106,10 +106,10 @@ async function checkLog(ws: string) {
   };
 }
 
-/** GET /api/v1/insights: the workspace's Insights. Write on the workspace. */
+/** GET /api/v1/insights: the project's Insights. Write on the project. */
 export async function insightsOf(caller: Caller) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
-  const ws = eq(eventCounts.workspaceId, caller.workspace.id);
+  const ws = eq(eventCounts.projectId, caller.project.id);
   const recent = and(ws, gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
   const fetched = eq(eventCounts.kind, "fetch");
 
@@ -148,7 +148,7 @@ export async function insightsOf(caller: Caller) {
     db
       .select({ day: traffic.day, requests: traffic.requests, bytes: traffic.bytes })
       .from(traffic)
-      .where(and(eq(traffic.workspaceId, caller.workspace.id), gte(traffic.day, sql`${since(INSIGHT_DAYS)}`)))
+      .where(and(eq(traffic.projectId, caller.project.id), gte(traffic.day, sql`${since(INSIGHT_DAYS)}`)))
       .orderBy(asc(traffic.day)),
     db
       .select({
@@ -160,11 +160,11 @@ export async function insightsOf(caller: Caller) {
       .from(pageViews)
       .innerJoin(portals, eq(portals.id, pageViews.portalId))
       .innerJoin(brands, eq(brands.id, pageViews.brandId))
-      .where(and(eq(portals.workspaceId, caller.workspace.id), gte(pageViews.day, sql`${since(INSIGHT_DAYS)}`)))
+      .where(and(eq(portals.projectId, caller.project.id), gte(pageViews.day, sql`${since(INSIGHT_DAYS)}`)))
       .groupBy(portals.id, brands.id, pageViews.page)
       .orderBy(desc(sql`sum(${pageViews.views})`), asc(portals.name), asc(pageViews.page))
       .limit(50),
-    checkLog(caller.workspace.id),
+    checkLog(caller.project.id),
   ]);
 
   // Top assets: summed over surfaces here, the ten most fetched kept.
@@ -208,16 +208,16 @@ export async function assetInsights(caller: Caller, id: string) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
   const asset = await getAsset(caller, id);
   if (!asset) return null;
-  const ws = caller.workspace.id;
-  const mine = and(eq(eventCounts.workspaceId, ws), eq(eventCounts.assetId, id), eq(eventCounts.kind, "fetch"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
+  const ws = caller.project.id;
+  const mine = and(eq(eventCounts.projectId, ws), eq(eventCounts.assetId, id), eq(eventCounts.kind, "fetch"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
   const [rules, pages, shownOn, surfaces, referrers] = await Promise.all([
     listRules(ws, { asset: id }),
-    // ponytail: reads every page's sections as text; an index of what pages show once workspaces have thousands.
+    // ponytail: reads every page's sections as text; an index of what pages show once projects have thousands.
     db
       .select({ brand: { slug: brands.slug, name: brands.name, default: brands.isDefault }, slug: brandPages.slug, title: brandPages.title })
       .from(brandPages)
       .innerJoin(brands, eq(brands.id, brandPages.brandId))
-      .where(and(eq(brands.workspaceId, ws), or(eq(brandPages.cover, id), sql`${brandPages.sections}::text like ${`%${id}%`}`)))
+      .where(and(eq(brands.projectId, ws), or(eq(brandPages.cover, id), sql`${brandPages.sections}::text like ${`%${id}%`}`)))
       .orderBy(asc(brands.name), asc(brandPages.position)),
     publicPortalsShowing(ws, id),
     db.select({ surface: eventCounts.surface, fetches: n() }).from(eventCounts).where(mine).groupBy(eventCounts.surface),
@@ -258,13 +258,13 @@ const WEEK = 7;
  */
 export async function brandInsights(caller: Caller, slug: string) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const b = await resolveBrand(ws, slug);
   const [[pulls], [views], released] = await Promise.all([
     db
       .select({ total: n() })
       .from(eventCounts)
-      .where(and(eq(eventCounts.workspaceId, ws), eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`))),
+      .where(and(eq(eventCounts.projectId, ws), eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`))),
     db
       .select({ total: sql<number>`coalesce(sum(${pageViews.views}), 0)::int` })
       .from(pageViews)
@@ -278,7 +278,7 @@ export async function brandInsights(caller: Caller, slug: string) {
   ]);
   const of = releaseOfAssets(released.map((r) => ({ number: r.number, assets: r.rules.flatMap((x) => x.assets.map((a) => a.id)) })));
   const ids = [...of.keys()];
-  const mine = and(eq(eventCounts.workspaceId, ws), ids.length ? inArray(eventCounts.assetId, ids) : sql`false`);
+  const mine = and(eq(eventCounts.projectId, ws), ids.length ? inArray(eventCounts.assetId, ids) : sql`false`);
   const [latest] = released;
   const week = gte(eventCounts.day, sql`${since(WEEK)}`);
   // Since the latest release, but not past the window the charts keep: UTC days, as events have them.
@@ -292,7 +292,7 @@ export async function brandInsights(caller: Caller, slug: string) {
       .from(eventCounts)
       .where(
         and(
-          eq(eventCounts.workspaceId, ws),
+          eq(eventCounts.projectId, ws),
           week,
           or(and(eq(eventCounts.brandId, b.id), eq(eventCounts.kind, "pull")), and(mine, inArray(eventCounts.kind, ["fetch", "check"]))),
         ),
@@ -359,7 +359,7 @@ export async function connections(caller: Caller) {
     .from(eventCounts)
     .where(
       and(
-        eq(eventCounts.workspaceId, caller.workspace.id),
+        eq(eventCounts.projectId, caller.project.id),
         gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`),
         eq(eventCounts.actor, "agent"),
         isNotNull(eventCounts.client),

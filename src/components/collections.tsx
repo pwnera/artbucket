@@ -25,7 +25,7 @@ import {
   IconUsers,
   IconWorld,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { useCan } from "@/components/can";
 import { toast } from "sonner";
 import { send } from "@/lib/send";

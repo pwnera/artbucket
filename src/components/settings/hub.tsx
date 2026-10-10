@@ -2,7 +2,7 @@
 
 import { Fragment, useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconBrandGithub, IconCheck, IconCircleCheckFilled, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconCheck, IconCircleCheckFilled, IconPlus, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
@@ -30,7 +30,7 @@ export type HubReport = {
   claimant: { name: string; proof: string | null } | null;
   status: "open" | "resolved";
   createdAt: string;
-  brand: { slug: string; name: string; workspace: string; visibility: "private" | "public" };
+  brand: { slug: string; name: string; project: string; visibility: "private" | "public" };
 };
 
 /**
@@ -221,7 +221,7 @@ function Reports({ reports }: { reports: HubReport[] }) {
                 <Badge variant={r.kind === "claim" ? "warning" : "outline"}>{r.kind === "claim" ? "Claim" : "Report"}</Badge>
                 <span className="font-medium">{r.brand.name}</span>
                 <span className="text-muted-foreground text-xs">
-                  {r.brand.workspace}, {ago(r.createdAt)}
+                  {r.brand.project}, {ago(r.createdAt)}
                 </span>
                 {r.status === "resolved" && <Badge variant="success">Resolved</Badge>}
                 <span className="ms-auto flex gap-1">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { IconPlug, IconPlugConnected, IconRobot } from "@tabler/icons-react";
+import { IconPlug, IconPlugConnected, IconRobot } from "@/components/icons";
 import type { Part } from "@/components/agent-catalog";
 import { IconButton } from "@/components/icon-button";
 import { CopyButton } from "@/components/copy-button";

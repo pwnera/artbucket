@@ -6,7 +6,7 @@ import { brandPath, builderPath } from "./site.ts";
  * win, so each is a short list that ends in it. A company's brand and
  * assets: a released brand. An open-source project's brand: public on
  * BrandHub (a public portal where the server has no hub). A client's: a
- * client workspace. A brand and design system for a product: the brand kept
+ * client project. A brand and design system for a product: the brand kept
  * in its code (a Git repository, from which its tokens and DESIGN.md go out
  * with every push). AI agents on the brand: a first MCP call. Every step is
  * checked off from what the app knows, never by hand.
@@ -30,8 +30,8 @@ export const PATHS = [
   {
     id: "clients",
     label: "Manage brands and assets for my clients",
-    blurb: "A workspace per client, and portals under your name or theirs.",
-    win: "a client workspace",
+    blurb: "A project per client, and portals under your name or theirs.",
+    win: "a client project",
   },
   {
     id: "product",
@@ -75,7 +75,7 @@ export type Facts = {
   hub: boolean;
   /** Someone else is in the organization, or invited. */
   team: boolean;
-  workspaces: number;
+  projects: number;
   /** An agent is connected: a key exists. */
   agent: boolean;
   /** An agent called an MCP tool (the `tool` events Connections reads). */
@@ -156,7 +156,7 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
       return [
         { id: "name", label: "Name your organization", why: "It heads every page, email and share link.", done: f.named, href: "/settings/organization/general" },
         { id: "look", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: f.branded, href: "/settings/organization/branding" },
-        { id: "workspace", label: "Make a client workspace", why: "One per client: its own library, brands and people.", done: f.workspaces > 1, href: "/settings/organization/workspaces", win: true },
+        { id: "project", label: "Make a client project", why: "One per client: its own library, brands and people.", done: f.projects > 1, href: "/settings/organization/projects", win: true },
       ];
     case "ai":
       return [

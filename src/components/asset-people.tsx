@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { IconX } from "@tabler/icons-react";
+import { IconX } from "@/components/icons";
 import { Initials } from "@/components/activity";
 import { useCan, useMe } from "@/components/can";
 import { type Collection } from "@/components/collections";
@@ -21,7 +21,7 @@ const PICK = ROLES.filter((r) => r.scope !== "admin");
 
 /**
  * Who sees a private asset: people added to it, people added to one of its
- * collections, and the workspace's admins. A workspace admin adds and
+ * collections, and the project's admins. A project admin adds and
  * removes people here; everyone else is told who can.
  */
 export function AssetPeople({ asset, collections }: { asset: { id: string; collections: string[] }; collections: Collection[] }) {
@@ -32,7 +32,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
   const [failed, setFailed] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const load = () =>
-    fetch("/api/v1/members?in=workspace")
+    fetch("/api/v1/members?in=project")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((b: Members) => setMembers(b.data))
       .catch(() => setFailed(true));
@@ -40,7 +40,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
     if (manage) void load();
   }, [manage, asset.id]);
 
-  if (!manage) return <p className="text-muted-foreground py-1 text-xs">A workspace admin can add people to it.</p>;
+  if (!manage) return <p className="text-muted-foreground py-1 text-xs">A project admin can add people to it.</p>;
   if (!members) return failed ? <RetryLine what="who sees it" retry={() => (setFailed(false), void load())} /> : <Skeleton className="h-9" />;
 
   const nameOf = (cid: string) => collections.find((c) => c.id === cid)?.name ?? "a collection";
@@ -49,7 +49,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
     m.grants.filter((g) => g.resource === "collection" && asset.collections.includes(g.resourceId)).map((g) => ({ m, g })),
   );
   const admins = members.filter((m) =>
-    m.grants.some((g) => g.scope === "admin" && (g.resource === "organization" || (g.resource === "workspace" && g.resourceId === me?.workspace.id))),
+    m.grants.some((g) => g.scope === "admin" && (g.resource === "organization" || (g.resource === "project" && g.resourceId === me?.project.id))),
   );
   const listed = new Set([...added, ...via].map((r) => r.m.id).concat(admins.map((m) => m.id)));
   const options = members.filter((m) => !listed.has(m.id)).map((m) => ({ value: m.id, label: m.name || m.email, hint: m.email }));
@@ -113,7 +113,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
         <Combobox options={options} value="" onChange={(v) => v && void grant(v, "read")} placeholder="Add a person" />
       ) : (
         <p className="text-muted-foreground text-xs">
-          Everyone in the workspace is here already.{" "}
+          Everyone in the project is here already.{" "}
           <Link href="/team?invite" className="text-foreground underline underline-offset-2">
             Invite someone
           </Link>{" "}

@@ -17,14 +17,14 @@ import {
   portalRequests,
   portals,
   users,
-  workspaces,
+  projects,
   type PortalRequestStatus,
 } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
-import { hiddenIn, ipOf, workspaceById, type Caller } from "@/lib/core/access";
+import { heldBy, hiddenIn, ipOf, projectById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
 import { listUpdates } from "@/lib/core/brand";
-import { brandOfWorkspace } from "@/lib/core/branding";
+import { brandOfProject } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
 import { getCollection } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
@@ -60,13 +60,13 @@ import { canonicalPath, resolvePath, searchSite } from "@/lib/site";
  * purpose (lib/portal.ts), not raw originals.
  *
  * Who gets in follows share links: an end date, a password, and for a
- * `members` portal, people with access to the workspace. Anyone else may ask;
+ * `members` portal, people with access to the project. Anyone else may ask;
  * an admin's yes gives them a link of their own.
  *
  * Visitors read the brands' latest publish, never the draft (D15): a brand
  * never published shows nothing. Who they are sets what they may open (D19):
  * everyone on a public portal, partners with its password or an approved
- * request's key, members signed in to the workspace. Pages and sections above
+ * request's key, members signed in to the project. Pages and sections above
  * them are left out before anything is signed (lib/page-view.ts planView).
  *
  * Managing portals takes `portal.manage`; the portal page itself is a plain
@@ -145,17 +145,17 @@ async function present(p: Row) {
 }
 
 function mayManage(caller: Caller) {
-  if (!can(caller, "portal.manage")) throw new AssetError("forbidden", "Portals take write on the workspace");
+  if (!can(caller, "portal.manage")) throw new AssetError("forbidden", "Portals take write on the project");
 }
 
 async function row(caller: Caller, id: string) {
-  const [p] = await db.select().from(portals).where(and(eq(portals.id, id), eq(portals.workspaceId, caller.workspace.id)));
+  const [p] = await db.select().from(portals).where(and(eq(portals.id, id), eq(portals.projectId, caller.project.id)));
   return p ?? null;
 }
 
 export async function listPortals(caller: Caller) {
   mayManage(caller);
-  const rows = await db.select().from(portals).where(eq(portals.workspaceId, caller.workspace.id)).orderBy(asc(portals.name));
+  const rows = await db.select().from(portals).where(eq(portals.projectId, caller.project.id)).orderBy(asc(portals.name));
   return Promise.all(rows.map(present));
 }
 
@@ -197,11 +197,11 @@ async function checkCollections(caller: Caller, ids: string[]) {
   return unique;
 }
 
-/** Brands it may publish, by slug: this workspace's. Publishing guidelines is managing portals; reading them is anyone's in the library. */
+/** Brands it may publish, by slug: this project's. Publishing guidelines is managing portals; reading them is anyone's in the library. */
 async function checkBrands(caller: Caller, slugs: string[]) {
   const unique = [...new Set(slugs)];
   if (!unique.length) return [];
-  const found = await db.select({ id: brands.id, slug: brands.slug }).from(brands).where(and(eq(brands.workspaceId, caller.workspace.id), inArray(brands.slug, unique)));
+  const found = await db.select({ id: brands.id, slug: brands.slug }).from(brands).where(and(eq(brands.projectId, caller.project.id), inArray(brands.slug, unique)));
   const missing = unique.filter((slug) => !found.some((f) => f.slug === slug));
   if (missing.length) throw new AssetError("invalid", `No brand ${missing.map((m) => `"${m}"`).join(", ")}`);
   return unique.map((slug) => found.find((f) => f.slug === slug)!.id);
@@ -216,7 +216,7 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
   const next = { ...was, ...theme };
   if (theme.logo) {
     const a = await getAsset(caller, theme.logo);
-    if (!a || !a.mime.startsWith("image/")) throw new AssetError("invalid", "The logo is an image asset of this workspace");
+    if (!a || !a.mime.startsWith("image/")) throw new AssetError("invalid", "The logo is an image asset of this project");
   }
   return next;
 }
@@ -244,11 +244,11 @@ export async function portalAddress(caller: Caller, slug: string, except?: strin
     if (!(err instanceof AssetError)) throw err;
     reason = err.message;
   }
-  return { slug, available: !reason, reason, url: await portalUrl({ slug, workspaceId: caller.workspace.id, access: "public" }, null) };
+  return { slug, available: !reason, reason, url: await portalUrl({ slug, projectId: caller.project.id, access: "public" }, null) };
 }
 
 /** Serve the portal at one of the organization's verified domains (Settings, Domains), or none. */
-const setDomain = (caller: Caller, portalId: string, raw: string | null) => assignHost(caller.workspace.organizationId, portalId, raw);
+const setDomain = (caller: Caller, portalId: string, raw: string | null) => assignHost(caller.project.organizationId, portalId, raw);
 
 /**
  * Replace what a portal shows. Two changes at once would both delete, then
@@ -279,7 +279,7 @@ function expiry(raw: string | null | undefined) {
 
 export async function createPortal(caller: Caller, input: Input & { name: string; slug: string }) {
   mayManage(caller);
-  await checkLimit(caller.workspace.organizationId, "shares");
+  await checkLimit(caller.project.organizationId, "shares");
   const access = input.access ?? "public";
   if (access === "password" && !input.password) throw new AssetError("invalid", "A password portal needs a password");
   await slugFree(input.slug, undefined, !input.domain && access !== "members");
@@ -289,11 +289,11 @@ export async function createPortal(caller: Caller, input: Input & { name: string
   const theme = await checkTheme(caller, input.theme ?? {}, { logo: null, accent: null, background: null });
   const site = checkSite(input.site ?? {}, access);
   // Refused before anything is made, so a wrong domain leaves no half-made portal.
-  if (input.domain) await assignable(caller.workspace.organizationId, null, input.domain);
+  if (input.domain) await assignable(caller.project.organizationId, null, input.domain);
   const [p] = await db
     .insert(portals)
     .values({
-      workspaceId: caller.workspace.id,
+      projectId: caller.project.id,
       slug: input.slug,
       name: input.name,
       intro: input.intro || null,
@@ -433,7 +433,7 @@ const logoUrl = async (ws: string, id: string | null) => {
   const [a] = await db
     .select({ id: assets.id })
     .from(assets)
-    .where(and(eq(assets.id, id), eq(assets.workspaceId, ws), deliverableSql));
+    .where(and(eq(assets.id, id), eq(assets.projectId, ws), deliverableSql));
   return a ? withSignature(`/a/${a.id}/h_128,f_webp`, longSig(a.id, 30)) : null;
 };
 
@@ -453,7 +453,7 @@ async function shownRules(ws: string, slug: string) {
   const ids = [...new Set(src?.rules.flatMap((r) => r.assets.map((a) => a.id)) ?? [])];
   const usable = ids.length
     ? new Map(
-        (await db.select({ id: assets.id, mime: assets.mime }).from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))).map((a) => [a.id, a.mime]),
+        (await db.select({ id: assets.id, mime: assets.mime }).from(assets).where(and(inArray(assets.id, ids), eq(assets.projectId, ws), deliverableSql))).map((a) => [a.id, a.mime]),
       )
     : new Map<string, string>();
   const rules = (src?.rules ?? []).map((r) => ({ ...r, assets: r.assets.flatMap((a) => (usable.has(a.id) ? [{ id: a.id, mime: usable.get(a.id)! }] : [])) }));
@@ -465,16 +465,16 @@ async function shownRules(ws: string, slug: string) {
  * else its first brand's, else its organization's (lib/core/branding.ts).
  */
 const shownTheme = async (p: Row) => {
-  const [org, first] = await Promise.all([brandOfWorkspace(p.workspaceId), brandsOf(p.id).then((l) => l.find((b) => b.shown))]);
-  const shown = first ? await shownRules(p.workspaceId, first.slug) : null;
+  const [org, first] = await Promise.all([brandOfProject(p.projectId), brandsOf(p.id).then((l) => l.find((b) => b.shown))]);
+  const shown = first ? await shownRules(p.projectId, first.slug) : null;
   const worn = wornTheme(p.theme, shown && brandLook(shown.rules, shown.logo));
   // Its own logo is the portal's choice for every ground; the brand's has a twin for dark mode when the brand draws one.
   const dark = shown && !p.theme.logo ? darkTwin(shown.rules, worn.logo) : null;
   // A wordmark or lockup spells the brand's name, which the header then need not repeat beside it.
   const key = shown && !p.theme.logo ? shown.rules.find((r) => !r.context && r.assets.some((a) => a.id === worn.logo))?.key : undefined;
   return {
-    logo: (await logoUrl(p.workspaceId, worn.logo)) ?? org.logo,
-    logoDark: await logoUrl(p.workspaceId, dark),
+    logo: (await logoUrl(p.projectId, worn.logo)) ?? org.logo,
+    logoDark: await logoUrl(p.projectId, dark),
     logoSays: key && !/mark|icon|symbol|glyph/.test(key) ? first!.name : null,
     accent: worn.accent ?? org.accent,
     background: p.theme.background,
@@ -490,16 +490,16 @@ const shownTheme = async (p: Row) => {
  */
 async function madeWith(p: Row) {
   if (p.access === "members") return false;
-  const ws = await workspaceById(p.workspaceId);
+  const ws = await projectById(p.projectId);
   const features = ws && (await limitsOf(ws.organizationId)).features;
   return !!features && !features.includes("branding");
 }
 
-/** Someone signed in who may read the portal's workspace. */
-const isMember = (p: Row, headers: Headers | undefined) => readsWorkspace(p.workspaceId, headers);
+/** Someone signed in who may read the portal's project. */
+const isMember = (p: Row, headers: Headers | undefined) => readsProject(p.projectId, headers);
 
 /**
- * Who is signed in, and a check of what they may do in a workspace: read it
+ * Who is signed in, and a check of what they may do in a project: read it
  * (a portal's members, BrandHub's private brands), or edit its brands (the
  * floating Edit on BrandHub and portals; never in a read-only organization).
  * Null when nobody is.
@@ -508,9 +508,9 @@ export async function reader(headers: Headers | undefined) {
   if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
   if (!session) return null;
-  const mine = await db.select().from(grants).where(eq(grants.userId, session.user.id));
-  const may = async (workspaceId: string, action: Action) => {
-    const ws = await workspaceById(workspaceId);
+  const mine = await db.select().from(grants).where(heldBy(session.user.id));
+  const may = async (projectId: string, action: Action) => {
+    const ws = await projectById(projectId);
     if (!ws) return false;
     if (action !== "library.read" && (await limitsOf(ws.organizationId)).readOnly) return false;
     const access = accessIn(mine, ws, await hiddenIn(ws.id));
@@ -520,14 +520,14 @@ export async function reader(headers: Headers | undefined) {
   return { user: session.user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads: (ws: string) => may(ws, "library.read"), may };
 }
 
-/** The workspace of the portal `slug` names, when whoever is signed in may edit its brands; else null. */
+/** The project of the portal `slug` names, when whoever is signed in may edit its brands; else null. */
 export async function portalEditor(slug: string, headers: Headers) {
   const p = (await portalNamed(slug))?.p;
-  return p && (await (await reader(headers))?.may(p.workspaceId, "brand.edit")) ? p.workspaceId : null;
+  return p && (await (await reader(headers))?.may(p.projectId, "brand.edit")) ? p.projectId : null;
 }
 
-async function readsWorkspace(workspaceId: string, headers: Headers | undefined) {
-  return !!(await (await reader(headers))?.reads(workspaceId));
+async function readsProject(projectId: string, headers: Headers | undefined) {
+  return !!(await (await reader(headers))?.reads(projectId));
 }
 
 async function keyValid(p: Row, key: string | null | undefined) {
@@ -553,7 +553,7 @@ const UNAVAILABLE = () => new AssetError("suspended", "This content is unavailab
  * The portal a slug names, if this visitor may open it, and who they are to
  * it (D19): everyone on a public portal; partners, let in by the password or
  * an approved request's key (on any portal); members, signed in to a members
- * portal's workspace. 404 for none, 451 while its organization is suspended
+ * portal's project. 404 for none, 451 while its organization is suspended
  * (lib/suspension.ts), 410 once it closed, 401 (`password`) naming how to get
  * in otherwise.
  */
@@ -628,9 +628,9 @@ export async function viewPortal(
   const { p } = await open(slug, pass);
   const [org] = await db
     .select({ name: organizations.name })
-    .from(workspaces)
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
-    .where(eq(workspaces.id, p.workspaceId));
+    .from(projects)
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
+    .where(eq(projects.id, p.projectId));
   const usable = and(deliverableSql, notSuperseded, eq(assets.private, false));
   const cols = await db
     .select({
@@ -653,10 +653,10 @@ export async function viewPortal(
     madeWith(p),
   ]);
   // A visitor's search, for Insights: who they are is not asked, so they are nobody in particular.
-  if (!offset) recordSearch(p.workspaceId, q, total > 0, { surface: "portal", actor: "anonymous", client: null });
+  if (!offset) recordSearch(p.projectId, q, total > 0, { surface: "portal", actor: "anonymous", client: null });
   // The first brand's look, so the view reads as part of its site; with no brand, the portal's accent over the app's own.
-  const src = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
-  const look = await viewLook(p.workspaceId, src, (id) => pageSig(id, p.expiresAt), theme.accent);
+  const src = showing.length ? await publishedSource(p.projectId, showing[0].slug) : null;
+  const look = await viewLook(p.projectId, src, (id) => pageSig(id, p.expiresAt), theme.accent);
   return {
     portal: {
       slug: p.slug,
@@ -693,7 +693,7 @@ export async function checkPortalUse(slug: string, pass: Pass, { asset: id, ...u
     .where(
       and(
         eq(assets.id, id),
-        eq(assets.workspaceId, p.workspaceId),
+        eq(assets.projectId, p.projectId),
         deliverableSql,
         notSuperseded,
         eq(assets.private, false),
@@ -705,7 +705,7 @@ export async function checkPortalUse(slug: string, pass: Pass, { asset: id, ...u
   const reasons = rightsReasons(a.rights, { ...use, date });
   const allowed = !reasons.some((r) => r.blocking);
   record({
-    workspaceId: p.workspaceId,
+    projectId: p.projectId,
     kind: "check",
     surface: "portal",
     actor: level === "members" ? "person" : "anonymous",
@@ -739,7 +739,7 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
   const { p } = await open(slug, pass);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
-  return readBrand(p.workspaceId, brand, p.expiresAt, o);
+  return readBrand(p.projectId, brand, p.expiresAt, o);
 }
 
 /**
@@ -748,16 +748,16 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
  * `until`.
  */
 export async function readBrand(
-  workspaceId: string,
+  projectId: string,
   brand: { id: string; slug: string; name: string },
   until: Date | null,
   { context, version }: { context?: string | null; version?: number } = {},
 ) {
-  const p = { workspaceId, expiresAt: until };
+  const p = { projectId, expiresAt: until };
   if (context && !ruleContext.safeParse(context).success) {
     throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
   }
-  const src = await publishedSource(p.workspaceId, brand.slug, version);
+  const src = await publishedSource(p.projectId, brand.slug, version);
   if (!src) throw new AssetError("not_found", version === undefined ? "That brand isn't published yet" : `Version ${version} was never published`);
   const rules = context ? resolve(src.rules, context) : src.rules;
   const live = await db
@@ -766,7 +766,7 @@ export async function readBrand(
     .where(eq(brandRules.brandId, brand.id));
   const liveOf = new Map(live.map((r) => [`${r.key}\0${r.context ?? ""}`, r]));
   const ids = [...new Set([...rules.flatMap((r) => r.assets.map((a) => a.id)), ...assetIdsIn(JSON.stringify(rules))])];
-  // Only this workspace's: an id pasted into a rule's text signs nothing of anyone else's.
+  // Only this project's: an id pasted into a rule's text signs nothing of anyone else's.
   const usable = new Map(
     (ids.length
       ? await db
@@ -782,7 +782,7 @@ export async function readBrand(
             origin: assets.origin,
           })
           .from(assets)
-          .where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))
+          .where(and(inArray(assets.id, ids), eq(assets.projectId, p.projectId), deliverableSql))
       : []
     ).map((a) => [a.id, a]),
   );
@@ -829,7 +829,7 @@ const gatedAbove = (src: BrandSource, level: Audience) =>
   (src.pages ?? []).some((pg) => [pg, ...pg.sections].some((x) => rank(x.audience ?? "everyone") > rank(level)));
 
 /**
- * A visitor signed in to the workspace reads what is for members, on any
+ * A visitor signed in to the project reads what is for members, on any
  * portal they got into. Asked only when something above them is there to
  * read: a session lookup most visits never need.
  */
@@ -846,7 +846,7 @@ function checkLang(lang: string | null | undefined) {
 /** The brands visitors see, and each one's publish; one gone unpublished since it was listed is left out. */
 async function publishes(p: Row) {
   const list = (await brandsOf(p.id)).filter((b) => b.shown);
-  const srcs = await Promise.all(list.map((b) => publishedSource(p.workspaceId, b.slug)));
+  const srcs = await Promise.all(list.map((b) => publishedSource(p.projectId, b.slug)));
   return srcs.filter((s): s is BrandSource => s !== null);
 }
 
@@ -865,7 +865,7 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
           await db
             .select({ id: assets.id, mime: assets.mime, filename: assets.filename, rights: assets.rights, origin: assets.origin })
             .from(assets)
-            .where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql))
+            .where(and(inArray(assets.id, ids), eq(assets.projectId, p.projectId), deliverableSql))
         )
           // A quick grab is a download: a file shown only isn't one.
           .flatMap((a) => (isDownloadable(a) ? [a.id] : []))
@@ -911,7 +911,7 @@ export async function viewPortalSite(
     assets: !!col,
     madeWith: made,
   };
-  const firstSrc = showing.length ? await publishedSource(p.workspaceId, showing[0].slug) : null;
+  const firstSrc = showing.length ? await publishedSource(p.projectId, showing[0].slug) : null;
   if (!firstSrc) {
     if (path.length) throw new AssetError("not_found", "There is no page here");
     return { portal: { ...portal, level: door }, canonical: null, redirect: false, view: null };
@@ -923,14 +923,14 @@ export async function viewPortalSite(
   const asked = resolvePath(path, slugs, firstBrand);
   const to = asked.kind === "redirect" ? resolvePath(asked.path, slugs, firstBrand) : asked;
   if (to.kind !== "page") throw new AssetError("not_found", "There is no page here");
-  const src = to.brand === first ? firstSrc : await publishedSource(p.workspaceId, to.brand);
+  const src = to.brand === first ? firstSrc : await publishedSource(p.projectId, to.brand);
   if (!src) throw new AssetError("not_found", "There is no page here");
   const level = await levelFor(p, door, pass, [src]);
-  const view = await viewPage(p.workspaceId, src, to.page, {
+  const view = await viewPage(p.projectId, src, to.page, {
     context: o.context || undefined,
     lang,
     level,
-    // Never `as`: collections read as the workspace's reader, not as whoever is signed in.
+    // Never `as`: collections read as the project's reader, not as whoever is signed in.
     sign: (id) => pageSig(id, p.expiresAt),
     presets: p.presets,
     find: o.find,
@@ -967,7 +967,7 @@ export async function searchPortal(slug: string, pass: Pass, { q, lang }: { q: s
     .map((x) => x.h);
   const ids = (await db.select({ id: portalCollections.collectionId }).from(portalCollections).where(eq(portalCollections.portalId, p.id))).map((c) => c.id);
   const matches = (await portalAssets(p, { ids, q, limit: 12 })).data;
-  recordSearch(p.workspaceId, q, hits.length + matches.length > 0, { surface: "portal", actor: "anonymous", client: null });
+  recordSearch(p.projectId, q, hits.length + matches.length > 0, { surface: "portal", actor: "anonymous", client: null });
   return { hits, assets: matches };
 }
 
@@ -979,7 +979,7 @@ export async function portalUpdates(slug: string, pass: Pass, brandSlug?: string
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
   const updates = await listUpdates(brand.id);
   const ids = [...new Set(updates.flatMap((u) => u.image ?? []))];
-  const rows = ids.length ? await db.select().from(assets).where(and(inArray(assets.id, ids), eq(assets.workspaceId, p.workspaceId), deliverableSql)) : [];
+  const rows = ids.length ? await db.select().from(assets).where(and(inArray(assets.id, ids), eq(assets.projectId, p.projectId), deliverableSql)) : [];
   const media = Object.fromEntries(rows.map((a) => [a.id, shown(a, p)]));
   // A publish's picture shows while it may be used, like any other.
   return { data: updates.map((u) => ({ ...u, image: u.image && media[u.image] ? u.image : null })), media };
@@ -988,10 +988,10 @@ export async function portalUpdates(slug: string, pass: Pass, brandSlug?: string
 /** Where a brand is published: the portals showing it, for publish to name (1.10). */
 export async function portalsShowing(ws: string, brandId: string) {
   const rows = await db
-    .select({ id: portals.id, slug: portals.slug, name: portals.name, workspaceId: portals.workspaceId, access: portals.access })
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, projectId: portals.projectId, access: portals.access })
     .from(portalBrands)
     .innerJoin(portals, eq(portals.id, portalBrands.portalId))
-    .where(and(eq(portalBrands.brandId, brandId), eq(portals.workspaceId, ws)))
+    .where(and(eq(portalBrands.brandId, brandId), eq(portals.projectId, ws)))
     .orderBy(asc(portals.name));
   return Promise.all(rows.map(async (p) => ({ slug: p.slug, name: p.name, access: p.access, url: await portalUrl(p, await domainOf(p.id)) })));
 }
@@ -1009,12 +1009,12 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
     db
       .select()
       .from(portals)
-      .where(and(eq(portals.workspaceId, ws), eq(portals.access, "public"), sql`(${portals.expiresAt} is null or ${portals.expiresAt} > now())`))
+      .where(and(eq(portals.projectId, ws), eq(portals.access, "public"), sql`(${portals.expiresAt} is null or ${portals.expiresAt} > now())`))
       .orderBy(asc(portals.name)),
     db
       .select({ id: assets.id, current: sql<boolean>`${notSuperseded}` })
       .from(assets)
-      .where(and(eq(assets.id, assetId), eq(assets.workspaceId, ws), deliverableSql)),
+      .where(and(eq(assets.id, assetId), eq(assets.projectId, ws), deliverableSql)),
   ]);
   if (!rows.length || !asset) return [];
   const inCollections = asset.current
@@ -1031,7 +1031,7 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
   const shows = async (p: Row) => {
     if (inCollections.has(p.id) || p.theme.logo === asset.id) return true;
     // Its header, as shownTheme draws it: the organization's logo, when the portal has none of its own, and icon.
-    const brand = await brandOfWorkspace(p.workspaceId);
+    const brand = await brandOfProject(p.projectId);
     if (assetIdsIn(JSON.stringify([p.theme.logo ? null : brand.logo, brand.icon])).includes(asset.id)) return true;
     const quick = PortalSite.safeParse(p.site);
     if (quick.success && quick.data.quick?.some((q) => q.asset === asset.id)) return true;
@@ -1047,21 +1047,21 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
       if (!asset.current) continue;
       // As a visitor gets each section: its first page of items, where readers find it without searching.
       for (const s of pages.flatMap((pg) => pg.sections).filter((s) => isLive(s.template))) {
-        const { items } = await collectionItems(p.workspaceId, liveProps(s), { sign: null, presets: p.presets });
+        const { items } = await collectionItems(p.projectId, liveProps(s), { sign: null, presets: p.presets });
         if (items.some((i) => i.id === asset.id)) return true;
       }
     }
     return false;
   };
-  // ponytail: each public portal's publishes, pages and collection sections read again per call; an index of what portals show when a workspace has many.
+  // ponytail: each public portal's publishes, pages and collection sections read again per call; an index of what portals show when a project has many.
   const showing = [];
   for (const p of rows) if (await shows(p)) showing.push({ slug: p.slug, name: p.name, expiresAt: p.expiresAt, url: await portalUrl(p, await domainOf(p.id)) });
   return showing;
 }
 
-/** Admins who hear about a request: the workspace's and the organization's. */
+/** Admins who hear about a request: the project's and the organization's. */
 async function adminsOf(p: Row) {
-  const ws = await workspaceById(p.workspaceId);
+  const ws = await projectById(p.projectId);
   if (!ws) return [];
   const rows = await db
     .selectDistinct({ email: users.email })
@@ -1070,7 +1070,7 @@ async function adminsOf(p: Row) {
     .where(
       and(
         eq(grants.scope, "admin"),
-        sql`((${grants.resource} = 'organization' and ${grants.resourceId} = ${ws.organizationId}) or (${grants.resource} = 'workspace' and ${grants.resourceId} = ${ws.id}))`,
+        sql`((${grants.resource} = 'organization' and ${grants.resourceId} = ${ws.organizationId}) or (${grants.resource} = 'project' and ${grants.resourceId} = ${ws.id}))`,
       ),
     );
   return rows.map((r) => r.email);
@@ -1103,7 +1103,7 @@ export async function requestAccess(
   if (kind === "access") {
     [p] = await db.select().from(portals).where(eq(portals.slug, slug));
     if (!p) throw new AssetError("not_found", "There is no portal here");
-    if (await suspendedIn(p.workspaceId)) throw UNAVAILABLE();
+    if (await suspendedIn(p.projectId)) throw UNAVAILABLE();
     // A public portal takes asks when some page or section of what it shows is for partners or members.
     if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
       throw new AssetError("invalid", "This portal is open: no need to ask");
@@ -1132,7 +1132,7 @@ export async function requestAccess(
   if (!waiting) {
     const note = input.note || null;
     await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note, kind, page: input.page ?? null, section: input.section ?? null });
-    const ws = await workspaceById(p.workspaceId);
+    const ws = await projectById(p.projectId);
     const manage = `${await appUrlFor(ws?.organizationId ?? null)}/portals?open=${p.id}`;
     const who = input.name ? `${input.name} (${email})` : email;
     for (const to of await adminsOf(p)) {
@@ -1209,7 +1209,7 @@ export async function decideRequest(caller: Caller, portalId: string, requestId:
   const out = await presentRequest(p, await domainOf(p.id), next);
   let emailed = false;
   if (out.url) {
-    const sent = await sendAs(caller.workspace.organizationId, portalAccessEmail(r.email, { portal: p.name, organization: caller.workspace.organization.name, url: out.url, until }));
+    const sent = await sendAs(caller.project.organizationId, portalAccessEmail(r.email, { portal: p.name, organization: caller.project.organization.name, url: out.url, until }));
     emailed = sent.sent;
   }
   await recordAudit(caller, status === "approved" ? "portal.request_approved" : "portal.request_denied", r.email, { portal: p.name });

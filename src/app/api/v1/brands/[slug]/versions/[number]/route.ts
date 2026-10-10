@@ -18,13 +18,13 @@ export const GET = route<P>("brand.read", async (req, { slug, number }, caller) 
   const raw = new URL(req.url).searchParams.get("against");
   const against = raw === null ? undefined : raw === "current" ? "current" : num(raw);
   if (against === null) throw new AssetError("invalid", 'against is a version number or "current"');
-  const v = await getVersion(caller.workspace.id, slug, n, against);
+  const v = await getVersion(caller.project.id, slug, n, against);
   return v && ok({ data: v });
 }, missing);
 
 /** PATCH /api/v1/brands/{slug}/versions/{number} - `{ name }` keeps it as a checkpoint. */
 export const PATCH = route<P>("brand.edit", async (req, { slug, number }, caller) => {
   const n = num(number);
-  const v = n ? await nameVersion(caller.workspace.id, slug, n, (await body(req, VersionPatch)).name) : null;
+  const v = n ? await nameVersion(caller.project.id, slug, n, (await body(req, VersionPatch)).name) : null;
   return v && ok({ data: v });
 }, missing);

@@ -20,13 +20,13 @@ export const askedScope = (scope: string | null | undefined): Grantable | null =
 /** What the consent screen picks first: the scope asked, brought down to the most the person may give. */
 export const cappedScope = (asked: Grantable, max: Grantable): Grantable => (SCOPES.indexOf(asked) <= SCOPES.indexOf(max) ? asked : max);
 
-/** What a person decides on the consent screen: the workspaces and a scope, or no. */
+/** What a person decides on the consent screen: the projects and a scope, or no. */
 export const Consent = z.discriminatedUnion("allow", [
   z.object({
     allow: z.literal(true),
-    workspaces: z.array(z.uuid()).max(100).optional(),
-    /** Deprecated: one workspace, from before an agent could be given several. */
-    workspace: z.uuid().optional(),
+    projects: z.array(z.uuid()).max(100).optional(),
+    /** Deprecated: one project, from before an agent could be given several. */
+    project: z.uuid().optional(),
     scope: z.enum(GRANTABLE),
   }),
   z.object({ allow: z.literal(false) }),

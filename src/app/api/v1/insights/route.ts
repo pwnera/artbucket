@@ -2,7 +2,7 @@ import { ok, route } from "@/lib/api";
 import { insightsOf } from "@/lib/core/insights";
 
 /**
- * GET /api/v1/insights - what the workspace's events say: brand answers per
+ * GET /api/v1/insights - what the project's events say: brand answers per
  * week, release adoption and who is still on an old version, the most
  * fetched assets by surface, searches that found nothing, delivery traffic
  * and portal page views.

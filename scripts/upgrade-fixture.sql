@@ -9,19 +9,19 @@ insert into users (id, name, email, email_verified) values
   ('fixture-bo', 'Bo', 'bo@fixture.test', false);
 
 insert into organizations (id, slug, name) values ('00000000-0000-4000-8000-000000000001', 'fixture', 'Fixture');
-insert into workspaces (id, organization_id, slug, name) values
+insert into projects (id, organization_id, slug, name) values
   ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'library', 'Library');
-insert into brands (id, workspace_id, slug, name, is_default, theme) values
+insert into brands (id, project_id, slug, name, is_default, theme) values
   ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'default', 'Fixture', true, '{"accent": "color.primary", "body": "type.body", "radius": 8}');
 
-insert into grants (user_id, organization_id, workspace_id, resource, resource_id, scope) values
+insert into grants (user_id, organization_id, project_id, resource, resource_id, scope) values
   ('fixture-ada', '00000000-0000-4000-8000-000000000001', null, 'organization', '00000000-0000-4000-8000-000000000001', 'admin'),
-  ('fixture-bo', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'workspace', '00000000-0000-4000-8000-000000000002', 'write');
+  ('fixture-bo', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', 'project', '00000000-0000-4000-8000-000000000002', 'write');
 
-insert into collections (id, workspace_id, name, fields) values
+insert into collections (id, project_id, name, fields) values
   ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Autumn', '{"campaign": "Autumn"}');
 
-insert into assets (id, workspace_id, sha256, filename, mime, size, width, height, tags, status, stack_id, version, current, rights, deleted_at) values
+insert into assets (id, project_id, sha256, filename, mime, size, width, height, tags, status, stack_id, version, current, rights, deleted_at) values
   ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000002', repeat('a', 64), 'logo-v1.png', 'image/png', 1000, 64, 64, '["logo"]', 'active', '00000000-0000-4000-8000-000000000010', 1, false, null, null),
   ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000002', repeat('b', 64), 'logo-v2.png', 'image/png', 2000, 64, 64, '["logo"]', 'active', '00000000-0000-4000-8000-000000000010', 2, true, '{"expires": "2099-12-31"}', null),
   ('00000000-0000-4000-8000-000000000012', '00000000-0000-4000-8000-000000000002', repeat('c', 64), 'draft.jpg', 'image/jpeg', 3000, null, null, '[]', 'proposed', null, null, false, null, null),
@@ -32,19 +32,19 @@ insert into collection_assets (collection_id, asset_id) values ('00000000-0000-4
 
 insert into oauth_clients (id, name, redirect_uris, grant_types, used_at) values
   ('abc_fixture', 'Claude', '["https://claude.ai/api/mcp/auth_callback"]', '["authorization_code", "refresh_token"]', now());
-insert into api_keys (workspace_id, name, prefix, hash, scope, user_id, expires_at, refresh_hash, refresh_expires_at, client_id) values
+insert into api_keys (project_id, name, prefix, hash, scope, user_id, expires_at, refresh_hash, refresh_expires_at, client_id) values
   ('00000000-0000-4000-8000-000000000002', 'Claude (Ada)', 'ab_fixture', repeat('e', 64), 'propose', 'fixture-ada', now() + interval '1 hour', repeat('f', 64), now() + interval '90 days', 'abc_fixture');
 
-insert into activity (workspace_id, actor, verb, asset_id, label) values
+insert into activity (project_id, actor, verb, asset_id, label) values
   ('00000000-0000-4000-8000-000000000002', 'Ada', 'added', '00000000-0000-4000-8000-000000000011', 'logo-v2.png');
 insert into audit (organization_id, actor, user_id, action, target) values
   ('00000000-0000-4000-8000-000000000001', 'Ada', 'fixture-ada', 'grant.set', 'bo@fixture.test');
 
 insert into settings (organization_id, key, value, updated_by) values
   ('00000000-0000-4000-8000-000000000001', 'limits', '{"storage": "10GB", "editors": 5}', 'operator');
-insert into traffic (workspace_id, day, requests, bytes) values ('00000000-0000-4000-8000-000000000002', current_date, 12, 34567);
+insert into traffic (project_id, day, requests, bytes) values ('00000000-0000-4000-8000-000000000002', current_date, 12, 34567);
 
-insert into portals (id, workspace_id, slug, name, intro, access, password_hash, presets, theme, site, created_by) values
+insert into portals (id, project_id, slug, name, intro, access, password_hash, presets, theme, site, created_by) values
   ('00000000-0000-4000-8000-000000000040', '00000000-0000-4000-8000-000000000002', 'fixture-press', 'Press kit', 'For press.', 'password',
    'scrypt$c2FsdA$aGFzaA', '["web", "print"]', '{"logo": "00000000-0000-4000-8000-000000000011", "accent": "#ff7a00", "background": null}',
    '{"footer": {"text": "Questions? [Write to us](mailto:press@fixture.test).", "links": [{"label": "Newsroom", "href": "https://fixture.test/news"}]}, "quick": [{"label": "Logo", "asset": "00000000-0000-4000-8000-000000000011"}], "terms": "Use the logo as supplied.", "listed": false}',
@@ -87,7 +87,7 @@ insert into brand_versions (brand_id, number, kind, actor, changed, snapshot, pa
    '[{"slug": "color", "title": "Color", "position": 0, "hidden": false, "sections": [], "eyebrow": "01", "tabs": true, "aliases": ["colours"], "translations": {"fr": {"title": "Couleur"}}, "updatedAt": "2026-09-02T10:00:00.000Z"}, {"slug": "print", "title": "Print", "position": 1, "hidden": true, "sections": [], "parent": "color", "audience": "partners", "layout": "landing", "updatedAt": "2026-09-02T10:00:00.000Z"}]',
    '{"accent": "color.primary"}', null, null, null, null);
 -- A second brand the portal carries, with a page and no history: it serves live until its first edit writes a published baseline.
-insert into brands (id, workspace_id, slug, name) values
+insert into brands (id, project_id, slug, name) values
   ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'fixture-kids', 'Fixture Kids');
 insert into brand_pages (brand_id, slug, title, sections) values ('00000000-0000-4000-8000-000000000005', 'home', 'Home', '[]');
 insert into portal_brands (portal_id, brand_id, position) values

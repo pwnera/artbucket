@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { IconCheck, IconX } from "@/components/icons";
 import { pictured } from "@/components/brand-sections/parts";
 import { Body, ItemTitle, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";

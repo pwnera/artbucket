@@ -3,6 +3,7 @@ import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
 import { ICON_GROUP_NAMES } from "./icons.ts";
+import { CATALOG_TYPES, STATUSES as CATALOG_STATUSES } from "./catalog.ts";
 import { STATES } from "./lifecycle.ts";
 import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
@@ -23,6 +24,27 @@ const schema = (s: z.ZodType, io: "input" | "output" = "output") => {
 
 const json = (s: z.ZodType, io?: "input" | "output") => ({ "application/json": { schema: schema(s, io) } });
 const data = (s: z.ZodType) => z.object({ data: s });
+
+/** The catalog's shapes (lib/core/catalog.ts). */
+const CatalogItem = z.object({
+  id: z.uuid(),
+  type: z.enum(CATALOG_TYPES),
+  slug: z.string(),
+  name: z.string(),
+  address: z.string().describe("{org}/{project}/{type}/{slug}[@release]; a part after its object"),
+  description: z.string().nullable(),
+  status: z.enum(CATALOG_STATUSES),
+  release: z.number().int().nullable(),
+  expires: z.string().nullable(),
+  expiring: z.boolean(),
+  private: z.boolean(),
+  tags: z.array(z.string()),
+  project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }),
+  parent: z.object({ id: z.uuid(), type: z.enum(CATALOG_TYPES), slug: z.string(), name: z.string() }).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+const catalogRef = { name: "ref", in: "path", required: true, schema: { type: "string" }, description: "An id, or an address" } as const;
 
 type Op = {
   summary: string;
@@ -101,10 +123,10 @@ export function openapi(serverUrl: string) {
       version: "1",
       description:
         "Agent-first asset management. The web UI is built on this API and nothing else, beside signing in at /api/auth. " +
-        "Send `Authorization: Bearer <key>`: a key works in one workspace with one scope, and scopes are a ladder: " +
+        "Send `Authorization: Bearer <key>`: a key works in one project with one scope, and scopes are a ladder: " +
         "read < propose < write < admin. People signed in to the app carry a session cookie instead, and their scope is " +
-        "what their grants add up to: on the organization, the workspace, or single collections and assets. A scope " +
-        "shown as needed on the workspace is also enough on the one collection or asset a route acts on. Agents (MCP at " +
+        "what their grants add up to: on the organization, the project, or single collections and assets. A scope " +
+        "shown as needed on the project is also enough on the one collection or asset a route acts on. Agents (MCP at " +
         "POST /api/v1/mcp) usually get `propose`: what they add waits for a human.",
     },
     servers: [{ url: serverUrl }],
@@ -485,6 +507,141 @@ export function openapi(serverUrl: string) {
           ok: [200, "Activity", S.Activity],
         }),
       },
+      "/api/v1/catalog": {
+        get: op({
+          summary: "Search the catalog",
+          scope: "read",
+          description:
+            "Every type at once, in every project of the organization you reach: assets, collections, brands, portals, " +
+            "and brands' rules and pages. `q` takes free words and the filters inline (`logo status:current type:asset`); " +
+            "each filter is also a parameter. Counts per type and project; replaced, archived and expired matches are " +
+            "counted in `hidden` unless `status` asks for them.",
+          query: {
+            q: { schema: str, description: "Free words and inline filters" },
+            type: { schema: { type: "string", enum: [...CATALOG_TYPES] }, description: "Repeat for several" },
+            project: { schema: str, description: "A project's slug" },
+            status: { schema: { type: "string", enum: [...CATALOG_STATUSES] }, description: "Repeat for several" },
+            tag: { schema: str, description: "Carrying this tag" },
+            uses: { schema: str, description: "Only what is downstream of this address or id" },
+            usedby: { schema: str, description: "Only what is upstream of this address or id" },
+            admin: { schema: str, description: "`me`: what you hold Admin on directly" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 30 }, description: "Page size" },
+            cursor: { schema: { type: "integer", minimum: 0 }, description: "The previous page's `next`" },
+          },
+          ok: [
+            200,
+            "Results",
+            z.object({
+              query: z.string(),
+              total: z.number().int(),
+              counts: z.record(z.string(), z.number().int()),
+              projects: z.array(z.object({ slug: z.string(), name: z.string(), count: z.number().int() })),
+              items: z.array(CatalogItem),
+              hidden: z.object({ count: z.number().int(), example: z.string().nullable() }),
+              next: z.number().int().nullable(),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/tree": {
+        get: op({
+          summary: "The catalog's tree",
+          scope: "read",
+          description: "Every project you reach, its objects and their parts (a part names its object in `parent`), replaced versions aside: what the explorer lists.",
+          ok: [200, "Projects", z.object({ projects: z.array(z.object({ id: z.uuid(), slug: z.string(), name: z.string(), role: z.string().nullable(), objects: z.array(CatalogItem) })) })],
+        }),
+      },
+      "/api/v1/catalog/shared": {
+        get: op({
+          summary: "What is shared into this project",
+          scope: "read",
+          description: "Brands, collections and assets other projects of the organization shared into this one: each as it is at home, `sharedFrom` naming it.",
+          ok: [200, "Shared objects", data(z.array(CatalogItem.extend({ sharedFrom: z.object({ id: z.uuid(), name: z.string() }) })))],
+        }),
+      },
+      "/api/v1/catalog/{ref}": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "Describe a catalog object",
+          scope: "read",
+          ok: [
+            200,
+            "The object",
+            CatalogItem.extend({
+              usedBy: z.array(CatalogItem),
+              usedByCount: z.number().int(),
+              lineage: z.object({ up: z.number().int(), down: z.number().int() }),
+              sharedWith: z.array(z.object({ grant: z.uuid(), project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }), role: z.string() })),
+              open: z.string().describe("Where the app shows it"),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/lineage": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "What it comes from and what uses it",
+          scope: "read",
+          description:
+            "Hop by hop, through what you can reach only: `unseen` counts what you can't. Each node says how many edges " +
+            "it has each way (`up`, `down`), so a client can expand it. `impact` is what changing it reaches.",
+          query: {
+            direction: { schema: str, description: "up, down, or up,down (the default)" },
+            depth: { schema: { type: "integer", minimum: 1, maximum: 6, default: 3 }, description: "Hops each way" },
+          },
+          ok: [
+            200,
+            "Lineage",
+            z.object({
+              root: z.uuid(),
+              nodes: z.array(
+                CatalogItem.extend({
+                  up: z.number().int(),
+                  down: z.number().int(),
+                  license: z.string().nullable().optional().describe("An asset's license (rights.license); absent on other types"),
+                  versions: z.number().int().optional().describe("How many versions an asset's stack holds; `release` is which one this is"),
+                }),
+              ),
+              edges: z.array(z.object({ from: z.uuid(), to: z.uuid(), kind: z.string(), via: z.string().nullable() })),
+              unseen: z.number().int(),
+              impact: z.object({ things: z.number().int(), projects: z.number().int(), line: z.string() }),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/access": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "Who can reach it, and why",
+          scope: "read",
+          query: { who: { schema: str, description: "One person, by id or email" } },
+          ok: [
+            200,
+            "Holders",
+            z.object({
+              id: z.uuid(),
+              name: z.string(),
+              private: z.boolean(),
+              holders: z.array(z.object({ kind: z.string(), who: z.string(), role: z.string(), scope: z.string().nullable(), via: z.string() })),
+              on: z
+                .object({ type: z.enum(["asset", "brand", "collection"]), id: z.uuid(), name: z.string() })
+                .nullable()
+                .describe("What takes a grant here (a rule's or a page's brand); POST /api/v1/grants with it. Null for a portal"),
+              granted: z
+                .array(z.object({ grant: z.uuid(), kind: z.enum(["person", "group"]), id: z.string(), who: z.string(), scope: z.string() }))
+                .describe("The grants made on it, each changed with POST /api/v1/grants or taken back with DELETE /api/v1/grants/{grant}"),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/activity": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "What happened to it",
+          scope: "read",
+          ok: [200, "Activity", data(z.array(z.object({ at: z.string(), who: z.string(), what: z.string(), agent: z.boolean() })))],
+        }),
+      },
       "/api/v1/searches": {
         get: op({ summary: "Saved searches", scope: "read", ok: [200, "Saved searches", data(z.array(S.SavedSearch))] }),
         post: op({ summary: "Save a search", scope: "write", body: S.SaveSearch, ok: [201, "Saved", data(S.SavedSearch)] }),
@@ -567,7 +724,7 @@ export function openapi(serverUrl: string) {
             "house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, " +
             "logos, voice and more become rules, its logos and font files are ingested from their URLs, and the brand " +
             "keeps its domain (a template's too); `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: " +
-            "public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand " +
+            "public` lists it on BrandHub in the same call (both take share on the project); if either fails, no brand " +
             "is made. Its history starts at version 1.",
           body: S.BrandCreate,
           ok: [201, "Created", data(S.BrandMade)],
@@ -820,7 +977,7 @@ export function openapi(serverUrl: string) {
           description:
             "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. " +
             "`parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a " +
-            "reply to a resolved thread reopens it. Takes propose on the workspace.",
+            "reply to a resolved thread reopens it. Takes propose on the project.",
           body: S.CommentCreate,
           ok: [201, "The comment", data(S.Comment)],
         }),
@@ -840,7 +997,7 @@ export function openapi(serverUrl: string) {
         delete: op({
           summary: "Delete a comment",
           scope: "propose",
-          description: "Your own, or anyone's with write on the workspace. A thread's first comment takes its replies with it.",
+          description: "Your own, or anyone's with write on the project. A thread's first comment takes its replies with it.",
           ok: [200, "Deleted", S.Deleted],
         }),
       },
@@ -865,7 +1022,7 @@ export function openapi(serverUrl: string) {
             description:
               "Its latest version, rules, pages and theme, becomes the published one, and the next edit starts a new " +
               "version. `note` says what changed, for readers, with `image` beside it. With nothing changed since the " +
-              "last publish, it answers `unchanged: true` and publishes nothing. Takes share on the workspace.",
+              "last publish, it answers `unchanged: true` and publishes nothing. Takes share on the project.",
             ok: [200, "The published version", data(S.Published)],
           }),
           // Everything in it is optional, so the body may be left out.
@@ -878,7 +1035,7 @@ export function openapi(serverUrl: string) {
           summary: "A brand on BrandHub",
           scope: "read",
           description:
-            "Every published brand is on BrandHub at {org}/{brand}, private by default: its workspace's people see it, " +
+            "Every published brand is on BrandHub at {org}/{brand}, private by default: its project's people see it, " +
             "signed in. Public, anyone and any agent reads its latest publish, as a page, llms.txt, brand.json and design " +
             "tokens. `portals`: the portals it could link as its guidelines; null without the right to manage portals.",
           ok: [200, "The brand on BrandHub", data(S.BrandHubView)],
@@ -888,7 +1045,7 @@ export function openapi(serverUrl: string) {
           scope: "write",
           description:
             "`visibility: public` shows its latest publish on BrandHub to anyone; it takes a publish, and a slug no other " +
-            "public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the workspace.",
+            "public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the project.",
           body: S.HubPatch,
           ok: [200, "The brand on BrandHub", data(S.BrandHub)],
         }),
@@ -932,7 +1089,7 @@ export function openapi(serverUrl: string) {
             "named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line " +
             "(`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another " +
             "brand is one. `dryRun` answers what would change. " +
-            "`pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.",
+            "`pending`: the brand still holds changes the files lack, to export back. Takes setup on the project.",
           body: S.BrandImportInput,
           ok: [200, "What changed", data(S.BrandImport)],
           extra: { 422: { description: "Problems in the files", content: json(z.object({ error: z.object({ code: z.string(), message: z.string(), detail: S.FileProblems }) })) } },
@@ -954,7 +1111,7 @@ export function openapi(serverUrl: string) {
           description:
             "Moving it to another repository, branch or folder forgets what was agreed: the next import takes the files " +
             "whole. After pushing an export, send the files pushed as `synced` with their commit: they become what both " +
-            "sides agree on. Takes setup on the workspace.",
+            "sides agree on. Takes setup on the project.",
           body: S.BrandSourceInput,
           ok: [200, "The source", data(S.BrandSource)],
         }),
@@ -1000,8 +1157,8 @@ export function openapi(serverUrl: string) {
           summary: "Who is calling",
           scope: "any",
           description:
-            "The person or key, the workspace this request acts in (a key's own; for a person, the one in the " +
-            "`ab_workspace` cookie if they can open it), the scope there and on its organization, every workspace " +
+            "The person or key, the project this request acts in (a key's own; for a person, the one in the " +
+            "`ab_project` cookie if they can open it), the scope there and on its organization, every project " +
             "they can switch to, and how one signs in here.",
           ok: [200, "You", data(S.Me)],
         }),
@@ -1011,7 +1168,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Make an organization",
           scope: "any",
-          description: "With a first workspace, Library. Needs a signed-in person, who becomes its admin.",
+          description: "With a first project, My First Project. Needs a signed-in person, who becomes its admin.",
           body: S.CreateOrganization,
           ok: [201, "Made", data(S.OrganizationCreated)],
         }),
@@ -1023,7 +1180,7 @@ export function openapi(serverUrl: string) {
           summary: "Delete the organization",
           scope: "any",
           description:
-            "With its workspaces and everything in them, its grants, invitations and settings; its files go with the next " +
+            "With its projects and everything in them, its grants, invitations and settings; its files go with the next " +
             "sweep. Admin on the organization. Not the server's only one.",
           ok: [200, "Deleted", S.Deleted],
         }),
@@ -1041,7 +1198,7 @@ export function openapi(serverUrl: string) {
           summary: "Insights",
           scope: "write",
           description:
-            "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, " +
+            "What the project's events say: brand answers per week, release adoption and who still loads a replaced version, " +
             "the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), " +
             "delivery traffic and portal page views. " +
             "Events never hold an IP address, a person's name or a full URL, and never leave this server.",
@@ -1059,30 +1216,30 @@ export function openapi(serverUrl: string) {
           ok: [200, "Connections", data(S.Connections)],
         }),
       },
-      "/api/v1/workspaces": {
+      "/api/v1/projects": {
         get: op({
-          summary: "Workspaces in this organization",
+          summary: "Projects in this organization",
           scope: "any",
           description: "Those you can open, with your scope on each; null where a grant inside it is all you have.",
-          ok: [200, "Workspaces", data(z.array(S.WorkspaceItem))],
+          ok: [200, "Projects", data(z.array(S.ProjectItem))],
         }),
         post: op({
-          summary: "Make a workspace",
+          summary: "Make a project",
           scope: "any",
           description: "A library of its own in the current organization, with a default brand. Admin on the organization.",
-          body: S.CreateWorkspace,
-          ok: [201, "Made", data(S.WorkspaceItem)],
+          body: S.CreateProject,
+          ok: [201, "Made", data(S.ProjectItem)],
         }),
       },
-      "/api/v1/workspaces/{id}": {
-        parameters: [path("id", "Workspace id")],
-        patch: op({ summary: "Rename a workspace", scope: "any", description: "Admin there.", body: S.WorkspacePatch, ok: [200, "Renamed", data(S.WorkspaceItem.omit({ scope: true }))] }),
+      "/api/v1/projects/{id}": {
+        parameters: [path("id", "Project id")],
+        patch: op({ summary: "Rename a project", scope: "any", description: "Admin there.", body: S.ProjectPatch, ok: [200, "Renamed", data(S.ProjectItem.omit({ scope: true }))] }),
         delete: op({
-          summary: "Delete a workspace",
+          summary: "Delete a project",
           scope: "any",
           description:
             "With its assets, collections, fields, brands, keys and links, at once; its files go with the next sweep, when " +
-            "no other workspace holds the same bytes. Admin on the organization. Not its last workspace.",
+            "no other project holds the same bytes. Admin on the organization. Not its last project.",
           ok: [200, "Deleted", S.Deleted],
         }),
       },
@@ -1090,10 +1247,10 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "People and their access",
           scope: "admin",
-          query: { in: { schema: { type: "string", enum: ["workspace"] }, description: "Only who can open this workspace, and invitations into it" } },
+          query: { in: { schema: { type: "string", enum: ["project"] }, description: "Only who can open this project, and invitations into it" } },
           description:
             "Everyone with a grant in the organization, with the grants you may see, and invitations still waiting. " +
-            "An organization admin sees every workspace's grants; a workspace admin, the organization's and their workspace's.",
+            "An organization admin sees every project's grants; a project admin, the organization's and their project's.",
           ok: [200, "Members", S.Members],
         }),
       },
@@ -1102,15 +1259,50 @@ export function openapi(serverUrl: string) {
           summary: "Give a member access, or change it",
           scope: "any",
           description:
-            "A scope on the organization (its admins only), a workspace, a collection or one asset (admins of the " +
-            "workspace). Grants add up and reach down. Only for people already in the organization; invite anyone else.",
+            "A scope on the organization (its admins only), a project, a collection or one asset (admins of the " +
+            "project), held by a member (`user`) or a group (`group`). Grants add up and reach down. Only for people " +
+            "already in the organization; invite anyone else. With `project`, a share: another project of the organization " +
+            "reads a brand, collection or asset where it is (admin on it shares it).",
           body: S.GrantInput,
-          ok: [200, "The grant", data(S.Grant)],
+          ok: [
+            200,
+            "The grant, or the share",
+            data(
+              z.union([
+                S.Grant,
+                z.object({ id: z.uuid().nullable(), object: z.string(), project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }), role: z.literal("Viewer") }),
+              ]),
+            ),
+          ],
         }),
       },
       "/api/v1/grants/{id}": {
         parameters: [path("id", "Grant id")],
         delete: op({ summary: "Take access away", scope: "any", description: "An organization keeps at least one admin.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/groups": {
+        get: op({
+          summary: "The organization's groups",
+          scope: "any",
+          description: "Each with its members and its grants. A grant held by a group is each member's. Admins of the project.",
+          ok: [200, "Groups", data(z.array(S.GroupInfo))],
+        }),
+        post: op({ summary: "Make a group", scope: "any", description: "The organization's admins.", body: S.GroupInput, ok: [201, "Created", data(S.GroupInfo)] }),
+      },
+      "/api/v1/groups/{id}": {
+        parameters: [path("id", "Group id")],
+        patch: op({ summary: "Rename a group", scope: "any", body: S.GroupInput, ok: [200, "Renamed", data(z.object({ id: z.uuid(), name: z.string() }))] }),
+        delete: op({ summary: "Delete a group", scope: "any", description: "Its grants go with it: members keep what they hold themselves.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/groups/{id}/members": {
+        parameters: [path("id", "Group id")],
+        post: op({
+          summary: "Add and remove members",
+          scope: "any",
+          description: "People of the organization only. Joining a group whose grants make an editor takes a seat.",
+          body: S.GroupMembersChange,
+          ok: [200, "The group", data(S.GroupInfo)],
+        }),
       },
       "/api/v1/invitations": {
         post: op({
@@ -1142,13 +1334,13 @@ export function openapi(serverUrl: string) {
         post: op({ summary: "Accept an invitation", scope: "any", description: "As the signed-in person.", ok: [200, "Accepted", data(S.Accepted)] }),
       },
       "/api/v1/shares": {
-        get: op({ summary: "Share links", scope: "write", description: "The workspace's, on what you may share.", ok: [200, "Links", data(z.array(S.Share))] }),
+        get: op({ summary: "Share links", scope: "write", description: "The project's, on what you may share.", ok: [200, "Links", data(z.array(S.Share))] }),
         post: op({
           summary: "Make a share link",
           scope: "write",
           description:
             "For people without an account. `view`: a collection's approved assets, or one asset, to see and download. " +
-            "`upload`: files sent in land `proposed`, in the collection (or the workspace), for review. Either can " +
+            "`upload`: files sent in land `proposed`, in the collection (or the project), for review. Either can " +
             "expire and ask for a password. Needs write on what it shares.",
           body: S.ShareCreate,
           ok: [201, "The link, and how many of `emails` it was sent to", data(S.Share.extend({ emailed: z.number().int() }))],
@@ -1204,7 +1396,7 @@ export function openapi(serverUrl: string) {
         }),
       },
       "/api/v1/portals": {
-        get: op({ summary: "Brand portals", scope: "write", description: "The workspace's portals.", ok: [200, "Portals", data(z.array(S.Portal))] }),
+        get: op({ summary: "Brand portals", scope: "write", description: "The project's portals.", ok: [200, "Portals", data(z.array(S.Portal))] }),
         post: op({
           summary: "Make a brand portal",
           scope: "write",
@@ -1212,7 +1404,7 @@ export function openapi(serverUrl: string) {
             "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or " +
             "a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions " +
             "made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` " +
-            "(people with access to the workspace); the last two take access requests. Needs sharing rights on each " +
+            "(people with access to the project); the last two take access requests. Needs sharing rights on each " +
             "collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.",
           body: S.PortalInput,
           ok: [201, "The portal", data(S.Portal)],
@@ -1413,7 +1605,7 @@ export function openapi(serverUrl: string) {
           summary: "Ask for access to a portal, or ask its brand team",
           scope: "public",
           description:
-            "Access (`kind` access, the default) is for a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. " +
+            "Access (`kind` access, the default) is for a `password` or `members` portal. The project's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. " +
             "A request section's ask (`kind` asset, review or question) works on any portal, says the `page` and `section` it came from, and needs what reading " +
             "that page needs (X-Portal-Password or X-Portal-Key, or a member's session), else 401. The `page` must be one the visitor can read and `section` a " +
             "request section on it; access takes neither.",
@@ -1480,8 +1672,8 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the " +
-            "organization, able to read one workspace, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
-            "They land in `workspaceId`, or the organization's oldest workspace when it is null, never the whole organization. " +
+            "organization, able to read one project, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). " +
+            "They land in `projectId`, or the organization's oldest project when it is null, never the whole organization. " +
             "Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single " +
             "sign-on covers, and on a server that sends no email of its own.",
           body: S.EmailDomainPatch,
@@ -1497,7 +1689,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Join by email domain",
           scope: "any",
-          description: "Join the organization that opened your address's domain (me.joinable), able to read the workspace it lands people in. 404 when there is none to join.",
+          description: "Join the organization that opened your address's domain (me.joinable), able to read the project it lands people in. 404 when there is none to join.",
           ok: [200, "Joined", data(S.JoinOffer)],
         }),
         delete: op({ summary: "Turn down joining by email domain", scope: "any", description: "Not now: the offer isn't made again.", ok: [200, "Turned down", data(S.JoinOffer)] }),
@@ -1617,7 +1809,7 @@ export function openapi(serverUrl: string) {
             summary: "Make a listing yours",
             scope: "admin",
             description:
-              "Take an offer: a brand in your workspace from the listing's release (as Start from this brand), with its domain, " +
+              "Take an offer: a brand in your project from the listing's release (as Start from this brand), with its domain, " +
               "released and public on BrandHub. The listing goes private, its address leads to yours for good, and its " +
               "organization's admins find a resolved claim and an audit entry. No brand moves between organizations. " +
               "Organization admin, signed in.",
@@ -1664,7 +1856,7 @@ export function openapi(serverUrl: string) {
             "`redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the " +
             "issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then " +
             "POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the " +
-            "organization able to read `workspaceId` (the oldest workspace when null). A new domain is proved again; one another organization proved is refused.",
+            "organization able to read `projectId` (the oldest project when null). A new domain is proved again; one another organization proved is refused.",
           body: S.SsoInput,
           ok: [200, "Single sign-on", data(S.Sso)],
         }),
@@ -1708,8 +1900,8 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, " +
-            "workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace " +
-            "admin, the workspace's.",
+            "projects. An organization admin reads the organization's (with their own sign-ins); a project " +
+            "admin, the project's.",
           query: {
             before: { schema: { type: "string", format: "date-time" }, description: "The `next` of the previous page" },
             limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 50 }, description: "Page size" },
@@ -1722,10 +1914,10 @@ export function openapi(serverUrl: string) {
           summary: "Settings",
           scope: "any",
           description:
-            "Every setting that can be set in `context` (organization or workspace), as it applies there, and its " +
+            "Every setting that can be set in `context` (organization or project), as it applies there, and its " +
             "`source`: set here, inherited from the organization, the server's environment (config files), or the " +
             "default. Secret properties come back null, with whether each is set in `secrets`. Admin on that place.",
-          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },
           ok: [200, "Settings", data(z.array(S.SettingItem))],
         }),
       },
@@ -1735,7 +1927,7 @@ export function openapi(serverUrl: string) {
           summary: "Change a setting",
           scope: "any",
           description: "Starts from what applies now. A blank secret keeps the stored one; null clears it. Admin on that place.",
-          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },
           body: S.SettingPatch,
           ok: [200, "The setting", data(S.SettingItem)],
         }),
@@ -1743,7 +1935,7 @@ export function openapi(serverUrl: string) {
           summary: "Reset a setting",
           scope: "any",
           description: "Forget this place's own value, so the one above it (or the server's) applies again.",
-          query: { context: { schema: { type: "string", enum: ["organization", "workspace"], default: "organization" }, description: "Where" } },
+          query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },
           ok: [200, "The setting, as it now applies", data(S.SettingItem)],
         }),
       },
@@ -1760,7 +1952,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "Connected agents",
           scope: "read",
-          description: "API keys, without secrets, with when each last called and what it left in Review: every key in the workspace for an admin, the agents you connected for anyone else.",
+          description: "API keys, without secrets, with when each last called and what it left in Review: every key in the project for an admin, the agents you connected for anyone else.",
           ok: [200, "Keys, without secrets", data(z.array(S.ApiKey))],
         }),
         post: op({
@@ -1775,21 +1967,21 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "An agent you connected",
           scope: "read",
-          description: "Where it works, each workspace with its scope, and every workspace you could give it. Only your own agents.",
+          description: "Where it works, each project with its scope, and every project you could give it. Only your own agents.",
           ok: [200, "The agent", data(S.Connection)],
         }),
         patch: op({
           summary: "Change where an agent you connected works",
           scope: "read",
           description:
-            "Its workspaces and its scope, as the consent screen gives them: the scope is brought down, in each workspace, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.",
+            "Its projects and its scope, as the consent screen gives them: the scope is brought down, in each project, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.",
           body: S.Regrant,
           ok: [200, "The agent, as it is now", data(S.Connection)],
         }),
         delete: op({
           summary: "Revoke an API key",
           scope: "read",
-          description: "Any key, for an admin; the agents you connected, for anyone. An agent connected to several workspaces stops working in this one and keeps the others.",
+          description: "Any key, for an admin; the agents you connected, for anyone. An agent connected to several projects stops working in this one and keeps the others.",
           ok: [200, "Revoked", S.Deleted],
         }),
       },
@@ -1850,7 +2042,7 @@ export function openapi(serverUrl: string) {
       },
       "/api/v1/oauth/device/{code}": {
         parameters: [path("code", "The user code, e.g. WDJB-MJHT")],
-        get: op({ summary: "What a device code asks for", scope: "any", description: "Signed in: the client, and the workspaces and scopes you can give it.", ok: [200, "The request"] }),
+        get: op({ summary: "What a device code asks for", scope: "any", description: "Signed in: the client, and the projects and scopes you can give it.", ok: [200, "The request"] }),
         post: op({ summary: "Approve or turn down a device code", scope: "any", description: "Signed in.", body: Consent, ok: [200, "Decided", data(z.object({ allowed: z.boolean() }))] }),
       },
       "/api/v1/oauth/authorize": {

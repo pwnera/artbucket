@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconWorldCheck } from "@tabler/icons-react";
+import { IconWorldCheck } from "@/components/icons";
 import { ExternalLink } from "@/components/external-link";
 import { Group } from "@/components/settings/panels";
 import { Button } from "@/components/ui/button";

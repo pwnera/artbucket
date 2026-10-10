@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { IconGitPullRequest } from "@tabler/icons-react";
+import { IconGitPullRequest } from "@/components/icons";
 import { SiteView } from "@/components/site/site-view";
 import type { PageView } from "@/lib/site";
 

@@ -1,7 +1,8 @@
 import { and, asc, count, desc, eq, gt, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { brandRules, brands, brandVersions, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import { brandRules, brands, brandVersions, organizations, portalBrands, portals, projects, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
+import { can, type Who } from "@/lib/permissions";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { pullCounts } from "@/lib/core/events";
@@ -10,7 +11,7 @@ import { env } from "@/lib/env";
 import { hubHome, hubPath } from "@/lib/hub";
 import { brandDomain } from "@/lib/portal";
 
-/** A workspace's brands. `ws` is the workspace id; scopes were checked by the route. */
+/** A project's brands. `ws` is the project id; scopes were checked by the route. */
 
 export type Brand = typeof brands.$inferSelect;
 
@@ -29,27 +30,30 @@ export async function resolveBrand(ws: string, slug?: string | null): Promise<Br
   const [b] = await db
     .select()
     .from(brands)
-    .where(and(eq(brands.workspaceId, ws), slug ? eq(brands.slug, slug) : eq(brands.isDefault, true)));
+    .where(and(eq(brands.projectId, ws), slug ? eq(brands.slug, slug) : eq(brands.isDefault, true)));
   if (!b) throw new AssetError("not_found", slug ? `No brand "${slug}"` : "There is no default brand");
   return b;
 }
 
-/** Every brand, the default first, with how many rules each has. */
-export async function listBrands(ws: string) {
+/** Every brand, the default first, with how many rules each has; with `who`, only those they may read (a private one takes a grant on it). */
+export async function listBrands(ws: string, who?: Who) {
   const rows = await db
     .select({ brand: brands, rules: count(brandRules.id) })
     .from(brands)
     .leftJoin(brandRules, eq(brandRules.brandId, brands.id))
-    .where(eq(brands.workspaceId, ws))
+    .where(eq(brands.projectId, ws))
     .groupBy(brands.id)
     .orderBy(desc(brands.isDefault), asc(brands.name));
-  return rows.map(({ brand, rules }) => ({ ...present(brand), rules }));
+  return rows.filter(({ brand }) => !who || can(who, "brand.read", brand)).map(({ brand, rules }) => ({ ...present(brand), rules }));
 }
 
 export const present = (b: Brand) => ({
+  id: b.id,
   slug: b.slug,
   name: b.name,
   default: b.isDefault,
+  /** Only grants on it, and admins, reach it in the app. */
+  private: b.private,
   visibility: b.visibility,
   from: b.forkedFrom,
   domain: b.domain,
@@ -58,7 +62,7 @@ export const present = (b: Brand) => ({
   createdAt: b.createdAt,
 });
 
-export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true; domain?: string | null }) {
+export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true; domain?: string | null; private?: boolean }) {
   const b = await resolveBrand(ws, slug);
   const domain = patch.domain ? brandDomain(patch.domain) : patch.domain;
   if (patch.domain && !domain) throw new AssetError("invalid", `domain: not a domain: "${patch.domain}". Say acme.com`);
@@ -67,7 +71,7 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
       const [taken] = await tx
         .select({ id: brands.id })
         .from(brands)
-        .where(and(eq(brands.workspaceId, ws), eq(brands.slug, patch.slug)));
+        .where(and(eq(brands.projectId, ws), eq(brands.slug, patch.slug)));
       if (taken) throw new AssetError("conflict", `A brand "${patch.slug}" exists`);
     }
     // One default: taking it means the old one lets go first.
@@ -75,7 +79,7 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
       await tx
         .update(brands)
         .set({ isDefault: false })
-        .where(and(eq(brands.workspaceId, ws), eq(brands.isDefault, true), ne(brands.id, b.id)));
+        .where(and(eq(brands.projectId, ws), eq(brands.isDefault, true), ne(brands.id, b.id)));
     }
     const [row] = await tx
       .update(brands)
@@ -84,6 +88,7 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
         ...(patch.slug !== undefined && { slug: patch.slug }),
         ...(patch.default && { isDefault: true }),
         ...(domain !== undefined && { domain }),
+        ...(patch.private !== undefined && { private: patch.private }),
       })
       .where(eq(brands.id, b.id))
       .returning();
@@ -131,9 +136,9 @@ export async function hubOf(b: Brand) {
   const [[o], [v], pulls, door] = await Promise.all([
     db
       .select({ org: organizations.slug, orgId: organizations.id })
-      .from(workspaces)
-      .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
-      .where(eq(workspaces.id, b.workspaceId)),
+      .from(projects)
+      .innerJoin(organizations, eq(organizations.id, projects.organizationId))
+      .where(eq(projects.id, b.projectId)),
     db
       .select({ number: brandVersions.number, publishedAt: brandVersions.publishedAt })
       .from(brandVersions)
@@ -174,7 +179,7 @@ export async function hubOf(b: Brand) {
  */
 export async function setHub(caller: Caller, slug: string, patch: { visibility?: Visibility; portal?: string | null }) {
   if (!env.HUB_URL) throw new AssetError("invalid", "This server has no BrandHub (HUB_URL)");
-  const b = await resolveBrand(caller.workspace.id, slug);
+  const b = await resolveBrand(caller.project.id, slug);
   let hubPortalId = b.hubPortalId;
   if (patch.portal !== undefined) {
     if (patch.portal === null) hubPortalId = null;
@@ -183,7 +188,7 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
         .select({ id: portals.id })
         .from(portals)
         .innerJoin(portalBrands, and(eq(portalBrands.portalId, portals.id), eq(portalBrands.brandId, b.id)))
-        .where(and(eq(portals.slug, patch.portal), eq(portals.workspaceId, b.workspaceId)));
+        .where(and(eq(portals.slug, patch.portal), eq(portals.projectId, b.projectId)));
       if (!p) throw new AssetError("invalid", `portal: no portal "${patch.portal}" shows ${b.name}`);
       hubPortalId = p.id;
     }
@@ -205,12 +210,29 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
     const [twin] = await db
       .select({ name: brands.name })
       .from(brands)
-      .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-      .where(and(eq(workspaces.organizationId, caller.workspace.organizationId), eq(brands.slug, b.slug), ne(brands.id, b.id), eq(brands.visibility, "public")));
-    if (twin) throw new AssetError("conflict", `${twin.name}, in another workspace, is public as ${b.slug} already. Rename one of them`);
+      .innerJoin(projects, eq(projects.id, brands.projectId))
+      .where(and(eq(projects.organizationId, caller.project.organizationId), eq(brands.slug, b.slug), ne(brands.id, b.id), eq(brands.visibility, "public")));
+    if (twin) throw new AssetError("conflict", `${twin.name}, in another project, is public as ${b.slug} already. Rename one of them`);
   }
   const [row] = await db.update(brands).set({ visibility, hubPortalId }).where(eq(brands.id, b.id)).returning();
   if (!row) throw new AssetError("not_found", `No brand "${slug}"`);
   if (visibility !== b.visibility) await recordAudit(caller, visibility === "public" ? "brand.public" : "brand.private", b.name, { brand: b.slug });
   return (await hubOf(row))!;
+}
+
+/**
+ * The brand a request is about, for lib/api.ts to check its action on it:
+ * /api/v1/brands/{slug}/..., a rule by id (/api/v1/brand/rules/{id}), else
+ * `?brand=`, else the default. Null when there is none: core says not found.
+ */
+export async function brandTarget(ws: string, url: URL): Promise<{ id: string; private: boolean } | null> {
+  const bySlug = url.pathname.match(/^\/api\/v1\/brands\/([^/]+)/)?.[1];
+  const byRule = url.pathname.match(/^\/api\/v1\/brand\/rules\/([0-9a-f-]{36})/i)?.[1];
+  const where = byRule
+    ? eq(brands.id, db.select({ id: brandRules.brandId }).from(brandRules).where(eq(brandRules.id, byRule)))
+    : bySlug || url.searchParams.get("brand")
+      ? eq(brands.slug, decodeURIComponent(bySlug ?? url.searchParams.get("brand")!))
+      : eq(brands.isDefault, true);
+  const [b] = await db.select({ id: brands.id, private: brands.private }).from(brands).where(and(eq(brands.projectId, ws), where));
+  return b ?? null;
 }

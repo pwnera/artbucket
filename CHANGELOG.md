@@ -24,7 +24,7 @@ from [ROADMAP.md](ROADMAP.md).
 
 * **assets:** store an upload's original before its transaction ([855afbe](https://github.com/pwnera/artbucket/commit/855afbe059fc75ceffc5116b506ceec5080e983f))
 * **db:** bound queries with a statement timeout, prune the Insights rollup ([e623534](https://github.com/pwnera/artbucket/commit/e6235349a6becd6bf1798b47172d4caf15338394))
-* **db:** index renditions by workspace, events and their rollup by brand and day ([94a00f2](https://github.com/pwnera/artbucket/commit/94a00f2925f260a2251e5bc53d95980605184619))
+* **db:** index renditions by project, events and their rollup by brand and day ([94a00f2](https://github.com/pwnera/artbucket/commit/94a00f2925f260a2251e5bc53d95980605184619))
 * **db:** statement timeout, upload PUT outside its transaction, hot-path indexes, rollup retention ([7dcc9ea](https://github.com/pwnera/artbucket/commit/7dcc9eadd0d2848550c10d7ef34c89e8f16a3899))
 
 
@@ -93,11 +93,11 @@ from [ROADMAP.md](ROADMAP.md).
 
 ### Fixes
 
-* **access:** a caller who can open no workspace is told none, not the oldest one's name ([7c4c588](https://github.com/pwnera/artbucket/commit/7c4c588090ae305e2eae33bf9acbaa8a5228e3ad))
-* **access:** joining by email domain or single sign-on lands in one workspace ([4ebe450](https://github.com/pwnera/artbucket/commit/4ebe45013937b246ecb9d4ff1403d101a7dd72c5))
-* **access:** joining by email domain or single sign-on lands in one workspace ([6aab3cc](https://github.com/pwnera/artbucket/commit/6aab3cce0a10d22d2d4c48eb7fa6a49db60b87cc))
+* **access:** a caller who can open no project is told none, not the oldest one's name ([7c4c588](https://github.com/pwnera/artbucket/commit/7c4c588090ae305e2eae33bf9acbaa8a5228e3ad))
+* **access:** joining by email domain or single sign-on lands in one project ([4ebe450](https://github.com/pwnera/artbucket/commit/4ebe45013937b246ecb9d4ff1403d101a7dd72c5))
+* **access:** joining by email domain or single sign-on lands in one project ([6aab3cc](https://github.com/pwnera/artbucket/commit/6aab3cce0a10d22d2d4c48eb7fa6a49db60b87cc))
 * **assets:** fetch URL imports outside the upload gate ([9e1a6b5](https://github.com/pwnera/artbucket/commit/9e1a6b59ca6608e70945eb67774d3cad69ccb06a))
-* audit P0s: a fallback workspace kept private, hub share cards, the default brand off the count, sign-up links, plugin on Cloud ([f67bd05](https://github.com/pwnera/artbucket/commit/f67bd051cb752696978473600fb4ee3311b0058e))
+* audit P0s: a fallback project kept private, hub share cards, the default brand off the count, sign-up links, plugin on Cloud ([f67bd05](https://github.com/pwnera/artbucket/commit/f67bd051cb752696978473600fb4ee3311b0058e))
 * **audit:** sign-ins are shown only to the person who signed in ([4144b6d](https://github.com/pwnera/artbucket/commit/4144b6d1be4ff6ce9f7bcfff0cfea549a6733b3c))
 * **auth:** an unbiased secret number for the proof of work ([38661c9](https://github.com/pwnera/artbucket/commit/38661c90bf15543bbbf52ad1df4cfb0a1b80123a))
 * cap each organization's email a day; fetch URL imports outside the upload gate ([f964cfe](https://github.com/pwnera/artbucket/commit/f964cfeba84cd9c28d6098d8b88f51ed5e7606a6))
@@ -158,7 +158,7 @@ from [ROADMAP.md](ROADMAP.md).
 - Blocks edited where they read, guidelines that read like a person wrote them, a floating Edit on
   portals and BrandHub for editors.
 - BrandHub: stars and follows, a badge that wears the brand.
-- Agents across several workspaces, Connections in tabs, a key for MCP clients without OAuth; an
+- Agents across several projects, Connections in tabs, a key for MCP clients without OAuth; an
   MCP tool refuses an argument it doesn't take.
 - A CLI push keeps what changed in the app, and a pull never eats unpushed work.
 - Reliability: storage calls time out, downloads stream, failures say what happened, with Retry.
@@ -250,7 +250,7 @@ from [ROADMAP.md](ROADMAP.md).
 
 ## 0.7.0 (2026-09-27)
 
-- Multi-user: email and OIDC sign-in, organizations and workspaces, grants, share links, audit log.
+- Multi-user: email and OIDC sign-in, organizations and projects, grants, share links, audit log.
 
 ## 0.6.0 (2026-09-27)
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useRef, useState } from "react";
-import { IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconPhoto, IconTrash, IconUpload } from "@/components/icons";
 import { toast } from "sonner";
 import { asMedia, upload } from "@/components/brand-sections/slots";
 import type { BuilderApi } from "@/components/builder/use-builder";

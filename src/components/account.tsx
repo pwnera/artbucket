@@ -19,7 +19,7 @@ import {
   IconSettings,
   IconSunMoon,
   IconUser,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import type { Feature } from "@/lib/limits";
 import { BrandMark, ThemeItems, useBrand } from "@/components/brand";
@@ -46,39 +46,37 @@ import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { can } from "@/lib/permissions";
 import { roleName, type Scope } from "@/lib/scopes";
-import type { Off } from "@/lib/access";
 import { useKept } from "@/lib/motion";
 import { DOCS_URL, PROJECT_URL } from "@/lib/branding";
 
 type Ref = { id: string; slug: string; name: string };
-export type WorkspaceRef = Ref & { organization: Ref };
+export type ProjectRef = Ref & { organization: Ref };
 
 /** GET /api/v1/me: who is looking, where, and what they may do there. */
 export type Me = {
   user: { id: string; name: string; email: string } | null;
   key: boolean;
   actor: string;
-  workspace: WorkspaceRef;
+  project: ProjectRef;
   scope: Scope | null;
   orgScope: Scope | null;
   narrowed: boolean;
   /** The organization can send email now. */
   email: boolean;
-  narrow: { collections: Record<string, Scope>; assets: Record<string, Scope> };
-  off: Off;
+  narrow: { collections: Record<string, Scope>; assets: Record<string, Scope>; brands: Record<string, Scope> };
   hidden: string[];
-  workspaces: WorkspaceRef[];
+  projects: ProjectRef[];
   /** What the organization may use, of what its limits can switch off; null is everything. */
   features: Feature[] | null;
   /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
   upgrade: string | null;
   /** Where an organization's admin manages its plan (BILLING_URL), on a plan or not; null for everyone else. */
   billing: string | null;
-  /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a workspace admin's, when the server has a Git integration. */
+  /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a project admin's, when the server has a Git integration. */
   git: string | null;
   /** This server runs BrandHub (HUB_URL). */
   hub: boolean;
-  /** Where BrandHub shows the workspace's brands, private ones too (lib/hub.ts hubHome); null without HUB_URL. */
+  /** Where BrandHub shows the project's brands, private ones too (lib/hub.ts hubHome); null without HUB_URL. */
   hubUrl: string | null;
   /** The operator's word to the organization's admins, shown across the top of the app (lib/settings.ts, notice). */
   notice: { text: string; href: string | null } | null;
@@ -92,7 +90,7 @@ export type Me = {
 /** The operator's terms and privacy policy, which making an account agrees to. */
 export type Legal = { terms: string | null; privacy: string | null };
 
-/** Go somewhere and redraw it from the server: after signing in or out, or switching workspace, every page's data is someone else's. */
+/** Go somewhere and redraw it from the server: after signing in or out, or switching project, every page's data is someone else's. */
 export function useGo() {
   const router = useRouter();
   return (path: string) => {
@@ -102,27 +100,27 @@ export function useGo() {
 }
 
 let channel: BroadcastChannel | null | undefined;
-/** Where a tab says it switched workspace. One per tab: a channel never hears its own messages, so a tab never hears itself. */
-export const workspaceChannel = () =>
-  channel === undefined ? (channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("artbucket:workspace")) : channel;
+/** Where a tab says it switched project. One per tab: a channel never hears its own messages, so a tab never hears itself. */
+export const projectChannel = () =>
+  channel === undefined ? (channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("artbucket:project")) : channel;
 
-/** The workspace cookie as this tab last wrote or saw it: a change it didn't make was made in another tab. */
+/** The project cookie as this tab last wrote or saw it: a change it didn't make was made in another tab. */
 let known: string | undefined;
 
-/** The cookie lib/core/access.ts reads to pick the workspace. A year: it is a preference, not a secret. */
-export function pickWorkspace(id: string) {
-  document.cookie = `ab_workspace=${id}; path=/; max-age=31536000; samesite=lax`;
+/** The cookie lib/core/access.ts reads to pick the project. A year: it is a preference, not a secret. */
+export function pickProject(id: string) {
+  document.cookie = `ab_project=${id}; path=/; max-age=31536000; samesite=lax`;
   known = id;
-  workspaceChannel()?.postMessage(id);
+  projectChannel()?.postMessage(id);
 }
 
 /**
- * The workspace another tab switched this browser to since this tab last
+ * The project another tab switched this browser to since this tab last
  * looked, or null. The cookie is shared, so every request this tab makes
  * already goes there.
  */
 export function switchedElsewhere(): string | null {
-  const now = document.cookie.match(/(?:^|;\s*)ab_workspace=([^;]*)/)?.[1];
+  const now = document.cookie.match(/(?:^|;\s*)ab_project=([^;]*)/)?.[1];
   if (!now || now === known) return null;
   known = now;
   return now;
@@ -149,21 +147,21 @@ const initials = (s: string) =>
     .join("");
 
 /**
- * The sidebar's top: the mark, the workspace you are in and its
- * organization. Opens onto every workspace you can switch to, grouped by
+ * The sidebar's top: the mark, the project you are in and its
+ * organization. Opens onto every project you can switch to, grouped by
  * organization, and making a new one.
  */
-export function WorkspaceSwitcher({ me }: { me: Me }) {
+export function ProjectSwitcher({ me }: { me: Me }) {
   const router = useRouter();
-  // The old workspace stays on screen until the new one arrives: say it's on its way.
+  // The old project stays on screen until the new one arrives: say it's on its way.
   const [pending, start] = useTransition();
-  const [making, setMaking] = useState<"workspace" | "organization" | null>(null);
+  const [making, setMaking] = useState<"project" | "organization" | null>(null);
   const madeKind = useKept(making);
   const { isMobile } = useSidebar();
-  const orgs = new Map<string, { org: Ref; workspaces: WorkspaceRef[] }>();
-  for (const w of me.workspaces) {
-    const o = orgs.get(w.organization.id) ?? { org: w.organization, workspaces: [] };
-    o.workspaces.push(w);
+  const orgs = new Map<string, { org: Ref; projects: ProjectRef[] }>();
+  for (const w of me.projects) {
+    const o = orgs.get(w.organization.id) ?? { org: w.organization, projects: [] };
+    o.projects.push(w);
     orgs.set(w.organization.id, o);
   }
   return (
@@ -173,30 +171,30 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
           <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent gap-3" aria-busy={pending || undefined}>
             <BrandMark className="max-w-8" />
             <span className="grid min-w-0 flex-1 text-left leading-tight">
-              <span className="truncate font-semibold tracking-tight">{me.workspace.name}</span>
-              <span className="text-muted-foreground truncate text-xs">{me.workspace.organization.name}</span>
+              <span className="truncate font-semibold tracking-tight">{me.project.name}</span>
+              <span className="text-muted-foreground truncate text-xs">{me.project.organization.name}</span>
             </span>
             {pending ? (
-              <Spinner className="text-muted-foreground ml-auto" aria-label="Switching workspace" />
+              <Spinner className="text-muted-foreground ml-auto" aria-label="Switching project" />
             ) : (
               <IconSelector className="text-muted-foreground ml-auto" />
             )}
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-64" side={isMobile ? "bottom" : "right"} align="start">
-          {[...orgs.values()].map(({ org, workspaces }, i) => (
+          {[...orgs.values()].map(({ org, projects }, i) => (
             <DropdownMenuGroup key={org.id}>
               {i > 0 && <DropdownMenuSeparator />}
               <DropdownMenuLabel className="text-muted-foreground flex items-center gap-1.5 text-xs font-normal">
                 <IconBuilding className="size-3.5" /> {org.name}
               </DropdownMenuLabel>
-              {workspaces.map((w) => (
+              {projects.map((w) => (
                 <DropdownMenuItem
                   key={w.id}
                   onSelect={() =>
-                    w.id !== me.workspace.id &&
+                    w.id !== me.project.id &&
                     start(() => {
-                      pickWorkspace(w.id);
+                      pickProject(w.id);
                       router.push("/");
                       router.refresh();
                     })
@@ -206,15 +204,15 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
                     {w.name[0]}
                   </span>
                   <span className="truncate">{w.name}</span>
-                  {w.id === me.workspace.id && <IconCheck className="ml-auto" />}
+                  {w.id === me.project.id && <IconCheck className="ml-auto" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
           ))}
           {(can(me, "organization.manage") || me.user) && <DropdownMenuSeparator />}
           {can(me, "organization.manage") && (
-            <DropdownMenuItem onSelect={() => setMaking("workspace")}>
-              <IconPlus /> New workspace in {me.workspace.organization.name}
+            <DropdownMenuItem onSelect={() => setMaking("project")}>
+              <IconPlus /> New project in {me.project.organization.name}
             </DropdownMenuItem>
           )}
           {me.user && (
@@ -224,13 +222,13 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {madeKind && <MakeDialog kind={madeKind} open={!!making} org={me.workspace.organization.name} onClose={() => setMaking(null)} />}
+      {madeKind && <MakeDialog kind={madeKind} open={!!making} org={me.project.organization.name} onClose={() => setMaking(null)} />}
     </>
   );
 }
 
-/** Name a new workspace or organization, then go into it. */
-export function MakeDialog({ kind, org, open = true, onClose }: { kind: "workspace" | "organization"; org?: string; open?: boolean; onClose: () => void }) {
+/** Name a new project or organization, then go into it. */
+export function MakeDialog({ kind, org, open = true, onClose }: { kind: "project" | "organization"; org?: string; open?: boolean; onClose: () => void }) {
   const id = useId();
   const go = useGo();
   const [busy, setBusy] = useState(false);
@@ -244,33 +242,33 @@ export function MakeDialog({ kind, org, open = true, onClose }: { kind: "workspa
             const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
             if (!name) return;
             setBusy(true);
-            const made = await send("POST", kind === "workspace" ? "/api/v1/workspaces" : "/api/v1/organizations", { name });
+            const made = await send("POST", kind === "project" ? "/api/v1/projects" : "/api/v1/organizations", { name });
             setBusy(false);
             if (!made) return;
             toast.success(`Made ${name}`);
-            pickWorkspace(kind === "workspace" ? made.id : made.workspace.id);
+            pickProject(kind === "project" ? made.id : made.project.id);
             onClose();
             go("/");
           }}
         >
           <DialogHeader>
-            <DialogTitle>{kind === "workspace" ? "New workspace" : "New organization"}</DialogTitle>
+            <DialogTitle>{kind === "project" ? "New project" : "New organization"}</DialogTitle>
             <DialogDescription>
-              {kind === "workspace"
+              {kind === "project"
                 ? `A separate library in ${org}. Its admins can open it.`
-                : "With a first workspace. You are its admin."}
+                : "With a first project. You are its admin."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             <Label htmlFor={id}>Name</Label>
-            <Input id={id} name="name" required maxLength={80} autoFocus placeholder={kind === "workspace" ? "Autumn campaign" : "Acme Studio"} />
+            <Input id={id} name="name" required maxLength={80} autoFocus placeholder={kind === "project" ? "Autumn campaign" : "Acme Studio"} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={busy}>
-              {kind === "workspace" ? "Make workspace" : "Make organization"}
+              {kind === "project" ? "Make project" : "Make organization"}
             </Button>
           </DialogFooter>
         </form>
@@ -337,7 +335,7 @@ export function AccountMenu({ me, openShortcuts }: { me: Me; openShortcuts: () =
           <span className="truncate font-medium">{who}</span>
           <span className="text-muted-foreground truncate text-xs">{me.user.email}</span>
           <span className="text-muted-foreground truncate text-xs">
-            {me.scope ? `${roleName(me.scope)} in ${me.workspace.name}` : `Some of ${me.workspace.name}`}
+            {me.scope ? `${roleName(me.scope)} in ${me.project.name}` : `Some of ${me.project.name}`}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

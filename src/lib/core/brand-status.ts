@@ -22,7 +22,7 @@ import { guidelinesPath } from "@/lib/site";
  * brand_status tool both answer this.
  */
 export async function brandStatus(caller: Caller, slug?: string) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const brand = await resolveBrand(ws, slug);
   const [rules, { pages }, versions, brands] = await Promise.all([
     listRules(ws, { brand: brand.slug }),
@@ -55,7 +55,7 @@ async function filesOut(ws: string, rules: { assets: { id: string }[] }[]) {
     ? await db
         .select({ id: assets.id, filename: assets.filename, mime: assets.mime, rights: assets.rights, origin: assets.origin })
         .from(assets)
-        .where(and(inArray(assets.id, ids), eq(assets.workspaceId, ws), deliverableSql))
+        .where(and(inArray(assets.id, ids), eq(assets.projectId, ws), deliverableSql))
     : [];
   const kept = rows.filter((a) => !isDownloadable(a));
   return {

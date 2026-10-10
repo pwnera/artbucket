@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconPhoto } from "@tabler/icons-react";
+import { IconPhoto } from "@/components/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isFont } from "@/lib/font";
 import { cn } from "@/lib/utils";

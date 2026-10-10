@@ -39,7 +39,7 @@ Every address BrandHub answers is listed in [Portals, BrandHub](/guides/portals#
 
 Make an account at [app.artbucket.io](https://app.artbucket.io) with your
 email and a password, and type the code it emails you. The account gets an
-organization of its own, with a first workspace, and you are its admin.
+organization of its own, with a first project, and you are its admin.
 
 The library first asks what you want to do (manage your company's brand,
 brand an open-source project, manage brands for clients, build a product's
@@ -79,7 +79,7 @@ See [The canon](/guides/canon).
 ## 5. Publish a portal
 
 **Portals** in the sidebar makes one: pick the brand and any collections,
-then who gets in (the workspace's members, whoever has its password, or
+then who gets in (the project's members, whoever has its password, or
 anyone). A portal open to anyone or behind a password answers at
 `{address}.artbucket.page`; a members' one stays at
 `app.artbucket.io/p/{address}`. A domain of your own goes in Settings,
@@ -96,7 +96,7 @@ The MCP server's URL is `https://app.artbucket.io/api/v1/mcp`. In Claude Code:
 claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
 ```
 
-The first call opens a consent screen in the browser: pick the workspaces
+The first call opens a consent screen in the browser: pick the projects
 and what the agent may do (Suggest, Read or Edit). **Connections** in the
 sidebar has the steps for Claude, ChatGPT, Cursor and the rest. Then ask:
 *"Give me the approved logo for a dark background."* The agent reads the

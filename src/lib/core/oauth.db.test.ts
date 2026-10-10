@@ -23,7 +23,7 @@ async function connect(grantTypes: string[], resource?: string) {
     code_challenge_method: "S256",
     ...(resource && { resource }),
   };
-  const { redirect } = await decideAuthorize(ada.caller, params, { allow: true, workspaces: [ada.caller.workspace.id], scope: "propose" });
+  const { redirect } = await decideAuthorize(ada.caller, params, { allow: true, projects: [ada.caller.project.id], scope: "propose" });
   const code = new URL(redirect).searchParams.get("code")!;
   const token = await exchange({ grant_type: "authorization_code", code, client_id: client.client_id, redirect_uri: REDIRECT, code_verifier: verifier, ...(resource && { resource }) });
   return { client: client.client_id, ...token };

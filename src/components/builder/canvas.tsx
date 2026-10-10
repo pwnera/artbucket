@@ -12,7 +12,7 @@ import {
   IconPhoto,
   IconPlus,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { SectionView } from "@/components/brand-sections";
 import { useSiteLook } from "@/components/brand-sections/look";

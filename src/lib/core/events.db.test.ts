@@ -18,7 +18,7 @@ test("queries are bounded by the statement timeout, and maintenance isn't", asyn
 
 test("the rollup drops days past ROLLUP_DAYS and keeps the rest", async () => {
   const day = (ago: number) => sql`(now() at time zone 'utc')::date - ${ago}::int`;
-  const row = (ago: number) => ({ workspaceId: ada.caller.workspace.id, day: day(ago), kind: "fetch", surface: "app", actor: "person", count: 1 }) as const;
+  const row = (ago: number) => ({ projectId: ada.caller.project.id, day: day(ago), kind: "fetch", surface: "app", actor: "person", count: 1 }) as const;
   await db.insert(eventDays).values([row(ROLLUP_DAYS + 1), row(ROLLUP_DAYS - 1)]);
   await rollUp();
   const left = await db.select({ day: sql<number>`(now() at time zone 'utc')::date - ${eventDays.day}` }).from(eventDays);

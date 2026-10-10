@@ -7,7 +7,7 @@ import { z } from "zod";
  * Everything is unlimited until someone says otherwise.
  *
  * lib/core/limits.ts checks them, at the moment something would go over:
- * an upload, a grant or an invitation, a new workspace, brand, domain, key or link.
+ * an upload, a grant or an invitation, a new project, brand, domain, key or link.
  *
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
@@ -41,12 +41,12 @@ const size = z.union([z.number(), z.string()]).transform((v, ctx) => {
 const count = z.number().int().nonnegative();
 
 export const Limits = z.object({
-  /** Bytes of assets, summed over the organization's workspaces. */
+  /** Bytes of assets, summed over the organization's projects. */
   storage: size.nullable(),
   /** People with write or admin anywhere in it, invitations to that included. */
   editors: count.nullable(),
-  workspaces: count.nullable(),
-  /** Brands, over all its workspaces. */
+  projects: count.nullable(),
+  /** Brands, over all its projects. */
   brands: count.nullable(),
   /** Custom domains, the app's and its portals', verified or not. */
   domains: count.nullable(),
@@ -70,7 +70,7 @@ export type Limits = z.infer<typeof Limits>;
 export const UNLIMITED: Limits = {
   storage: null,
   editors: null,
-  workspaces: null,
+  projects: null,
   brands: null,
   domains: null,
   emails: null,
@@ -84,11 +84,11 @@ export const held = (l: Limits): Limits => (l.suspended ? { ...l, readOnly: true
 
 type Env = Record<string, string | undefined>;
 
-/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_WORKSPACES, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_EMAILS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_PROJECTS, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_EMAILS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
 export function limitsFromEnv(env: Env): Limits | null {
   const out: Record<string, unknown> = {};
   if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
-  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["workspaces", "LIMIT_WORKSPACES"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"], ["emails", "LIMIT_EMAILS"]] as const) {
+  for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["projects", "LIMIT_PROJECTS"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"], ["emails", "LIMIT_EMAILS"]] as const) {
     if (env[name]?.trim()) out[k] = Number(env[name]);
   }
   const f = env.LIMIT_FEATURES?.trim();

@@ -30,7 +30,7 @@ const etag = (page: { revision: string }) => ({ ETag: `"${page.revision}"` });
  */
 export const GET = route<P>("brand.read", async (req, { slug, page }, caller) => {
   const context = new URL(req.url).searchParams.get("context") || undefined;
-  const data = await getPage(caller.workspace.id, slug, page, context);
+  const data = await getPage(caller.project.id, slug, page, context);
   return ok({ data }, { headers: etag(data.page) });
 });
 

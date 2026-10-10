@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@tabler/icons-react";
+import { IconArrowUpRight, IconCircleCheckFilled, IconDownload, IconLock, IconUsersGroup } from "@/components/icons";
 import type { HubCard } from "@/lib/core/hub";
 import { TileGround } from "@/components/hub-client";
 import { contrast, inkOn, mix } from "@/lib/color";
@@ -39,10 +39,10 @@ export function Owner({ verified, className }: { verified: string | null; classN
   );
 }
 
-/** Private: only its workspace's people see it, signed in (lib/core/hub.ts). */
+/** Private: only its project's people see it, signed in (lib/core/hub.ts). */
 export function Private({ className }: { className?: string }) {
   return (
-    <span title="Only people in its workspace see it" className={cn("text-muted-foreground inline-flex items-center gap-1 text-xs font-medium", className)}>
+    <span title="Only people in its project see it" className={cn("text-muted-foreground inline-flex items-center gap-1 text-xs font-medium", className)}>
       <IconLock aria-hidden className="size-3.5" /> Private
     </span>
   );

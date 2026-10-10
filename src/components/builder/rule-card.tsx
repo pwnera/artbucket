@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconAdjustmentsHorizontal, IconAlignLeft, IconChevronRight, IconColorPicker, IconHash, IconList, IconPhotoPlus, IconTrash, IconTypography } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconAlignLeft, IconChevronRight, IconColorPicker, IconHash, IconList, IconPhotoPlus, IconTrash, IconTypography } from "@/components/icons";
 import { AssetPicker, AssetThumb } from "@/components/builder/asset-picker";
 import { FloatingPanel } from "@/components/builder/floating-panel";
 import { SpecForm } from "@/components/builder/spec-form";

@@ -7,9 +7,9 @@ A portal is a press kit, a partner hub or a retailer page: the brand pages and
 collections you pick, under your logo and colors, at `/p/{address}` or a domain
 of its own. Make one from **Portals** in the sidebar, with
 `POST /api/v1/portals`, or have an agent make one with `create_portal` (open to
-the workspace's members, to whoever has its password, or to anyone, with its
+the project's members, to whoever has its password, or to anyone, with its
 logo and colors) and change one with `update_portal`. It
-takes write on the workspace, and sharing rights on each collection. A portal
+takes write on the project, and sharing rights on each collection. A portal
 shows at least one collection or one brand.
 
 ## What shows
@@ -62,7 +62,7 @@ Publishing and sharing are two steps: a publish is the version readers get,
 a portal the address they read it at, with who gets in and its look. One brand
 can be on several portals, and a portal can show several brands. A brand no
 portal shows yet gets one in the same step as its publish, if you like: the
-publish dialog offers a portal named for the brand, open to the workspace's
+publish dialog offers a portal named for the brand, open to the project's
 members or to anyone with the address. Publishing from the builder with no
 portal also links to a new one with the brand already picked.
 
@@ -79,7 +79,7 @@ A page or a section can be for fewer readers than the whole portal:
 |---|---|
 | `everyone` | Anyone the portal lets in (the default) |
 | `partners` | Visitors let in by the password or an approved request, and members |
-| `members` | People signed in with access to the workspace |
+| `members` | People signed in with access to the project |
 
 What is above a visitor is left out before anything is sent or signed. A
 locked page still shows in the nav, with a lock and a way in: **Ask for
@@ -107,7 +107,7 @@ a download each.
 A file shown only ([its rights](/guides/assets#shown-not-handed-out): a
 licensed photo, a foundry's typeface) has none: visitors see it, and a
 portal's pages still set its typeface, but nothing offers it to take. A portal
-that lets in more than the workspace says so where its door is set.
+that lets in more than the project says so where its door is set.
 
 On each card and beside a file's downloads, **Can I use this?** asks its rights for a use, a
 country and a day ([the check](/guides/check), behind the portal's door:
@@ -124,12 +124,12 @@ and **Contact**, the footer's feedback address when one is set.
 |---|---|
 | Anyone with the address | Everyone. Search engines are asked to stay out, unless it is [listed](#search-engines). |
 | Whoever has the password | Ten wrong guesses in ten minutes from one address, then it waits. |
-| People in this workspace | Signed in, with access to the workspace. |
+| People in this project | Signed in, with access to the project. |
 
 A portal can close on a date: after it, the address answers `410`.
 
 On the last two, anyone else can **ask for access**: their email, a name, and
-a note. The workspace's admins get an email. Approve, and they get a link of
+a note. The project's admins get an email. Approve, and they get a link of
 their own by email (and one to copy, if email is off), good for 90 days or
 until the portal closes. Remove the request to take it back.
 
@@ -224,7 +224,7 @@ is never listed.
 
 A server with `HUB_URL` set runs BrandHub. Every published brand is on it at
 `{organization}/{brand}`, **private** by default: only people who can read its
-workspace see it, signed in. **Make public** on the brand's Sharing tab or the Brands page (or
+project see it, signed in. **Make public** on the brand's Sharing tab or the Brands page (or
 `PATCH /api/v1/brands/{slug}/hub` with `"visibility": "public"`, or the
 `set_brand_hub` tool) and anyone, and any agent, reads it. Either way BrandHub
 shows the brand's latest publish, with only the assets that may be used, so a
@@ -307,7 +307,7 @@ or a sibling. Such a listing reads **Unclaimed · Is
 this yours? Prove acme.com to claim it** when its organization proved nothing.
 
 **Make it yours** (`POST /api/v1/hub/offers/{org}/{brand}`, `{"slug"}` to name
-it otherwise) starts a brand in your workspace from the listing's release, as
+it otherwise) starts a brand in your project from the listing's release, as
 **Start from this brand** does, with its domain, released and public. The
 listing goes private, its page and files answer `308` to yours for good, and it
 can't be made public again; its organization keeps its brand, finds a resolved
@@ -325,20 +325,20 @@ and its organization can't make it public again, which says why.
 select r.created_at, r.kind, r.reason, r.note, r.contact, r.proof, o.slug as org, b.slug as brand
 from hub_reports r
 join brands b on b.id = r.brand_id
-join workspaces w on w.id = b.workspace_id
+join projects w on w.id = b.project_id
 join organizations o on o.id = w.organization_id
 where r.status = 'open'
 order by r.created_at desc;
 
 -- Delist acme/firefox (setting null lists it again: its organization may then make it public)
 update brands set visibility = 'private', hub_delisted = 'A trademark complaint from its owner'
-where slug = 'firefox' and workspace_id in (select w.id from workspaces w join organizations o on o.id = w.organization_id where o.slug = 'acme');
+where slug = 'firefox' and project_id in (select w.id from projects w join organizations o on o.id = w.organization_id where o.slug = 'acme');
 ```
 
 ### Start from this brand
 
 Signed in, **Start from this brand** on a public listing makes a new brand in
-the workspace you have open from that release: its rules, its theme, the pages
+the project you have open from that release: its rules, its theme, the pages
 and sections anyone may read (none hidden, or for partners or members), and
 the files they use that may be delivered, copied into your library (the same
 bytes, stored once). A file the listing shows but doesn't hand out, a foundry

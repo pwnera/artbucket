@@ -12,7 +12,7 @@ import {
   IconTrash,
   IconTypography,
   type Icon,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { MultiCombobox } from "@/components/combobox";
 import { Confirm } from "@/components/confirm";
@@ -52,7 +52,7 @@ export const keyFor = (label: string) =>
 type Call = (method: string, url: string, payload?: unknown) => Promise<boolean>;
 
 /**
- * The workspace's custom field schema, in Settings: add, adjust, reorder,
+ * The project's custom field schema, in Settings: add, adjust, reorder,
  * remove. Everything goes through /api/v1/fields and saves as it changes.
  * A field's type can't change once made; make a new field instead. The order
  * here is the order every asset's panel and the upload form show.

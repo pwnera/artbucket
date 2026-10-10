@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { IconCheck as CheckIcon, IconChevronRight as ChevronRightIcon, IconCircleFilled as CircleIcon } from "@tabler/icons-react"
+import { IconCheck as CheckIcon, IconChevronRight as ChevronRightIcon, IconCircleFilled as CircleIcon } from "@/components/icons"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 function DropdownMenu({

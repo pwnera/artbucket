@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { IconCheck, IconEye, IconEyeOff } from "@tabler/icons-react"
+import { IconCheck, IconEye, IconEyeOff } from "@/components/icons"
 import { cn } from "@/lib/utils"
 import { IconButton } from "@/components/icon-button"
 import { Input } from "@/components/ui/input"

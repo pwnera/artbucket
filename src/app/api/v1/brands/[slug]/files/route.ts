@@ -9,5 +9,5 @@ import { exportBrand } from "@/lib/core/brand-sync";
  */
 export const GET = route<{ slug: string }>("brand.read", async (req, { slug }, caller) => {
   const as = new URL(req.url).searchParams.get("assets");
-  return ok({ data: await exportBrand(caller.workspace.id, slug, { assets: as === "files" ? "files" : "ids" }) });
+  return ok({ data: await exportBrand(caller.project.id, slug, { assets: as === "files" ? "files" : "ids" }) });
 });

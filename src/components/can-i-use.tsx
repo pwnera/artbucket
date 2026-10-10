@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { IconCircleCheck, IconCircleX } from "@tabler/icons-react";
+import { IconCircleCheck, IconCircleX } from "@/components/icons";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

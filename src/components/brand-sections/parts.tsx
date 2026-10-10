@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconCopy, IconDownload, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDownload, IconTrash } from "@/components/icons";
 import { copy, GRADE_STYLE, MARKER } from "@/components/brand-values";
 import { HEAD } from "@/components/brand-sections/look";
 import { CopyButton } from "@/components/copy-button";

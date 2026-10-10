@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@/components/icons";
 import { Thumbnail } from "@/components/builder/thumbnails";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

@@ -1,7 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { IconActivity, IconInbox, IconPhoto, IconSearch, IconSparkles } from "@tabler/icons-react";
+import { IconSearch, IconSparkles } from "@/components/icons";
 import { NavLink } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/brand";
 import { useMe } from "@/components/can";
@@ -75,52 +74,6 @@ function Trail({ crumbs }: { crumbs: Crumb[] }) {
           );
         })}
       </ol>
-    </nav>
-  );
-}
-
-/**
- * The library's three views, PostHog style: what's in it, what waits on you,
- * and what happened. Each is a URL; the first two move within the page.
- * Without `at` (a loading.tsx, drawing the real tabs while the page comes),
- * Assets or Review by the address.
- */
-export function LibraryTabs({ at: given }: { at?: "assets" | "review" | "activity" }) {
-  const { reviewCount } = useShell();
-  const review = useSearchParams().has("review");
-  const at = given ?? (review ? "review" : "assets");
-  const tabs = [
-    { id: "assets", href: "/", label: "Assets", icon: IconPhoto },
-    { id: "review", href: "/?review", label: "Review", icon: IconInbox, count: reviewCount },
-    { id: "activity", href: "/activity", label: "Activity", icon: IconActivity },
-  ] as const;
-  return (
-    <nav aria-label="Library" className="-mx-4 flex gap-5 border-b px-4 md:-mx-6 md:px-6">
-      {tabs.map((t) => (
-        <NavLink
-          key={t.id}
-          href={t.href}
-          aria-current={at === t.id ? "page" : undefined}
-          className={cn(
-            "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-2.5 text-sm transition-colors",
-            at === t.id
-              ? "border-primary text-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground border-transparent",
-          )}
-        >
-          <t.icon className={cn("size-4", at === t.id ? "text-primary-ink" : "text-muted-foreground/70")} />
-          {t.label}
-          {"count" in t && t.count > 0 && (
-            // Keyed so each change pops in: approving an item visibly ticks it down.
-            <span
-              key={t.count}
-              className="bg-primary text-primary-foreground animate-in zoom-in-50 rounded-full px-1.5 text-xs leading-4 tabular-nums duration-200"
-            >
-              {t.count}
-            </span>
-          )}
-        </NavLink>
-      ))}
     </nav>
   );
 }

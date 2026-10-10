@@ -19,7 +19,7 @@ import {
   IconSearch,
   IconTrash,
   IconUpload,
-} from "@tabler/icons-react";
+} from "@/components/icons";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";

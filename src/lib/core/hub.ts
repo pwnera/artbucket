@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { assets, brands, brandVersions, domains, hubCollections, hubOrgFollows, hubStars, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
+import { assets, brands, brandVersions, domains, hubCollections, hubOrgFollows, hubStars, organizations, portalBrands, portals, projects, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { ingestBytes } from "@/lib/core/assets";
 import { createBrand } from "@/lib/core/brand";
@@ -30,7 +30,7 @@ import { withSignature } from "@/lib/signed";
  * BrandHub (HUB_URL): every published brand at {org}/{brand}, as its latest
  * publish has it (lib/core/portals.ts readBrand): only assets that may be
  * used, signed for a day. A brand is private (lib/core/brands.ts setHub)
- * until made public: private, only people who may read its workspace see it,
+ * until made public: private, only people who may read its project see it,
  * signed in, on the app's own host (/hub); public, anyone and any agent,
  * on the hub's own host too. It links a portal as its guidelines.
  *
@@ -76,13 +76,13 @@ const latest = (col: SQL) =>
 
 /**
  * Brands BrandHub shows, newest publish first: published, and public, or
- * private to a workspace `viewer` may read. Checked in two steps: SQL keeps
+ * private to a project `viewer` may read. Checked in two steps: SQL keeps
  * the public ones and the viewer's organizations', then each private one's
- * workspace is asked.
+ * project is asked.
  */
 async function listings(where: SQL | undefined, limit: number, viewer: HubViewer) {
   // Public, unless the server's operator delisted it (brands.hub_delisted) or suspended its organization: then its own people see it as private.
-  const listed = sql`${brands.hubDelisted} is null and ${notSuspended(workspaces.organizationId)}`;
+  const listed = sql`${brands.hubDelisted} is null and ${notSuspended(projects.organizationId)}`;
   const open = and(eq(brands.visibility, "public"), listed);
   const rows = await db
     .select({
@@ -95,18 +95,18 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
       brand: brands.slug,
       name: brands.name,
       domain: brands.domain,
-      workspaceId: brands.workspaceId,
+      projectId: brands.projectId,
       version: latest(sql`v.number`).mapWith(Number),
       publishedAt: latest(sql`v.published_at`).mapWith((v: string) => new Date(v)),
       snapshot: latest(sql`v.snapshot`).mapWith((v: SnapRule[] | string) => (typeof v === "string" ? (JSON.parse(v) as SnapRule[]) : v)),
     })
     .from(brands)
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(
       and(
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
-        viewer?.orgs.length ? or(open, inArray(workspaces.organizationId, viewer.orgs)) : open,
+        viewer?.orgs.length ? or(open, inArray(projects.organizationId, viewer.orgs)) : open,
         where,
       ),
     )
@@ -115,7 +115,7 @@ async function listings(where: SQL | undefined, limit: number, viewer: HubViewer
     .limit(limit);
   const reads = new Map<string, Promise<boolean>>();
   const may = (ws: string) => reads.get(ws) ?? reads.set(ws, viewer!.reads(ws)).get(ws)!;
-  const shown = await Promise.all(rows.map(async (r) => r.visibility === "public" || (!!viewer && (await may(r.workspaceId)))));
+  const shown = await Promise.all(rows.map(async (r) => r.visibility === "public" || (!!viewer && (await may(r.projectId)))));
   return rows.filter((_, i) => shown[i]);
 }
 
@@ -127,11 +127,11 @@ async function cards(rows: Row[]) {
   const [usable, verified, pulls] = await Promise.all([
     ids.length
       ? db
-          .select({ id: assets.id, mime: assets.mime, filename: assets.filename, workspaceId: assets.workspaceId })
+          .select({ id: assets.id, mime: assets.mime, filename: assets.filename, projectId: assets.projectId })
           .from(assets)
           .where(and(inArray(assets.id, ids), deliverableSql))
           .then((xs) => new Map(xs.map((a) => [a.id, a])))
-      : new Map<string, { id: string; mime: string; filename: string; workspaceId: string }>(),
+      : new Map<string, { id: string; mime: string; filename: string; projectId: string }>(),
     proofsOf(rows.map((r) => r.orgId)),
     pullCounts(rows.map((r) => r.id)),
   ]);
@@ -141,7 +141,7 @@ async function cards(rows: Row[]) {
       // Only the brand's own files, and only while they may be used, as its portal shows them.
       assets: x.assets.flatMap((a) => {
         const u = usable.get(a.id);
-        return u && u.workspaceId === r.workspaceId ? [{ id: a.id, mime: u.mime, filename: u.filename }] : [];
+        return u && u.projectId === r.projectId ? [{ id: a.id, mime: u.mime, filename: u.filename }] : [];
       }),
     }));
     const logo = logoOf(rules);
@@ -255,7 +255,7 @@ export async function followOrg(caller: Caller, org: string, on: boolean) {
     .where(
       and(
         eq(organizations.slug, org),
-        sql`exists (select 1 from ${brands} b join ${workspaces} w on w.id = b.workspace_id
+        sql`exists (select 1 from ${brands} b join ${projects} w on w.id = b.project_id
           where w.organization_id = ${organizations.id} and b.visibility = 'public' and b.hub_delisted is null
           and ${notSuspended(organizations.id)}
           and exists (select 1 from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null))`,
@@ -298,18 +298,18 @@ export async function hubOwner(org: string) {
  * people read its guidelines on, and the terms they accept there. Null when
  * nothing `viewer` may see is at `{org}/{slug}`, or that version was never
  * published. With `context`, the rules resolved for it (lib/rules.ts resolve).
- * With `workspace`, only that workspace's brand by the slug (the Overview's).
+ * With `project`, only that project's brand by the slug (the Overview's).
  */
 export async function hubBrand(
   org: string,
   slug: string,
-  { version, context, viewer = null, workspace }: { version?: number; context?: string | null; viewer?: HubViewer; workspace?: string } = {},
+  { version, context, viewer = null, project }: { version?: number; context?: string | null; viewer?: HubViewer; project?: string } = {},
 ) {
-  // Two of an organization's workspaces may each have one by this slug: the public one first (setHub allows one), else the older.
-  const found = await listings(and(eq(organizations.slug, org), eq(brands.slug, slug), workspace ? eq(brands.workspaceId, workspace) : undefined), 5, viewer);
+  // Two of an organization's projects may each have one by this slug: the public one first (setHub allows one), else the older.
+  const found = await listings(and(eq(organizations.slug, org), eq(brands.slug, slug), project ? eq(brands.projectId, project) : undefined), 5, viewer);
   const row = found.find((r) => r.visibility === "public") ?? found[0];
   if (!row) return null;
-  const view = await readBrand(row.workspaceId, { id: row.id, slug: row.brand, name: row.name }, null, { version, context }).catch((err) => {
+  const view = await readBrand(row.projectId, { id: row.id, slug: row.brand, name: row.name }, null, { version, context }).catch((err) => {
     if (err instanceof AssetError && err.code === "not_found") return null;
     throw err;
   });
@@ -346,7 +346,7 @@ export async function hubBrand(
     ...card,
     /** Whose it is, for Insights' count of reads; never shown. */
     brandId: row.id,
-    workspaceId: row.workspaceId,
+    projectId: row.projectId,
     version: view.version.number,
     publishedAt: view.version.publishedAt,
     latest: row.version,
@@ -390,8 +390,8 @@ export async function wellKnownBrandJson(host: string) {
   const rows = await db
     .select({ slug: brands.slug, isDefault: brands.isDefault, domain: brands.domain, org: organizations.slug, owner: organizations.name })
     .from(brands)
-    .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(
       and(
         eq(organizations.id, d.organizationId),
@@ -425,9 +425,9 @@ const START_FILES = 200;
 
 /**
  * "Start from this brand" (create_brand with `from: "rust-lang/rust@12"`,
- * POST /api/v1/brands): a new brand in the caller's workspace from a public
+ * POST /api/v1/brands): a new brand in the caller's project from a public
  * BrandHub brand's release (its latest without @n), as Duplicate does
- * within a workspace. It takes what that release shows anyone: its rules,
+ * within a project. It takes what that release shows anyone: its rules,
  * its theme, the pages and sections everyone may read (none hidden or for
  * partners or members), and the files they use that may be delivered,
  * copied into this library (same bytes, stored once). The brand keeps where
@@ -441,10 +441,10 @@ const START_FILES = 200;
 export async function startFrom(caller: Caller, input: { name: string; slug?: string; from: string; domain?: string | null }, { claim = false } = {}) {
   if (!hubOn()) throw new AssetError("invalid", "from: this server has no BrandHub to start from");
   const ref = parseHubRef(input.from);
-  // Public only, whoever asks: a private brand is its own workspace's to duplicate.
+  // Public only, whoever asks: a private brand is its own project's to duplicate.
   const hub = ref && (await hubBrand(ref.org, ref.slug, { version: ref.version }));
   if (!hub || hub.visibility !== "public") throw new AssetError("invalid", `from: nothing public is listed at ${input.from}`);
-  const src = await publishedSource(hub.workspaceId, hub.brand, hub.version);
+  const src = await publishedSource(hub.projectId, hub.brand, hub.version);
   if (!src?.version) throw new AssetError("invalid", `from: ${input.from} has no release to start from`);
   const pages = src.pages?.length ? readablePages(src, { level: "everyone" }) : [];
   const text = JSON.stringify({ rules: src.rules, pages, theme: src.theme });
@@ -458,7 +458,7 @@ export async function startFrom(caller: Caller, input: { name: string; slug?: st
           .where(
             and(
               inArray(assets.id, ids),
-              eq(assets.workspaceId, hub.workspaceId),
+              eq(assets.projectId, hub.projectId),
               deliverableSql,
               // A private file only when a rule holds it: the hub shows those to anyone already.
               own.length ? or(eq(assets.private, false), inArray(assets.id, own)) : eq(assets.private, false),

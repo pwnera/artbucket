@@ -3,7 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useState } from "react";
-import { IconCopy, IconDots, IconLayoutList, IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconCopy, IconDots, IconLayoutList, IconList, IconPencil, IconPlus, IconStar, IconTrash } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
@@ -40,7 +40,7 @@ import { brandPath, builderPath } from "@/lib/site";
 import { undoable } from "@/lib/undo";
 import { cn } from "@/lib/utils";
 
-export type BrandInfo = { slug: string; name: string; default: boolean; rules: number };
+export type BrandInfo = { id: string; slug: string; name: string; default: boolean; rules: number; private?: boolean };
 
 /** A brand in the app: its Overview, the tab it opens on. */
 export const brandHref = (b: { slug: string }) => brandPath(b.slug);
@@ -116,6 +116,11 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
       id="brands"
       label="Brands"
       sortable={section}
+      menu={
+        <DropdownMenuItem onSelect={() => router.push("/brands")}>
+          <IconList /> All brands
+        </DropdownMenuItem>
+      }
       action={
         <Can do="brand.edit">
           <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setCreating(opening(true))} />

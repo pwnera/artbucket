@@ -6,7 +6,7 @@ import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
 
 /**
  * Settings, as definitions. Each says where it may be set (an organization,
- * a workspace, or both), its shape, its default, which of its properties are
+ * a project, or both), its shape, its default, which of its properties are
  * secret, and how the server's own configuration spells it in the
  * environment. Adding a setting is adding an entry to SETTINGS; the store,
  * the API and the Settings page read them from here.
@@ -14,7 +14,7 @@ import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
  * Each place keeps only what it overrides, and a value resolves property by
  * property from the narrowest place that says something:
  *
- *   workspace  >  organization  >  environment (config files)  >  default
+ *   project  >  organization  >  environment (config files)  >  default
  *
  * so a server configured once serves every organization, and one of them can
  * change what the server leaves open. A `serverWins` setting the environment
@@ -24,7 +24,7 @@ import { Limits, limitsFromEnv, UNLIMITED } from "./limits.ts";
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
 
-export const SETTING_CONTEXTS = ["organization", "workspace"] as const;
+export const SETTING_CONTEXTS = ["organization", "project"] as const;
 export type SettingContext = (typeof SETTING_CONTEXTS)[number];
 export type Source = SettingContext | "environment" | "default";
 
@@ -116,7 +116,7 @@ export type SettingValue<K extends SettingKey> = z.infer<(typeof SETTINGS)[K]["s
 /** What the API lists and changes: everything but the operator's. */
 export const SETTING_KEYS = (Object.keys(SETTINGS) as SettingKey[]).filter((k) => !("operator" in SETTINGS[k]));
 
-/** Whether the environment has taken this setting over (`serverWins`): then no organization or workspace sets it. */
+/** Whether the environment has taken this setting over (`serverWins`): then no organization or project sets it. */
 export const lockedBy = (key: SettingKey, env: Env) => "serverWins" in SETTINGS[key] && SETTINGS[key].fromEnv(env) !== null;
 
 type Layer = Record<string, unknown> | null | undefined;
@@ -133,7 +133,7 @@ export function resolve<K extends SettingKey>(key: K, layers: Partial<Record<Set
     ["default", SETTINGS[key].default],
     ["environment", SETTINGS[key].fromEnv(env)],
     ["organization", places.organization],
-    ["workspace", places.workspace],
+    ["project", places.project],
   ];
   const value: Record<string, unknown> = {};
   const sources: Record<string, Source> = {};

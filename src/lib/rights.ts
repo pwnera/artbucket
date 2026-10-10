@@ -44,7 +44,7 @@ export const RightsInput = z
       .boolean()
       .nullable()
       .optional()
-      .describe("Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it."),
+      .describe("Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it."),
   })
   .refine((r) => !r.embargo || !r.expires || r.embargo <= r.expires, "The embargo lifts after it expires")
   .transform(
@@ -79,7 +79,7 @@ export const OPEN_LICENSE =
   /open font licen[cs]e|\bOFL\b|apache licen[cs]e|ubuntu font licen[cs]e|\bMIT\b|creative commons|\bCC[ -]?(BY|0)\b|public domain|\bunlicense\b/i;
 
 /**
- * Whether people outside the workspace may take the file itself: download
+ * Whether people outside the project may take the file itself: download
  * it, or fetch it from anywhere but a page of this app that shows it. Either
  * way they see it, at a preview's size (lib/transform.ts SHOWN_MAX). A person
  * decides; until then, a font goes out only under an open license (an upload

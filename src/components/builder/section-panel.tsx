@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCopy, IconEye, IconGripVertical, IconLayoutSidebarRight, IconMessageCircle, IconPalette, IconPictureInPictureOn, IconPlus, IconTrash, IconX } from "@/components/icons";
 import { endDrag, startDrag } from "@/components/builder/drag";
 import { CommentsPanel } from "@/components/builder/comments";
 import { FloatingPanel } from "@/components/builder/floating-panel";
@@ -601,7 +601,7 @@ function GroupField({ s, f, error, onSet }: { s: Section; f: Extract<Field, { ki
   );
 }
 
-/** A collection or a saved search of the workspace, by name. */
+/** A collection or a saved search of the project, by name. */
 function SavedPicker({ b, id, kind, value, onPick }: { b: BuilderApi; id: string; kind: "collection" | "search"; value?: string; onPick(id: string | undefined): void }) {
   const [list, setList] = useState<{ id: string; name: string }[] | null>(null);
   useEffect(() => {

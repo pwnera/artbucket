@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconBolt, IconChevronDown, IconDownload, IconExternalLink, IconFileText } from "@tabler/icons-react";
+import { IconBolt, IconChevronDown, IconDownload, IconExternalLink, IconFileText } from "@/components/icons";
 import { SiteLink } from "@/components/site/nav-tree";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";

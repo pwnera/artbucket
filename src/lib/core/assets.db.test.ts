@@ -21,9 +21,9 @@ const upload = async (filename: string, extra: { collections?: string[]; private
   (await ingestBytes(ada.caller, { bytes: await png(), mime: "image/png", filename, ...extra })).asset;
 const listed = async (caller = ada.caller) => (await searchAssets(caller, { limit: 50 })).data.map((a: { id: string }) => a.id);
 
-test("an upload lands in the caller's workspace, usable, and in their search", async () => {
+test("an upload lands in the caller's project, usable, and in their search", async () => {
   const asset = await upload("logo.png");
-  assert.equal(asset.workspaceId, ada.caller.workspace.id);
+  assert.equal(asset.projectId, ada.caller.project.id);
   assert.equal(asset.state, "active");
   assert.equal(asset.mime, "image/png");
   assert.equal((await getAsset(ada.caller, asset.id))?.id, asset.id);

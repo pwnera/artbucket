@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconCopy, IconDownload, IconLink, IconRefresh } from "@tabler/icons-react";
+import { IconCopy, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconBrandGithub, IconSettings, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconBrandGithub, IconSettings, IconStar, IconTrash } from "@/components/icons";
 import type { HeadBrand } from "@/lib/brand-head";
 import type { Source } from "@/components/builder/use-status";
 import { Can } from "@/components/can";
@@ -117,6 +117,27 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
             </Button>
           </span>
         </form>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+          <p className="flex items-center gap-1.5 text-sm">
+            {brand.private ? "Private" : "Everyone in the project"}
+            <InfoTip>A private brand is reached only by people given access to it, and admins: a draft kept from the rest of the project. Portals and BrandHub are apart.</InfoTip>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            pending={busy === "private"}
+            onClick={async () => {
+              setBusy("private");
+              const done = await send("PATCH", `/api/v1/brands/${b}`, { private: !brand.private });
+              setBusy(null);
+              if (!done) return;
+              toast.success(brand.private ? `${brand.name} is the project's again` : `${brand.name} is private`);
+              router.refresh();
+            }}
+          >
+            {brand.private ? "Open to the project" : "Make private"}
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
           <p className="flex items-center gap-1.5 text-sm">
             {brand.default ? "Default brand" : "Not the default brand"}

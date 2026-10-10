@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconChevronRight, IconEye, IconEyeOff, IconPhoto, IconTrash } from "@tabler/icons-react";
+import { IconChevronRight, IconEye, IconEyeOff, IconPhoto, IconTrash } from "@/components/icons";
 import { CHANGE_LABEL, useChanges } from "@/components/builder/changes";
 import { endDrag, payloadOf, startDrag } from "@/components/builder/drag";
 import { Thumbnail } from "@/components/builder/thumbnails";
