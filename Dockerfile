@@ -4,7 +4,7 @@
 FROM node:24-alpine AS build
 RUN corepack enable
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-project.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 # The build imports src/lib/env.ts, which checks the environment: placeholders

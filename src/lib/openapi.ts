@@ -1852,7 +1852,7 @@ export function openapi(serverUrl: string) {
           summary: "Set up single sign-on",
           scope: "admin",
           description:
-            "One OpenID Connect provider (Okta, Entra ID, Google Project...) for the people at one email domain. Register " +
+            "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register " +
             "`redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the " +
             "issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then " +
             "POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the " +

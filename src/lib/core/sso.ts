@@ -16,7 +16,7 @@ import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } fr
 
 /**
  * An organization's own single sign-on: one OpenID Connect provider (Okta,
- * Entra ID, Google Project, Keycloak...) for the people at one email
+ * Entra ID, Google Workspace, Keycloak...) for the people at one email
  * domain. An admin registers this server with the provider, saves the
  * client here, and proves the domain with a TXT record. From then on anyone
  * at that domain signs in through the provider (lib/auth.ts, better-auth's

@@ -112,14 +112,14 @@ export function SsoPanel({ sso, redirectUris, projects }: { sso: Sso | null; red
     <div className="space-y-6">
       <Group
         title="Single sign-on"
-        description="Okta, Entra ID, Google Project or any OpenID Connect provider."
+        description="Okta, Entra ID, Google Workspace or any OpenID Connect provider."
         info="Your people sign in with their work email. The first time, they join able to read one project, never the whole organization; raise anyone's access in Team."
       >
         <div className="grid gap-2 text-sm">
           <p>
             1. At your provider, make a web app (OpenID Connect) with {redirectUris.length > 1 ? "these redirect URIs, one for each address of the app" : "this redirect URI"}:{" "}
-            <InfoTip label="Google Project and Entra ID">
-              Google Project: an OAuth client of type Web application, issuer https://accounts.google.com, and an Internal consent screen. Entra ID: an app
+            <InfoTip label="Google Workspace and Entra ID">
+              Google Workspace: an OAuth client of type Web application, issuer https://accounts.google.com, and an Internal consent screen. Entra ID: an app
               registration with a Web redirect URI, issuer https://login.microsoftonline.com/&#123;tenant&#125;/v2.0.
             </InfoTip>
           </p>
