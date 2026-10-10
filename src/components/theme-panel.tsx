@@ -575,94 +575,87 @@ function LinksEditor({ links, onSave }: { links: Link[]; onSave: (links: Link[])
 
 /**
  * A look drawn as a small page, gray like a loading skeleton: where its
- * navigation sits, how its header opens, how big its titles are, how dense
- * its text, its corners, grounds and contents. What picking it gives.
+ * navigation sits, how its header opens, how wide and dense it reads, how big
+ * its titles are, its corners, grounds and contents. What picking it gives.
  */
 function LookSketch({ look }: { look: (typeof LOOKS)[string]["patch"] }) {
-  const gray = (n: number) => `color-mix(in oklab, var(--foreground) ${n}%, transparent)`;
-  const page = "var(--background)";
-  const panel = gray(5);
-  const accent = gray(22);
-  const ink = gray(28);
-  const muted = gray(12);
-  const r = Math.min((look.radius ?? 8) / 3, 6);
-  const gap = { compact: 2, normal: 3, airy: 5 }[look.density ?? "normal"];
-  const title = { medium: 4, large: 6, huge: 9 }[look.titles ?? "large"];
-  const inset = { narrow: 18, normal: 10, wide: 6 }[look.width ?? "normal"];
-  const line = (w: string, color = muted, h = 2, key?: number) => <span key={key} className="block rounded-full" style={{ width: w, height: h, backgroundColor: color }} />;
-  const text = (n: number) => (
-    <span className="grid" style={{ gap }}>
-      {Array.from({ length: n }, (_, i) => line(i === n - 1 ? "60%" : "100%", muted, 2, i))}
-    </span>
-  );
-  const heading = (light = false) => (
-    <span className="flex items-center gap-1">
-      {look.numbering && <span className="block size-1.5 shrink-0 rounded-[1px]" style={{ backgroundColor: light ? page : accent }} />}
-      {line("55%", light ? page : ink, title)}
-    </span>
-  );
-  const section = (alt: boolean) => (
-    <span
-      className="grid"
-      style={{
-        gap,
-        padding: `${gap * 2}px ${inset}px`,
-        backgroundColor: alt && look.grounds === "alternate" ? panel : "transparent",
-        borderTop: look.separation === "hairline" ? `1px solid ${muted}` : undefined,
-      }}
-    >
-      {heading()}
-      {text(look.density === "airy" ? 2 : 3)}
-      {alt && <span className="block h-4" style={{ borderRadius: r, backgroundColor: muted }} />}
-    </span>
-  );
+  const W = 120;
+  const H = 80;
+  const side = look.nav === "sidebar" ? 26 : 0;
+  const area = W - side;
+  const w = area * { narrow: 0.6, normal: 0.78, wide: 0.88 }[look.width ?? "normal"];
+  const x = side + (area - w) / 2;
+  const toc = look.toc === "side" ? 16 : 0;
+  const cw = w - toc;
+  const r = Math.min((look.radius ?? 8) / 4, 4);
+  const gap = { compact: 3, normal: 4, airy: 6 }[look.density ?? "normal"];
+  const th = { medium: 3, large: 4.5, huge: 6.5 }[look.titles ?? "large"];
+  const back: React.ReactNode[] = [];
+  const front: React.ReactNode[] = [];
+  const bar = (bx: number, by: number, bw: number, bh: number, cls: string, rx = Math.min(bh / 2, 1.5)) =>
+    front.push(<rect key={front.length} x={bx} y={by} width={bw} height={bh} rx={rx} className={cls} />);
+
+  // Navigation: a column, a bar along the top, or a menu button over the page.
+  if (side) {
+    back.push(<rect key="side" width={side} height={H} className="fill-foreground/[0.06]" />);
+    bar(6, 8, 10, 3, "fill-foreground/30");
+    [17, 23, 29].forEach((by, i) => bar(6, by, i === 1 ? 10 : 14, 2, "fill-foreground/15"));
+  } else {
+    bar(x, 7, 12, 3, "fill-foreground/30");
+    if (look.nav === "top") [0, 1, 2].forEach((i) => bar(x + w - 8 - i * 11, 7.5, 8, 2, "fill-foreground/15"));
+    else [7, 10].forEach((by) => bar(x + w - 6, by, 6, 1.2, "fill-foreground/30", 0.6));
+  }
+
+  // The header: plain, beside a picture, or on a band of the brand's color.
+  let y = side ? 9 : 20;
+  const top = y;
+  if (look.header === "band") {
+    back.push(<rect key="band" x={side} y={y - 3} width={area} height={th + 16} className="fill-foreground/15" />);
+    bar(x, y + 4, cw * 0.55, th, "fill-background");
+    bar(x, y + 7 + th, cw * 0.32, 2, "fill-background/60");
+    y += th + 13 + gap + 2;
+  } else if (look.header === "split") {
+    const pic = Math.max(14, th + 10);
+    bar(x, y + (pic - th - 5) / 2, w * 0.42, th, "fill-foreground/40");
+    bar(x, y + (pic + th - 1) / 2, w * 0.3, 2, "fill-foreground/15");
+    bar(x + w * 0.52, y, w * 0.48, pic, "fill-foreground/15", r);
+    y += pic + gap + 2;
+  } else {
+    bar(x, y, cw * 0.55, th, "fill-foreground/40");
+    bar(x, y + th + 3, cw * 0.35, 2, "fill-foreground/15");
+    y += th + 5 + gap + 2;
+  }
+
+  // Two sections: numbered or not, between hairlines or space, the second on its own ground.
+  for (const i of [0, 1]) {
+    if (i && look.separation === "hairline") {
+      back.push(<rect key="rule" x={x} y={y - gap / 2 - 0.25} width={w} height={0.5} className="fill-foreground/15" />);
+    }
+    if (i && look.grounds === "alternate") back.push(<rect key="ground" x={side} y={y - gap / 2} width={area} height={H} className="fill-foreground/[0.05]" />);
+    const hx = look.numbering ? x + 6 : x;
+    if (look.numbering) bar(x, y, 3.5, 3, "fill-foreground/30", 0.75);
+    bar(hx, y, cw * 0.38, 3, "fill-foreground/30");
+    y += 3 + gap * 0.8;
+    // Round looks set their second section on a card.
+    if (i && (look.radius ?? 8) >= 16) {
+      bar(x, y, cw, 12, "fill-foreground/[0.08]", r);
+      bar(x + 4, y + 3.5, cw * 0.5, 2, "fill-foreground/15");
+      bar(x + 4, y + 7, cw * 0.35, 2, "fill-foreground/15");
+      y += 12 + gap * 1.5;
+      continue;
+    }
+    bar(x, y, cw, 2, "fill-foreground/15");
+    bar(x, y + 4, cw * 0.72, 2, "fill-foreground/15");
+    y += 6 + gap * 1.5;
+  }
+
+  // Contents beside the page.
+  if (toc) [0, 4, 8].forEach((dy, i) => bar(x + w - toc + 5, top + dy, i === 1 ? 8 : 11, 1.5, "fill-foreground/15"));
+
   return (
-    <span aria-hidden className="flex aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ backgroundColor: page }}>
-      {look.nav === "sidebar" && (
-        <span className="grid w-1/5 shrink-0 content-start gap-1.5 p-1.5" style={{ backgroundColor: panel }}>
-          {line("70%", accent, 3)}
-          {[80, 60, 70, 50].map((w, i) => line(`${w}%`, muted, 2, i))}
-        </span>
-      )}
-      <span className="flex min-w-0 flex-1 flex-col">
-        {look.nav !== "sidebar" && (
-          <span className="flex items-center justify-between px-1.5 py-1" style={{ borderBottom: look.nav === "top" ? `1px solid ${muted}` : undefined }}>
-            {line("18%", accent, 3)}
-            {look.nav === "top" ? <span className="flex w-2/5 gap-1">{[0, 1, 2].map((i) => line("100%", muted, 2, i))}</span> : <span className="grid gap-0.5">{[0, 1, 2].map((i) => line("6px", ink, 1, i))}</span>}
-          </span>
-        )}
-        {look.header === "band" ? (
-          <span className="grid gap-1" style={{ backgroundColor: accent, padding: `${gap * 3}px ${inset}px` }}>
-            {heading(true)}
-            {line("40%", page)}
-          </span>
-        ) : look.header === "split" ? (
-          <span className="flex items-center gap-2" style={{ padding: `${gap * 3}px ${inset}px` }}>
-            <span className="grid flex-1 gap-1">
-              {heading()}
-              {line("70%")}
-            </span>
-            <span className="block h-7 w-2/5" style={{ borderRadius: r, backgroundColor: accent }} />
-          </span>
-        ) : (
-          <span className="grid gap-1" style={{ padding: `${gap * 3}px ${inset}px ${gap}px` }}>
-            {heading()}
-            {line("45%")}
-          </span>
-        )}
-        <span className="flex min-h-0 flex-1">
-          <span className="flex min-w-0 flex-1 flex-col">
-            {look.toc === "inline" && (
-              <span className="mx-auto grid w-full gap-0.5" style={{ padding: `0 ${inset}px ${gap}px` }}>
-                {[40, 30, 35].map((w, i) => line(`${w}%`, accent, 1, i))}
-              </span>
-            )}
-            {section(false)}
-            {section(true)}
-          </span>
-          {look.toc === "side" && <span className="grid w-1/6 shrink-0 content-start gap-1 pt-2 pe-1.5">{[90, 70, 80].map((w, i) => line(`${w}%`, muted, 1, i))}</span>}
-        </span>
-      </span>
-    </span>
+    <svg aria-hidden viewBox={`0 0 ${W} ${H}`} className="bg-muted/40 block aspect-[3/2] w-full rounded-md">
+      {back}
+      {front}
+    </svg>
   );
 }
