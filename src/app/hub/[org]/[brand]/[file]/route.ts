@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
   // Shown on every view of a README, so not a pull: nobody took the brand.
   if (file === "badge.svg") return new Response(hubBadge({ name: b.name, version: b.version, tint: b.tint, verified: !!b.verified, mark: await markPng(b.rules) }), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
-  record({ workspaceId: b.workspaceId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
+  record({ projectId: b.projectId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
   const about = { name: b.name, owner: b.owner, verified: b.verified, version: b.version, url: b.url, guidelines: b.guidelines ?? b.url, terms: b.terms };
 
   if (file === "llms.txt") {
@@ -61,7 +61,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   }
   if (file === "brand.json") return Response.json(listingBrandJson(b), { headers });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, workspaceId: _workspaceId, ...out } = b;
+  const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, projectId: _projectId, ...out } = b;
   return Response.json({ data: out }, { headers });
 }
 

@@ -4,7 +4,7 @@ import { SsoInput, SsoRequiredInput } from "@/lib/schemas";
 
 /** GET /api/v1/sso - the organization's own single sign-on, or null, and the redirect URIs to register before setting it up. Never the secret. */
 export const GET = route("organization.manage", async (_req, _p, caller) => {
-  const org = caller.workspace.organizationId;
+  const org = caller.project.organizationId;
   return ok({ data: await getSso(caller), redirectUri: redirectUri(org), redirectUris: await redirectUris(org) });
 });
 

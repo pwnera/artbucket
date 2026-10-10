@@ -17,10 +17,10 @@ By default (`SIGNUP=invite`):
 - anyone the OIDC provider vouches for, who arrives with no access until an
   admin gives them some
 - anyone at an organization's verified email domain its own provider vouches
-  for, who joins that organization able to read one workspace
+  for, who joins that organization able to read one project
 
 `SIGNUP=open` lets anyone make an account from the sign-in page. Each new
-account gets an organization of its own, with a first workspace, and is its
+account gets an organization of its own, with a first project, and is its
 admin. Invitations still work: someone signing up from one joins where it
 points instead.
 
@@ -82,12 +82,12 @@ offered to join the organization once the email code has confirmed the
 address: on the welcome page, beside starting an organization of their own,
 or in a banner across the app for an account made before. Not now is kept.
 
-Joining is at read on one workspace, the domain's landing workspace, never the
-whole organization: an agency with a workspace per client that opens a
-client's domain lets that client's people into their own workspace and no
-other. An organization with more than one workspace picks it beside the
-domain, once it is open (`workspaceId` in
-`PATCH /api/v1/email-domains/{domain}`); unpicked, or once the workspace is
+Joining is at read on one project, the domain's landing project, never the
+whole organization: an agency with a project per client that opens a
+client's domain lets that client's people into their own project and no
+other. An organization with more than one project picks it beside the
+domain, once it is open (`projectId` in
+`PATCH /api/v1/email-domains/{domain}`); unpicked, or once the project is
 deleted, it is the organization's oldest. Moving it moves where the next
 person lands, not anyone who joined already. People who joined the whole
 organization before this keep that access until an admin changes it in Team.
@@ -109,7 +109,7 @@ Each organization can bring its own provider in Settings, Single sign-on
 (`/api/v1/sso`), with no restart and nothing in the environment. This is the
 one for a server shared by several organizations. An organization admin:
 
-1. registers a web app with the provider (Okta, Entra ID, Google Workspace, or
+1. registers a web app with the provider (Okta, Entra ID, Google Project, or
    any OpenID Connect one), with the redirect URIs the page shows:
    `{APP_URL}/api/auth/sso/callback/{organization id}`, and the same path on
    each domain the organization uses for the app (Settings, Domains), since
@@ -123,8 +123,8 @@ one for a server shared by several organizations. An organization admin:
 
 From then on the sign-in page takes anyone at that domain, or under it, to
 the provider once they type their email. The first time, they join the
-organization able to read one workspace, the provider's landing workspace
-(picked beside the email domain when there is more than one, `workspaceId` in
+organization able to read one project, the provider's landing project
+(picked beside the email domain when there is more than one, `projectId` in
 `PUT /api/v1/sso`; else the oldest), as joining by domain does; an admin
 raises their access in Team. An account
 made before, with a password, joins at its next sign-in through the provider.
@@ -150,7 +150,7 @@ freelancer's, are never held to it.
 ### The server's
 
 For a server with one company on it, set all three, for Okta, Entra ID, Google
-Workspace, Keycloak, Authentik or any other OpenID Connect provider, internal
+Project, Keycloak, Authentik or any other OpenID Connect provider, internal
 ones included:
 
 ```bash

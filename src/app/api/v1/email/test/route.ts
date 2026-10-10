@@ -13,7 +13,7 @@ export const POST = route(null, async (req, _p, caller) => {
   if (!to) throw new AssetError("invalid", "A test goes to your own address: send it signed in, not with a key");
   const asked = (await body(req, EmailTest)).to;
   if (asked && asked.toLowerCase() !== to.toLowerCase()) throw new AssetError("invalid", `A test goes to your own address only (${to})`);
-  const r = await sendAs(caller.workspace.organizationId, testEmail(to, caller.workspace.organization.name, await appUrlFor(caller.workspace.organizationId)));
+  const r = await sendAs(caller.project.organizationId, testEmail(to, caller.project.organization.name, await appUrlFor(caller.project.organizationId)));
   if (!r.sent) throw new AssetError(r.limited ? "rate_limited" : "invalid", `Not sent: ${r.error}`);
   return ok({ data: { sent: true, to } });
 });

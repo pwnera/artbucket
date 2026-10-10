@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
  * can be on several portals, one portal can show several brands), but a
  * brand only the team reads yet (on no portal, private on BrandHub) is asked
  * who should see it in the same step: a portal named for the brand, showing
- * it, open to the workspace's members or to anyone, and public on BrandHub
+ * it, open to the project's members or to anyone, and public on BrandHub
  * (PATCH .../hub once released), each as far as the person may. Requests go
  * through the host's transport, so the builder's dev page records them.
  *
@@ -90,7 +90,7 @@ type Published = {
 
 /** Who a portal made here lets in; a password portal is set up on the Portals page, where the password is typed. */
 type Door = "members" | "public" | "none";
-const DOORS: Record<Door, string> = { members: "People in this workspace", public: "Anyone with the address", none: "Not now" };
+const DOORS: Record<Door, string> = { members: "People in this project", public: "Anyone with the address", none: "Not now" };
 
 /** A portal's address from the brand's name, as the Portals page makes one. */
 const slugOf = (name: string) =>
@@ -496,7 +496,7 @@ function Result({ done, brand, onClose }: { done: Published; brand: string; onCl
       )}
       {done.hub && (
         <p className="text-muted-foreground text-sm">
-          {done.hub.visibility === "public" ? "Public on BrandHub, where anyone and any agent reads it: " : "Private on BrandHub, for people in this workspace: "}
+          {done.hub.visibility === "public" ? "Public on BrandHub, where anyone and any agent reads it: " : "Private on BrandHub, for people in this project: "}
           <ExternalLink href={done.hub.url} className="text-foreground inline-flex items-center gap-1 underline underline-offset-2">
             {done.hub.visibility === "public" ? done.hub.url.replace(/^https?:\/\//, "") : "see it there"}
           </ExternalLink>

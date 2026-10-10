@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 import { transition } from "@/lib/motion";
 
 /**
- * The workspace's brands, as GitHub lists repositories: each one's name, who
+ * The project's brands, as GitHub lists repositories: each one's name, who
  * sees it on BrandHub, its last publish and the portal it links. Make one
  * public or private, and pick that portal (PATCH /api/v1/brands/{slug}/hub).
  */
@@ -123,7 +123,7 @@ export function BrandsPage({
           aside={
             <>
               <span className="text-muted-foreground text-sm tabular-nums">{brands.length}</span>
-              {hub && <InfoTip>Every released brand is on BrandHub: private to this workspace until you make it public, for anyone and any agent to read.</InfoTip>}
+              {hub && <InfoTip>Every released brand is on BrandHub: private to this project until you make it public, for anyone and any agent to read.</InfoTip>}
             </>
           }
         >

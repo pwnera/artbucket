@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { IconButton } from "@/components/icon-button";
 import { Group } from "@/components/settings/panels";
-import { Landing, Values, type Workspace } from "@/components/settings/sso";
+import { Landing, Values, type Project } from "@/components/settings/sso";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export type EmailDomain = {
   domain: string;
   verified: boolean;
   join: boolean;
-  workspaceId: string | null;
+  projectId: string | null;
   sso: boolean;
   record: { type: "TXT"; name: string; value: string };
 };
@@ -29,7 +29,7 @@ export type EmailDomain = {
  * (lib/core/email-domains.ts), each proved by a TXT record. Single sign-on
  * uses one; joining by domain opens one.
  */
-export function EmailDomainsPanel({ domains, workspaces }: { domains: EmailDomain[]; workspaces: Workspace[] }) {
+export function EmailDomainsPanel({ domains, projects }: { domains: EmailDomain[]; projects: Project[] }) {
   const id = useId();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -43,12 +43,12 @@ export function EmailDomainsPanel({ domains, workspaces }: { domains: EmailDomai
     router.refresh();
   }
 
-  async function land(domain: string, workspaceId: string) {
+  async function land(domain: string, projectId: string) {
     setBusy(domain);
-    const ok = await send("PATCH", `/api/v1/email-domains/${encodeURIComponent(domain)}`, { workspaceId });
+    const ok = await send("PATCH", `/api/v1/email-domains/${encodeURIComponent(domain)}`, { projectId });
     setBusy(null);
     if (!ok) return;
-    toast.success(`People joining from ${domain} land in ${workspaces.find((w) => w.id === workspaceId)?.name} now`);
+    toast.success(`People joining from ${domain} land in ${projects.find((w) => w.id === projectId)?.name} now`);
     router.refresh();
   }
 
@@ -66,7 +66,7 @@ export function EmailDomainsPanel({ domains, workspaces }: { domains: EmailDomai
       <Group
         title="Email domains"
         description="Where your people have their email, e.g. acme.com."
-        info="Prove each with a TXT record: single sign-on uses one, and you can let anyone at one join, able to read one workspace, once their email is confirmed. Not addresses for the app or portals: those are in Domains."
+        info="Prove each with a TXT record: single sign-on uses one, and you can let anyone at one join, able to read one project, once their email is confirmed. Not addresses for the app or portals: those are in Domains."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
@@ -113,19 +113,19 @@ export function EmailDomainsPanel({ domains, workspaces }: { domains: EmailDomai
                     </Label>
                   </div>
                 )}
-                {d.verified && !d.sso && d.join && workspaces.length > 1 && (
+                {d.verified && !d.sso && d.join && projects.length > 1 && (
                   <div className="flex flex-wrap items-center gap-2">
                     <Label htmlFor={`${id}-${d.domain}-landing`} className="font-normal">
                       They land in
                     </Label>
                     <Landing
                       id={`${id}-${d.domain}-landing`}
-                      workspaces={workspaces}
-                      value={d.workspaceId}
+                      projects={projects}
+                      value={d.projectId}
                       disabled={busy === d.domain}
                       onChange={(w) => void land(d.domain, w)}
                     />
-                    <span className="text-muted-foreground text-xs">and read that workspace only</span>
+                    <span className="text-muted-foreground text-xs">and read that project only</span>
                   </div>
                 )}
                 {!d.verified && (

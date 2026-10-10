@@ -25,7 +25,7 @@ import { send } from "@/lib/send";
 const ACCESS: Record<Portal["access"], { label: string; icon: React.ReactNode }> = {
   public: { label: "Anyone with the address", icon: <IconWorld aria-hidden /> },
   password: { label: "With a password", icon: <IconLock aria-hidden /> },
-  members: { label: "People in this workspace", icon: <IconUsers aria-hidden /> },
+  members: { label: "People in this project", icon: <IconUsers aria-hidden /> },
 };
 
 /**
@@ -91,7 +91,7 @@ export function BrandSharing({
           description={
             hub.visibility === "public"
               ? "Public: anyone and any agent reads its latest release."
-              : "Private: only people in this workspace, signed in."
+              : "Private: only people in this project, signed in."
           }
         >
           <div className="flex flex-wrap items-center gap-2">

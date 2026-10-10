@@ -284,7 +284,7 @@ export const TOOL_INPUTS = {
     slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
     access: z
       .enum(PORTAL_ACCESS)
-      .describe("members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"),
+      .describe("members: people with access to the project; password: whoever has `password`; public: anyone with the address"),
   }),
 
   close_portal: z.object({ portal }),

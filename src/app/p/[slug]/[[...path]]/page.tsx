@@ -141,7 +141,7 @@ export default async function PortalPage(props: Props) {
       ? { site, query: context || lang ? `?${new URLSearchParams({ ...(context && { context }), ...(lang && { lang }) })}` : "" }
       : null;
   // On the app's host, where the session reaches: someone who may edit its brands gets the floating Edit.
-  const workspace = own ? null : await portalEditor(slug, h);
+  const project = own ? null : await portalEditor(slug, h);
   return (
     <PortalView
       slug={slug}
@@ -149,7 +149,7 @@ export default async function PortalPage(props: Props) {
       path={where}
       initial={initial}
       ownDomain={own}
-      editor={workspace ? { workspace, app: env.APP_URL } : null}
+      editor={project ? { project, app: env.APP_URL } : null}
       privacy={env.PRIVACY_URL ?? null}
     />
   );

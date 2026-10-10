@@ -20,7 +20,7 @@ export type SidebarData = {
 
 /**
  * GET /api/v1/{path}, over HTTP like any other client, as the person looking:
- * their session and workspace ride along in the cookies. `fallback` when the
+ * their session and project ride along in the cookies. `fallback` when the
  * answer is no (not signed in, may not see, not found). A server error throws,
  * so the page shows its error and Try again, never a false "nothing here".
  */

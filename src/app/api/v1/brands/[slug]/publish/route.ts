@@ -13,6 +13,6 @@ import { PublishInput } from "@/lib/schemas";
 export const POST = route<{ slug: string }>("brand.publish", async (req, { slug }, caller) => {
   const raw = await req.text();
   const published = await publishBrand(caller, slug, PublishInput.parse(raw ? JSON.parse(raw) : {}));
-  const brand = await resolveBrand(caller.workspace.id, slug);
-  return ok({ data: { ...published, portals: await portalsShowing(caller.workspace.id, brand.id) } });
+  const brand = await resolveBrand(caller.project.id, slug);
+  return ok({ data: { ...published, portals: await portalsShowing(caller.project.id, brand.id) } });
 });

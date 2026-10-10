@@ -6,7 +6,7 @@ import type { Status } from "@/components/builder/use-status";
 const some = (names: string[]) => (names.length > 3 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", "));
 
 /**
- * What people outside the workspace take of a brand's files, said where it
+ * What people outside the project take of a brand's files, said where it
  * goes out to them (release, Sharing): how many they may download, and the
  * ones they only see (lib/core/brand-status.ts filesOut). Nothing to say
  * about a brand without files.
@@ -21,10 +21,10 @@ export function FilesOut({ name, files }: { name: string; files: NonNullable<Sta
       <span>
         {n > 0 ? (
           <>
-            Anyone outside the workspace who sees {name} can download {kept.length ? `${n} of its files` : n === 1 ? "its file" : `all ${n} of its files`}.
+            Anyone outside the project who sees {name} can download {kept.length ? `${n} of its files` : n === 1 ? "its file" : `all ${n} of its files`}.
           </>
         ) : (
-          <>Nobody outside the workspace can download {name}&apos;s files.</>
+          <>Nobody outside the project can download {name}&apos;s files.</>
         )}{" "}
         {kept.length > 0 && (
           <>

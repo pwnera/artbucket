@@ -9,7 +9,7 @@ In the app, drop files anywhere on the library. Through the API it is three
 steps, and the bytes never pass through the server:
 
 ```bash
-# 1. A presigned upload URL for this workspace
+# 1. A presigned upload URL for this project
 curl -X POST https://assets.example.com/api/v1/uploads -H "Authorization: Bearer $KEY" \
   -H 'content-type: application/json' -d '{"filename":"hero.png","mime":"image/png","size":20135}'
 
@@ -50,7 +50,7 @@ with where it is used and "Can I use this?" first.
 response carries facet counts over the same filter. A page is 100 assets
 (`limit`, up to 200); `total` counts every match.
 
-Custom fields are defined per workspace (Settings, Custom fields): `text`,
+Custom fields are defined per project (Settings, Custom fields): `text`,
 `number`, `date`, `boolean` and `select`, required or not. A collection can
 carry field values its members inherit.
 
@@ -109,7 +109,7 @@ version, so it stays an `/a/` URL.
 
 Some files may be shown but not given away: a stock photo licensed for your
 site, a foundry's typeface licensed for your pages. An asset's
-`rights.downloadable` says whether people outside the workspace may take the
+`rights.downloadable` says whether people outside the project may take the
 file itself. Left empty, its license decides:
 
 - A font goes out only under an open license (SIL Open Font License, Apache,
@@ -143,7 +143,7 @@ visitors to a URL that answers `404` until then.
 Transforms: `w` `h` (1 to 8000), `fit` (cover, contain, inside, outside, fill),
 `q` (1 to 100), `f` (jpeg, png, webp, avif). A rendition is made on the first
 request and kept for 30 days. Through a public or signed URL, people outside
-the workspace get any width in WebP and the presets, and up to 16 other
+the project get any width in WebP and the presets, and up to 16 other
 renditions of a file ([what a rendition URL can cost](/configuration/security)).
 
 The bytes are private: these URLs work for people who can see the asset in
@@ -167,5 +167,5 @@ curl -X POST https://assets.example.com/api/v1/assets/{id}/restore -H "Authoriza
 ```
 
 After 30 days it is purged, and its file with it, unless another asset, in any
-workspace, holds the same bytes. Uploading the same bytes again in the
+project, holds the same bytes. Uploading the same bytes again in the
 meantime makes a new asset, and the deleted one is gone for good.

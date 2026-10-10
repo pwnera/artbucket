@@ -11,14 +11,14 @@ import { createGroup, deleteGroup, listGroups, setGroupMembers } from "@/lib/cor
 import { acceptInvitation, createInvitation, removeGrant, setGrant } from "@/lib/core/people";
 
 const ada = await signUp("Ada");
-const ws = ada.caller.workspace;
+const ws = ada.caller.project;
 
-/** Someone joins with a viewer's grant on the workspace, as an invitation gives it. */
+/** Someone joins with a viewer's grant on the project, as an invitation gives it. */
 async function join(name: string) {
   const p = await signUp(name);
-  const { url } = await createInvitation(ada.caller, { email: p.user.email, resource: "workspace", resourceId: ws.id, scope: "read" });
+  const { url } = await createInvitation(ada.caller, { email: p.user.email, resource: "project", resourceId: ws.id, scope: "read" });
   await acceptInvitation(url.split("/invite/")[1], { ...p.user, ip: null });
-  return { ...p, here: async () => (await callerFrom(request({ cookie: `${p.cookie}; ab_workspace=${ws.id}` })))! };
+  return { ...p, here: async () => (await callerFrom(request({ cookie: `${p.cookie}; ab_project=${ws.id}` })))! };
 }
 
 const sam = await join("Sam");
@@ -27,7 +27,7 @@ const team = await createGroup(ada.caller, { name: "Brand team" });
 
 test("a group's grant is each member's: Editor through the group, Viewer on their own, highest wins", async () => {
   await setGroupMembers(ada.caller, team.id, { add: [sam.user.id] });
-  await setGrant(ada.caller, { group: team.id, resource: "workspace", resourceId: ws.id, scope: "write" });
+  await setGrant(ada.caller, { group: team.id, resource: "project", resourceId: ws.id, scope: "write" });
   assert.equal((await sam.here()).scope, "write");
   assert.equal((await lea.here()).scope, "read", "not in the group");
 });
@@ -49,7 +49,7 @@ test("leaving the organization leaves its groups: the group never lets them back
   assert.ok(await removeGrant(ada.caller, own.id));
   const left = await db.select().from(groupMembers).where(eq(groupMembers.userId, lea.user.id));
   assert.deepEqual(left, []);
-  assert.equal((await lea.here()).workspace.id === ws.id && (await lea.here()).scope, false);
+  assert.equal((await lea.here()).project.id === ws.id && (await lea.here()).scope, false);
 });
 
 test("deleting a group takes its grants: members keep only their own", async () => {
@@ -62,7 +62,7 @@ test("deleting a group takes its grants: members keep only their own", async () 
 test("a group's members take editors' seats", async () => {
   const max = await join("Max");
   const editors = await createGroup(ada.caller, { name: "Editors" });
-  await setGrant(ada.caller, { group: editors.id, resource: "workspace", resourceId: ws.id, scope: "write" });
+  await setGrant(ada.caller, { group: editors.id, resource: "project", resourceId: ws.id, scope: "write" });
   await plan(ws.organizationId, { editors: 2 });
   // Ada is one: Sam makes two, Max would be a third.
   await setGroupMembers(ada.caller, editors.id, { add: [sam.user.id] });

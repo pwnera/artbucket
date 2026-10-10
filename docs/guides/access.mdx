@@ -18,13 +18,13 @@ world.
 ## Inside: grants add up and reach down
 
 A person's access is their **grants**: a role on the organization, a
-workspace, a collection or one asset. A grant reaches everything below what
+project, a collection or one asset. A grant reaches everything below what
 it is on, and grants add up: a person gets the highest role any of them gives.
 
 ```mermaid
 flowchart TD
-  O[Organization] --> W1[Workspace: Brand]
-  O --> W2[Workspace: Campaigns]
+  O[Organization] --> W1[Project: Brand]
+  O --> W2[Project: Campaigns]
   W1 --> C1[Collection: Logos]
   W1 --> C2[Collection: Launch, private]
   C1 --> A1[logo.svg]
@@ -42,7 +42,7 @@ Here:
 | Person | logo.svg | keynote.mp4 | draft.png |
 |---|---|---|---|
 | Sam, admin on the organization | Admin | Admin | Admin |
-| Lee, viewer on the Brand workspace | Viewer | No: Launch is private | No: only people added |
+| Lee, viewer on the Brand project | Viewer | No: Launch is private | No: only people added |
 | Ana, editor on Launch | No | Editor | No |
 | Kim, viewer on draft.png | No | No | Viewer |
 
@@ -61,16 +61,16 @@ delete, or can't share.
 ## Only people added
 
 **Who sees it** on an asset, or **Private** on a collection, takes it out of
-the workspace's reach. A role on the workspace no longer gets there; only
+the project's reach. A role on the project no longer gets there; only
 these do:
 
 - a grant on the asset itself,
 - a grant on one of its collections,
-- admin on the workspace or the organization.
+- admin on the project or the organization.
 
 An asset whose collections are all private is hidden the same way, without
 its own setting. One that is also in a collection that isn't private is seen
-by the whole workspace.
+by the whole project.
 
 An asset with its own **Who sees it** stays off portals and collection links,
 whichever collection it is in: share it with a link to the asset itself.
@@ -78,8 +78,8 @@ whichever collection it is in: share it with a link to the asset itself.
 ```mermaid
 flowchart TD
   Q{Can this person open the asset?} --> P{Is it only for people added?<br/>its own setting, or all its collections private}
-  P -- No --> R{Any role on the workspace or organization,<br/>or a grant on the asset or one of its collections?}
-  P -- Yes --> S{Admin on the workspace or organization,<br/>or a grant on the asset or one of its collections?}
+  P -- No --> R{Any role on the project or organization,<br/>or a grant on the asset or one of its collections?}
+  P -- Yes --> S{Admin on the project or organization,<br/>or a grant on the asset or one of its collections?}
   R -- Yes --> Y[Yes, with the highest role among those]
   R -- No --> N[No]
   S -- Yes --> Y
@@ -87,7 +87,7 @@ flowchart TD
 ```
 
 Whoever hides something keeps reaching it: they get a grant on it at the role
-they had. A workspace admin adds and removes people under **Who sees it** in
+they had. A project admin adds and removes people under **Who sees it** in
 the asset's panel, or on Settings, People for a collection.
 
 **Upload privately**, in the Upload menu, hides files from the moment they
@@ -105,13 +105,13 @@ expires or is replaced.
 | **Share link** | Anyone with the link, optionally with a password and an end date | Sending a few files to a partner |
 | **Signed URL** | Anyone with the URL, for an hour to a year | A file for a tool or a one-off |
 | **Embed** | Anyone with the URL, until turned off | A site, a doc, an email |
-| **Portal** | The public, people with a password, or the workspace's people | A press kit, a partner hub |
+| **Portal** | The public, people with a password, or the project's people | A press kit, a partner hub |
 
 See [sharing](/guides/sharing) and [portals](/guides/portals).
 
 ## Keys and agents
 
-An API key works in one workspace with one role. A key a person connects is
+An API key works in one project with one role. A key a person connects is
 capped at what that person can do there, and loses it when they do. Agents
 usually get Contributor: what they add waits for a human
 ([decision 0005](/decisions/0005-agents-propose),

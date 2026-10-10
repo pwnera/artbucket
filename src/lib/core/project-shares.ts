@@ -1,8 +1,8 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { catalogObjects, grants, workspaces } from "@/lib/db/schema";
+import { catalogObjects, grants, projects } from "@/lib/db/schema";
 import { accessIn, assetScope, brandScope, collectionScope } from "@/lib/access";
-import { hiddenIn, workspacesOf, type Caller } from "@/lib/core/access";
+import { hiddenIn, projectsOf, type Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { findObject } from "@/lib/core/catalog";
 import { AssetError } from "@/lib/core/errors";
@@ -22,11 +22,11 @@ type Shareable = (typeof SHAREABLE)[number];
 /** The caller's role on the thing, in its own project. */
 async function roleOn(caller: Caller, o: { id: string; type: Shareable; projectId: string; private: boolean; collections: string[] }) {
   const a =
-    o.projectId === caller.workspace.id
+    o.projectId === caller.project.id
       ? caller
       : caller.user
         ? await (async () => {
-            const { grants: mine, workspaces: open } = await workspacesOf(caller.user!.id);
+            const { grants: mine, projects: open } = await projectsOf(caller.user!.id);
             const w = open.find((x) => x.id === o.projectId);
             return w ? accessIn(mine, w, await hiddenIn(w.id)) : null;
           })()
@@ -43,8 +43,8 @@ export async function shareObject(caller: Caller, ref: string, projectRef: strin
   if (!item || !(SHAREABLE as readonly string[]).includes(item.type)) throw new AssetError("not_found", "Only a brand, a collection or an asset you can reach can be shared");
   const [project] = await db
     .select()
-    .from(workspaces)
-    .where(and(eq(workspaces.organizationId, caller.workspace.organizationId), /^[0-9a-f-]{36}$/i.test(projectRef) ? eq(workspaces.id, projectRef) : eq(workspaces.slug, projectRef)));
+    .from(projects)
+    .where(and(eq(projects.organizationId, caller.project.organizationId), /^[0-9a-f-]{36}$/i.test(projectRef) ? eq(projects.id, projectRef) : eq(projects.slug, projectRef)));
   if (!project) throw new AssetError("not_found", `No project "${projectRef}" in this organization`);
   if (project.id === item.project.id) throw new AssetError("invalid", `${item.name} is in ${project.name} already`);
   const [o] = await db.select({ private: catalogObjects.private, collections: catalogObjects.collections }).from(catalogObjects).where(eq(catalogObjects.id, item.id));
@@ -54,24 +54,24 @@ export async function shareObject(caller: Caller, ref: string, projectRef: strin
     .insert(grants)
     .values({
       holderProjectId: project.id,
-      organizationId: caller.workspace.organizationId,
-      workspaceId: item.project.id,
+      organizationId: caller.project.organizationId,
+      projectId: item.project.id,
       resource: item.type as Shareable,
       resourceId: item.id,
       scope: "read",
     })
     .onConflictDoNothing()
     .returning();
-  await recordAudit(caller, "share.project", item.name, { into: project.name, from: item.project.name }, { workspaceId: item.project.id });
+  await recordAudit(caller, "share.project", item.name, { into: project.name, from: item.project.name }, { projectId: item.project.id });
   return { id: row?.id ?? null, object: item.address, project: { id: project.id, slug: project.slug, name: project.name }, role: "Viewer" };
 }
 
 /** Where it is shared: each receiving project, with the grant to take it back by. */
 export async function sharesOf(objectId: string) {
   return db
-    .select({ id: grants.id, project: { id: workspaces.id, slug: workspaces.slug, name: workspaces.name } })
+    .select({ id: grants.id, project: { id: projects.id, slug: projects.slug, name: projects.name } })
     .from(grants)
-    .innerJoin(workspaces, eq(workspaces.id, grants.holderProjectId))
+    .innerJoin(projects, eq(projects.id, grants.holderProjectId))
     .where(and(eq(grants.resourceId, objectId), isNotNull(grants.holderProjectId)));
 }
 

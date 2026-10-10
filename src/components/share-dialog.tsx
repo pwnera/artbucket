@@ -34,7 +34,7 @@ export type ShareLink = {
   id: string;
   kind: "view" | "upload";
   name: string | null;
-  target: { type: "collection" | "asset" | "workspace"; id: string | null; label: string | null };
+  target: { type: "collection" | "asset" | "project"; id: string | null; label: string | null };
   url: string;
   password: boolean;
   expiresAt: string | null;
@@ -53,7 +53,7 @@ export const emailsIn = (raw: string) =>
 /** The first of them that can't be an address; a loose check, the server has the last word. */
 const badEmail = (raw: string) => emailsIn(raw).find((e) => !/.+@.+\..+/.test(e)) ?? null;
 
-const WORKSPACE = "workspace";
+const PROJECT = "project";
 
 /** Unambiguous characters only: a password read aloud or retyped from a message. */
 const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -140,11 +140,11 @@ function Share({
   const upload = target.kind === "upload";
   const choosing = !target.collection && !target.asset;
   const choices = collections.filter((c) => can(upload ? "collection.collect" : "collection.share", c));
-  const intoWorkspace = upload && can("share.collect_workspace");
+  const intoProject = upload && can("share.collect_project");
   // Nothing preselected: a skim past the picker must not share whichever collection sorts first.
-  const [picked, setPicked] = useState(!choices.length && intoWorkspace ? WORKSPACE : "");
+  const [picked, setPicked] = useState(!choices.length && intoProject ? PROJECT : "");
   const chosen = target.collection ?? (choosing ? choices.find((c) => c.id === picked) : undefined);
-  const what = chosen?.name ?? target.asset?.name ?? "the workspace";
+  const what = chosen?.name ?? target.asset?.name ?? "the project";
   const shareable = target.asset?.shareable !== false;
   const [mode, setMode] = useState<Mode>(target.asset?.public && shareable ? "public" : shareable ? "link" : "team");
 
@@ -169,7 +169,7 @@ function Share({
         ? l.target.type === "asset" && l.target.id === target.asset.id
         : chosen
           ? l.target.type === "collection" && l.target.id === chosen.id
-          : picked === WORKSPACE && l.target.type === "workspace"),
+          : picked === PROJECT && l.target.type === "project"),
   );
 
   async function revoke(l: ShareLink) {
@@ -251,7 +251,7 @@ function Share({
               {c.name}
             </SelectItem>
           ))}
-          {intoWorkspace && <SelectItem value={WORKSPACE}>The workspace, no collection</SelectItem>}
+          {intoProject && <SelectItem value={PROJECT}>The project, no collection</SelectItem>}
         </SelectContent>
       </Select>
     </div>

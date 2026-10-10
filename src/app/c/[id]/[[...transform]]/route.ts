@@ -33,9 +33,9 @@ export async function GET(req: Request, { params }: Ctx) {
     if (!asset) return nope();
     let cache = "public, max-age=60";
     // A suspended organization's files go to its own people only (lib/suspension.ts).
-    const off = await suspendedIn(asset.workspaceId);
+    const off = await suspendedIn(asset.projectId);
     if (!asset.public || off) {
-      const caller = await callerFrom(req, asset.workspaceId);
+      const caller = await callerFrom(req, asset.projectId);
       if (!(caller && (await getAsset(caller, id)))) {
         return off ? fail(451, "suspended", "This content is unavailable", undefined, { "Cache-Control": "no-store" }) : nope();
       }

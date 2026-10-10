@@ -36,9 +36,9 @@ export const who = (caller: Pick<Caller, "key" | "user" | "actor"> | null | unde
  * A search, when it had words (INS search gaps): `found` or `empty`. Only a
  * first page counts, so paging on through results is one search.
  */
-export function recordSearch(workspaceId: string, q: string | null | undefined, found: boolean, by: { surface: Surface } & ReturnType<typeof who>) {
+export function recordSearch(projectId: string, q: string | null | undefined, found: boolean, by: { surface: Surface } & ReturnType<typeof who>) {
   const subject = searchWords(q);
-  if (subject) record({ workspaceId, kind: "search", ...by, subject, verdict: found ? "found" : "empty" });
+  if (subject) record({ projectId, kind: "search", ...by, subject, verdict: found ? "found" : "empty" });
 }
 
 /** A request's referrer, as an event keeps it: the host alone. */

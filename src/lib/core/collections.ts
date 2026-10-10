@@ -20,11 +20,11 @@ import { allows } from "@/lib/scopes";
  * between collections, the oldest wins, so the answer never depends on order
  * of insertion into the join table.
  *
- * A caller sees the workspace's collections if it may read the workspace,
+ * A caller sees the project's collections if it may read the project,
  * private ones aside unless it is admin, and those it has a grant on.
  */
 
-export type Collection = Omit<typeof collections.$inferSelect, "workspaceId"> & { count: number };
+export type Collection = Omit<typeof collections.$inferSelect, "projectId"> & { count: number };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -34,16 +34,16 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // that without a lookup per member (194 ms to 9 ms for 100 collections of 1,000, docs: benchmarks).
 const count = sql<number>`(select count(*)::int from ${collectionAssets} ca where ca.collection_id = "collections"."id" and not exists (select 1 from ${assets} a where a.id = ca.asset_id and a.deleted_at is not null))`;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { workspaceId: _ws, ...columns } = getTableColumns(collections);
+const { projectId: _ws, ...columns } = getTableColumns(collections);
 
 /** `in ()` is not SQL: an id nothing has keeps an empty list valid. */
 export const NO_ID = "00000000-0000-0000-0000-000000000000";
 
-/** The workspace's collections this caller may see. */
+/** The project's collections this caller may see. */
 const seen = (caller: Caller) => {
   const granted = inArray(collections.id, [...reach(caller, "read").collections, NO_ID]);
   return and(
-    eq(collections.workspaceId, caller.workspace.id),
+    eq(collections.projectId, caller.project.id),
     allows(caller.scope, "admin") ? undefined : allows(caller.scope, "read") ? or(eq(collections.private, false), granted) : granted,
   );
 };
@@ -64,7 +64,7 @@ export async function getCollection(caller: Caller, id: string): Promise<Collect
   return c ?? null;
 }
 
-/** A write on one collection: the workspace's write scope, or a grant on it. */
+/** A write on one collection: the project's write scope, or a grant on it. */
 async function writable(caller: Caller, id: string) {
   const c = await getCollection(caller, id);
   if (c && !can(caller, "collection.edit", c)) throw new AssetError("forbidden", `You may only look at ${c.name}`);
@@ -75,12 +75,12 @@ export async function createCollection(
   caller: Caller,
   input: { name: string; icon?: string | null; fields?: Record<string, unknown>; private?: boolean },
 ) {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const values = stripNulls(await validValues(ws, input.fields ?? {}));
   const row = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(collections)
-      .values({ workspaceId: ws, name: input.name, icon: input.icon ?? null, fields: values, private: !!input.private })
+      .values({ projectId: ws, name: input.name, icon: input.icon ?? null, fields: values, private: !!input.private })
       .returning(columns);
     if (row.private) await keepReach(caller, "collection", row.id, tx);
     return row;
@@ -95,7 +95,7 @@ export async function updateCollection(
   patch: { name?: string; icon?: string | null; fields?: Record<string, unknown>; private?: boolean },
 ): Promise<Collection | null> {
   if (!(await writable(caller, id))) return null;
-  const values = patch.fields ? await validValues(caller.workspace.id, patch.fields) : null;
+  const values = patch.fields ? await validValues(caller.project.id, patch.fields) : null;
   const found = await db.transaction(async (tx) => {
     const [c] = await tx
       .update(collections)
@@ -123,7 +123,7 @@ export async function deleteCollection(caller: Caller, id: string): Promise<bool
   const c = await getCollection(caller, id);
   if (!c) return false;
   if (!can(caller, "collection.delete", c)) throw new AssetError("forbidden", `You may not delete ${c.name}`);
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   return db.transaction(async (tx) => {
     const members = await tx
       .select({ id: collectionAssets.assetId })
@@ -131,7 +131,7 @@ export async function deleteCollection(caller: Caller, id: string): Promise<bool
       .where(eq(collectionAssets.collectionId, id));
     const gone = await tx
       .delete(collections)
-      .where(and(eq(collections.id, id), eq(collections.workspaceId, ws)))
+      .where(and(eq(collections.id, id), eq(collections.projectId, ws)))
       .returning();
     if (!gone.length) return false;
     await dropGrants("collection", [id], tx);
@@ -168,7 +168,7 @@ export async function setMembers(caller: Caller, id: string, change: { add?: str
     if (rows.length !== add.length || rows.some((a) => !can(caller, "asset.read", a))) throw new AssetError("not_found", "No such asset");
   }
   return db.transaction(async (tx) => {
-    await addMembers(tx, caller.workspace.id, [id], add);
+    await addMembers(tx, caller.project.id, [id], add);
     if (remove.length) {
       await tx
         .delete(collectionAssets)
@@ -199,7 +199,7 @@ export async function inheritedFrom(ws: string, collectionIds: string[]): Promis
   const rows = await db
     .select()
     .from(collections)
-    .where(and(eq(collections.workspaceId, ws), inArray(collections.id, ids)))
+    .where(and(eq(collections.projectId, ws), inArray(collections.id, ids)))
     .orderBy(asc(collections.createdAt), asc(collections.id));
   if (rows.length !== ids.length) throw new AssetError("not_found", "No such collection");
   return rows.reduceRight<FieldValues>((acc, c) => ({ ...acc, ...c.fields }), {});
@@ -210,7 +210,7 @@ async function addMembers(tx: Tx, ws: string, collectionIds: string[], assetIds:
   const found = await tx
     .select({ id: assets.id })
     .from(assets)
-    .where(and(eq(assets.workspaceId, ws), inArray(assets.id, assetIds)));
+    .where(and(eq(assets.projectId, ws), inArray(assets.id, assetIds)));
   if (found.length !== assetIds.length) throw new AssetError("not_found", "No such asset");
   await tx
     .insert(collectionAssets)

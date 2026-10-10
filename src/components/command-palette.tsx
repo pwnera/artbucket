@@ -62,12 +62,12 @@ type PageHit = { slug: string; title: string; hidden: boolean; parent: string | 
 /**
  * Something of every brand's (its rules, its pages), kept for a minute
  * across openings: there are dozens, not thousands, and ⌘K opens often. One
- * promise per workspace and brand list, so two quick openings share a fetch;
+ * promise per project and brand list, so two quick openings share a fetch;
  * a brand that fails is left out.
  */
 const perBrandCache = new Map<string, { key: string; at: number; data: Promise<unknown[]> }>();
-function perBrand<T>(what: string, url: (slug: string) => string, workspace: string, brands: BrandInfo[]): Promise<(T & { brandInfo: BrandInfo })[]> {
-  const key = `${workspace} ${brands.map((b) => b.slug).join(" ")}`;
+function perBrand<T>(what: string, url: (slug: string) => string, project: string, brands: BrandInfo[]): Promise<(T & { brandInfo: BrandInfo })[]> {
+  const key = `${project} ${brands.map((b) => b.slug).join(" ")}`;
   let hit = perBrandCache.get(what);
   if (!hit || hit.key !== key || Date.now() - hit.at > 60_000) {
     const data = Promise.all(
@@ -83,8 +83,8 @@ function perBrand<T>(what: string, url: (slug: string) => string, workspace: str
   }
   return hit.data as Promise<(T & { brandInfo: BrandInfo })[]>;
 }
-const allRules = (workspace: string, brands: BrandInfo[]) => perBrand<Rule>("rules", (b) => `/api/v1/brand/rules?brand=${b}`, workspace, brands);
-const allPages = (workspace: string, brands: BrandInfo[]) => perBrand<Omit<PageHit, "brandInfo">>("pages", (b) => `/api/v1/brands/${b}/pages`, workspace, brands);
+const allRules = (project: string, brands: BrandInfo[]) => perBrand<Rule>("rules", (b) => `/api/v1/brand/rules?brand=${b}`, project, brands);
+const allPages = (project: string, brands: BrandInfo[]) => perBrand<Omit<PageHit, "brandInfo">>("pages", (b) => `/api/v1/brands/${b}/pages`, project, brands);
 
 /** Hidden, or under a hidden page: only editors open it (lib/pages.ts hiddenSlugs, kept out of every page's bundle). */
 function hidden(p: PageHit, all: PageHit[]): boolean {
@@ -121,7 +121,7 @@ const filter = (value: string, search: string, keywords?: string[]) => {
 /** An asset's item value: its id keeps it unique, its title and filename are what matches. */
 const assetValue = (a: Pick<Asset, "id" | "filename" | "metadata">) => `asset ${a.id} ${a.metadata?.title ?? ""} ${a.filename}`;
 
-const CONTEXT = { workspace: "Workspace", organization: "Organization", account: "Account", development: "Development" };
+const CONTEXT = { project: "Project", organization: "Organization", account: "Account", development: "Development" };
 const THEMES = [
   { value: "light", label: "Light", icon: IconSun },
   { value: "dark", label: "Dark", icon: IconMoon },
@@ -176,7 +176,7 @@ export function CommandPalette({
   const can = useCan();
   const me = useMe();
   const help = useHelp(me);
-  const workspace = me?.workspace.id ?? "";
+  const project = me?.project.id ?? "";
   const { setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const [stored] = useRecents();
@@ -219,12 +219,12 @@ export function CommandPalette({
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void allRules(workspace, brands).then((r) => live && setRules(r));
-    void allPages(workspace, brands).then((p) => live && setPages(p));
+    void allRules(project, brands).then((r) => live && setRules(r));
+    void allPages(project, brands).then((p) => live && setPages(p));
     return () => {
       live = false;
     };
-  }, [open, workspace, brands]);
+  }, [open, project, brands]);
 
   const close = () => {
     onOpenChange(false);
@@ -480,7 +480,7 @@ export function CommandPalette({
               <IconHistory /> Audit log
             </CommandItem>
           )}
-          <CommandItem value="Settings workspace organization members fields domains branding email usage profile" onSelect={() => go("/settings")}>
+          <CommandItem value="Settings project organization members fields domains branding email usage profile" onSelect={() => go("/settings")}>
             <IconSettings /> Settings
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/settings" />

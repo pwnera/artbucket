@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiKeys, oauthClients, verifications } from "@/lib/db/schema";
-import { keyWorkspaces, workspacesOf, type Caller } from "@/lib/core/access";
+import { keyProjects, projectsOf, type Caller } from "@/lib/core/access";
 import { isAppOrigin } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
 import { hashKey } from "@/lib/core/keys";
@@ -136,35 +136,35 @@ const notServed = (resource: string) => `Tokens here are for ${mcpUrl()}, not ${
 
 // ---- consent ----------------------------------------------------------------
 
-/** The workspaces a person can give an agent, each with the most it may do there: theirs, up to write. */
+/** The projects a person can give an agent, each with the most it may do there: theirs, up to write. */
 export async function consentOptions(caller: Caller) {
   if (!caller.user) throw new AssetError("forbidden", "Sign in to connect an agent");
-  const { grants, workspaces } = await workspacesOf(caller.user.id);
-  const options = workspaces.flatMap((w) => {
+  const { grants, projects } = await projectsOf(caller.user.id);
+  const options = projects.flatMap((w) => {
     const max = lowest(widest(accessIn(grants, w)), "write") as Grantable | null;
     return max ? [{ id: w.id, name: w.name, organization: w.organization.name, organizationId: w.organizationId, max }] : [];
   });
-  return { workspaces: options, workspace: options.some((o) => o.id === caller.workspace.id) ? caller.workspace.id : (options[0]?.id ?? null) };
+  return { projects: options, project: options.some((o) => o.id === caller.project.id) ? caller.project.id : (options[0]?.id ?? null) };
 }
 
 type ConsentInput = z.infer<typeof Consent>;
 
 /**
  * What was consented to, checked against what the person may give: in each
- * workspace picked, the scope asked brought down to the most they may give
+ * project picked, the scope asked brought down to the most they may give
  * there, as the consent screen shows it.
  */
 async function granted(caller: Caller, input: Extract<ConsentInput, { allow: true }>) {
-  const options = (await consentOptions(caller)).workspaces;
-  const ids = input.workspaces ?? (input.workspace ? [input.workspace] : []);
-  if (!ids.length) throw new AssetError("invalid", "Pick a workspace");
+  const options = (await consentOptions(caller)).projects;
+  const ids = input.projects ?? (input.project ? [input.project] : []);
+  if (!ids.length) throw new AssetError("invalid", "Pick a project");
   const picked = [...new Set(ids)].map((id) => {
     const option = options.find((w) => w.id === id);
-    if (!option) throw new AssetError("forbidden", "You have nothing in that workspace to give");
+    if (!option) throw new AssetError("forbidden", "You have nothing in that project to give");
     return { id, organizationId: option.organizationId, scope: cappedScope(input.scope, option.max) };
   });
   for (const org of new Set(picked.map((w) => w.organizationId))) await checkLimit(org, "agents");
-  return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, workspaces: picked.map(({ id, scope }) => ({ id, scope })) };
+  return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, projects: picked.map(({ id, scope }) => ({ id, scope })) };
 }
 type Granted = Awaited<ReturnType<typeof granted>>;
 
@@ -179,41 +179,41 @@ async function connectionOf(caller: Caller, keyId: string) {
 export async function getConnection(caller: Caller, keyId: string) {
   const key = await connectionOf(caller, keyId);
   if (!key) return null;
-  const [workspaces, { workspaces: givable }] = await Promise.all([keyWorkspaces(key.id), consentOptions(caller)]);
-  return { id: key.id, name: key.name, workspaces: workspaces.map((w) => ({ id: w.id, name: w.name, organization: w.organization.name, scope: w.scope })), givable };
+  const [projects, { projects: givable }] = await Promise.all([keyProjects(key.id), consentOptions(caller)]);
+  return { id: key.id, name: key.name, projects: projects.map((w) => ({ id: w.id, name: w.name, organization: w.organization.name, scope: w.scope })), givable };
 }
 
 /**
- * PATCH /api/v1/keys/{id}: an agent you connected, given other workspaces or
+ * PATCH /api/v1/keys/{id}: an agent you connected, given other projects or
  * another scope, as the consent screen gives them. Its secret stays: rows
  * come, go and change around it, so the agent never signs in again.
  */
-export async function regrant(caller: Caller, keyId: string, input: { workspaces: string[]; scope: Grantable }) {
+export async function regrant(caller: Caller, keyId: string, input: { projects: string[]; scope: Grantable }) {
   const key = await connectionOf(caller, keyId);
   if (!key) return null;
   const g = await granted(caller, { allow: true, ...input });
   const rows = await db.select().from(apiKeys).where(and(eq(apiKeys.hash, key.hash), eq(apiKeys.userId, key.userId!)));
-  const keep = new Set(g.workspaces.map((w) => w.id));
-  const open = (await workspacesOf(g.userId)).workspaces;
-  const audit = (workspaceId: string, action: "key.created" | "key.revoked", scope: Scope) => {
-    const workspace = open.find((w) => w.id === workspaceId);
-    return workspace ? recordAudit({ ...caller, workspace }, action, key.name, { scope, via: "connections" }) : null;
+  const keep = new Set(g.projects.map((w) => w.id));
+  const open = (await projectsOf(g.userId)).projects;
+  const audit = (projectId: string, action: "key.created" | "key.revoked", scope: Scope) => {
+    const project = open.find((w) => w.id === projectId);
+    return project ? recordAudit({ ...caller, project }, action, key.name, { scope, via: "connections" }) : null;
   };
   await db.transaction(async (tx) => {
-    const gone = rows.filter((r) => !keep.has(r.workspaceId)).map((r) => r.id);
+    const gone = rows.filter((r) => !keep.has(r.projectId)).map((r) => r.id);
     if (gone.length) await tx.delete(apiKeys).where(inArray(apiKeys.id, gone));
-    for (const w of g.workspaces) {
-      const row = rows.find((r) => r.workspaceId === w.id);
+    for (const w of g.projects) {
+      const row = rows.find((r) => r.projectId === w.id);
       if (row && row.scope !== w.scope) await tx.update(apiKeys).set({ scope: w.scope }).where(eq(apiKeys.id, row.id));
       if (!row) {
         const { prefix, hash, expiresAt, refreshHash, refreshExpiresAt, clientId } = key;
-        await tx.insert(apiKeys).values({ name: key.name, scope: w.scope, workspaceId: w.id, userId: key.userId, prefix, hash, expiresAt, refreshHash, refreshExpiresAt, clientId });
+        await tx.insert(apiKeys).values({ name: key.name, scope: w.scope, projectId: w.id, userId: key.userId, prefix, hash, expiresAt, refreshHash, refreshExpiresAt, clientId });
       }
     }
   });
-  for (const r of rows) if (!keep.has(r.workspaceId)) await audit(r.workspaceId, "key.revoked", r.scope);
-  for (const w of g.workspaces) {
-    const row = rows.find((r) => r.workspaceId === w.id);
+  for (const r of rows) if (!keep.has(r.projectId)) await audit(r.projectId, "key.revoked", r.scope);
+  for (const w of g.projects) {
+    const row = rows.find((r) => r.projectId === w.id);
     if (!row || row.scope !== w.scope) await audit(w.id, "key.created", w.scope);
   }
   const [any] = await db.select({ id: apiKeys.id }).from(apiKeys).where(eq(apiKeys.hash, key.hash)).limit(1);
@@ -389,14 +389,14 @@ async function renew(token: string, clientId: string) {
     : [];
   if (!rows.length) throw new OAuthError("invalid_grant", "The refresh token is unknown, used or expired: connect again");
   await used(client!.id);
-  // The scope of the first workspace given, as when it was minted.
+  // The scope of the first project given, as when it was minted.
   rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
   return fresh!.answer(rows[0].scope);
 }
 
 /**
  * The token is a key: named for the agent and its person, so history and
- * Review say whose it was. One secret, a row in each workspace given.
+ * Review say whose it was. One secret, a row in each project given.
  */
 async function mint(clientId: string, g: Granted) {
   // Swept between consent and exchange (sweepTokens): the agent registers again.
@@ -407,14 +407,14 @@ async function mint(clientId: string, g: Granted) {
   const now = Date.now();
   const keys = await db
     .insert(apiKeys)
-    // A millisecond apart, in the order picked: the first is where a call that names no workspace goes.
-    .values(g.workspaces.map((w, i) => ({ name, scope: w.scope, workspaceId: w.id, userId: g.userId, ...fresh.columns, createdAt: new Date(now + i) })))
+    // A millisecond apart, in the order picked: the first is where a call that names no project goes.
+    .values(g.projects.map((w, i) => ({ name, scope: w.scope, projectId: w.id, userId: g.userId, ...fresh.columns, createdAt: new Date(now + i) })))
     .returning();
   await used(client.id);
-  const open = (await workspacesOf(g.userId)).workspaces;
+  const open = (await projectsOf(g.userId)).projects;
   for (const k of keys) {
-    const workspace = open.find((w) => w.id === k.workspaceId);
-    if (workspace) await recordAudit({ actor: g.userName, user: { id: g.userId }, workspace }, "key.created", name, { scope: k.scope, via: "oauth" });
+    const project = open.find((w) => w.id === k.projectId);
+    if (project) await recordAudit({ actor: g.userName, user: { id: g.userId }, project }, "key.created", name, { scope: k.scope, via: "oauth" });
   }
   return fresh.answer(keys[0].scope);
 }

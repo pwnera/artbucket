@@ -55,8 +55,8 @@ import {
  * here and nowhere else. That constraint is what keeps the public API honest:
  * if the UI can't be built on it, it isn't finished.
  *
- * Everything is inside the caller's workspace (lib/core/access.ts). A caller
- * with read on the workspace sees all of it; one with grants on some
+ * Everything is inside the caller's project (lib/core/access.ts). A caller
+ * with read on the project sees all of it; one with grants on some
  * collections or assets only (lib/access.ts) sees those, and writes where its
  * grant says it may.
  */
@@ -102,13 +102,13 @@ export const privateAsset = (hidden: string[]) =>
     : sql`${assets.private}`;
 
 /**
- * What this caller may see: all of the workspace with read on it, private
+ * What this caller may see: all of the project with read on it, private
  * assets aside unless it is admin; and what its grants reach, an asset on its
  * own or through a collection it is in.
  */
 export function visible(caller: Caller): SQL {
-  const inWorkspace = eq(assets.workspaceId, caller.workspace.id);
-  if (allows(caller.scope, "admin")) return inWorkspace;
+  const inProject = eq(assets.projectId, caller.project.id);
+  if (allows(caller.scope, "admin")) return inProject;
   const r = reach(caller, "read");
   // Asked per row, so only when there is a grant to ask about.
   const granted = or(
@@ -118,7 +118,7 @@ export function visible(caller: Caller): SQL {
       : undefined,
   );
   const open = sql`not ${privateAsset(caller.hidden)}`;
-  return and(inWorkspace, allows(caller.scope, "read") ? (granted ? or(open, granted) : open) : (granted ?? sql`false`))!;
+  return and(inProject, allows(caller.scope, "read") ? (granted ? or(open, granted) : open) : (granted ?? sql`false`))!;
 }
 
 export { MAX_UPLOAD_BYTES };
@@ -131,20 +131,20 @@ export type UploadTicket = {
 
 /**
  * Step 1: hand the browser a presigned PUT straight to object storage. The
- * ticket is the workspace's: the bytes land under it, so only an upload into
+ * ticket is the project's: the bytes land under it, so only an upload into
  * it can promote them, and its organization's storage is checked for the
  * size claimed before any bytes move (again, for the real size, at step 2).
  */
 export async function createUploadTicket(
-  caller: Pick<Caller, "workspace">,
+  caller: Pick<Caller, "project">,
   input: { filename: string; mime: string; size: number },
 ): Promise<UploadTicket> {
   const big = tooLargeToUpload(input.size);
   if (big) throw new AssetError("too_large", big);
-  await checkLimit(caller.workspace.organizationId, "storage", { adding: input.size });
+  await checkLimit(caller.project.organizationId, "storage", { adding: input.size });
   await ensureBucket();
   const token = randomUUID();
-  const uploadUrl = await presignPut(stagingKey(caller.workspace.id, token), input.mime, input.size);
+  const uploadUrl = await presignPut(stagingKey(caller.project.id, token), input.mime, input.size);
   return { token, uploadUrl, expiresIn: 900 };
 }
 
@@ -162,7 +162,7 @@ export async function createUploadTicket(
  */
 export async function finalizeUpload(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
   if (uploads.full) throw new AssetError("rate_limited", "Busy taking uploads: try again in a moment");
-  const size = (await sizeOf(stagingKey(caller.workspace.id, input.token))) ?? 0;
+  const size = (await sizeOf(stagingKey(caller.project.id, input.token))) ?? 0;
   return uploads.run(Math.min(size, MAX_UPLOAD_BYTES), () => promote(caller, input));
 }
 
@@ -209,12 +209,12 @@ type FinalizeInput = {
   described?: Partial<Record<(typeof EDITABLE)[number], string>>;
   /** Brought in by the server from outside (an icon set, Google Fonts, a template), never said by a client. */
   via?: "import";
-  /** Hidden from the workspace from the start; a new version keeps the one before's. */
+  /** Hidden from the project from the start; a new version keeps the one before's. */
   private?: boolean;
 } & Provenance;
 
 async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: Asset; deduped: boolean }> {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const prior = input.versionOf ? await getAsset(caller, input.versionOf) : null;
   if (input.versionOf && (!prior || prior.deletedAt)) throw new AssetError("invalid", `versionOf: no asset ${input.versionOf}`);
   if (prior && !can(caller, "asset.version", prior)) throw new AssetError("forbidden", `You need ${needs("asset.version")}`);
@@ -265,8 +265,8 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
     return { asset: proposed ? seen : await fileInto(ws, into, existing.id), deduped: true };
   }
   // The size stored, not the size claimed for the ticket; checked again under a lock as it lands.
-  await checkLimit(caller.workspace.organizationId, "storage", { adding: size });
-  const limits = await limitsOf(caller.workspace.organizationId);
+  await checkLimit(caller.project.organizationId, "storage", { adding: size });
+  const limits = await limitsOf(caller.project.organizationId);
 
   const mime = safeMime(fontMime(bytes) ?? input.mime);
   // sharp reads markup as SVG whatever the declared type, and expands its
@@ -315,7 +315,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
     // These bytes, deleted here before: that asset is gone for good, and this is a new one.
     const purged = await tx
       .delete(assets)
-      .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256), isNotNull(assets.deletedAt)))
+      .where(and(eq(assets.projectId, ws), eq(assets.sha256, sha256), isNotNull(assets.deletedAt)))
       .returning({ id: assets.id, stackId: assets.stackId });
     await dropGrants("asset", purged.map((p) => p.id), tx);
     let version: number | null = null;
@@ -329,11 +329,11 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         .where(eq(assets.stackId, stack));
       version = next;
     }
-    await claimStorage(tx, caller.workspace.organizationId, size, limits);
+    await claimStorage(tx, caller.project.organizationId, size, limits);
     const [row] = await tx
       .insert(assets)
       .values({
-        workspaceId: ws,
+        projectId: ws,
         sha256,
         filename: input.filename,
         mime,
@@ -360,7 +360,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         stackId: stack,
         version,
       })
-      .onConflictDoNothing({ target: [assets.workspaceId, assets.sha256] })
+      .onConflictDoNothing({ target: [assets.projectId, assets.sha256] })
       .returning({ id: assets.id, version: assets.version });
     return { row, purged };
   });
@@ -393,13 +393,13 @@ async function takesOverPublic(stack: string, version?: number | null) {
 }
 
 /**
- * What an upload into these collections (or the workspace) becomes: write
+ * What an upload into these collections (or the project) becomes: write
  * where it lands makes it active, propose makes it a proposal. Into
  * collections, the least the caller may do in any of them decides. Less than
  * propose is a 403, before any bytes move.
  */
 function uploadScope(caller: Caller, into: string[]) {
-  const may = into.length ? into.every((id) => can(caller, "asset.upload", { id })) : can(caller, "workspace.upload");
+  const may = into.length ? into.every((id) => can(caller, "asset.upload", { id })) : can(caller, "project.upload");
   if (!may) throw new AssetError("forbidden", into.length ? "You can't add to that collection" : "Upload into a collection you have access to");
   return into.length ? lowest(into.map((c) => collectionScope(caller, c))) : caller.scope;
 }
@@ -472,14 +472,14 @@ async function stageAndFinalize(
 ) {
   await ensureBucket();
   const token = randomUUID();
-  await checkLimit(caller.workspace.organizationId, "storage", { adding: bytes.byteLength });
-  await putObject(stagingKey(caller.workspace.id, token), bytes, safeMime(mime));
+  await checkLimit(caller.project.organizationId, "storage", { adding: bytes.byteLength });
+  await putObject(stagingKey(caller.project.id, token), bytes, safeMime(mime));
   try {
     // Not finalizeUpload: an ingest already has its turn (and a link is a few bytes).
     return await promote(caller, { ...rest, token, filename: name.slice(0, 512), mime });
   } catch (err) {
     // Nobody holds this token to retry with, so a rejected ingest leaves nothing behind.
-    await deleteObject(stagingKey(caller.workspace.id, token)).catch(() => {});
+    await deleteObject(stagingKey(caller.project.id, token)).catch(() => {});
     throw err;
   }
 }
@@ -544,7 +544,7 @@ export async function parseAssetQuery(caller: Caller, params: URLSearchParams): 
       tags: tag,
       types: type,
       review: review === "true",
-      filters: parseFieldFilters(params, await listFields(caller.workspace.id)),
+      filters: parseFieldFilters(params, await listFields(caller.project.id)),
     };
   } catch (err) {
     if (err instanceof FilterError) throw new AssetError("invalid", err.message);
@@ -644,7 +644,7 @@ export async function searchAssets(caller: Caller, query: AssetQuery, surface: S
   const tsq = q ? prefixQuery(q) : null;
   const where = (except?: string, anyType = false, anyState = false) => assetWhere(caller, query, except, anyType, anyState);
 
-  const facetable = (await listFields(caller.workspace.id)).filter(isFacetable);
+  const facetable = (await listFields(caller.project.id)).filter(isFacetable);
   // ponytail: facets count over every match, about 100 ms at 93,000 (docs: developers/benchmarks).
   // Cache them per query, or count a sample past some size, when libraries outgrow that.
   const [data, [{ total }], tagCounts, typeCounts, stateCounts, ...fieldCounts] = await Promise.all([
@@ -664,7 +664,7 @@ export async function searchAssets(caller: Caller, query: AssetQuery, surface: S
     stateFacet(where(undefined, false, true)),
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
-  if (!offset) recordSearch(caller.workspace.id, q, total > 0, { surface, ...who(caller) });
+  if (!offset) recordSearch(caller.project.id, q, total > 0, { surface, ...who(caller) });
   return {
     data,
     /** Every match, not just this page: page with `offset` until it is reached. */
@@ -746,7 +746,7 @@ async function bySha(ws: string, sha256: string): Promise<Asset | null> {
   const [asset] = await db
     .select(columns)
     .from(assets)
-    .where(and(eq(assets.workspaceId, ws), eq(assets.sha256, sha256), isNull(assets.deletedAt)))
+    .where(and(eq(assets.projectId, ws), eq(assets.sha256, sha256), isNull(assets.deletedAt)))
     .limit(1);
   return asset ?? null;
 }
@@ -858,7 +858,7 @@ export async function updateAsset(
   if (status && approvesOwn(current, status, caller.actor)) {
     throw new AssetError("forbidden", "You proposed it, so someone else approves it");
   }
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const set: PgUpdateSetSource<typeof assets> = {};
   if (rights !== undefined) set.rights = rights && !isEmpty(rights) ? rights : null;
   if (origin !== undefined) set.origin = origin;
@@ -918,7 +918,7 @@ export async function updateAsset(
   let [asset] = await db
     .update(assets)
     .set({ ...set, updatedAt: sql`now()` })
-    .where(and(eq(assets.id, id), eq(assets.workspaceId, ws)))
+    .where(and(eq(assets.id, id), eq(assets.projectId, ws)))
     .returning(columns);
   if (!asset) return null;
   if (hidden) await keepReach(caller, "asset", id);
@@ -986,7 +986,7 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
 export async function proposeFields(caller: Caller, id: string, suggested: Record<string, unknown>): Promise<Asset | null> {
   const before = await allowed(caller, id, "asset.propose_fields");
   if (!before) return null;
-  const values = await validFields(before.workspaceId, suggested, "patch", before.inherited);
+  const values = await validFields(before.projectId, suggested, "patch", before.inherited);
   const own = { ...before.inherited, ...before.fields };
   const fresh = Object.fromEntries(
     Object.entries(values).filter(([k, v]) => v !== null && v !== undefined && JSON.stringify(own[k]) !== JSON.stringify(v)),
@@ -1109,7 +1109,7 @@ export async function deleteAsset(caller: Caller, id: string) {
   if (!asset) return false;
   if (asset.deletedAt) return true;
   await db.update(assets).set({ deletedAt: sql`now()`, updatedAt: sql`now()` }).where(eq(assets.id, id));
-  await uncountRenditions(asset.workspaceId, typeof asset.probe?.preview === "string" ? asset.probe.preview : asset.sha256);
+  await uncountRenditions(asset.projectId, typeof asset.probe?.preview === "string" ? asset.probe.preview : asset.sha256);
   // Deleting the current version hands over to the newest approved one left.
   if (asset.stackId) await repoint(asset.stackId);
   await record(caller, "deleted", asset);
@@ -1121,9 +1121,9 @@ export async function restoreAsset(caller: Caller, id: string): Promise<Asset | 
   const asset = await allowed(caller, id, "asset.delete");
   if (!asset?.deletedAt) return asset;
   // Back in the library, its bytes count again: checked as an upload's are, under the same lock.
-  const limits = await limitsOf(caller.workspace.organizationId);
+  const limits = await limitsOf(caller.project.organizationId);
   await db.transaction(async (tx) => {
-    await claimStorage(tx, caller.workspace.organizationId, asset.size, limits);
+    await claimStorage(tx, caller.project.organizationId, asset.size, limits);
     await tx.update(assets).set({ deletedAt: null, updatedAt: sql`now()` }).where(eq(assets.id, id));
   });
   if (asset.stackId) await repoint(asset.stackId);

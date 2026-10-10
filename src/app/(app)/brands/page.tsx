@@ -9,7 +9,7 @@ import { brands as listBrands, get, whoami } from "@/lib/sidebar";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Brands" };
 
-/** The workspace's brands and who sees each on BrandHub, from /api/v1/brands and each one's /hub like any client's. */
+/** The project's brands and who sees each on BrandHub, from /api/v1/brands and each one's /hub like any client's. */
 export default async function Brands({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const [me, list, { q }] = await Promise.all([whoami(), listBrands(), searchParams]);
   type Rule = Pick<HubRule, "key" | "label" | "type" | "value" | "context"> & { spec?: RuleSpec | null; assets: { id: string; mime: string; filename: string }[] };

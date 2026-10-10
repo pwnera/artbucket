@@ -6,13 +6,13 @@ description: One URL connects every agent.
 `/api/v1/mcp` is an MCP server over Streamable HTTP, running the same logic as the
 REST API. Chat apps (Claude, ChatGPT, Perplexity, Gemini), coding agents, app
 builders (Lovable, v0, Bolt, Replit) and Figma take the URL and send you to a
-consent screen, where you pick the workspaces it works in and what it may do
+consent screen, where you pick the projects it works in and what it may do
 there: Suggest, Read or Edit. What it gets is a key bound to you: never more
 than you can do, and gone with your access. The Connections page has the setup
-for each, and changes an agent's workspaces and access later without it signing
+for each, and changes an agent's projects and access later without it signing
 in again.
 
-An agent given several workspaces names one with `workspace` on any tool (its
+An agent given several projects names one with `project` on any tool (its
 slug, or `organization/slug` when two share one); without it, the tool runs in
 the first one picked. The server's instructions list them.
 
@@ -81,8 +81,8 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `update_comment` | propose | Resolve or reopen a thread, or edit your own comment |
 | `delete_comment` | propose | Delete your own comment, or anyone's with write on the brand |
 | `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
-| `list_portals` | write, share | The workspace's portals: who gets in, the brands they show and whether each is published, and their site |
-| `create_portal` | write, share | Make a portal for brands and collections, open to the workspace's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
+| `list_portals` | write, share | The project's portals: who gets in, the brands they show and whether each is published, and their site |
+| `create_portal` | write, share | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
 | `update_portal` | write, share | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
 | `close_portal` | write, share | Take a portal offline now; `update_portal` with `expiresAt: null` opens it again |
 | `delete_portal` | write, share | Delete a portal; its address and domain stop answering |
@@ -90,7 +90,7 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `decide_portal_request` | write, share | Approve or deny a request; approved access gets a link of its own |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
-tools, only for a key that may manage portals (write on the workspace, with
+tools, only for a key that may manage portals (write on the project, with
 sharing not turned off).
 
 Brands, collections, custom fields, reviews, brand history, comments and

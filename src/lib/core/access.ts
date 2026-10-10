@@ -2,7 +2,7 @@ import { and, asc, eq, gt, inArray, isNull, or, sql, type SQL } from "drizzle-or
 import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
-import { apiKeys, brands, collections, grants, groupMembers, organizations, workspaces } from "@/lib/db/schema";
+import { apiKeys, brands, collections, grants, groupMembers, organizations, projects } from "@/lib/db/schema";
 import { unionAll } from "drizzle-orm/pg-core";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
@@ -25,11 +25,11 @@ import type { Scope } from "@/lib/scopes";
  * Who is calling, where, and what they may do there. Every request resolves
  * to one of three callers:
  *
- * - an API key: one workspace, one scope, named for history. One a person
+ * - an API key: one project, one scope, named for history. One a person
  *   connected (OAuth, `artbucket login`) is also held to what they can do,
- *   and may be in several workspaces, a row each: the one asked for, else
+ *   and may be in several projects, a row each: the one asked for, else
  *   the oldest
- * - a signed-in person: the workspace in the `ab_workspace` cookie if they
+ * - a signed-in person: the project in the `ab_project` cookie if they
  *   can open it, else their first; their scope is what their grants add up
  *   to there (lib/access.ts)
  * - nobody: ANONYMOUS_SCOPE, which unset is nothing
@@ -38,7 +38,7 @@ import type { Scope } from "@/lib/scopes";
  * app asks for that account first, and it becomes the admin.
  */
 
-export type Workspace = {
+export type Project = {
   id: string;
   slug: string;
   name: string;
@@ -48,8 +48,8 @@ export type Workspace = {
 export type Person = { id: string; name: string; email: string };
 
 export type Caller = Access & {
-  workspace: Workspace;
-  /** On the workspace's organization: admin there manages its people and workspaces. */
+  project: Project;
+  /** On the project's organization: admin there manages its people and projects. */
   orgScope: Scope | null;
   /** How history and the audit log name them: a person's name, a key's name, or "web". */
   actor: string;
@@ -61,8 +61,8 @@ export type Caller = Access & {
   readOnly?: boolean;
 };
 
-/** The web app's workspace switcher sets this; it holds a workspace id. */
-export const WORKSPACE_COOKIE = "ab_workspace";
+/** The web app's project switcher sets this; it holds a project id. */
+export const PROJECT_COOKIE = "ab_project";
 
 /** Nothing before the first account exists, whatever ANONYMOUS_SCOPE says: setup comes first. */
 export async function anonymousScope(): Promise<Scope | null> {
@@ -70,62 +70,62 @@ export async function anonymousScope(): Promise<Scope | null> {
 }
 
 const ws = {
-  id: workspaces.id,
-  slug: workspaces.slug,
-  name: workspaces.name,
-  organizationId: workspaces.organizationId,
+  id: projects.id,
+  slug: projects.slug,
+  name: projects.name,
+  organizationId: projects.organizationId,
   organization: { id: organizations.id, slug: organizations.slug, name: organizations.name },
 };
 
-function workspacesWhere(where?: SQL): Promise<Workspace[]> {
+function projectsWhere(where?: SQL): Promise<Project[]> {
   return db
     .select(ws)
-    .from(workspaces)
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .from(projects)
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(where)
-    .orderBy(asc(organizations.createdAt), asc(workspaces.createdAt));
+    .orderBy(asc(organizations.createdAt), asc(projects.createdAt));
 }
 
 /**
- * The oldest workspace: where a caller with nowhere else to be lands. There
- * is always one. Kept a minute (lib/memo.ts); deleting a workspace forgets it.
+ * The oldest project: where a caller with nowhere else to be lands. There
+ * is always one. Kept a minute (lib/memo.ts); deleting a project forgets it.
  */
-export const defaultWorkspace = memo(60_000, async () => {
-  const [first] = await workspacesWhere();
-  if (!first) throw new Error("No workspace: run `pnpm db:migrate`");
+export const defaultProject = memo(60_000, async () => {
+  const [first] = await projectsWhere();
+  if (!first) throw new Error("No project: run `pnpm db:migrate`");
   return first;
 });
 
 const NIL = "00000000-0000-0000-0000-000000000000";
 
 /**
- * Where /me says a caller who can open no workspace is: nowhere. Never the
- * workspace they fell back to (the oldest), whose name and organization are
+ * Where /me says a caller who can open no project is: nowhere. Never the
+ * project they fell back to (the oldest), whose name and organization are
  * someone else's.
  */
-const NOWHERE: Workspace = { id: NIL, slug: "", name: "", organizationId: NIL, organization: { id: NIL, slug: "", name: "" } };
+const NOWHERE: Project = { id: NIL, slug: "", name: "", organizationId: NIL, organization: { id: NIL, slug: "", name: "" } };
 
-/** The caller can open their workspace: a key, a scope there or on its organization, or grants inside it. */
+/** The caller can open their project: a key, a scope there or on its organization, or grants inside it. */
 export const placed = (c: Caller) => !!c.key || !!c.scope || !!c.orgScope || isNarrowed(c);
 
-/** Private collections and brands where `where` says: what a workspace's scope doesn't reach (lib/access.ts). */
+/** Private collections and brands where `where` says: what a project's scope doesn't reach (lib/access.ts). */
 const privateCollections = (where: SQL) =>
   unionAll(
     db
-      .select({ id: collections.id, workspaceId: collections.workspaceId })
+      .select({ id: collections.id, projectId: collections.projectId })
       .from(collections)
-      .innerJoin(workspaces, eq(workspaces.id, collections.workspaceId))
+      .innerJoin(projects, eq(projects.id, collections.projectId))
       .where(and(eq(collections.private, true), where)),
     db
-      .select({ id: brands.id, workspaceId: brands.workspaceId })
+      .select({ id: brands.id, projectId: brands.projectId })
       .from(brands)
-      .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
+      .innerJoin(projects, eq(projects.id, brands.projectId))
       .where(and(eq(brands.private, true), where)),
   );
 
-/** The workspace's private collections and brands. */
-export async function hiddenIn(workspaceId: string): Promise<string[]> {
-  return (await privateCollections(eq(workspaces.id, workspaceId))).map((r) => r.id);
+/** The project's private collections and brands. */
+export async function hiddenIn(projectId: string): Promise<string[]> {
+  return (await privateCollections(eq(projects.id, projectId))).map((r) => r.id);
 }
 
 /** A person's own grants, and their groups' (lib/core/groups.ts). */
@@ -138,26 +138,26 @@ const ownOrGroups = (userId: string) =>
  * a share is each member's read on what was shared (lib/core/project-shares.ts).
  */
 export const heldBy = (userId: string) => {
-  const roles = (resource: "workspace" | "organization") =>
+  const roles = (resource: "project" | "organization") =>
     db.select({ id: grants.resourceId }).from(grants).where(and(ownOrGroups(userId), eq(grants.resource, resource)));
   const memberOf = db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(or(inArray(workspaces.id, roles("workspace")), inArray(workspaces.organizationId, roles("organization"))));
+    .select({ id: projects.id })
+    .from(projects)
+    .where(or(inArray(projects.id, roles("project")), inArray(projects.organizationId, roles("organization"))));
   return or(ownOrGroups(userId), inArray(grants.holderProjectId, memberOf))!;
 };
 
-/** Workspaces a person can open: all of an organization they have a grant on, and any they have a grant in. */
+/** Projects a person can open: all of an organization they have a grant on, and any they have a grant in. */
 const reachable = (userId: string) =>
   or(
-    inArray(workspaces.organizationId, db.select({ id: grants.resourceId }).from(grants).where(and(heldBy(userId), eq(grants.resource, "organization")))),
-    inArray(workspaces.id, db.select({ id: grants.workspaceId }).from(grants).where(heldBy(userId))),
+    inArray(projects.organizationId, db.select({ id: grants.resourceId }).from(grants).where(and(heldBy(userId), eq(grants.resource, "organization")))),
+    inArray(projects.id, db.select({ id: grants.projectId }).from(grants).where(heldBy(userId))),
   )!;
 
-/** Every workspace a person can open, and their grants: one round trip. */
-export async function workspacesOf(userId: string) {
-  const [mine, open] = await Promise.all([db.select().from(grants).where(heldBy(userId)), workspacesWhere(reachable(userId))]);
-  return { grants: mine, workspaces: open };
+/** Every project a person can open, and their grants: one round trip. */
+export async function projectsOf(userId: string) {
+  const [mine, open] = await Promise.all([db.select().from(grants).where(heldBy(userId)), projectsWhere(reachable(userId))]);
+  return { grants: mine, projects: open };
 }
 
 const cookie = (req: Request, name: string) =>
@@ -172,28 +172,28 @@ export { ipOf };
  * whatever anonymous may do. In a read-only organization everyone reads, and
  * its admins still manage its people and settings, and can leave.
  *
- * `workspaceId` asks for that workspace over the cookie's, when they can open
- * it: for what belongs to one workspace whichever is open, like /a/{id}.
+ * `projectId` asks for that project over the cookie's, when they can open
+ * it: for what belongs to one project whichever is open, like /a/{id}.
  */
-export async function callerFrom(req: Request, workspaceId?: string): Promise<Caller | undefined> {
-  const caller = await resolve(req, workspaceId);
-  if (!caller || !(await limitsOf(caller.workspace.organizationId)).readOnly) return caller;
+export async function callerFrom(req: Request, projectId?: string): Promise<Caller | undefined> {
+  const caller = await resolve(req, projectId);
+  if (!caller || !(await limitsOf(caller.project.organizationId)).readOnly) return caller;
   return { ...caller, ...capAt(caller, "read"), readOnly: true };
 }
 
-async function resolve(req: Request, workspaceId?: string): Promise<Caller | undefined> {
+async function resolve(req: Request, projectId?: string): Promise<Caller | undefined> {
   const ip = ipOf(req.headers);
   const authorization = req.headers.get("authorization");
   if (authorization) {
     const secret = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
     if (!secret) return undefined;
-    // One secret, a row per workspace it was given: the one asked for, else the first. An agent's lapses (lib/core/oauth.ts).
+    // One secret, a row per project it was given: the one asked for, else the first. An agent's lapses (lib/core/oauth.ts).
     const rows = await db
       .select()
       .from(apiKeys)
       .where(and(eq(apiKeys.hash, hashKey(secret)), or(isNull(apiKeys.expiresAt), gt(apiKeys.expiresAt, sql`now()`))))
       .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
-    const key = rows.find((r) => r.workspaceId === workspaceId) ?? rows[0];
+    const key = rows.find((r) => r.projectId === projectId) ?? rows[0];
     if (!key) return undefined;
     // Connected agents' "last seen": never worth failing or slowing the request for.
     void db
@@ -201,72 +201,72 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
       .set({ lastUsedAt: new Date(), calls: sql`${apiKeys.calls} + 1` })
       .where(eq(apiKeys.id, key.id))
       .catch((err) => console.error("key use not recorded", err));
-    const [[workspace], hidden, theirs] = await Promise.all([
-      workspacesWhere(eq(workspaces.id, key.workspaceId)),
-      hiddenIn(key.workspaceId),
+    const [[project], hidden, theirs] = await Promise.all([
+      projectsWhere(eq(projects.id, key.projectId)),
+      hiddenIn(key.projectId),
       key.userId ? db.select().from(grants).where(heldBy(key.userId)) : null,
     ]);
     // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
-    const access = theirs ? capAt(accessIn(theirs, workspace, hidden), key.scope) : { scope: key.scope, narrow: NONE, hidden };
-    return { workspace, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
+    const access = theirs ? capAt(accessIn(theirs, project, hidden), key.scope) : { scope: key.scope, narrow: NONE, hidden };
+    return { project, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
-  const wanted = workspaceId ?? cookie(req, WORKSPACE_COOKIE);
+  const wanted = projectId ?? cookie(req, PROJECT_COOKIE);
   const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
   if (session) {
     const { id, name, email } = session.user;
-    // Private collections of every workspace they can open, alongside: which one they are in is known after.
-    const [{ grants: mine, workspaces: open }, closed] = await Promise.all([workspacesOf(id), privateCollections(reachable(id))]);
-    const workspace = open.find((w) => w.id === wanted) ?? open[0] ?? (await defaultWorkspace());
-    const hidden = open.includes(workspace) ? closed.filter((c) => c.workspaceId === workspace.id).map((c) => c.id) : await hiddenIn(workspace.id);
+    // Private collections of every project they can open, alongside: which one they are in is known after.
+    const [{ grants: mine, projects: open }, closed] = await Promise.all([projectsOf(id), privateCollections(reachable(id))]);
+    const project = open.find((w) => w.id === wanted) ?? open[0] ?? (await defaultProject());
+    const hidden = open.includes(project) ? closed.filter((c) => c.projectId === project.id).map((c) => c.id) : await hiddenIn(project.id);
     const orgScope = highest(
-      ...mine.filter((g) => g.resource === "organization" && g.resourceId === workspace.organizationId).map((g) => g.scope),
+      ...mine.filter((g) => g.resource === "organization" && g.resourceId === project.organizationId).map((g) => g.scope),
     );
-    return { workspace, ...accessIn(mine, workspace, hidden), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
+    return { project, ...accessIn(mine, project, hidden), orgScope, actor: name || email, user: { id, name, email }, key: null, ip };
   }
 
-  // Someone signed out picks a workspace by cookie only where anyone may look around (anonymousScope): elsewhere
-  // a workspace's id would show its name, its organization and its private collections' ids to whoever has it.
+  // Someone signed out picks a project by cookie only where anyone may look around (anonymousScope): elsewhere
+  // a project's id would show its name, its organization and its private collections' ids to whoever has it.
   // One the request is about (a public asset's) is still theirs to see it in.
   const scope = await anonymousScope();
-  const pick = workspaceId ?? (scope ? wanted : undefined);
-  const [picked] = pick && z.uuid().safeParse(pick).success ? await workspacesWhere(eq(workspaces.id, pick)) : [undefined];
-  const workspace = picked ?? (await defaultWorkspace());
-  return { workspace, scope, narrow: NONE, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
+  const pick = projectId ?? (scope ? wanted : undefined);
+  const [picked] = pick && z.uuid().safeParse(pick).success ? await projectsWhere(eq(projects.id, pick)) : [undefined];
+  const project = picked ?? (await defaultProject());
+  return { project, scope, narrow: NONE, hidden: await hiddenIn(project.id), orgScope: scope, actor: "web", user: null, key: null, ip };
 }
 
-export async function workspaceById(id: string): Promise<Workspace | null> {
-  return (await workspacesWhere(eq(workspaces.id, id)))[0] ?? null;
+export async function projectById(id: string): Promise<Project | null> {
+  return (await projectsWhere(eq(projects.id, id)))[0] ?? null;
 }
 
-/** Every workspace an anonymous caller with a scope can switch to: all of them. */
-export const allWorkspaces = () => workspacesWhere();
+/** Every project an anonymous caller with a scope can switch to: all of them. */
+export const allProjects = () => projectsWhere();
 
-/** Every workspace a key's secret is in, oldest row first, each with its scope there. */
-export async function keyWorkspaces(keyId: string): Promise<(Workspace & { scope: Scope })[]> {
+/** Every project a key's secret is in, oldest row first, each with its scope there. */
+export async function keyProjects(keyId: string): Promise<(Project & { scope: Scope })[]> {
   const same = db.select({ hash: apiKeys.hash }).from(apiKeys).where(eq(apiKeys.id, keyId));
   return db
     .select({ ...ws, scope: apiKeys.scope })
     .from(apiKeys)
-    .innerJoin(workspaces, eq(workspaces.id, apiKeys.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, apiKeys.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(eq(apiKeys.hash, sql`(${same})`))
     .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
 }
 
-/** Workspaces a caller can switch to, across organizations, for the switcher. */
-export async function openWorkspaces(caller: Caller): Promise<Workspace[]> {
-  if (caller.key) return keyWorkspaces(caller.key);
-  if (caller.user) return (await workspacesOf(caller.user.id)).workspaces;
-  return caller.scope ? allWorkspaces() : [];
+/** Projects a caller can switch to, across organizations, for the switcher. */
+export async function openProjects(caller: Caller): Promise<Project[]> {
+  if (caller.key) return keyProjects(caller.key);
+  if (caller.user) return (await projectsOf(caller.user.id)).projects;
+  return caller.scope ? allProjects() : [];
 }
 
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in, at the host asked. */
 export async function describeCaller(caller: Caller, host?: string | null) {
-  const here = placed(caller) ? caller.workspace : NOWHERE;
-  const [email, workspaces, signUp, anonymous, passwordReset, sso, limits, notice, joinable, captcha] = await Promise.all([
+  const here = placed(caller) ? caller.project : NOWHERE;
+  const [email, projects, signUp, anonymous, passwordReset, sso, limits, notice, joinable, captcha] = await Promise.all([
     canEmail(here.organizationId),
-    openWorkspaces(caller),
+    openProjects(caller),
     hasUsers().then((some) => !some),
     anonymousScope(),
     canResetPasswords(),
@@ -281,7 +281,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     user: caller.user,
     key: !!caller.key,
     actor: caller.actor,
-    workspace: here,
+    project: here,
     scope: caller.scope,
     orgScope: caller.orgScope,
     readOnly: !!caller.readOnly,
@@ -289,7 +289,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     email,
     narrow: caller.narrow,
     hidden: here === NOWHERE ? [] : caller.hidden,
-    workspaces,
+    projects,
     features: limits.value.features,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
     billing: admin ? (env.BILLING_URL ?? null) : null,
@@ -299,7 +299,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     notice: admin ? noticeOf(notice.value) : null,
     // An organization at the domain of their address they may join (lib/core/email-domains.ts).
     joinable,
-    // Connecting makes a key for the sync, so it takes admin on the workspace.
+    // Connecting makes a key for the sync, so it takes admin on the project.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     // Help's "Send feedback" writes to the operator's reply address, with the version in the mail to say what ran.
     feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,

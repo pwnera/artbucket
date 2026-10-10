@@ -2,28 +2,28 @@ import { allows, SCOPES, type Scope } from "./scopes.ts";
 
 /**
  * Who may do what, as pure functions over a caller's grants. Grants reach
- * down: organization, then workspace, then collection, then one asset, and
+ * down: organization, then project, then collection, then one asset, and
  * the highest scope on the way wins. So write on a collection is write on
  * every asset in it, and admin on the organization is admin everywhere.
  *
- * A caller carries its scope on the whole workspace, plus the grants that
+ * A caller carries its scope on the whole project, plus the grants that
  * reach further than that on single collections or assets: a contractor with
- * no workspace role and write on "Autumn 26" sees that collection and nothing
+ * no project role and write on "Autumn 26" sees that collection and nothing
  * else. Core narrows searches and checks writes with these.
  *
- * Private collections and assets turn the workspace scope away (admins
+ * Private collections and assets turn the project scope away (admins
  * excepted): only grants on them reach them. Roles are one ladder: nothing
  * is switched off per grant.
  *
  * Relative imports: `pnpm test` runs this under plain Node.
  */
 
-export const RESOURCES = ["organization", "workspace", "collection", "asset", "brand"] as const;
+export const RESOURCES = ["organization", "project", "collection", "asset", "brand"] as const;
 export type Resource = (typeof RESOURCES)[number];
 
 export type Narrow = { collections: Record<string, Scope>; assets: Record<string, Scope>; brands: Record<string, Scope> };
 /**
- * `hidden`: the workspace's private collections and brands. The workspace
+ * `hidden`: the project's private collections and brands. The project
  * scope doesn't reach into those, nor into private assets, unless it is
  * admin: only a grant on the thing (or a collection it is in) does.
  */
@@ -44,7 +44,7 @@ export type Level = { scope: Scope | null };
 export const isPrivate = (a: Access, asset: { collections: string[]; private?: boolean }) =>
   !!asset.private || (asset.collections.length > 0 && asset.collections.every((c) => a.hidden.includes(c)));
 
-/** The workspace's level, as it reaches something: only an admin's reaches something private. */
+/** The project's level, as it reaches something: only an admin's reaches something private. */
 const top = (a: Access, hidden: boolean): Level => ({ scope: hidden && a.scope !== "admin" ? null : a.scope });
 
 export const collectionLevels = (a: Access, id: string): Level[] => [
@@ -58,7 +58,7 @@ export const assetLevels = (a: Access, asset: { id: string; collections: string[
   ...asset.collections.map((c) => ({ scope: a.narrow.collections[c] ?? null })),
 ];
 
-/** A brand's levels: the workspace's (turned away when it is private, admins excepted) and grants on the brand itself. */
+/** A brand's levels: the project's (turned away when it is private, admins excepted) and grants on the brand itself. */
 export const brandLevels = (a: Access, brand: { id: string; private?: boolean }): Level[] => [
   top(a, !!brand.private),
   { scope: a.narrow.brands[brand.id] ?? null },
@@ -66,7 +66,7 @@ export const brandLevels = (a: Access, brand: { id: string; private?: boolean })
 
 export const brandScope = (a: Access, brand: { id: string; private?: boolean }) => highest(...brandLevels(a, brand).map((l) => l.scope));
 
-/** Every level: somewhere in the workspace. */
+/** Every level: somewhere in the project. */
 export const allLevels = (a: Access): Level[] => [
   { scope: a.scope },
   ...Object.values(a.narrow.collections).map((scope) => ({ scope })),
@@ -77,16 +77,16 @@ export const allLevels = (a: Access): Level[] => [
 /** Whether some level allows `need`. */
 export const allowsOn = (levels: Level[], need: Scope) => levels.some((l) => allows(l.scope, need));
 
-/** An asset's scope for this caller: the workspace's, raised by grants on the asset or a collection it is in. */
+/** An asset's scope for this caller: the project's, raised by grants on the asset or a collection it is in. */
 export const assetScope = (a: Access, asset: { id: string; collections: string[]; private?: boolean }) =>
   highest(...assetLevels(a, asset).map((l) => l.scope));
 
 export const collectionScope = (a: Access, id: string) => highest(...collectionLevels(a, id).map((l) => l.scope));
 
-/** The most this caller may do anywhere in the workspace. Routes gate on it; core then checks the thing itself. */
+/** The most this caller may do anywhere in the project. Routes gate on it; core then checks the thing itself. */
 export const widest = (a: Access) => highest(...allLevels(a).map((l) => l.scope));
 
-/** Only some of the workspace: no scope on all of it, but a grant on part of it. */
+/** Only some of the project: no scope on all of it, but a grant on part of it. */
 export const isNarrowed = (a: Access) => a.scope === null && widest(a) !== null;
 
 /** Ids of the collections and assets this caller's grants reach with at least `need`, for SQL. */
@@ -96,21 +96,21 @@ export function reach(a: Access, need: Scope) {
   return { collections: pick(a.narrow.collections), assets: pick(a.narrow.assets), brands: pick(a.narrow.brands) };
 }
 
-type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | null; scope: Scope };
+type GrantRow = { resource: Resource; resourceId: string; projectId: string | null; scope: Scope };
 
 /**
- * A user's scope on a workspace and their narrower grants in it, from all of
- * their grants: the organization's and the workspace's make the scope, the
- * rest are narrow. `hidden`: the workspace's private collections.
+ * A user's scope on a project and their narrower grants in it, from all of
+ * their grants: the organization's and the project's make the scope, the
+ * rest are narrow. `hidden`: the project's private collections.
  */
-export function accessIn(grants: GrantRow[], workspace: { id: string; organizationId: string }, hidden: string[] = []): Access {
+export function accessIn(grants: GrantRow[], project: { id: string; organizationId: string }, hidden: string[] = []): Access {
   const narrow: Narrow = { collections: {}, assets: {}, brands: {} };
   let scope: Scope | null = null;
   for (const g of grants) {
     if (g.resource === "organization") {
-      if (g.resourceId === workspace.organizationId) scope = highest(scope, g.scope);
-    } else if (g.workspaceId !== workspace.id) continue;
-    else if (g.resource === "workspace") scope = highest(scope, g.scope);
+      if (g.resourceId === project.organizationId) scope = highest(scope, g.scope);
+    } else if (g.projectId !== project.id) continue;
+    else if (g.resource === "project") scope = highest(scope, g.scope);
     else if (g.resource === "collection") narrow.collections[g.resourceId] = highest(narrow.collections[g.resourceId], g.scope)!;
     else if (g.resource === "asset") narrow.assets[g.resourceId] = highest(narrow.assets[g.resourceId], g.scope)!;
     else if (g.resource === "brand") narrow.brands[g.resourceId] = highest(narrow.brands[g.resourceId], g.scope)!;

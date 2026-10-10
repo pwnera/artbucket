@@ -17,7 +17,7 @@ import { ExternalLink } from "@/components/external-link";
 import { EMAIL_PROVIDERS, PROVIDERS, type EmailProvider, type EmailSettings } from "@/lib/email";
 import { send } from "@/lib/send";
 
-type Source = "workspace" | "organization" | "environment" | "default";
+type Source = "project" | "organization" | "environment" | "default";
 export type EmailSetting = {
   value: EmailSettings;
   secrets: { apiKey: boolean };
@@ -27,7 +27,7 @@ export type EmailSetting = {
 };
 
 const FROM: Record<Source, string> = {
-  workspace: "set for this workspace",
+  project: "set for this project",
   organization: "set for this organization",
   environment: "from the server's configuration",
   default: "the default",
@@ -106,7 +106,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
           <div className="flex items-center gap-2">
             <Switch id={`${id}-enabled`} checked={enabled} onCheckedChange={setEnabled} />
             <Label htmlFor={`${id}-enabled`} className="font-normal">
-              Send email from {me.workspace.organization.name}
+              Send email from {me.project.organization.name}
             </Label>
             {enabled !== v.enabled && <span className="text-muted-foreground text-xs">Not saved yet</span>}
           </div>
@@ -144,7 +144,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
               id={`${id}-from`}
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              placeholder={`${me.workspace.organization.name} <assets@example.com>`}
+              placeholder={`${me.project.organization.name} <assets@example.com>`}
               maxLength={320}
             />
             <Hint text={hint("from")} />

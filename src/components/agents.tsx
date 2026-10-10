@@ -24,7 +24,7 @@ import type { Source } from "@/components/builder/use-status";
 import { AGENTS, GROUPS, type Agent, type Group } from "@/components/agent-catalog";
 import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
-import { mostOf, scopeLabel, ScopePicker, SCOPE_LABELS, WorkspacePicker, type Givable } from "@/components/consent";
+import { mostOf, scopeLabel, ScopePicker, SCOPE_LABELS, ProjectPicker, type Givable } from "@/components/consent";
 import { Field } from "@/components/fields";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -58,8 +58,8 @@ export type Key = {
   calls: number;
   owner: string | null;
   waiting: number;
-  /** For an agent you connected: every workspace it works in. */
-  workspaces?: string[] | null;
+  /** For an agent you connected: every project it works in. */
+  projects?: string[] | null;
 };
 
 /** A brand kept in a Git repository too: GET /api/v1/brands/{slug}/source, beside the brand. */
@@ -69,7 +69,7 @@ export type Kept = { brand: BrandInfo; source: NonNullable<Source["source"]>; co
 type Connection = {
   id: string;
   name: string;
-  workspaces: { id: string; name: string; organization: string; scope: Scope }[];
+  projects: { id: string; name: string; organization: string; scope: Scope }[];
   givable: Givable[];
 };
 
@@ -469,9 +469,9 @@ function Setup({
 }
 
 /**
- * Agents people connected (OAuth, `artbucket login`): the workspace's for an
- * admin, yours for anyone else. Yours say every workspace they work in, and
- * Workspaces changes where, and with what, without signing in again.
+ * Agents people connected (OAuth, `artbucket login`): the project's for an
+ * admin, yours for anyone else. Yours say every project they work in, and
+ * Projects changes where, and with what, without signing in again.
  */
 function Connected({ keys, onRevoked, onChanged, onBrowse }: { keys: Key[]; onRevoked: (id: string) => void; onChanged: () => void; onBrowse: () => void }) {
   const [editing, setEditing] = useState<Key | null>(null);
@@ -480,7 +480,7 @@ function Connected({ keys, onRevoked, onChanged, onBrowse }: { keys: Key[]; onRe
     <section className="space-y-3">
       <div className="flex items-center gap-1.5">
         <h2 className="font-display text-lg font-semibold">Connected agents</h2>
-        <InfoTip>One agent can work in several workspaces: pick them when it signs in, or change them here.</InfoTip>
+        <InfoTip>One agent can work in several projects: pick them when it signs in, or change them here.</InfoTip>
       </div>
       {!keys.length ? (
         <Empty size="sm" className="border">
@@ -535,9 +535,9 @@ function Reach({ agent, onDone }: { agent: Key; onDone: () => void }) {
       .then(({ data }) => {
         if (!live) return;
         setConn(data);
-        setPicked(data.workspaces.map((w) => w.id));
+        setPicked(data.projects.map((w) => w.id));
         // What it has now, at its most, is where the choice starts.
-        setScope(data.workspaces.map((w) => grantable(w.scope)).reduce((m, s) => (SCOPES.indexOf(s) > SCOPES.indexOf(m) ? s : m), "read"));
+        setScope(data.projects.map((w) => grantable(w.scope)).reduce((m, s) => (SCOPES.indexOf(s) > SCOPES.indexOf(m) ? s : m), "read"));
       })
       .catch(() => live && setFailed(true));
     return () => {
@@ -545,11 +545,11 @@ function Reach({ agent, onDone }: { agent: Key; onDone: () => void }) {
     };
   }, [agent.id]);
 
-  // Workspaces it works in that you may no longer give stay offered, at what it has there: saving doesn't drop them unasked.
+  // Projects it works in that you may no longer give stay offered, at what it has there: saving doesn't drop them unasked.
   const givable: Givable[] = conn
     ? [
         ...conn.givable,
-        ...conn.workspaces.filter((w) => !conn.givable.some((g) => g.id === w.id)).map((w) => ({ id: w.id, name: w.name, organization: w.organization, max: grantable(w.scope) })),
+        ...conn.projects.filter((w) => !conn.givable.some((g) => g.id === w.id)).map((w) => ({ id: w.id, name: w.name, organization: w.organization, max: grantable(w.scope) })),
       ]
     : [];
   const value = cappedScope(scope, mostOf(givable, picked));
@@ -572,14 +572,14 @@ function Reach({ agent, onDone }: { agent: Key; onDone: () => void }) {
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
-            const ok = await send("PATCH", `/api/v1/keys/${agent.id}`, { workspaces: picked, scope: value });
+            const ok = await send("PATCH", `/api/v1/keys/${agent.id}`, { projects: picked, scope: value });
             setBusy(false);
             if (!ok) return;
-            toast.success(`${agent.name} works in ${count(picked.length, "workspace")}`);
+            toast.success(`${agent.name} works in ${count(picked.length, "project")}`);
             onDone();
           }}
         >
-          <WorkspacePicker workspaces={givable} picked={picked} onChange={setPicked} scope={value} />
+          <ProjectPicker projects={givable} picked={picked} onChange={setPicked} scope={value} />
           <ScopePicker max={mostOf(givable, picked)} value={value} onChange={setScope} />
           <div className="flex justify-end">
             <Button type="submit" pending={busy} disabled={!picked.length}>
@@ -734,7 +734,7 @@ function AskedFor({ asked, keys }: { asked: Asked; keys: Key[] }) {
 
 /**
  * Keys an admin makes, for what can't sign in on its own: automations,
- * scripts, CI. They answer to nobody, so they're the workspace's to manage.
+ * scripts, CI. They answer to nobody, so they're the project's to manage.
  */
 function ApiKeys({ keys, onMade, onRevoked }: { keys: Key[]; onMade: (k: Key) => void; onRevoked: (id: string) => void }) {
   // The key just made: its secret, shown once, until dismissed.
@@ -786,7 +786,7 @@ function KeyList({
     <ul className="divide-y rounded-lg border">
       {keys.map((k) => {
         const whose = k.owner ? `${k.owner}'s ${k.name}` : k.name;
-        const several = !!k.workspaces && k.workspaces.length > 1;
+        const several = !!k.projects && k.projects.length > 1;
         return (
           // The key just made stays where the API lists it, last, and flashes so it is found.
           <li key={k.id} data-api-key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
@@ -796,8 +796,8 @@ function KeyList({
             <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
             {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
             {several && (
-              <span className="text-muted-foreground min-w-0 truncate text-xs" title={k.workspaces!.join(", ")}>
-                {count(k.workspaces!.length, "workspace")}
+              <span className="text-muted-foreground min-w-0 truncate text-xs" title={k.projects!.join(", ")}>
+                {count(k.projects!.length, "project")}
               </span>
             )}
             {k.waiting > 0 && (
@@ -808,8 +808,8 @@ function KeyList({
             <span className="text-muted-foreground ml-auto text-xs" title={k.lastUsedAt ? exact(k.lastUsedAt) : undefined} suppressHydrationWarning>
               {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
             </span>
-            {k.workspaces && onEdit && (
-              <IconButton variant="ghost" label={`Workspaces ${k.name} works in`} className="text-muted-foreground" onClick={() => onEdit(k)}>
+            {k.projects && onEdit && (
+              <IconButton variant="ghost" label={`Projects ${k.name} works in`} className="text-muted-foreground" onClick={() => onEdit(k)}>
                 <IconStack2 />
               </IconButton>
             )}
@@ -817,7 +817,7 @@ function KeyList({
               title={`Revoke ${whose}${several ? " here" : ""}?`}
               says={
                 several
-                  ? "It stops working in this workspace at once and keeps the others. What it suggested stays in Review."
+                  ? "It stops working in this project at once and keeps the others. What it suggested stays in Review."
                   : "Anything using it stops working at once, with a 401. What it already suggested stays in Review."
               }
               action="Revoke"

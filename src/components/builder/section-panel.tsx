@@ -601,7 +601,7 @@ function GroupField({ s, f, error, onSet }: { s: Section; f: Extract<Field, { ki
   );
 }
 
-/** A collection or a saved search of the workspace, by name. */
+/** A collection or a saved search of the project, by name. */
 function SavedPicker({ b, id, kind, value, onPick }: { b: BuilderApi; id: string; kind: "collection" | "search"; value?: string; onPick(id: string | undefined): void }) {
   const [list, setList] = useState<{ id: string; name: string }[] | null>(null);
   useEffect(() => {

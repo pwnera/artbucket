@@ -5,7 +5,7 @@ import { ShareFinalize } from "@/lib/schemas";
 
 /**
  * POST /api/v1/shared/{token}/assets - hand in an upload. It lands proposed,
- * in the link's collection, for someone in the workspace to review.
+ * in the link's collection, for someone in the project to review.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {

@@ -27,17 +27,17 @@ export const SCOPE_LABELS: { scope: Scope; label: string; hint: string }[] = [
 ];
 export const scopeLabel = (s: Scope) => SCOPE_LABELS.find((x) => x.scope === s)?.label ?? s;
 
-/** A workspace a person can give an agent, with the most they may give there. */
+/** A project a person can give an agent, with the most they may give there. */
 export type Givable = { id: string; name: string; organization: string; max: Grantable };
 export type Options = {
   client: { name: string };
   scope: Grantable;
-  workspace: string | null;
-  workspaces: Givable[];
+  project: string | null;
+  projects: Givable[];
 };
 /** GET's body as the page read it on the server (lib/sidebar.ts getBody), or null when the API didn't answer. */
 export type Loaded = { data?: Options; error?: { message?: string } } | null;
-type Decision = { allow: true; workspaces: string[]; scope: Grantable } | { allow: false };
+type Decision = { allow: true; projects: string[]; scope: Grantable } | { allow: false };
 
 async function call<T>(method: string, url: string, payload?: unknown): Promise<{ data: T } | { error: string }> {
   try {
@@ -52,28 +52,28 @@ async function call<T>(method: string, url: string, payload?: unknown): Promise<
 const RANK: Scope[] = ["read", "propose", "write", "admin"];
 
 /** The most an agent may be given across `picked`: what the scope list offers. */
-export const mostOf = (workspaces: Givable[], picked: string[]): Grantable =>
-  workspaces.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (RANK.indexOf(w.max) > RANK.indexOf(m) ? w.max : m), "read");
+export const mostOf = (projects: Givable[], picked: string[]): Grantable =>
+  projects.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (RANK.indexOf(w.max) > RANK.indexOf(m) ? w.max : m), "read");
 
 /**
- * Which workspaces an agent works in: one is just named, several are boxes to
- * tick. A workspace where you may give less than `scope` says what it gets.
+ * Which projects an agent works in: one is just named, several are boxes to
+ * tick. A project where you may give less than `scope` says what it gets.
  */
-export function WorkspacePicker({ workspaces, picked, onChange, scope }: { workspaces: Givable[]; picked: string[]; onChange: (ids: string[]) => void; scope: Grantable }) {
-  if (workspaces.length === 1) {
+export function ProjectPicker({ projects, picked, onChange, scope }: { projects: Givable[]; picked: string[]; onChange: (ids: string[]) => void; scope: Grantable }) {
+  if (projects.length === 1) {
     return (
-      <Field label="Workspace">
+      <Field label="Project">
         <p className="text-sm">
-          {workspaces[0].name} <span className="text-muted-foreground">{workspaces[0].organization}</span>
+          {projects[0].name} <span className="text-muted-foreground">{projects[0].organization}</span>
         </p>
       </Field>
     );
   }
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">Workspaces</legend>
+      <legend className="mb-2 text-sm font-medium">Projects</legend>
       <div className="divide-y rounded-lg border">
-        {workspaces.map((w) => {
+        {projects.map((w) => {
           const on = picked.includes(w.id);
           const less = on && cappedScope(scope, w.max) !== scope;
           return (
@@ -131,7 +131,7 @@ export function ScopePicker({ max, value, onChange, recommended = "propose" }: {
 
 /**
  * Who is granting, where, and what: the signed-in account (and a way to
- * switch), the workspace, the scope, and where you'll be sent back. A client
+ * switch), the project, the scope, and where you'll be sent back. A client
  * names itself when it registers, so the rest is what tells a real request
  * from a spoofed one. `onDecide` resolves true when the page is leaving.
  */
@@ -160,12 +160,12 @@ function Choose({
 }) {
   const brand = useBrand();
   const go = useGo();
-  const first = options.workspace ?? options.workspaces[0]?.id;
-  const [workspaces, setWorkspaces] = useState<string[]>(first ? [first] : []);
+  const first = options.project ?? options.projects[0]?.id;
+  const [projects, setProjects] = useState<string[]>(first ? [first] : []);
   const [scope, setScope] = useState<Grantable>(options.scope);
   const [busy, setBusy] = useState<"allow" | "deny" | "switch" | null>(null);
-  // Unticking the workspaces where you have more brings the pick down with you.
-  const picked = cappedScope(scope, mostOf(options.workspaces, workspaces));
+  // Unticking the projects where you have more brings the pick down with you.
+  const picked = cappedScope(scope, mostOf(options.projects, projects));
   const decide = async (d: Decision) => {
     setBusy(d.allow ? "allow" : "deny");
     let leaving = false;
@@ -196,9 +196,9 @@ function Choose({
     </p>
   );
 
-  if (!options.workspaces.length) {
+  if (!options.projects.length) {
     return (
-      <Card title={`Connect ${options.client.name}`} lead="You have no workspace to give it yet. Ask an admin for an invitation.">
+      <Card title={`Connect ${options.client.name}`} lead="You have no project to give it yet. Ask an admin for an invitation.">
         {who}
         <Button variant="outline" className="w-full" pending={busy === "deny"} onClick={() => void decide({ allow: false })}>
           Cancel
@@ -212,7 +212,7 @@ function Choose({
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          void decide({ allow: true, workspaces, scope: picked });
+          void decide({ allow: true, projects, scope: picked });
         }}
       >
         {who}
@@ -222,15 +222,15 @@ function Choose({
             <p className="text-muted-foreground text-xs">Check it matches your terminal.</p>
           </div>
         )}
-        <WorkspacePicker workspaces={options.workspaces} picked={workspaces} onChange={setWorkspaces} scope={picked} />
-        <ScopePicker max={mostOf(options.workspaces, workspaces)} value={picked} onChange={setScope} recommended={recommended} />
+        <ProjectPicker projects={options.projects} picked={projects} onChange={setProjects} scope={picked} />
+        <ScopePicker max={mostOf(options.projects, projects)} value={picked} onChange={setScope} recommended={recommended} />
         {redirect && <p className="text-muted-foreground text-xs">Afterwards you&apos;ll go back to {redirect}.</p>}
         {error && <FormError>{error}</FormError>}
         <div className="grid grid-cols-2 gap-2">
           <Button type="button" variant="outline" pending={busy === "deny"} disabled={!!busy} onClick={() => void decide({ allow: false })}>
             Cancel
           </Button>
-          <Button type="submit" pending={busy === "allow"} disabled={!!busy || !workspaces.length}>
+          <Button type="submit" pending={busy === "allow"} disabled={!!busy || !projects.length}>
             Allow
           </Button>
         </div>
@@ -314,7 +314,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
     initial !== undefined && !initial?.data ? (initial?.error?.message ?? UNREACHABLE) : null,
   );
   const [looking, setLooking] = useState(false);
-  const [done, setDone] = useState<{ allowed: boolean; scope?: Grantable; workspaces?: string[] } | null>(null);
+  const [done, setDone] = useState<{ allowed: boolean; scope?: Grantable; projects?: string[] } | null>(null);
 
   const look = async (c: string) => {
     setLooking(true);
@@ -333,8 +333,8 @@ export function Device({ code: given, initial, email }: { code?: string; initial
 
   if (done) {
     const client = options?.client.name ?? "The CLI";
-    const where = options?.workspaces
-      .filter((w) => done.workspaces?.includes(w.id))
+    const where = options?.projects
+      .filter((w) => done.projects?.includes(w.id))
       .map((w) => w.name)
       .join(", ");
     return (
@@ -377,7 +377,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
           const r = await call<{ allowed: boolean }>("POST", `/api/v1/oauth/device/${encodeURIComponent(code)}`, d);
           // A failure stays on the choice, with what was picked.
           if ("error" in r) setError(r.error);
-          else setDone({ allowed: r.data.allowed, ...(d.allow && { scope: d.scope, workspaces: d.workspaces }) });
+          else setDone({ allowed: r.data.allowed, ...(d.allow && { scope: d.scope, projects: d.projects }) });
           return false;
         }}
       />

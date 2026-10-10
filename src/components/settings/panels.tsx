@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { IconArrowRight, IconCheck, IconDots, IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { MakeDialog, pickWorkspace, useGo, type Me } from "@/components/account";
+import { MakeDialog, pickProject, useGo, type Me } from "@/components/account";
 import { FieldsEditor } from "@/components/field-manager";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -116,7 +116,7 @@ export function LoadFailed() {
   );
 }
 
-/** One name, saved by PATCH: a workspace's or an organization's. Explicit: it shows in invitations and links. */
+/** One name, saved by PATCH: a project's or an organization's. Explicit: it shows in invitations and links. */
 export function NameForm({ what, url, name }: { what: string; url: string; name: string }) {
   const id = useId();
   const router = useRouter();
@@ -154,16 +154,16 @@ export function NameForm({ what, url, name }: { what: string; url: string; name:
   );
 }
 
-/** The workspace's custom fields, saved as they change. */
+/** The project's custom fields, saved as they change. */
 export function FieldsPanel({ fields }: { fields: FieldDef[] }) {
   const router = useRouter();
   return <FieldsEditor fields={fields} onChanged={() => router.refresh()} />;
 }
 
-type WorkspaceRow = { id: string; slug: string; name: string; scope: Scope | null };
+type ProjectRow = { id: string; slug: string; name: string; scope: Scope | null };
 
-/** The organization's workspaces: open one, rename one, make another. */
-export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: WorkspaceRow[] }) {
+/** The organization's projects: open one, rename one, make another. */
+export function ProjectsPanel({ me, projects }: { me: Me; projects: ProjectRow[] }) {
   const go = useGo();
   const [making, setMaking] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -174,8 +174,8 @@ export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: Worksp
   return (
     <div className="space-y-4">
       <ul className="divide-y rounded-lg border">
-        {workspaces.map((w) => {
-          const deletable = workspaces.length > 1;
+        {projects.map((w) => {
+          const deletable = projects.length > 1;
           return (
             <li key={w.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
               <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold uppercase">
@@ -189,7 +189,7 @@ export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: Worksp
                     const name = String(new FormData(e.currentTarget).get("name") ?? "").trim();
                     if (!name || name === w.name) return setRenaming(null);
                     setBusy(true);
-                    const ok = await send("PATCH", `/api/v1/workspaces/${w.id}`, { name });
+                    const ok = await send("PATCH", `/api/v1/projects/${w.id}`, { name });
                     setBusy(false);
                     if (!ok) return;
                     setRenaming(null);
@@ -231,7 +231,7 @@ export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: Worksp
                   {deletable && (
                     <IconButton
                       variant="ghost"
-                      label={`Delete the workspace ${w.name}`}
+                      label={`Delete the project ${w.name}`}
                       className="text-muted-foreground hover:text-destructive hidden sm:inline-flex"
                       onClick={() => setDeleting(w.id)}
                     >
@@ -255,25 +255,25 @@ export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: Worksp
                   </DropdownMenu>
                   {deletable && (
                     <DeleteButton
-                      what={`the workspace ${w.name}`}
+                      what={`the project ${w.name}`}
                       name={w.name}
                       says="Its assets, collections, fields, brands, keys and links go with it, at once, and its files soon after. This can't be undone."
-                      url={`/api/v1/workspaces/${w.id}`}
+                      url={`/api/v1/projects/${w.id}`}
                       open={deleting === w.id}
                       onOpenChange={(o) => !o && setDeleting(null)}
                       onDeleted={() => {
-                        if (w.id !== me.workspace.id) return router.refresh();
-                        pickWorkspace(workspaces.find((x) => x.id !== w.id)!.id);
+                        if (w.id !== me.project.id) return router.refresh();
+                        pickProject(projects.find((x) => x.id !== w.id)!.id);
                         go("/");
                       }}
                     />
                   )}
-                  {w.id === me.workspace.id ? (
+                  {w.id === me.project.id ? (
                     <span className="text-muted-foreground flex min-w-16 items-center justify-center gap-1 text-xs">
                       <IconCheck className="size-3.5" /> Here
                     </span>
                   ) : (
-                    <Button variant="outline" size="sm" className="min-w-16" onClick={() => (pickWorkspace(w.id), go("/"))}>
+                    <Button variant="outline" size="sm" className="min-w-16" onClick={() => (pickProject(w.id), go("/"))}>
                       Open <IconArrowRight />
                     </Button>
                   )}
@@ -284,9 +284,9 @@ export function WorkspacesPanel({ me, workspaces }: { me: Me; workspaces: Worksp
         })}
       </ul>
       <Button variant="outline" onClick={() => setMaking(true)}>
-        <IconPlus /> New workspace
+        <IconPlus /> New project
       </Button>
-      {making && <MakeDialog kind="workspace" org={me.workspace.organization.name} onClose={() => setMaking(false)} />}
+      {making && <MakeDialog kind="project" org={me.project.organization.name} onClose={() => setMaking(false)} />}
     </div>
   );
 }
@@ -483,12 +483,12 @@ export function DeleteButton({
 /** The organization's own page: deleting it, for its admins. */
 export function DeleteOrganization({ me }: { me: Me }) {
   const go = useGo();
-  const org = me.workspace.organization;
+  const org = me.project.organization;
   return (
     <Group
       tone="danger"
       title="Delete the organization"
-      description="Its workspaces and everything in them, its people's access and its invitations go at once, and its files soon after."
+      description="Its projects and everything in them, its people's access and its invitations go at once, and its files soon after."
     >
       <DeleteButton
         what="this organization"
@@ -505,10 +505,10 @@ export type Usage = {
   limits: Limits;
   /** Where to manage the plan behind the limits (BILLING_URL); null when there is nowhere. */
   billing: string | null;
-  used: { storage: number; editors: number; workspaces: number; brands: number; domains: number };
+  used: { storage: number; editors: number; projects: number; brands: number; domains: number };
   traffic: {
     days: number;
-    workspaces: { id: string; name: string; storage: number; requests: number; bytes: number }[];
+    projects: { id: string; name: string; storage: number; requests: number; bytes: number }[];
     daily: { day: string; requests: number; bytes: number }[];
   };
 };
@@ -530,12 +530,12 @@ export function UsagePanel({ usage }: { usage: Usage }) {
   const rows: [string, number, number | null, (n: number) => string][] = [
     ["Storage", used.storage, l.storage, formatSize],
     ["Editors", used.editors, l.editors, String],
-    ["Workspaces", used.workspaces, l.workspaces, String],
+    ["Projects", used.projects, l.projects, String],
     ["Brands", used.brands, l.brands, String],
     ["Custom domains", used.domains, l.domains, String],
   ];
   const off = l.features ? FEATURES.filter((f) => !l.features!.includes(f)) : [];
-  const total = traffic.workspaces.reduce((t, w) => ({ requests: t.requests + w.requests, bytes: t.bytes + w.bytes }), { requests: 0, bytes: 0 });
+  const total = traffic.projects.reduce((t, w) => ({ requests: t.requests + w.requests, bytes: t.bytes + w.bytes }), { requests: 0, bytes: 0 });
   return (
     <div className="space-y-6">
       <Group
@@ -596,25 +596,25 @@ export function UsagePanel({ usage }: { usage: Usage }) {
           </Button>
         )}
       </Group>
-      <Group title={`Delivery, last ${traffic.days} days`} info="What asset URLs served, originals, renditions and downloads, by workspace.">
+      <Group title={`Delivery, last ${traffic.days} days`} info="What asset URLs served, originals, renditions and downloads, by project.">
         <table className="w-full max-w-2xl text-sm">
           <thead className="text-muted-foreground text-left text-xs">
             <tr>
-              <th className="py-1.5 font-medium">Workspace</th>
+              <th className="py-1.5 font-medium">Project</th>
               <th className="py-1.5 text-right font-medium">Stored</th>
               <th className="py-1.5 text-right font-medium">Requests</th>
               <th className="py-1.5 text-right font-medium">Served</th>
             </tr>
           </thead>
           <tbody className="divide-y tabular-nums">
-            {traffic.workspaces.length === 0 && (
+            {traffic.projects.length === 0 && (
               <tr>
                 <td colSpan={4} className="text-muted-foreground py-3 text-center">
                   Nothing served in the last {traffic.days} days.
                 </td>
               </tr>
             )}
-            {traffic.workspaces.map((w) => (
+            {traffic.projects.map((w) => (
               <tr key={w.id}>
                 <td className="py-1.5">{w.name}</td>
                 <td className="py-1.5 text-right">{formatSize(w.storage)}</td>
@@ -622,7 +622,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
                 <td className="py-1.5 text-right">{formatSize(w.bytes)}</td>
               </tr>
             ))}
-            {traffic.workspaces.length > 1 && (
+            {traffic.projects.length > 1 && (
               <tr className="font-medium">
                 <td className="py-1.5">All</td>
                 <td className="py-1.5 text-right">{formatSize(used.storage)}</td>

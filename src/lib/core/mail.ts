@@ -51,7 +51,7 @@ export async function sendAs(organizationId: string | null, draft: Draft, { capp
   } catch (err) {
     const error = (err as Error).message;
     console.error("email not sent", error);
-    await recordAudit({ actor: "server" }, "email.failed", message.to, { subject: message.subject, error }, { organizationId, workspaceId: null });
+    await recordAudit({ actor: "server" }, "email.failed", message.to, { subject: message.subject, error }, { organizationId, projectId: null });
     return { sent: false, error };
   }
 }

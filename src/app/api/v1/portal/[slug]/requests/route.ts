@@ -7,7 +7,7 @@ import { PortalRequestInput } from "@/lib/schemas";
  * POST /api/v1/portal/{slug}/requests - ask into a portal that isn't public,
  * or ask its brand team from a request section (`kind` asset, review or
  * question, with its `page` and `section`), through the site's own door.
- * The workspace's admins hear about it; it answers the same whoever asks.
+ * The project's admins hear about it; it answers the same whoever asks.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {

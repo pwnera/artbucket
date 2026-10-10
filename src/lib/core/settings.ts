@@ -24,13 +24,13 @@ import {
 
 /**
  * The settings store: what lib/settings.ts defines, kept per organization or
- * workspace. Reading and changing an organization's settings takes admin on
- * the organization; a workspace's, admin on the workspace.
+ * project. Reading and changing an organization's settings takes admin on
+ * the organization; a project's, admin on the project.
  */
 
-type Place = { organizationId: string; workspaceId?: string | null };
+type Place = { organizationId: string; projectId?: string | null };
 
-/** `?context=organization` (the default) or `workspace`: which place's settings. */
+/** `?context=organization` (the default) or `project`: which place's settings. */
 export const contextOf = (req: Request): SettingContext => {
   const c = new URL(req.url).searchParams.get("context") ?? "organization";
   if (!(SETTING_CONTEXTS as readonly string[]).includes(c)) throw new AssetError("invalid", `context is ${SETTING_CONTEXTS.join(" or ")}`);
@@ -39,11 +39,11 @@ export const contextOf = (req: Request): SettingContext => {
 
 
 const secret = env.BETTER_AUTH_SECRET;
-const where = (key: SettingKey, organizationId: string, workspaceId: string | null) =>
+const where = (key: SettingKey, organizationId: string, projectId: string | null) =>
   and(
     eq(settings.key, key),
     eq(settings.organizationId, organizationId),
-    workspaceId ? eq(settings.workspaceId, workspaceId) : isNull(settings.workspaceId),
+    projectId ? eq(settings.projectId, projectId) : isNull(settings.projectId),
   );
 
 /**
@@ -53,14 +53,14 @@ const where = (key: SettingKey, organizationId: string, workspaceId: string | nu
  * forgotten here when changed through the API (lib/memo.ts).
  */
 const rows = memo(60_000, async (at: string) => {
-  const [key, organizationId, workspaceId] = at.split(":") as [SettingKey, string, string];
-  const [row] = await db.select({ value: settings.value }).from(settings).where(where(key, organizationId, workspaceId || null));
+  const [key, organizationId, projectId] = at.split(":") as [SettingKey, string, string];
+  const [row] = await db.select({ value: settings.value }).from(settings).where(where(key, organizationId, projectId || null));
   if (!row) return null;
   const parsed = SETTINGS[key].schema.partial().safeParse(sealed(key, row.value, (s) => unseal(s, secret)));
   return parsed.success ? (parsed.data as Record<string, unknown>) : null;
 });
-const at = (key: SettingKey, organizationId: string, workspaceId: string | null) => `${key}:${organizationId}:${workspaceId ?? ""}`;
-const stored = (key: SettingKey, organizationId: string, workspaceId: string | null) => rows(at(key, organizationId, workspaceId));
+const at = (key: SettingKey, organizationId: string, projectId: string | null) => `${key}:${organizationId}:${projectId ?? ""}`;
+const stored = (key: SettingKey, organizationId: string, projectId: string | null) => rows(at(key, organizationId, projectId));
 
 /**
  * The value that applies at a place, with its secrets: for code that uses it, never for a response. `fresh` reads the
@@ -69,26 +69,26 @@ const stored = (key: SettingKey, organizationId: string, workspaceId: string | n
  */
 export async function effective<K extends SettingKey>(key: K, place: Place, { fresh = false } = {}) {
   if (fresh) rows.forget(at(key, place.organizationId, null));
-  const [organization, workspace] = await Promise.all([
+  const [organization, project] = await Promise.all([
     stored(key, place.organizationId, null),
-    place.workspaceId ? stored(key, place.organizationId, place.workspaceId) : null,
+    place.projectId ? stored(key, place.organizationId, place.projectId) : null,
   ]);
-  return resolve(key, { organization, workspace }, process.env);
+  return resolve(key, { organization, project }, process.env);
 }
 
 function placeOf(caller: Caller, context: SettingContext) {
-  const action = context === "organization" ? "organization.manage" : "workspace.manage";
+  const action = context === "organization" ? "organization.manage" : "project.manage";
   if (!can(caller, action)) throw new AssetError("forbidden", `Settings of the ${context} take ${needs(action)}`);
-  return { organizationId: caller.workspace.organizationId, workspaceId: context === "workspace" ? caller.workspace.id : null };
+  return { organizationId: caller.project.organizationId, projectId: context === "project" ? caller.project.id : null };
 }
 
 const described = async (key: SettingKey, context: SettingContext, place: Required<Place>) => {
   const layers = {
     organization: await stored(key, place.organizationId, null),
-    workspace: context === "workspace" ? await stored(key, place.organizationId, place.workspaceId!) : null,
+    project: context === "project" ? await stored(key, place.organizationId, place.projectId!) : null,
   };
   const { value, source, sources } = resolve(key, layers, process.env);
-  const own = context === "workspace" ? layers.workspace : layers.organization;
+  const own = context === "project" ? layers.project : layers.organization;
   return {
     key,
     label: SETTINGS[key].label,
@@ -125,13 +125,13 @@ function settable(key: string, context: SettingContext): SettingKey {
 export async function updateSetting(caller: Caller, context: SettingContext, rawKey: string, patch: Record<string, unknown>) {
   const key = settable(rawKey, context);
   const place = placeOf(caller, context);
-  const before = await stored(key, place.organizationId, place.workspaceId);
+  const before = await stored(key, place.organizationId, place.projectId);
   const { value: current } = await effective(key, place);
   let next;
   try {
     next = merge(key, before, patch);
     // What applies after the change must still make sense as a whole.
-    resolve(key, { ...(context === "workspace" && { organization: await stored(key, place.organizationId, null) }), [context]: next }, process.env);
+    resolve(key, { ...(context === "project" && { organization: await stored(key, place.organizationId, null) }), [context]: next }, process.env);
   } catch (err) {
     throw new AssetError("invalid", `Not a valid ${key} setting`, (err as { issues?: unknown }).issues);
   }
@@ -140,13 +140,13 @@ export async function updateSetting(caller: Caller, context: SettingContext, raw
     .insert(settings)
     .values({ ...place, key, value, updatedBy: caller.actor })
     .onConflictDoUpdate({
-      target: [settings.organizationId, settings.workspaceId, settings.key],
+      target: [settings.organizationId, settings.projectId, settings.key],
       set: { value, updatedBy: caller.actor, updatedAt: sql`now()` },
     });
-  rows.forget(at(key, place.organizationId, place.workspaceId));
+  rows.forget(at(key, place.organizationId, place.projectId));
   // Which properties changed, never their values: some are secrets.
   const changed = Object.keys(patch).filter((k) => patch[k] !== undefined && JSON.stringify(patch[k]) !== JSON.stringify((current as Record<string, unknown>)[k]));
-  await recordAudit(caller, "setting.changed", SETTINGS[key].label, { key, context, changed }, { workspaceId: place.workspaceId });
+  await recordAudit(caller, "setting.changed", SETTINGS[key].label, { key, context, changed }, { projectId: place.projectId });
   return described(key, context, place);
 }
 
@@ -154,8 +154,8 @@ export async function updateSetting(caller: Caller, context: SettingContext, raw
 export async function resetSetting(caller: Caller, context: SettingContext, rawKey: string) {
   const key = settable(rawKey, context);
   const place = placeOf(caller, context);
-  await db.delete(settings).where(where(key, place.organizationId, place.workspaceId));
-  rows.forget(at(key, place.organizationId, place.workspaceId));
-  await recordAudit(caller, "setting.reset", SETTINGS[key].label, { key, context }, { workspaceId: place.workspaceId });
+  await db.delete(settings).where(where(key, place.organizationId, place.projectId));
+  rows.forget(at(key, place.organizationId, place.projectId));
+  await recordAudit(caller, "setting.reset", SETTINGS[key].label, { key, context }, { projectId: place.projectId });
   return described(key, context, place);
 }

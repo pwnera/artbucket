@@ -63,7 +63,7 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
     void (async () => {
       const list = brandy ? await json<{ data: { slug: string; default: boolean; rules?: number; createdAt: string }[] }>("/api/v1/brands") : null;
       // The brand being built is the one furthest along: of the newest few with rules (New brand, a template) and the
-      // default, which every workspace starts with, empty, the one with the most steps done, released and public counting too.
+      // default, which every project starts with, empty, the one with the most steps done, released and public counting too.
       const made = (list?.data ?? []).filter((x) => (x.rules ?? 0) > 0).sort((x, y) => y.createdAt.localeCompare(x.createdAt));
       const fallback = list?.data.find((x) => x.default) ?? list?.data[0];
       const candidates = [...new Set([...made.slice(0, 3), ...(fallback ? [fallback] : [])])];
@@ -84,7 +84,7 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
       setGot({
         path,
         facts: {
-          named: me.workspace.organization.name !== "Default",
+          named: me.project.organization.name !== "Default",
           branded: brand.custom,
           noEmail: !me.auth.serverEmail && !me.email,
           brand: b
@@ -100,7 +100,7 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
             : null,
           hub: !!status?.data.hub || !!me.hub,
           team: !!members && members.data.length + members.invitations.length > 1,
-          workspaces: me.workspaces.length,
+          projects: me.projects.length,
           agent: !!keys?.data.length,
           mcp: !!asked?.data.clients.some((c) => c.tools.length > 0),
           git: me.git,
@@ -152,7 +152,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
     return () => clearTimeout(t);
   }, [complete, watched]);
   if (raw === null || !me || !can("organization.manage") || stored.hidden) return null;
-  if (!stored.welcomed) return <FirstRun stored={stored} save={save} facts={facts} onUpload={onUpload} org={me.workspace.organization.name} />;
+  if (!stored.welcomed) return <FirstRun stored={stored} save={save} facts={facts} onUpload={onUpload} org={me.project.organization.name} />;
 
   const hide = (
     <IconButton variant="ghost" label="Hide setup" onClick={() => save({ ...stored, hidden: true })}>

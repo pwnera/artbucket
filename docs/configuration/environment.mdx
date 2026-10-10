@@ -20,7 +20,7 @@ naming the variable.
 | `APP_URL` | `http://localhost:3000` | The public origin: links, CORS for uploads, and where cookie-signed writes are taken from, beside organizations' verified domains |
 | `INTERNAL_URL` | `APP_URL` | Where the server reaches its own API while rendering pages, when it can't reach `APP_URL` from inside (a container behind a proxy): `http://localhost:3000` |
 | `BILLING_URL` | unset | Where an organization's admins manage the plan behind its limits: a "Manage plan" link in Settings, Usage, an "Upgrade" button in the header while the organization has no limits of its own, and named when a limit refuses something. See [Limits](/configuration/limits) |
-| `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug, left empty to bring a new brand in from a repository. New brand, a new brand's setup and the builder link there, for workspace admins. See [Sync API](/guides/brand-as-code/sync-api#connecting-from-the-app) |
+| `GIT_CONNECT_URL` | unset | Where a brand gets connected to a Git repository by this server's Git integration, `{brand}` standing for its slug, left empty to bring a new brand in from a repository. New brand, a new brand's setup and the builder link there, for project admins. See [Sync API](/guides/brand-as-code/sync-api#connecting-from-the-app) |
 | `DOMAIN_TARGET` | unset | The host name organizations' own domains should CNAME to, shown beside their TXT record: this server's, or a provider's (Cloudflare for SaaS's fallback origin). Unset: "point it at this server" |
 | `PORTAL_DOMAIN` | unset | A domain whose subdomains are portals: `{address}.PORTAL_DOMAIN` serves that portal, beside `/p/{address}`. Needs a wildcard DNS record and certificate. See [Portals](/guides/portals#a-subdomain-for-every-portal) |
 | `HUB_URL` | unset | Where BrandHub answers: a host of its own (`https://hub.example.com`) or a path on `APP_URL`'s (`http://localhost:3000/hub`). The path is always `/hub`. A host beside `APP_URL`'s (`hub.` and `app.example.com`) shares its sign-in: the session cookie is then set for `example.com`. Unset: no hub. See [Portals](/guides/portals#brandhub) |
@@ -38,14 +38,14 @@ naming the variable.
 | `ANONYMOUS_SCOPE` | nothing | What a request with no key and no session may do: `read` makes a public library |
 | `TRUSTED_PROXIES` | unset | The reverse proxies in front, whose `X-Forwarded-For` the server believes: addresses, ranges, or `private`. Unset, the header is ignored and every client shares one rate limit. See [Security](/configuration/security#client-addresses) |
 | `RATE_LIMIT` | `1200` | `/api` requests per minute per client; `0` turns it off. See [Security](/configuration/security) |
-| `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_WORKSPACES` `LIMIT_BRANDS` `LIMIT_DOMAINS` `LIMIT_EMAILS` `LIMIT_FEATURES` | unlimited | Every organization's limits. See [Limits](/configuration/limits) |
+| `LIMIT_STORAGE` `LIMIT_EDITORS` `LIMIT_PROJECTS` `LIMIT_BRANDS` `LIMIT_DOMAINS` `LIMIT_EMAILS` `LIMIT_FEATURES` | unlimited | Every organization's limits. See [Limits](/configuration/limits) |
 | `LIMIT_ORGANIZATIONS` | unlimited | Per person: how many organizations on the server's limits (no row of their own) someone may be admin of and still make another. See [Limits](/configuration/limits#for-every-person) |
 
 ## Settings
 
 Some configuration is also a setting an organization can change for itself in
 the app (Settings), such as its email. A value resolves property by property
-from the narrowest place that says something: the workspace, then the
+from the narrowest place that says something: the project, then the
 organization, then the environment, then the default. So a server configured
 once serves every organization, and one of them can change what the server
 leaves open to it. Email is an exception: once `EMAIL_*` is set, it is the

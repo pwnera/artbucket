@@ -15,7 +15,7 @@ import {
   portals,
   shareLinks,
   users,
-  workspaces,
+  projects,
 } from "@/lib/db/schema";
 import { accessIn, highest, reach, widest, type Access } from "@/lib/access";
 import { allows, roleName, type Scope } from "@/lib/scopes";
@@ -31,7 +31,7 @@ import {
   type CatalogType,
   type EdgeKind,
 } from "@/lib/catalog";
-import { heldBy, hiddenIn, workspacesOf, type Caller, type Workspace } from "@/lib/core/access";
+import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/core/access";
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 
 /**
@@ -45,19 +45,19 @@ import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 const o = catalogObjects;
 
 /** A project of the caller's organization they can open, and what they may do there. */
-type Reach = { workspace: Workspace; access: Access };
+type Reach = { project: Project; access: Access };
 
 /**
  * Every project the catalog shows this caller. A person: each one of the
  * organization they hold a grant in or on. A key or nobody: the one they are in.
  */
 export async function reachOf(caller: Caller): Promise<Reach[]> {
-  if (!caller.user || caller.key) return widest(caller) ? [{ workspace: caller.workspace, access: caller }] : [];
-  const { grants: mine, workspaces: open } = await workspacesOf(caller.user.id);
-  const here = open.filter((w) => w.organizationId === caller.workspace.organizationId);
-  const hidden = await Promise.all(here.map((w) => (w.id === caller.workspace.id ? caller.hidden : hiddenIn(w.id))));
+  if (!caller.user || caller.key) return widest(caller) ? [{ project: caller.project, access: caller }] : [];
+  const { grants: mine, projects: open } = await projectsOf(caller.user.id);
+  const here = open.filter((w) => w.organizationId === caller.project.organizationId);
+  const hidden = await Promise.all(here.map((w) => (w.id === caller.project.id ? caller.hidden : hiddenIn(w.id))));
   return here
-    .map((w, i) => ({ workspace: w, access: w.id === caller.workspace.id ? (caller as Access) : accessIn(mine, w, hidden[i]) }))
+    .map((w, i) => ({ project: w, access: w.id === caller.project.id ? (caller as Access) : accessIn(mine, w, hidden[i]) }))
     .filter((r) => widest(r.access));
 }
 
@@ -71,8 +71,8 @@ const uuids = (ids: string[]) => sql`array[${sql.join(
  * admin; else brands, portals and their parts with any grant there, and
  * collections and assets as lib/core/assets.ts visible() has them.
  */
-function seenIn({ workspace, access }: Reach): SQL {
-  const inW = eq(o.workspaceId, workspace.id);
+function seenIn({ project, access }: Reach): SQL {
+  const inW = eq(o.projectId, project.id);
   if (access.scope === "admin") return inW;
   const r = reach(access, "read");
   const open = allows(access.scope, "read") ? sql`not ${o.private}` : sql`false`;
@@ -82,11 +82,11 @@ function seenIn({ workspace, access }: Reach): SQL {
     r.collections.length ? sql`${o.collections} && ${uuids(r.collections)}` : undefined,
   )!;
   const collection = or(open, r.collections.length ? inArray(o.id, r.collections) : undefined)!;
-  // A brand and its parts: the workspace's role reads one that isn't private; a grant on it (or a share of it) reads it anyway.
+  // A brand and its parts: the project's role reads one that isn't private; a grant on it (or a share of it) reads it anyway.
   const granted = (col: typeof o.id | typeof o.parentId) => (r.brands.length ? inArray(col, r.brands) : sql`false`);
   const brand = or(open, granted(o.id))!;
   const part = or(open, granted(o.parentId))!;
-  // A portal: the workspace's role.
+  // A portal: the project's role.
   const portal = allows(access.scope, "read") ? sql`true` : sql`false`;
   return and(
     inW,
@@ -114,10 +114,10 @@ const itemColumns = {
   private: o.private,
   tags: o.tags,
   parentId: o.parentId,
-  workspaceId: o.workspaceId,
+  projectId: o.projectId,
   createdAt: o.createdAt,
   updatedAt: o.updatedAt,
-  project: { id: workspaces.id, slug: workspaces.slug, name: workspaces.name },
+  project: { id: projects.id, slug: projects.slug, name: projects.name },
   org: organizations.slug,
 };
 
@@ -134,14 +134,14 @@ type Row = {
   private: boolean;
   tags: string[];
   parentId: string | null;
-  workspaceId: string;
+  projectId: string;
   createdAt: Date;
   updatedAt: Date;
   project: { id: string; slug: string; name: string };
   org: string;
 };
 
-export type CatalogItem = Omit<Row, "org" | "workspaceId" | "parentId"> & {
+export type CatalogItem = Omit<Row, "org" | "projectId" | "parentId"> & {
   address: string;
   parent: { id: string; type: CatalogType; slug: string; name: string } | null;
   /** Listed in another project than its own: shared into it from this one (lib/core/project-shares.ts). */
@@ -152,8 +152,8 @@ const rows = (where: SQL) =>
   db
     .select(itemColumns)
     .from(o)
-    .innerJoin(workspaces, eq(workspaces.id, o.workspaceId))
-    .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .innerJoin(projects, eq(projects.id, o.projectId))
+    .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .where(where);
 
 /** Rows as the API shows them: each with its address and, for a part, the object it belongs to. */
@@ -162,7 +162,7 @@ async function items(list: Row[]): Promise<CatalogItem[]> {
   const parents = parentIds.length ? await db.select({ id: o.id, type: o.type, slug: o.slug, name: o.name }).from(o).where(inArray(o.id, parentIds)) : [];
   const byId = new Map(parents.map((p) => [p.id, p]));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  return list.map(({ org, workspaceId: _w, parentId, ...r }) => {
+  return list.map(({ org, projectId: _w, parentId, ...r }) => {
     const p = parentId ? byId.get(parentId) : undefined;
     return {
       ...r,
@@ -184,17 +184,17 @@ export async function findObject(caller: Caller, ref: string, reaches?: Reach[])
 async function resolve(caller: Caller, ref: string): Promise<string | null> {
   if (/^[0-9a-f-]{36}$/i.test(ref)) return ref;
   const a = parseAddress(ref);
-  if (!a || a.org !== caller.workspace.organization.slug) return null;
+  if (!a || a.org !== caller.project.organization.slug) return null;
   const [w] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(and(eq(workspaces.organizationId, caller.workspace.organizationId), eq(workspaces.slug, a.project)));
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.organizationId, caller.project.organizationId), eq(projects.slug, a.project)));
   if (!w) return null;
   const pick = (type: string, slug: string, parentId?: string) =>
     db
       .select({ id: o.id, release: o.release, status: o.status })
       .from(o)
-      .where(and(eq(o.workspaceId, w.id), eq(o.type, type as CatalogType), eq(o.slug, slug), parentId ? eq(o.parentId, parentId) : undefined))
+      .where(and(eq(o.projectId, w.id), eq(o.type, type as CatalogType), eq(o.slug, slug), parentId ? eq(o.parentId, parentId) : undefined))
       .orderBy(desc(o.updatedAt));
   const found = await pick(a.type, a.slug);
   // An asset's @n is that version; without one, the current version, else the newest.
@@ -245,7 +245,7 @@ async function whereOf(caller: Caller, q: CatalogQuery, reaches: Reach[]): Promi
     seen(reaches),
     tsq ? sql`${o.search} @@ ${tsq}` : undefined,
     q.types.length ? inArray(o.type, q.types) : undefined,
-    q.projects.length ? inArray(workspaces.slug, q.projects) : undefined,
+    q.projects.length ? inArray(projects.slug, q.projects) : undefined,
     q.statuses.length ? inArray(o.status, q.statuses) : undefined,
     ...q.tags.map((t) => sql`${o.tags} @> ${JSON.stringify([t.toLowerCase()])}::jsonb`),
     uses ? (uses.size ? inArray(o.id, [...uses]) : sql`false`) : undefined,
@@ -281,11 +281,11 @@ export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 3
   const shown = q.statuses.length ? where : and(where, sql`not ${retiredSql}`)!;
   const count = (w: SQL) =>
     db
-      .select({ type: o.type, project: workspaces.slug, name: workspaces.name, n: sql<number>`count(*)::int` })
+      .select({ type: o.type, project: projects.slug, name: projects.name, n: sql<number>`count(*)::int` })
       .from(o)
-      .innerJoin(workspaces, eq(workspaces.id, o.workspaceId))
+      .innerJoin(projects, eq(projects.id, o.projectId))
       .where(w)
-      .groupBy(o.type, workspaces.slug, workspaces.name);
+      .groupBy(o.type, projects.slug, projects.name);
   const [found, counted, hidden] = await Promise.all([
     rows(shown)
       .orderBy(...(rank ? [desc(rank)] : []), desc(o.updatedAt), asc(o.id))
@@ -300,19 +300,19 @@ export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 3
           .then(async (r) => (r.length ? [{ row: r[0] as Row, n: (await count(and(where, retiredSql)!)).reduce((s, c) => s + c.n, 0) }] : [])),
   ]);
   const counts: Partial<Record<CatalogType, number>> = {};
-  const projects = new Map<string, { slug: string; name: string; count: number }>();
+  const perProject = new Map<string, { slug: string; name: string; count: number }>();
   for (const c of counted) {
     counts[c.type] = (counts[c.type] ?? 0) + c.n;
-    const p = projects.get(c.project) ?? { slug: c.project, name: c.name, count: 0 };
+    const p = perProject.get(c.project) ?? { slug: c.project, name: c.name, count: 0 };
     p.count += c.n;
-    projects.set(c.project, p);
+    perProject.set(c.project, p);
   }
   const page = found.slice(0, limit) as Row[];
   return {
     query: formatQuery(q),
     total: Object.values(counts).reduce((s, n) => s + (n ?? 0), 0),
     counts,
-    projects: [...projects.values()].sort((a, b) => b.count - a.count),
+    projects: [...perProject.values()].sort((a, b) => b.count - a.count),
     items: await items(page),
     hidden: hidden.length ? { count: hidden[0].n, example: await retiredWhy(hidden[0].row) } : { count: 0, example: null },
     next: found.length > limit ? cursor + limit : null,
@@ -392,7 +392,7 @@ export async function lineage(caller: Caller, ref: string, { depth = 3, directio
 /** What changing it reaches: everything downstream, seen or not, and in how many projects. */
 export async function impact(root: CatalogItem) {
   const down = [...(await walk([root.id], "down"))];
-  const projects = down.length ? await db.selectDistinct({ w: o.workspaceId }).from(o).where(inArray(o.id, down)) : [];
+  const projects = down.length ? await db.selectDistinct({ w: o.projectId }).from(o).where(inArray(o.id, down)) : [];
   return { things: down.length, projects: projects.length, line: impactLine(root.name, down.length, projects.length) };
 }
 
@@ -427,22 +427,22 @@ export async function catalogTree(caller: Caller) {
   const list = await items(found);
   const byId = new Map(list.map((i) => [i.id, i]));
   // What was shared into each project, beside its own: the same object, said to come from home.
-  const shared = await sharedInto(reaches.map((r) => r.workspace.id));
+  const shared = await sharedInto(reaches.map((r) => r.project.id));
   return {
     projects: reaches.map((r) => ({
-      id: r.workspace.id,
-      slug: r.workspace.slug,
-      name: r.workspace.name,
+      id: r.project.id,
+      slug: r.project.slug,
+      name: r.project.name,
       role: widest(r.access),
       objects: [
-        ...list.filter((i) => i.project.id === r.workspace.id),
+        ...list.filter((i) => i.project.id === r.project.id),
         ...shared.flatMap((x) => {
-          const i = x.project === r.workspace.id ? byId.get(x.id) : undefined;
+          const i = x.project === r.project.id ? byId.get(x.id) : undefined;
           return i ? [{ ...i, sharedFrom: { id: i.project.id, name: i.project.name } }] : [];
         }),
         // A shared brand's rules and pages come with it.
         ...shared.flatMap((x) =>
-          x.project === r.workspace.id ? list.filter((p) => p.parent?.id === x.id).map((p) => ({ ...p, sharedFrom: { id: p.project.id, name: p.project.name } })) : [],
+          x.project === r.project.id ? list.filter((p) => p.parent?.id === x.id).map((p) => ({ ...p, sharedFrom: { id: p.project.id, name: p.project.name } })) : [],
         ),
       ],
     })),
@@ -471,12 +471,12 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
   const objectId = item.parent?.id ?? item.id;
   const objectType = item.parent?.type ?? item.type;
   const [obj] = await db.select({ collections: o.collections, private: o.private }).from(o).where(eq(o.id, objectId));
-  const [ws] = await db.select({ organizationId: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, item.project.id));
+  const [ws] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, item.project.id));
   const cols = objectType === "asset" ? obj.collections : objectType === "collection" ? [objectId] : [];
   const names = cols.length ? await db.select({ id: collections.id, name: collections.name }).from(collections).where(inArray(collections.id, cols)) : [];
   const path = or(
     and(eq(grants.resource, "organization"), eq(grants.resourceId, ws.organizationId)),
-    and(eq(grants.resource, "workspace"), eq(grants.resourceId, item.project.id)),
+    and(eq(grants.resource, "project"), eq(grants.resourceId, item.project.id)),
     objectType === "asset" ? and(eq(grants.resource, "asset"), eq(grants.resourceId, objectId)) : undefined,
     objectType === "brand" ? and(eq(grants.resource, "brand"), eq(grants.resourceId, objectId)) : undefined,
     cols.length ? and(eq(grants.resource, "collection"), inArray(grants.resourceId, cols)) : undefined,
@@ -498,8 +498,8 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
   const via = (g: (typeof found)[number]) => {
     const on =
       g.resource === "organization"
-        ? `Organization ${caller.workspace.organization.name}`
-        : g.resource === "workspace"
+        ? `Organization ${caller.project.organization.name}`
+        : g.resource === "project"
           ? `Project ${item.project.name}`
           : g.resource === "asset" || g.resource === "brand"
             ? `Directly on this ${g.resource}`
@@ -511,7 +511,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
   const best = new Map<string, Holder>();
   for (const g of found) {
     // Private: the organization's and the project's roles reach it only as admin.
-    if (obj.private && (g.resource === "organization" || g.resource === "workspace") && g.scope !== "admin") continue;
+    if (obj.private && (g.resource === "organization" || g.resource === "project") && g.scope !== "admin") continue;
     const had = best.get(g.userId);
     if (had && highest(had.scope, g.scope) === had.scope) continue;
     best.set(g.userId, { kind: "person", who: g.name || g.email, role: roleName(g.scope), scope: g.scope, via: via(g) });
@@ -522,7 +522,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
       .select({ name: apiKeys.name, scope: apiKeys.scope, userId: apiKeys.userId, person: users.name })
       .from(apiKeys)
       .leftJoin(users, eq(users.id, apiKeys.userId))
-      .where(eq(apiKeys.workspaceId, item.project.id));
+      .where(eq(apiKeys.projectId, item.project.id));
     for (const k of keys)
       holders.push({
         kind: "agent",

@@ -1161,7 +1161,7 @@ export function AssetEditor({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="everyone">Everyone in {me?.workspace.name ?? "the workspace"}</SelectItem>
+                          <SelectItem value="everyone">Everyone in {me?.project.name ?? "the project"}</SelectItem>
                           <SelectItem value="on">Only people added</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1169,7 +1169,7 @@ export function AssetEditor({
                   </Property>
                   <p className="text-muted-foreground pb-1 text-xs">
                     {privateOn
-                      ? "The people below and admins. Nobody else in the workspace finds it."
+                      ? "The people below and admins. Nobody else in the project finds it."
                       : hiddenByCollections
                         ? "Its collections are all private, so only people added to them, and admins, see it."
                         : "Anyone who can open the library finds it. This is about your team: links and embeds are in Share."}
@@ -1466,7 +1466,7 @@ const DOWNLOADS: Option[] = [
 ];
 
 /**
- * Whether people outside the workspace may take the file (lib/rights.ts
+ * Whether people outside the project may take the file (lib/rights.ts
  * isDownloadable), saying what that means as it is picked: whoever it is
  * shown to downloads it, or sees it and can't. Left to the license, it says
  * which way that goes and why.

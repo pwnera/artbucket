@@ -5,7 +5,7 @@
  *   ARTBUCKET_URL   the server; without it, the one `artbucket login <server>`
  *                   last signed in to, or else http://localhost:3000
  *   ARTBUCKET_KEY   an API key (ab_...), if the server wants one; it
- *                   decides the workspace. Without one, the key
+ *                   decides the project. Without one, the key
  *                   `artbucket login` saved for this server
  */
 import { execFile } from "node:child_process";
@@ -92,17 +92,17 @@ const HELP = `artbucket <command>
                           what push would change; exits 1 on problems in the files,
                           not on files under assets/ that push would upload
                           The brand is --brand, or the slug: in brand.yaml (pull
-                          writes it), never the workspace's default
+                          writes it), never the project's default
   history [--brand b]     the brand's versions, newest first
   history <n> [--brand b] what changed in version n
   restore <n> [--brand b] put version n back (itself a new version)
-  keys                    list the workspace's API keys
+  keys                    list the project's API keys
   keys create <name> --scope read|propose|write|admin
   keys revoke <id>
-  whoami                  the key, its workspace and its scope
+  whoami                  the key, its project and its scope
   members                 people, their access, and invitations waiting (admin)
   invite <email> --scope s [--collection id]
-                          an invitation link to the workspace, or one collection (admin)
+                          an invitation link to the project, or one collection (admin)
   share <address> --to <project>
                           share a brand, collection or asset into another project:
                           its members read it, kept and edited where it is
@@ -250,7 +250,7 @@ const need = (v: string | undefined, what: string) => {
   return v;
 };
 
-/** The brand a command acts on: --brand, or the workspace's default. */
+/** The brand a command acts on: --brand, or the project's default. */
 const brandSlug = async (): Promise<string> =>
   opt.brand ?? (await api("GET", "/api/v1/brands")).data.find((b: { default: boolean }) => b.default).slug;
 const brandPath = async (slug?: string) => `/api/v1/brands/${encodeURIComponent(slug ?? (await brandSlug()))}`;
@@ -314,7 +314,7 @@ async function brandFiles(dir: string): Promise<Record<string, string>> {
   return files;
 }
 
-/** The brand files are for: --brand, or the slug: in their brand.yaml. Never the workspace's default. */
+/** The brand files are for: --brand, or the slug: in their brand.yaml. Never the project's default. */
 const filesBrand = (files: Record<string, string>, dir: string) =>
   need(
     opt.brand ?? /^slug:\s*["']?([a-z0-9-]+)["']?\s*(#.*)?$/m.exec(files["brand.yaml"] ?? files["brand.yml"] ?? "")?.[1],
@@ -875,7 +875,7 @@ async function main() {
       const r = await api("GET", "/api/v1/me");
       const d = r.data;
       return out(r, () =>
-        `${d.actor}${d.user ? ` <${d.user.email}>` : d.key ? " (API key)" : ""}  ${d.scope ?? (d.narrowed ? "some collections" : "no access")} in ${d.workspace.name} (${d.workspace.organization.name})`,
+        `${d.actor}${d.user ? ` <${d.user.email}>` : d.key ? " (API key)" : ""}  ${d.scope ?? (d.narrowed ? "some collections" : "no access")} in ${d.project.name} (${d.project.organization.name})`,
       );
     }
     case "members": {
@@ -897,8 +897,8 @@ async function main() {
       const r = await api("POST", "/api/v1/invitations", {
         email,
         scope: need(opt.scope, "--scope"),
-        resource: opt.collection ? "collection" : "workspace",
-        resourceId: opt.collection ?? me.workspace.id,
+        resource: opt.collection ? "collection" : "project",
+        resourceId: opt.collection ?? me.project.id,
       });
       return out(r, () => `${r.data.url}\n\nShown once. Send it to ${email}; it works for a week.`);
     }
@@ -910,7 +910,7 @@ async function main() {
         return out(r, () => `${d.name} is shared into ${r.data.project.name}, as Viewer: kept and edited in ${d.project.name}`);
       }
       const id = need(args[0], "collection or asset id");
-      // An id is a collection's if the workspace has one by it; an asset's otherwise.
+      // An id is a collection's if the project has one by it; an asset's otherwise.
       const collections = (await api("GET", "/api/v1/collections")).data as { id: string }[];
       const isCollection = collections.some((c) => c.id === id);
       const r = await api("POST", "/api/v1/shares", {

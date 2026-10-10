@@ -53,7 +53,7 @@ export type Print = { jpeg: Buffer; width: number; height: number; url: string }
  * on scroll are drawn, fonts and pictures loaded.
  */
 export async function printPage(caller: Caller, brandSlug: string | undefined, slug: string, o: { width?: keyof typeof WIDTHS; context?: string } = {}): Promise<Print> {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const brand = await resolveBrand(ws, brandSlug);
   const [page] = await db
     .select({ slug: brandPages.slug })

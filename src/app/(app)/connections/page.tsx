@@ -23,7 +23,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
     get("insights/connections", (b: { data: Asked }) => b.data, null),
     brands(),
   ]);
-  // ponytail: a call a brand, fine for the handful a workspace has; a brands list with its source past that.
+  // ponytail: a call a brand, fine for the handful a project has; a brands list with its source past that.
   const kept = (
     await Promise.all(
       list.map(async (brand) => ({

@@ -158,8 +158,8 @@ export function PortalView({
   initial: Loaded | null;
   /** Served at the portal's own domain, where signing in can't work. */
   ownDomain?: boolean;
-  /** Whoever is signed in may edit its brands (lib/core/portals.ts portalEditor): their workspace, and the app's address, for the floating Edit. */
-  editor?: { workspace: string; app: string } | null;
+  /** Whoever is signed in may edit its brands (lib/core/portals.ts portalEditor): their project, and the app's address, for the floating Edit. */
+  editor?: { project: string; app: string } | null;
   /** The server's privacy policy (PRIVACY_URL): in the footer, on the door, under a request for access. */
   privacy?: string | null;
 }) {
@@ -460,7 +460,7 @@ export function PortalView({
       {editor && mode !== "book" && (
         <FloatingEdit
           always
-          href={editor.app + builderPath(brand, { page: view.page?.slug, context: view.context, workspace: editor.workspace })}
+          href={editor.app + builderPath(brand, { page: view.page?.slug, context: view.context, project: editor.project })}
         />
       )}
     </Shell>

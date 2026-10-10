@@ -14,7 +14,7 @@ curl https://assets.example.com/api/v1/me -H "Authorization: Bearer ab_..."
 ```
 
 Make a key in the app (Agents) or with `POST /api/v1/keys`. A key works in one
-workspace with one scope: `read`, `propose`, `write` or `admin`. An unknown or
+project with one scope: `read`, `propose`, `write` or `admin`. An unknown or
 revoked key is a `401`, never a fallback to anonymous. People in the app carry
 a session cookie instead.
 

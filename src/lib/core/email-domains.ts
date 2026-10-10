@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import { getDomain } from "tldts";
 import { db } from "@/lib/db";
-import { emailDomains, grants, joinOffersRefused, organizations, ssoProviders, workspaces } from "@/lib/db/schema";
+import { emailDomains, grants, joinOffersRefused, organizations, ssoProviders, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
@@ -19,7 +19,7 @@ import { bareDomain, domainsOf } from "@/lib/sso";
  * TXT record on the domain itself. Proving one is all an organization does
  * to say "people at acme.com are ours": single sign-on picks one
  * (lib/core/sso.ts), and joining by domain opens one: anyone whose address
- * is at exactly that domain is offered to join, able to read one workspace.
+ * is at exactly that domain is offered to join, able to read one project.
  *
  * Not custom domains (lib/core/domains.ts): those are hosts this server
  * answers at, and a portal at brand.acme.com proves nothing about who reads
@@ -32,8 +32,8 @@ const present = (r: Row, sso: string | null) => ({
   domain: r.domain,
   verified: !!r.verifiedAt,
   join: r.join,
-  /** Where whoever joins lands, able to read: null for the organization's oldest workspace. */
-  workspaceId: r.workspaceId,
+  /** Where whoever joins lands, able to read: null for the organization's oldest project. */
+  projectId: r.projectId,
   /** Single sign-on signs its people in: it can't go while it does. */
   sso: r.domain === sso,
   record: { type: "TXT" as const, name: challengeName(r.domain), value: r.token },
@@ -46,11 +46,11 @@ function mayManage(caller: Caller) {
 const ssoDomain = async (organizationId: string) =>
   (await db.select({ domain: ssoProviders.domain }).from(ssoProviders).where(eq(ssoProviders.organizationId, organizationId)))[0]?.domain ?? null;
 
-const own = (caller: Caller, domain: string) => and(eq(emailDomains.organizationId, caller.workspace.organizationId), eq(emailDomains.domain, domain));
+const own = (caller: Caller, domain: string) => and(eq(emailDomains.organizationId, caller.project.organizationId), eq(emailDomains.domain, domain));
 
 export async function listEmailDomains(caller: Caller) {
   mayManage(caller);
-  const organizationId = caller.workspace.organizationId;
+  const organizationId = caller.project.organizationId;
   const [rows, sso] = await Promise.all([
     db.select().from(emailDomains).where(eq(emailDomains.organizationId, organizationId)).orderBy(emailDomains.createdAt),
     ssoDomain(organizationId),
@@ -91,7 +91,7 @@ export async function claimEmailDomain(organizationId: string, raw: string) {
 
 export async function addEmailDomain(caller: Caller, raw: string) {
   mayManage(caller);
-  const organizationId = caller.workspace.organizationId;
+  const organizationId = caller.project.organizationId;
   const row = await claimEmailDomain(organizationId, raw);
   await recordAudit(caller, "email_domain.added", row.domain);
   return present(row, await ssoDomain(organizationId));
@@ -104,7 +104,7 @@ export async function addEmailDomain(caller: Caller, raw: string) {
  */
 export async function verifyEmailDomain(caller: Caller, domain: string) {
   mayManage(caller);
-  const organizationId = caller.workspace.organizationId;
+  const organizationId = caller.project.organizationId;
   const [row] = await db.select().from(emailDomains).where(own(caller, domain));
   if (!row) return null;
   if (row.verifiedAt) return present(row, await ssoDomain(organizationId));
@@ -124,7 +124,7 @@ export async function verifyEmailDomain(caller: Caller, domain: string) {
 /** Let a domain go. Not the one single sign-on uses: that one moves, or goes with it. */
 export async function removeEmailDomain(caller: Caller, domain: string) {
   mayManage(caller);
-  if ((await ssoDomain(caller.workspace.organizationId)) === domain) {
+  if ((await ssoDomain(caller.project.organizationId)) === domain) {
     throw new AssetError("conflict", `Single sign-on uses ${domain}: give it another domain, or turn it off, first`);
   }
   const [row] = await db.delete(emailDomains).where(own(caller, domain)).returning();
@@ -146,27 +146,27 @@ const ssoOver = async (domain: string) =>
   )[0];
 
 /**
- * The workspace an admin picked for people to land in, checked to be the
+ * The project an admin picked for people to land in, checked to be the
  * organization's: undefined leaves it as it is, null is the oldest.
  */
-export async function landingIn(organizationId: string, workspaceId: string | null | undefined) {
-  if (!workspaceId) return workspaceId;
+export async function landingIn(organizationId: string, projectId: string | null | undefined) {
+  if (!projectId) return projectId;
   const [ws] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(and(eq(workspaces.id, workspaceId), eq(workspaces.organizationId, organizationId)));
-  if (!ws) throw new AssetError("invalid", "No such workspace in this organization");
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.organizationId, organizationId)));
+  if (!ws) throw new AssetError("invalid", "No such project in this organization");
   return ws.id;
 }
 
 /**
  * Someone joining by domain or through single sign-on: read on the landing
- * workspace (or the organization's oldest), never the whole organization, so
- * an agency that opens a client's domain opens that client's workspace and no
+ * project (or the organization's oldest), never the whole organization, so
+ * an agency that opens a client's domain opens that client's project and no
  * other. Nothing for someone with a grant there already: an admin placed
- * them. The workspace they landed in, if they did.
+ * them. The project they landed in, if they did.
  */
-export async function joinAt(userId: string, organizationId: string, workspaceId: string | null) {
+export async function joinAt(userId: string, organizationId: string, projectId: string | null) {
   const [inside] = await db
     .select({ id: grants.id })
     .from(grants)
@@ -174,15 +174,15 @@ export async function joinAt(userId: string, organizationId: string, workspaceId
     .limit(1);
   if (inside) return null;
   const [ws] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(and(eq(workspaces.organizationId, organizationId), workspaceId ? eq(workspaces.id, workspaceId) : undefined))
-    .orderBy(asc(workspaces.createdAt))
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.organizationId, organizationId), projectId ? eq(projects.id, projectId) : undefined))
+    .orderBy(asc(projects.createdAt))
     .limit(1);
   if (!ws) return null;
   const added = await db
     .insert(grants)
-    .values({ userId, organizationId, workspaceId: ws.id, resource: "workspace", resourceId: ws.id, scope: "read" })
+    .values({ userId, organizationId, projectId: ws.id, resource: "project", resourceId: ws.id, scope: "read" })
     .onConflictDoNothing()
     .returning({ id: grants.id });
   return added.length ? ws.id : null;
@@ -194,22 +194,22 @@ export async function joinAt(userId: string, organizationId: string, workspaceId
  * organization), and not a domain single sign-on covers: its people join
  * through the provider already.
  */
-export async function setJoin(caller: Caller, domain: string, input: { join?: boolean; workspaceId?: string | null }) {
+export async function setJoin(caller: Caller, domain: string, input: { join?: boolean; projectId?: string | null }) {
   mayManage(caller);
   const [row] = await db.select().from(emailDomains).where(own(caller, domain));
   if (!row) return null;
   const { join = row.join } = input;
-  const workspaceId = await landingIn(caller.workspace.organizationId, input.workspaceId);
+  const projectId = await landingIn(caller.project.organizationId, input.projectId);
   if (join && !row.join) {
     if (!row.verifiedAt) throw new AssetError("invalid", `Prove ${domain} first`);
     if (freeMail(domain)) throw new AssetError("invalid", `${domain} gives addresses to the public: anyone could join`);
     if (await ssoOver(domain)) throw new AssetError("invalid", `Single sign-on covers ${domain}: its people join through your provider`);
     if (!proves()) throw new AssetError("invalid", "This server sends no email of its own, so it can't confirm an address before it joins");
   }
-  const [done] = await db.update(emailDomains).set({ join, workspaceId }).where(own(caller, domain)).returning();
+  const [done] = await db.update(emailDomains).set({ join, projectId }).where(own(caller, domain)).returning();
   if (join !== row.join) await recordAudit(caller, join ? "email_domain.opened" : "email_domain.closed", domain);
-  if (workspaceId !== undefined && workspaceId !== row.workspaceId) await recordAudit(caller, "email_domain.landing", domain, { workspaceId });
-  return present(done, await ssoDomain(caller.workspace.organizationId));
+  if (projectId !== undefined && projectId !== row.projectId) await recordAudit(caller, "email_domain.landing", domain, { projectId });
+  return present(done, await ssoDomain(caller.project.organizationId));
 }
 
 /**
@@ -242,15 +242,15 @@ export async function joinOffer(caller: Caller) {
   return inside.length || refused.length ? null : { organization: { id: at.id, name: at.name }, domain: at.domain };
 }
 
-/** Take the offer: a member of the organization from now on, able to read its landing workspace. */
+/** Take the offer: a member of the organization from now on, able to read its landing project. */
 export async function acceptJoin(caller: Caller) {
   const offer = await joinOffer(caller);
   if (!offer) return null;
   const user = caller.user!;
   const organizationId = offer.organization.id;
-  const [{ landing }] = await db.select({ landing: emailDomains.workspaceId }).from(emailDomains).where(eq(emailDomains.domain, offer.domain));
-  const workspaceId = await joinAt(user.id, organizationId, landing);
-  if (workspaceId) await recordAudit({ actor: user.name || user.email, user }, "email_domain.joined", user.email, { domain: offer.domain, scope: "read" }, { organizationId, workspaceId });
+  const [{ landing }] = await db.select({ landing: emailDomains.projectId }).from(emailDomains).where(eq(emailDomains.domain, offer.domain));
+  const projectId = await joinAt(user.id, organizationId, landing);
+  if (projectId) await recordAudit({ actor: user.name || user.email, user }, "email_domain.joined", user.email, { domain: offer.domain, scope: "read" }, { organizationId, projectId });
   return offer;
 }
 

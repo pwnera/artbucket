@@ -24,8 +24,8 @@ export type Group = Awaited<ReturnType<typeof listGroups>>[number];
 
 /** The organization's groups, each with its members and its grants. For whoever manages people. */
 export async function listGroups(caller: Caller) {
-  if (!can(caller, "member.manage")) throw new AssetError("forbidden", "You need admin on the workspace to see its groups");
-  const org = caller.workspace.organizationId;
+  if (!can(caller, "member.manage")) throw new AssetError("forbidden", "You need admin on the project to see its groups");
+  const org = caller.project.organizationId;
   const list = await db.select().from(groups).where(eq(groups.organizationId, org)).orderBy(asc(groups.name));
   if (!list.length) return [];
   const ids = list.map((g) => g.id);
@@ -50,14 +50,14 @@ export async function listGroups(caller: Caller) {
 }
 
 async function groupOf(caller: Caller, id: string) {
-  const [g] = await db.select().from(groups).where(and(eq(groups.id, id), eq(groups.organizationId, caller.workspace.organizationId)));
+  const [g] = await db.select().from(groups).where(and(eq(groups.id, id), eq(groups.organizationId, caller.project.organizationId)));
   if (!g) throw new AssetError("not_found", "No such group in this organization");
   return g;
 }
 
 export async function createGroup(caller: Caller, input: { name: string }) {
   manage(caller);
-  const [g] = await db.insert(groups).values({ organizationId: caller.workspace.organizationId, name: input.name.trim() }).onConflictDoNothing().returning();
+  const [g] = await db.insert(groups).values({ organizationId: caller.project.organizationId, name: input.name.trim() }).onConflictDoNothing().returning();
   if (!g) throw new AssetError("conflict", `There is a group called "${input.name}" already`);
   await recordAudit(caller, "group.created", g.name);
   return { id: g.id, name: g.name, source: g.source, createdAt: g.createdAt, members: [], grants: [] };

@@ -51,8 +51,8 @@ import { useFlashNew } from "@/lib/motion";
 import { SavedMark } from "@/components/settings/panels";
 import { useKept } from "@/lib/motion";
 
-type Resource = "organization" | "workspace" | "collection" | "asset" | "brand";
-type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope };
+type Resource = "organization" | "project" | "collection" | "asset" | "brand";
+type Grant = { id: string; resource: Resource; resourceId: string; projectId: string | null; label: string | null; scope: Scope };
 type Invitation = {
   id: string;
   email: string;
@@ -70,7 +70,7 @@ export type Members = { data: Member[]; invitations: Invitation[] };
 type AuditEntry = { id: string; at: string; actor: string; action: AuditAction; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
 export type AuditPage = { data: AuditEntry[]; next: string | null };
 
-const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto, brand: IconPalette };
+const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, project: IconLayoutGrid, collection: IconFolder, asset: IconPhoto, brand: IconPalette };
 
 /** A role in a picker: its name, and what it may do under it, so the choice is made knowing. The trigger shows the name only. */
 function RoleOption({ label, hint }: { label: string; hint: string }) {
@@ -88,7 +88,7 @@ type Where = { resource: Resource; resourceId: string; label: string };
 
 /**
  * People and their grants, and invitations waiting: the whole organization
- * (Team), or `view="workspace"`, only who can open this workspace and what
+ * (Team), or `view="project"`, only who can open this project and what
  * they may do in it (Settings). Each grant is changed only by whoever may
  * manage what it is on.
  */
@@ -103,9 +103,9 @@ export function People({
   me: Me;
   members: Members;
   collections: SidebarData["collections"];
-  /** Brands a grant can be on, beside the workspace and its collections. */
+  /** Brands a grant can be on, beside the project and its collections. */
   brands?: { id: string; name: string; private?: boolean }[];
-  view?: "organization" | "workspace";
+  view?: "organization" | "project";
   /** Open with the invite dialog up: ⌘K's "Invite people". */
   inviting?: boolean;
 }) {
@@ -120,10 +120,10 @@ export function People({
   const [resending, setResending] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
-  // Where a grant can be: the organization (its admins, and not from a workspace's view), this workspace, or one of its collections.
+  // Where a grant can be: the organization (its admins, and not from a project's view), this project, or one of its collections.
   const places: Where[] = [
-    ...(view === "organization" && can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
-    { resource: "workspace", resourceId: me.workspace.id, label: `${me.workspace.name} (this workspace)` },
+    ...(view === "organization" && can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.project.organization.id, label: `${me.project.organization.name} (every project)` }] : []),
+    { resource: "project", resourceId: me.project.id, label: `${me.project.name} (this project)` },
     ...collections.map((c) => ({ resource: "collection" as const, resourceId: c.id, label: `${c.name} (${c.private ? "private " : ""}collection)` })),
     ...brands.map((b) => ({ resource: "brand" as const, resourceId: b.id, label: `${b.name} (${b.private ? "private " : ""}brand)` })),
   ];
@@ -177,7 +177,7 @@ export function People({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="flex-1 text-sm font-semibold">
-            {view === "workspace" ? `Who can open ${me.workspace.name}` : "People"}{" "}
+            {view === "project" ? `Who can open ${me.project.name}` : "People"}{" "}
             <span className="text-muted-foreground font-normal">{members.data.length}</span>
           </h2>
           {members.data.length + members.invitations.length > 5 && (
@@ -205,7 +205,7 @@ export function People({
                         {m.id === me.user?.id && <span className="text-muted-foreground font-normal"> (you)</span>}
                       </p>
                       <p className="text-muted-foreground truncate text-xs">{m.email}</p>
-                      {view === "workspace" && <p className="mt-1 text-xs">{roleHere(m.grants, me.workspace.id)}</p>}
+                      {view === "project" && <p className="mt-1 text-xs">{roleHere(m.grants, me.project.id)}</p>}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5 pl-11 lg:items-end lg:pl-0">
@@ -313,16 +313,16 @@ export function People({
   );
 }
 
-/** "Admin here, through the organization": what someone may do in this workspace, and why. */
-function roleHere(grants: Grant[], workspaceId: string) {
+/** "Admin here, through the organization": what someone may do in this project, and why. */
+function roleHere(grants: Grant[], projectId: string) {
   const org = grants.find((g) => g.resource === "organization");
-  const ws = grants.find((g) => g.resource === "workspace" && g.resourceId === workspaceId);
+  const ws = grants.find((g) => g.resource === "project" && g.resourceId === projectId);
   const top = [org, ws].filter(Boolean).sort((a, b) => SCOPES.indexOf(b!.scope) - SCOPES.indexOf(a!.scope))[0];
   if (!top) return <span className="text-muted-foreground">Some collections or assets only</span>;
   return (
     <>
       <Badge variant="outline">{roleName(top.scope)}</Badge>{" "}
-      <span className="text-muted-foreground">{top.resource === "organization" ? "through the organization" : "in this workspace"}</span>
+      <span className="text-muted-foreground">{top.resource === "organization" ? "through the organization" : "in this project"}</span>
     </>
   );
 }
@@ -457,7 +457,7 @@ function GrantDialog({
   onDone: () => void;
 }) {
   const id = useId();
-  const [where, setWhere] = useState(`${places.find((p) => p.resource === "workspace")!.resource}:${places.find((p) => p.resource === "workspace")!.resourceId}`);
+  const [where, setWhere] = useState(`${places.find((p) => p.resource === "project")!.resource}:${places.find((p) => p.resource === "project")!.resourceId}`);
   const [scope, setScope] = useState<Scope>("read");
   const [link, setLink] = useState<{ url: string; emailed: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -603,7 +603,7 @@ export function Sharing({ shares, collections }: { shares: ShareLink[]; collecti
                     {s.expired && <Badge variant="outline">Expired</Badge>}
                   </p>
                   <p className="text-muted-foreground truncate text-xs">
-                    {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the workspace"} · by {s.createdBy} ·{" "}
+                    {s.kind === "upload" ? "Uploads into" : "Shows"} {s.target.label ?? "the project"} · by {s.createdBy} ·{" "}
                     {s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleDateString()}` : "no end date"}
                   </p>
                 </div>
@@ -648,9 +648,9 @@ const SAYS: Record<AuditAction, string> = {
   "user.signed_in": "signed in",
   "organization.created": "made the organization",
   "organization.renamed": "renamed the organization to",
-  "workspace.created": "made the workspace",
-  "workspace.renamed": "renamed a workspace to",
-  "workspace.deleted": "deleted the workspace",
+  "project.created": "made the project",
+  "project.renamed": "renamed a project to",
+  "project.deleted": "deleted the project",
   "organization.deleted": "deleted the organization",
   "grant.set": "gave access to",
   "grant.removed": "took access from",

@@ -3,7 +3,7 @@
   "info": {
     "title": "artbucket",
     "version": "1",
-    "description": "Agent-first asset management. The web UI is built on this API and nothing else, beside signing in at /api/auth. Send `Authorization: Bearer <key>`: a key works in one workspace with one scope, and scopes are a ladder: read < propose < write < admin. People signed in to the app carry a session cookie instead, and their scope is what their grants add up to: on the organization, the workspace, or single collections and assets. A scope shown as needed on the workspace is also enough on the one collection or asset a route acts on. Agents (MCP at POST /api/v1/mcp) usually get `propose`: what they add waits for a human."
+    "description": "Agent-first asset management. The web UI is built on this API and nothing else, beside signing in at /api/auth. Send `Authorization: Bearer <key>`: a key works in one project with one scope, and scopes are a ladder: read < propose < write < admin. People signed in to the app carry a session cookie instead, and their scope is what their grants add up to: on the organization, the project, or single collections and assets. A scope shown as needed on the project is also enough on the one collection or asset a route acts on. Agents (MCP at POST /api/v1/mcp) usually get `propose`: what they add waits for a human."
   },
   "servers": [
     {
@@ -266,7 +266,7 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -790,7 +790,7 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
+                          "projectId",
                           "sha256",
                           "filename",
                           "mime",
@@ -1116,7 +1116,7 @@
                                 ]
                               },
                               "downloadable": {
-                                "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                                "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
                                 "type": [
                                   "boolean",
                                   "null"
@@ -1327,7 +1327,7 @@
                                 ]
                               },
                               "downloadable": {
-                                "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                                "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
                                 "type": [
                                   "boolean",
                                   "null"
@@ -1439,7 +1439,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -1963,7 +1963,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -2029,7 +2029,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -2553,7 +2553,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -3422,7 +3422,7 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -3946,7 +3946,7 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
+                          "projectId",
                           "sha256",
                           "filename",
                           "mime",
@@ -4417,7 +4417,7 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -4941,7 +4941,7 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
+                          "projectId",
                           "sha256",
                           "filename",
                           "mime",
@@ -5401,7 +5401,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -5925,7 +5925,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -6197,7 +6197,7 @@
                             ]
                           },
                           "downloadable": {
-                            "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                            "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
                             "type": [
                               "boolean",
                               "null"
@@ -6335,7 +6335,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -6859,7 +6859,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -7043,7 +7043,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -7567,7 +7567,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -7684,7 +7684,7 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -8208,7 +8208,7 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
+                          "projectId",
                           "sha256",
                           "filename",
                           "mime",
@@ -8581,7 +8581,7 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -9105,7 +9105,7 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
+                          "projectId",
                           "sha256",
                           "filename",
                           "mime",
@@ -9247,7 +9247,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -9771,7 +9771,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -9910,7 +9910,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -10434,7 +10434,7 @@
                       },
                       "required": [
                         "id",
-                        "workspaceId",
+                        "projectId",
                         "sha256",
                         "filename",
                         "mime",
@@ -10962,7 +10962,7 @@
                     },
                     "downloadable": {
                       "type": "boolean",
-                      "description": "Whether people outside the workspace may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes"
+                      "description": "Whether people outside the project may download the file itself. False: they see it, at most 1600 px a side, and its original and ?download answer 403 to them (fonts still load on this app's own pages). Its rights' `downloadable` decides, else its license: a font only under an open one, a licensed file only under an open one, anything else yes"
                     },
                     "urls": {
                       "type": "object",
@@ -17962,7 +17962,7 @@
       },
       "post": {
         "summary": "Create a brand",
-        "description": "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, logos, voice and more become rules, its logos and font files are ingested from their URLs, and the brand keeps its domain (a template's too); `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: public` lists it on BrandHub in the same call (both take share on the workspace); if either fails, no brand is made. Its history starts at version 1.\n\nScope: `write`.",
+        "description": "Empty, or `from` another brand's current rules, a public BrandHub brand's release, a `template`, or an AdCP brand.json: a `domain`'s (https://{domain}/.well-known/brand.json, following its authoritative_location and a house portfolio's brand_refs, https only) or a `brandJson` document. From a brand.json, its colors, type, logos, voice and more become rules, its logos and font files are ingested from their URLs, and the brand keeps its domain (a template's too); `skipped` and `dropped` say what was left out. `publish` releases it and `visibility: public` lists it on BrandHub in the same call (both take share on the project); if either fails, no brand is made. Its history starts at version 1.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -17984,7 +17984,7 @@
                     "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
                   },
                   "from": {
-                    "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace",
+                    "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this project",
                     "anyOf": [
                       {
                         "type": "string",
@@ -18028,7 +18028,7 @@
                     "pattern": "^[a-z0-9_]+$"
                   },
                   "publish": {
-                    "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace",
+                    "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the project",
                     "anyOf": [
                       {
                         "type": "boolean"
@@ -18652,7 +18652,7 @@
                     ]
                   },
                   "private": {
-                    "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the workspace",
+                    "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the project",
                     "type": "boolean"
                   }
                 },
@@ -19071,7 +19071,7 @@
                                     "private",
                                     "public"
                                   ],
-                                  "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                                  "description": "private: the project's people see it on BrandHub, signed in; public: anyone and any agent"
                                 },
                                 "url": {
                                   "type": "string",
@@ -19226,7 +19226,7 @@
                                 ],
                                 "additionalProperties": false
                               },
-                              "description": "Those people outside the workspace see but can't download (an asset's rights.downloadable, else its license)"
+                              "description": "Those people outside the project see but can't download (an asset's rights.downloadable, else its license)"
                             }
                           },
                           "required": [
@@ -30556,7 +30556,7 @@
       },
       "post": {
         "summary": "Comment on a brand page, or reply",
-        "description": "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. `parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a reply to a resolved thread reopens it. Takes propose on the workspace.\n\nScope: `propose`.",
+        "description": "`page` (and `section`, a section's id on it) starts a thread; a page or section that isn't there is a 404. `parent` replies in a thread instead, on its page and section; a reply to a reply joins its thread, and a reply to a resolved thread reopens it. Takes propose on the project.\n\nScope: `propose`.",
         "x-scope": "propose",
         "requestBody": {
           "required": true,
@@ -30979,7 +30979,7 @@
       },
       "delete": {
         "summary": "Delete a comment",
-        "description": "Your own, or anyone's with write on the workspace. A thread's first comment takes its replies with it.\n\nScope: `propose`.",
+        "description": "Your own, or anyone's with write on the project. A thread's first comment takes its replies with it.\n\nScope: `propose`.",
         "x-scope": "propose",
         "responses": {
           "200": {
@@ -31293,7 +31293,7 @@
       ],
       "post": {
         "summary": "Publish a brand",
-        "description": "Its latest version, rules, pages and theme, becomes the published one, and the next edit starts a new version. `note` says what changed, for readers, with `image` beside it. With nothing changed since the last publish, it answers `unchanged: true` and publishes nothing. Takes share on the workspace.\n\nScope: `write`.",
+        "description": "Its latest version, rules, pages and theme, becomes the published one, and the next edit starts a new version. `note` says what changed, for readers, with `image` beside it. With nothing changed since the last publish, it answers `unchanged: true` and publishes nothing. Takes share on the project.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -31596,7 +31596,7 @@
       ],
       "get": {
         "summary": "A brand on BrandHub",
-        "description": "Every published brand is on BrandHub at {org}/{brand}, private by default: its workspace's people see it, signed in. Public, anyone and any agent reads its latest publish, as a page, llms.txt, brand.json and design tokens. `portals`: the portals it could link as its guidelines; null without the right to manage portals.\n\nScope: `read`.",
+        "description": "Every published brand is on BrandHub at {org}/{brand}, private by default: its project's people see it, signed in. Public, anyone and any agent reads its latest publish, as a page, llms.txt, brand.json and design tokens. `portals`: the portals it could link as its guidelines; null without the right to manage portals.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -31615,7 +31615,7 @@
                             "private",
                             "public"
                           ],
-                          "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                          "description": "private: the project's people see it on BrandHub, signed in; public: anyone and any agent"
                         },
                         "url": {
                           "type": "string",
@@ -31819,7 +31819,7 @@
       },
       "patch": {
         "summary": "Make a brand public or private",
-        "description": "`visibility: public` shows its latest publish on BrandHub to anyone; it takes a publish, and a slug no other public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the workspace.\n\nScope: `write`.",
+        "description": "`visibility: public` shows its latest publish on BrandHub to anyone; it takes a publish, and a slug no other public brand of the organization has. `portal` picks the portal linked as its guidelines. Takes share on the project.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -31866,7 +31866,7 @@
                             "private",
                             "public"
                           ],
-                          "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                          "description": "private: the project's people see it on BrandHub, signed in; public: anyone and any agent"
                         },
                         "url": {
                           "type": "string",
@@ -32481,7 +32481,7 @@
       ],
       "post": {
         "summary": "Take a brand from its files",
-        "description": "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a source that remembers what both sides last agreed, what changed here since is kept: the files win only where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line (`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another brand is one. `dryRun` answers what would change. `pending`: the brand still holds changes the files lack, to export back. Takes setup on the workspace.\n\nScope: `write`.",
+        "description": "The brand's rules, pages, theme and name as the files say them, in one version of its history. With a source that remembers what both sides last agreed, what changed here since is kept: the files win only where both changed the same rule, page or setting, and `conflicts` names each. Files under `assets/` are named in `assets` by id or by the SHA-256 of their bytes; a 422 lists every problem at its file and line (`detail.errors`) and the files to upload first (`detail.missing`); a `brand.yaml` whose `slug` names another brand is one. `dryRun` answers what would change. `pending`: the brand still holds changes the files lack, to export back. Takes setup on the project.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -33089,7 +33089,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a workspace admin, else null"
+                          "description": "Where this server connects a brand to a Git repository (GIT_CONNECT_URL): for a project admin, else null"
                         }
                       },
                       "required": [
@@ -33144,7 +33144,7 @@
       },
       "put": {
         "summary": "Say where a brand's files live",
-        "description": "Moving it to another repository, branch or folder forgets what was agreed: the next import takes the files whole. After pushing an export, send the files pushed as `synced` with their commit: they become what both sides agree on. Takes setup on the workspace.\n\nScope: `write`.",
+        "description": "Moving it to another repository, branch or folder forgets what was agreed: the next import takes the files whole. After pushing an export, send the files pushed as `synced` with their commit: they become what both sides agree on. Takes setup on the project.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -36035,7 +36035,7 @@
     "/api/v1/me": {
       "get": {
         "summary": "Who is calling",
-        "description": "The person or key, the workspace this request acts in (a key's own; for a person, the one in the `ab_workspace` cookie if they can open it), the scope there and on its organization, every workspace they can switch to, and how one signs in here.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "The person or key, the project this request acts in (a key's own; for a person, the one in the `ab_project` cookie if they can open it), the scope there and on its organization, every project they can switch to, and how one signs in here.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "You",
@@ -36083,7 +36083,7 @@
                           "type": "string",
                           "description": "How history names you"
                         },
-                        "workspace": {
+                        "project": {
                           "type": "object",
                           "properties": {
                             "id": {
@@ -36127,7 +36127,7 @@
                             "organization"
                           ],
                           "additionalProperties": false,
-                          "description": "Where this request acts: a key's workspace, or the one picked in the app"
+                          "description": "Where this request acts: a key's project, or the one picked in the app"
                         },
                         "scope": {
                           "anyOf": [
@@ -36144,7 +36144,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "On the whole workspace"
+                          "description": "On the whole project"
                         },
                         "orgScope": {
                           "anyOf": [
@@ -36161,7 +36161,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "On its organization; admin there manages people and workspaces"
+                          "description": "On its organization; admin there manages people and projects"
                         },
                         "readOnly": {
                           "type": "boolean",
@@ -36169,7 +36169,7 @@
                         },
                         "narrowed": {
                           "type": "boolean",
-                          "description": "No scope on the workspace, but grants on some collections or assets in it"
+                          "description": "No scope on the project, but grants on some collections or assets in it"
                         },
                         "email": {
                           "type": "boolean",
@@ -36236,7 +36236,7 @@
                             "brands"
                           ],
                           "additionalProperties": false,
-                          "description": "Grants on single collections, assets and brands here, by id: what reaches past the workspace scope"
+                          "description": "Grants on single collections, assets and brands here, by id: what reaches past the project scope"
                         },
                         "hidden": {
                           "type": "array",
@@ -36245,9 +36245,9 @@
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
-                          "description": "The workspace's private collections and brands: only a grant on one, or admin, reaches it"
+                          "description": "The project's private collections and brands: only a grant on one, or admin, reaches it"
                         },
-                        "workspaces": {
+                        "projects": {
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -36294,7 +36294,7 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Every workspace you can switch to"
+                          "description": "Every project you can switch to"
                         },
                         "features": {
                           "anyOf": [
@@ -36342,7 +36342,7 @@
                           "description": "Where the organization's plan is managed (BILLING_URL): set for its admin, on a plan or not, else null"
                         },
                         "git": {
-                          "description": "Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a workspace admin, else null",
+                          "description": "Where a brand gets kept in a Git repository (GIT_CONNECT_URL), {brand} standing for its slug, empty to bring a new brand in: set for a project admin, else null",
                           "type": [
                             "string",
                             "null"
@@ -36362,7 +36362,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "Where BrandHub shows the workspace's brands, private ones too; null when the server has none"
+                          "description": "Where BrandHub shows the project's brands, private ones too; null when the server has none"
                         },
                         "notice": {
                           "anyOf": [
@@ -36608,7 +36608,7 @@
                         "user",
                         "key",
                         "actor",
-                        "workspace",
+                        "project",
                         "scope",
                         "orgScope",
                         "readOnly",
@@ -36616,7 +36616,7 @@
                         "email",
                         "narrow",
                         "hidden",
-                        "workspaces",
+                        "projects",
                         "features",
                         "upgrade",
                         "billing",
@@ -36758,7 +36758,7 @@
       },
       "post": {
         "summary": "Make an organization",
-        "description": "With a first workspace, Library. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "With a first project, Library. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
           "content": {
@@ -36802,7 +36802,7 @@
                         "name": {
                           "type": "string"
                         },
-                        "workspace": {
+                        "project": {
                           "type": "object",
                           "properties": {
                             "id": {
@@ -36829,7 +36829,7 @@
                         "id",
                         "slug",
                         "name",
-                        "workspace"
+                        "project"
                       ],
                       "additionalProperties": false
                     }
@@ -36990,7 +36990,7 @@
       },
       "delete": {
         "summary": "Delete the organization",
-        "description": "With its workspaces and everything in them, its grants, invitations and settings; its files go with the next sweep. Admin on the organization. Not the server's only one.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "With its projects and everything in them, its grants, invitations and settings; its files go with the next sweep. Admin on the organization. Not the server's only one.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "Deleted",
@@ -37089,15 +37089,15 @@
                                 "null"
                               ]
                             },
-                            "workspaces": {
-                              "description": "Workspaces; null: no limit",
+                            "projects": {
+                              "description": "Projects; null: no limit",
                               "type": [
                                 "number",
                                 "null"
                               ]
                             },
                             "brands": {
-                              "description": "Brands, over all workspaces; null: no limit",
+                              "description": "Brands, over all projects; null: no limit",
                               "type": [
                                 "number",
                                 "null"
@@ -37150,7 +37150,7 @@
                           "required": [
                             "storage",
                             "editors",
-                            "workspaces",
+                            "projects",
                             "brands",
                             "domains",
                             "emails",
@@ -37184,7 +37184,7 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "workspaces": {
+                            "projects": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -37203,7 +37203,7 @@
                           "required": [
                             "storage",
                             "editors",
-                            "workspaces",
+                            "projects",
                             "brands",
                             "domains"
                           ],
@@ -37218,7 +37218,7 @@
                               "maximum": 9007199254740991,
                               "description": "How far back"
                             },
-                            "workspaces": {
+                            "projects": {
                               "type": "array",
                               "items": {
                                 "type": "object",
@@ -37281,7 +37281,7 @@
                           },
                           "required": [
                             "days",
-                            "workspaces",
+                            "projects",
                             "daily"
                           ],
                           "additionalProperties": false,
@@ -37344,7 +37344,7 @@
     "/api/v1/insights": {
       "get": {
         "summary": "Insights",
-        "description": "What the workspace's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
+        "description": "What the project's events say: brand answers per week, release adoption and who still loads a replaced version, the most fetched assets by surface, searches that found nothing, the use-check log (refusals by reason, what was offered and whether it was taken), delivery traffic and portal page views. Events never hold an IP address, a person's name or a full URL, and never leave this server.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -37941,7 +37941,7 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "What /a/{id} served in this workspace, per day"
+                          "description": "What /a/{id} served in this project, per day"
                         },
                         "pageViews": {
                           "type": "array",
@@ -38262,13 +38262,13 @@
         }
       }
     },
-    "/api/v1/workspaces": {
+    "/api/v1/projects": {
       "get": {
-        "summary": "Workspaces in this organization",
+        "summary": "Projects in this organization",
         "description": "Those you can open, with your scope on each; null where a grant inside it is all you have.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
-            "description": "Workspaces",
+            "description": "Projects",
             "content": {
               "application/json": {
                 "schema": {
@@ -38362,7 +38362,7 @@
         }
       },
       "post": {
-        "summary": "Make a workspace",
+        "summary": "Make a project",
         "description": "A library of its own in the current organization, with a default brand. Admin on the organization.\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
@@ -38478,20 +38478,20 @@
         }
       }
     },
-    "/api/v1/workspaces/{id}": {
+    "/api/v1/projects/{id}": {
       "parameters": [
         {
           "name": "id",
           "in": "path",
           "required": true,
-          "description": "Workspace id",
+          "description": "Project id",
           "schema": {
             "type": "string"
           }
         }
       ],
       "patch": {
-        "summary": "Rename a workspace",
+        "summary": "Rename a project",
         "description": "Admin there.\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
@@ -38589,8 +38589,8 @@
         }
       },
       "delete": {
-        "summary": "Delete a workspace",
-        "description": "With its assets, collections, fields, brands, keys and links, at once; its files go with the next sweep, when no other workspace holds the same bytes. Admin on the organization. Not its last workspace.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "summary": "Delete a project",
+        "description": "With its assets, collections, fields, brands, keys and links, at once; its files go with the next sweep, when no other project holds the same bytes. Admin on the organization. Not its last project.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "Deleted",
@@ -38660,7 +38660,7 @@
     "/api/v1/members": {
       "get": {
         "summary": "People and their access",
-        "description": "Everyone with a grant in the organization, with the grants you may see, and invitations still waiting. An organization admin sees every workspace's grants; a workspace admin, the organization's and their workspace's.\n\nScope: `admin`.",
+        "description": "Everyone with a grant in the organization, with the grants you may see, and invitations still waiting. An organization admin sees every project's grants; a project admin, the organization's and their project's.\n\nScope: `admin`.",
         "x-scope": "admin",
         "parameters": [
           {
@@ -38669,10 +38669,10 @@
             "schema": {
               "type": "string",
               "enum": [
-                "workspace"
+                "project"
               ]
             },
-            "description": "Only who can open this workspace, and invitations into it"
+            "description": "Only who can open this project, and invitations into it"
           }
         ],
         "responses": {
@@ -38711,7 +38711,7 @@
                                   "type": "string",
                                   "enum": [
                                     "organization",
-                                    "workspace",
+                                    "project",
                                     "collection",
                                     "asset",
                                     "brand"
@@ -38722,7 +38722,7 @@
                                   "format": "uuid",
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                 },
-                                "workspaceId": {
+                                "projectId": {
                                   "anyOf": [
                                     {
                                       "type": "string",
@@ -38760,7 +38760,7 @@
                                 "id",
                                 "resource",
                                 "resourceId",
-                                "workspaceId",
+                                "projectId",
                                 "label",
                                 "scope",
                                 "createdAt"
@@ -38795,7 +38795,7 @@
                             "type": "string",
                             "enum": [
                               "organization",
-                              "workspace",
+                              "project",
                               "collection",
                               "asset",
                               "brand"
@@ -38912,7 +38912,7 @@
     "/api/v1/grants": {
       "post": {
         "summary": "Give a member access, or change it",
-        "description": "A scope on the organization (its admins only), a workspace, a collection or one asset (admins of the workspace), held by a member (`user`) or a group (`group`). Grants add up and reach down. Only for people already in the organization; invite anyone else. With `project`, a share: another project of the organization reads a brand, collection or asset where it is (admin on it shares it).\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "A scope on the organization (its admins only), a project, a collection or one asset (admins of the project), held by a member (`user`) or a group (`group`). Grants add up and reach down. Only for people already in the organization; invite anyone else. With `project`, a share: another project of the organization reads a brand, collection or asset where it is (admin on it shares it).\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
           "content": {
@@ -38932,7 +38932,7 @@
                         "type": "string",
                         "enum": [
                           "organization",
-                          "workspace",
+                          "project",
                           "collection",
                           "asset",
                           "brand"
@@ -38943,7 +38943,7 @@
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                        "description": "The organization's, workspace's, collection's or asset's id"
+                        "description": "The organization's, project's, collection's or asset's id"
                       },
                       "scope": {
                         "type": "string",
@@ -38976,7 +38976,7 @@
                         "type": "string",
                         "enum": [
                           "organization",
-                          "workspace",
+                          "project",
                           "collection",
                           "asset",
                           "brand"
@@ -38987,7 +38987,7 @@
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                        "description": "The organization's, workspace's, collection's or asset's id"
+                        "description": "The organization's, project's, collection's or asset's id"
                       },
                       "scope": {
                         "type": "string",
@@ -39070,7 +39070,7 @@
                               "type": "string",
                               "enum": [
                                 "organization",
-                                "workspace",
+                                "project",
                                 "collection",
                                 "asset",
                                 "brand"
@@ -39081,7 +39081,7 @@
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            "workspaceId": {
+                            "projectId": {
                               "anyOf": [
                                 {
                                   "type": "string",
@@ -39119,7 +39119,7 @@
                             "id",
                             "resource",
                             "resourceId",
-                            "workspaceId",
+                            "projectId",
                             "label",
                             "scope",
                             "createdAt"
@@ -39310,7 +39310,7 @@
     "/api/v1/groups": {
       "get": {
         "summary": "The organization's groups",
-        "description": "Each with its members and its grants. A grant held by a group is each member's. Admins of the workspace.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Each with its members and its grants. A grant held by a group is each member's. Admins of the project.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "Groups",
@@ -39382,7 +39382,7 @@
                                   "type": "string",
                                   "enum": [
                                     "organization",
-                                    "workspace",
+                                    "project",
                                     "collection",
                                     "asset",
                                     "brand"
@@ -39393,7 +39393,7 @@
                                   "format": "uuid",
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                                 },
-                                "workspaceId": {
+                                "projectId": {
                                   "anyOf": [
                                     {
                                       "type": "string",
@@ -39431,7 +39431,7 @@
                                 "id",
                                 "resource",
                                 "resourceId",
-                                "workspaceId",
+                                "projectId",
                                 "label",
                                 "scope",
                                 "createdAt"
@@ -39588,7 +39588,7 @@
                                 "type": "string",
                                 "enum": [
                                   "organization",
-                                  "workspace",
+                                  "project",
                                   "collection",
                                   "asset",
                                   "brand"
@@ -39599,7 +39599,7 @@
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
-                              "workspaceId": {
+                              "projectId": {
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -39637,7 +39637,7 @@
                               "id",
                               "resource",
                               "resourceId",
-                              "workspaceId",
+                              "projectId",
                               "label",
                               "scope",
                               "createdAt"
@@ -39992,7 +39992,7 @@
                                 "type": "string",
                                 "enum": [
                                   "organization",
-                                  "workspace",
+                                  "project",
                                   "collection",
                                   "asset",
                                   "brand"
@@ -40003,7 +40003,7 @@
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
-                              "workspaceId": {
+                              "projectId": {
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -40041,7 +40041,7 @@
                               "id",
                               "resource",
                               "resourceId",
-                              "workspaceId",
+                              "projectId",
                               "label",
                               "scope",
                               "createdAt"
@@ -40126,7 +40126,7 @@
                     "type": "string",
                     "enum": [
                       "organization",
-                      "workspace",
+                      "project",
                       "collection",
                       "asset",
                       "brand"
@@ -40137,7 +40137,7 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                    "description": "The organization's, workspace's, collection's or asset's id"
+                    "description": "The organization's, project's, collection's or asset's id"
                   },
                   "scope": {
                     "type": "string",
@@ -40183,7 +40183,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace",
+                            "project",
                             "collection",
                             "asset",
                             "brand"
@@ -40329,7 +40329,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace",
+                            "project",
                             "collection",
                             "asset",
                             "brand"
@@ -40556,7 +40556,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace",
+                            "project",
                             "collection",
                             "asset",
                             "brand"
@@ -40665,7 +40665,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "workspaceId": {
+                        "projectId": {
                           "anyOf": [
                             {
                               "type": "string",
@@ -40681,7 +40681,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace",
+                            "project",
                             "collection",
                             "asset",
                             "brand"
@@ -40699,7 +40699,7 @@
                       },
                       "required": [
                         "organizationId",
-                        "workspaceId",
+                        "projectId",
                         "resource",
                         "scope"
                       ],
@@ -40753,7 +40753,7 @@
     "/api/v1/shares": {
       "get": {
         "summary": "Share links",
-        "description": "The workspace's, on what you may share.\n\nScope: `write`.",
+        "description": "The project's, on what you may share.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -40794,7 +40794,7 @@
                                 "enum": [
                                   "collection",
                                   "asset",
-                                  "workspace"
+                                  "project"
                                 ]
                               },
                               "id": {
@@ -40915,7 +40915,7 @@
       },
       "post": {
         "summary": "Make a share link",
-        "description": "For people without an account. `view`: a collection's approved assets, or one asset, to see and download. `upload`: files sent in land `proposed`, in the collection (or the workspace), for review. Either can expire and ask for a password. Needs write on what it shares.\n\nScope: `write`.",
+        "description": "For people without an account. `view`: a collection's approved assets, or one asset, to see and download. `upload`: files sent in land `proposed`, in the collection (or the project), for review. Either can expire and ask for a password. Needs write on what it shares.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -41017,7 +41017,7 @@
                               "enum": [
                                 "collection",
                                 "asset",
-                                "workspace"
+                                "project"
                               ]
                             },
                             "id": {
@@ -41397,7 +41397,7 @@
                             "null"
                           ]
                         },
-                        "workspace": {
+                        "project": {
                           "type": [
                             "string",
                             "null"
@@ -41417,7 +41417,7 @@
                               "enum": [
                                 "collection",
                                 "asset",
-                                "workspace"
+                                "project"
                               ]
                             },
                             "id": {
@@ -42298,13 +42298,13 @@
                             "signed"
                           ],
                           "additionalProperties": false,
-                          "description": "How to draw it: the workspace's brand site once published; else the organization's accent over the app's own"
+                          "description": "How to draw it: the project's brand site once published; else the organization's accent over the app's own"
                         }
                       },
                       "required": [
                         "kind",
                         "name",
-                        "workspace",
+                        "project",
                         "organization",
                         "target",
                         "expiresAt",
@@ -42718,7 +42718,7 @@
     "/api/v1/portals": {
       "get": {
         "summary": "Brand portals",
-        "description": "The workspace's portals.\n\nScope: `write`.",
+        "description": "The project's portals.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -43163,7 +43163,7 @@
       },
       "post": {
         "summary": "Make a brand portal",
-        "description": "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` (people with access to the workspace); the last two take access requests. Needs sharing rights on each collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.\n\nScope: `write`.",
+        "description": "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` (people with access to the project); the last two take access requests. Needs sharing rights on each collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
           "required": true,
@@ -43203,7 +43203,7 @@
                       "password",
                       "members"
                     ],
-                    "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+                    "description": "public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"
                   },
                   "password": {
                     "description": "For access: password. Left out on a change, it stays",
@@ -44356,7 +44356,7 @@
                       "password",
                       "members"
                     ],
-                    "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+                    "description": "public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"
                   },
                   "password": {
                     "description": "For access: password. Left out on a change, it stays",
@@ -52545,7 +52545,7 @@
       ],
       "post": {
         "summary": "Ask for access to a portal, or ask its brand team",
-        "description": "Access (`kind` access, the default) is for a `password` or `members` portal. The workspace's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. A request section's ask (`kind` asset, review or question) works on any portal, says the `page` and `section` it came from, and needs what reading that page needs (X-Portal-Password or X-Portal-Key, or a member's session), else 401. The `page` must be one the visitor can read and `section` a request section on it; access takes neither.\n\nNo key needed.",
+        "description": "Access (`kind` access, the default) is for a `password` or `members` portal. The project's admins hear about it. It answers the same whoever asks, and asking twice while one waits is one request. A request section's ask (`kind` asset, review or question) works on any portal, says the `page` and `section` it came from, and needs what reading that page needs (X-Portal-Password or X-Portal-Key, or a member's session), else 401. The `page` must be one the visitor can read and `section` a request section on it; access takes neither.\n\nNo key needed.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -53541,10 +53541,10 @@
                           },
                           "join": {
                             "type": "boolean",
-                            "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                            "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing project"
                           },
-                          "workspaceId": {
-                            "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                          "projectId": {
+                            "description": "The project whoever joins lands in, able to read; null for the organization's oldest",
                             "type": [
                               "string",
                               "null"
@@ -53581,7 +53581,7 @@
                           "domain",
                           "verified",
                           "join",
-                          "workspaceId",
+                          "projectId",
                           "sso",
                           "record"
                         ],
@@ -53678,10 +53678,10 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing project"
                         },
-                        "workspaceId": {
-                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project whoever joins lands in, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -53718,7 +53718,7 @@
                         "domain",
                         "verified",
                         "join",
-                        "workspaceId",
+                        "projectId",
                         "sso",
                         "record"
                       ],
@@ -53783,7 +53783,7 @@
       ],
       "patch": {
         "summary": "Open an email domain to joining",
-        "description": "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the organization, able to read one workspace, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). They land in `workspaceId`, or the organization's oldest workspace when it is null, never the whole organization. Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single sign-on covers, and on a server that sends no email of its own.\n\nScope: `admin`.",
+        "description": "With `join`, anyone who signs up or signs in with an address at exactly this domain is offered to join the organization, able to read one project, once the server's own email has confirmed the address (me.joinable, POST /api/v1/join). They land in `projectId`, or the organization's oldest project when it is null, never the whole organization. Refused for a domain not proved yet, one that gives addresses to the public (gmail.com, orange.fr), one single sign-on covers, and on a server that sends no email of its own.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -53793,11 +53793,11 @@
                 "type": "object",
                 "properties": {
                   "join": {
-                    "description": "Let anyone whose address is at exactly this domain join, able to read its landing workspace. Needs it proved, not free mail, no single sign-on over it, and the server's own email",
+                    "description": "Let anyone whose address is at exactly this domain join, able to read its landing project. Needs it proved, not free mail, no single sign-on over it, and the server's own email",
                     "type": "boolean"
                   },
-                  "workspaceId": {
-                    "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays",
+                  "projectId": {
+                    "description": "The project whoever joins lands in, able to read; null for the organization's oldest. Left out, it stays",
                     "anyOf": [
                       {
                         "type": "string",
@@ -53835,10 +53835,10 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing project"
                         },
-                        "workspaceId": {
-                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project whoever joins lands in, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -53875,7 +53875,7 @@
                         "domain",
                         "verified",
                         "join",
-                        "workspaceId",
+                        "projectId",
                         "sso",
                         "record"
                       ],
@@ -54031,10 +54031,10 @@
                         },
                         "join": {
                           "type": "boolean",
-                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing workspace"
+                          "description": "Anyone whose address is at exactly this domain may join the organization, able to read its landing project"
                         },
-                        "workspaceId": {
-                          "description": "The workspace whoever joins lands in, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project whoever joins lands in, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -54071,7 +54071,7 @@
                         "domain",
                         "verified",
                         "join",
-                        "workspaceId",
+                        "projectId",
                         "sso",
                         "record"
                       ],
@@ -54125,7 +54125,7 @@
     "/api/v1/join": {
       "post": {
         "summary": "Join by email domain",
-        "description": "Join the organization that opened your address's domain (me.joinable), able to read the workspace it lands people in. 404 when there is none to join.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Join the organization that opened your address's domain (me.joinable), able to read the project it lands people in. 404 when there is none to join.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "Joined",
@@ -55540,7 +55540,7 @@
                               "name": {
                                 "type": "string"
                               },
-                              "workspace": {
+                              "project": {
                                 "type": "string"
                               },
                               "visibility": {
@@ -55554,7 +55554,7 @@
                             "required": [
                               "slug",
                               "name",
-                              "workspace",
+                              "project",
                               "visibility"
                             ],
                             "additionalProperties": false
@@ -55750,7 +55750,7 @@
       ],
       "post": {
         "summary": "Make a listing yours",
-        "description": "Take an offer: a brand in your workspace from the listing's release (as Start from this brand), with its domain, released and public on BrandHub. The listing goes private, its address leads to yours for good, and its organization's admins find a resolved claim and an audit entry. No brand moves between organizations. Organization admin, signed in.\n\nScope: `admin`.",
+        "description": "Take an offer: a brand in your project from the listing's release (as Start from this brand), with its domain, released and public on BrandHub. The listing goes private, its address leads to yours for good, and its organization's admins find a resolved claim and an audit entry. No brand moves between organizations. Organization admin, signed in.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "201": {
@@ -55829,7 +55829,7 @@
                                 "private",
                                 "public"
                               ],
-                              "description": "private: the workspace's people see it on BrandHub, signed in; public: anyone and any agent"
+                              "description": "private: the project's people see it on BrandHub, signed in; public: anyone and any agent"
                             },
                             "url": {
                               "type": "string",
@@ -56010,7 +56010,7 @@
                 "type": "object",
                 "properties": {
                   "slug": {
-                    "description": "The new brand's slug in your workspace; the listing's when left out",
+                    "description": "The new brand's slug in your project; the listing's when left out",
                     "type": "string",
                     "maxLength": 60,
                     "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -56264,8 +56264,8 @@
                               "type": "boolean",
                               "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                             },
-                            "workspaceId": {
-                              "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                            "projectId": {
+                              "description": "The project its people land in the first time, able to read; null for the organization's oldest",
                               "type": [
                                 "string",
                                 "null"
@@ -56305,7 +56305,7 @@
                             "domain",
                             "verified",
                             "required",
-                            "workspaceId",
+                            "projectId",
                             "record",
                             "redirectUri"
                           ],
@@ -56375,7 +56375,7 @@
       },
       "put": {
         "summary": "Set up single sign-on",
-        "description": "One OpenID Connect provider (Okta, Entra ID, Google Workspace...) for the people at one email domain. Register `redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the organization able to read `workspaceId` (the oldest workspace when null). A new domain is proved again; one another organization proved is refused.\n\nScope: `admin`.",
+        "description": "One OpenID Connect provider (Okta, Entra ID, Google Project...) for the people at one email domain. Register `redirectUri` with the provider first, then save its issuer and client here: the endpoints are read from the issuer's discovery document now, and a 422 says what was wrong with it. Add the TXT record in `record`, then POST /api/v1/sso/verify. From then on anyone at the domain signs in through the provider and joins the organization able to read `projectId` (the oldest project when null). A new domain is proved again; one another organization proved is refused.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -56408,8 +56408,8 @@
                     "maxLength": 253,
                     "description": "The email domain its people sign in with, e.g. acme.com. Proved by a TXT record"
                   },
-                  "workspaceId": {
-                    "description": "The workspace its people land in the first time, able to read; null for the organization's oldest. Left out, it stays",
+                  "projectId": {
+                    "description": "The project its people land in the first time, able to read; null for the organization's oldest. Left out, it stays",
                     "anyOf": [
                       {
                         "type": "string",
@@ -56460,8 +56460,8 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
-                        "workspaceId": {
-                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project its people land in the first time, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -56501,7 +56501,7 @@
                         "domain",
                         "verified",
                         "required",
-                        "workspaceId",
+                        "projectId",
                         "record",
                         "redirectUri"
                       ],
@@ -56603,8 +56603,8 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
-                        "workspaceId": {
-                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project its people land in the first time, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -56644,7 +56644,7 @@
                         "domain",
                         "verified",
                         "required",
-                        "workspaceId",
+                        "projectId",
                         "record",
                         "redirectUri"
                       ],
@@ -56797,8 +56797,8 @@
                           "type": "boolean",
                           "description": "Addresses at the domain sign in only through the provider, but for the organization's admins"
                         },
-                        "workspaceId": {
-                          "description": "The workspace its people land in the first time, able to read; null for the organization's oldest",
+                        "projectId": {
+                          "description": "The project its people land in the first time, able to read; null for the organization's oldest",
                           "type": [
                             "string",
                             "null"
@@ -56838,7 +56838,7 @@
                         "domain",
                         "verified",
                         "required",
-                        "workspaceId",
+                        "projectId",
                         "record",
                         "redirectUri"
                       ],
@@ -56977,7 +56977,7 @@
     "/api/v1/audit": {
       "get": {
         "summary": "The audit log",
-        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, workspaces. An organization admin reads the organization's (with their own sign-ins); a workspace admin, the workspace's.\n\nScope: `admin`.",
+        "description": "Who changed who may do what, newest first: sign-ins, members and grants, invitations, keys, share links, projects. An organization admin reads the organization's (with their own sign-ins); a project admin, the project's.\n\nScope: `admin`.",
         "x-scope": "admin",
         "parameters": [
           {
@@ -57036,7 +57036,7 @@
                               }
                             ]
                           },
-                          "workspaceId": {
+                          "projectId": {
                             "anyOf": [
                               {
                                 "type": "string",
@@ -57104,7 +57104,7 @@
                           "id",
                           "at",
                           "organizationId",
-                          "workspaceId",
+                          "projectId",
                           "actor",
                           "userId",
                           "keyId",
@@ -57178,7 +57178,7 @@
     "/api/v1/settings": {
       "get": {
         "summary": "Settings",
-        "description": "Every setting that can be set in `context` (organization or workspace), as it applies there, and its `source`: set here, inherited from the organization, the server's environment (config files), or the default. Secret properties come back null, with whether each is set in `secrets`. Admin on that place.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Every setting that can be set in `context` (organization or project), as it applies there, and its `source`: set here, inherited from the organization, the server's environment (config files), or the default. Secret properties come back null, with whether each is set in `secrets`. Admin on that place.\n\nAny caller; the scope needed is checked on what it acts on.",
         "parameters": [
           {
             "name": "context",
@@ -57187,7 +57187,7 @@
               "type": "string",
               "enum": [
                 "organization",
-                "workspace"
+                "project"
               ],
               "default": "organization"
             },
@@ -57221,7 +57221,7 @@
                             "type": "string",
                             "enum": [
                               "organization",
-                              "workspace"
+                              "project"
                             ]
                           },
                           "value": {
@@ -57245,7 +57245,7 @@
                           "source": {
                             "type": "string",
                             "enum": [
-                              "workspace",
+                              "project",
                               "organization",
                               "environment",
                               "default"
@@ -57260,7 +57260,7 @@
                             "additionalProperties": {
                               "type": "string",
                               "enum": [
-                                "workspace",
+                                "project",
                                 "organization",
                                 "environment",
                                 "default"
@@ -57354,7 +57354,7 @@
               "type": "string",
               "enum": [
                 "organization",
-                "workspace"
+                "project"
               ],
               "default": "organization"
             },
@@ -57401,7 +57401,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace"
+                            "project"
                           ]
                         },
                         "value": {
@@ -57425,7 +57425,7 @@
                         "source": {
                           "type": "string",
                           "enum": [
-                            "workspace",
+                            "project",
                             "organization",
                             "environment",
                             "default"
@@ -57440,7 +57440,7 @@
                           "additionalProperties": {
                             "type": "string",
                             "enum": [
-                              "workspace",
+                              "project",
                               "organization",
                               "environment",
                               "default"
@@ -57520,7 +57520,7 @@
               "type": "string",
               "enum": [
                 "organization",
-                "workspace"
+                "project"
               ],
               "default": "organization"
             },
@@ -57552,7 +57552,7 @@
                           "type": "string",
                           "enum": [
                             "organization",
-                            "workspace"
+                            "project"
                           ]
                         },
                         "value": {
@@ -57576,7 +57576,7 @@
                         "source": {
                           "type": "string",
                           "enum": [
-                            "workspace",
+                            "project",
                             "organization",
                             "environment",
                             "default"
@@ -57591,7 +57591,7 @@
                           "additionalProperties": {
                             "type": "string",
                             "enum": [
-                              "workspace",
+                              "project",
                               "organization",
                               "environment",
                               "default"
@@ -57757,7 +57757,7 @@
     "/api/v1/keys": {
       "get": {
         "summary": "Connected agents",
-        "description": "API keys, without secrets, with when each last called and what it left in Review: every key in the workspace for an admin, the agents you connected for anyone else.\n\nScope: `read`.",
+        "description": "API keys, without secrets, with when each last called and what it left in Review: every key in the project for an admin, the agents you connected for anyone else.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -57829,8 +57829,8 @@
                             "maximum": 9007199254740991,
                             "description": "Assets it proposed that wait in Review"
                           },
-                          "workspaces": {
-                            "description": "For an agent you connected, the names of every workspace it works in; null for anyone else's",
+                          "projects": {
+                            "description": "For an agent you connected, the names of every project it works in; null for anyone else's",
                             "anyOf": [
                               {
                                 "type": "array",
@@ -58005,8 +58005,8 @@
                           "maximum": 9007199254740991,
                           "description": "Assets it proposed that wait in Review"
                         },
-                        "workspaces": {
-                          "description": "For an agent you connected, the names of every workspace it works in; null for anyone else's",
+                        "projects": {
+                          "description": "For an agent you connected, the names of every project it works in; null for anyone else's",
                           "anyOf": [
                             {
                               "type": "array",
@@ -58097,7 +58097,7 @@
       ],
       "get": {
         "summary": "An agent you connected",
-        "description": "Where it works, each workspace with its scope, and every workspace you could give it. Only your own agents.\n\nScope: `read`.",
+        "description": "Where it works, each project with its scope, and every project you could give it. Only your own agents.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -58118,7 +58118,7 @@
                         "name": {
                           "type": "string"
                         },
-                        "workspaces": {
+                        "projects": {
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -58152,7 +58152,7 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Where it works, the first where a call without `workspace` goes"
+                          "description": "Where it works, the first where a call without `project` goes"
                         },
                         "givable": {
                           "type": "array",
@@ -58187,13 +58187,13 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Every workspace you could give it, with the most you may give there"
+                          "description": "Every project you could give it, with the most you may give there"
                         }
                       },
                       "required": [
                         "id",
                         "name",
-                        "workspaces",
+                        "projects",
                         "givable"
                       ],
                       "additionalProperties": false
@@ -58244,7 +58244,7 @@
       },
       "patch": {
         "summary": "Change where an agent you connected works",
-        "description": "Its workspaces and its scope, as the consent screen gives them: the scope is brought down, in each workspace, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.\n\nScope: `read`.",
+        "description": "Its projects and its scope, as the consent screen gives them: the scope is brought down, in each project, to the most you may give there. It keeps its secret, so the agent doesn't sign in again. Only your own agents.\n\nScope: `read`.",
         "x-scope": "read",
         "requestBody": {
           "required": true,
@@ -58253,7 +58253,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "workspaces": {
+                  "projects": {
                     "minItems": 1,
                     "maxItems": 100,
                     "type": "array",
@@ -58273,7 +58273,7 @@
                   }
                 },
                 "required": [
-                  "workspaces",
+                  "projects",
                   "scope"
                 ],
                 "additionalProperties": false
@@ -58300,7 +58300,7 @@
                         "name": {
                           "type": "string"
                         },
-                        "workspaces": {
+                        "projects": {
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -58334,7 +58334,7 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Where it works, the first where a call without `workspace` goes"
+                          "description": "Where it works, the first where a call without `project` goes"
                         },
                         "givable": {
                           "type": "array",
@@ -58369,13 +58369,13 @@
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Every workspace you could give it, with the most you may give there"
+                          "description": "Every project you could give it, with the most you may give there"
                         }
                       },
                       "required": [
                         "id",
                         "name",
-                        "workspaces",
+                        "projects",
                         "givable"
                       ],
                       "additionalProperties": false
@@ -58426,7 +58426,7 @@
       },
       "delete": {
         "summary": "Revoke an API key",
-        "description": "Any key, for an admin; the agents you connected, for anyone. An agent connected to several workspaces stops working in this one and keeps the others.\n\nScope: `read`.",
+        "description": "Any key, for an admin; the agents you connected, for anyone. An agent connected to several projects stops working in this one and keeps the others.\n\nScope: `read`.",
         "x-scope": "read",
         "responses": {
           "200": {
@@ -58861,7 +58861,7 @@
       ],
       "get": {
         "summary": "What a device code asks for",
-        "description": "Signed in: the client, and the workspaces and scopes you can give it.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Signed in: the client, and the projects and scopes you can give it.\n\nAny caller; the scope needed is checked on what it acts on.",
         "responses": {
           "200": {
             "description": "The request"
@@ -58917,7 +58917,7 @@
                         "type": "boolean",
                         "const": true
                       },
-                      "workspaces": {
+                      "projects": {
                         "maxItems": 100,
                         "type": "array",
                         "items": {
@@ -58926,7 +58926,7 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         }
                       },
-                      "workspace": {
+                      "project": {
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -59095,7 +59095,7 @@
                         "type": "boolean",
                         "const": true
                       },
-                      "workspaces": {
+                      "projects": {
                         "maxItems": 100,
                         "type": "array",
                         "items": {
@@ -59104,7 +59104,7 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         }
                       },
-                      "workspace": {
+                      "project": {
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"

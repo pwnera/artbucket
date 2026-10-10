@@ -46,12 +46,12 @@ type Shared = {
   share: {
     kind: "view" | "upload";
     name: string | null;
-    workspace: string | null;
+    project: string | null;
     organization: string | null;
     target: { type: string; label: string | null };
     expiresAt: string | null;
     brand: Brand;
-    /** The workspace's brand site, once published; else the organization's accent (lib/core/page-view.ts viewLook). */
+    /** The project's brand site, once published; else the organization's accent (lib/core/page-view.ts viewLook). */
     look: BrandLook;
   };
   data: Item[];
@@ -221,8 +221,8 @@ export function SharedView({
 
   const { share } = state.shared;
   const title = share.name ?? share.target.label ?? "Shared";
-  const from = [share.organization, share.workspace].filter(Boolean).join(" · ");
-  const by = share.organization ?? share.workspace;
+  const from = [share.organization, share.project].filter(Boolean).join(" · ");
+  const by = share.organization ?? share.project;
   const single = share.target.type === "asset" && state.shared.data.length === 1;
   return (
     <div style={accentVars(share.brand.accent)}>

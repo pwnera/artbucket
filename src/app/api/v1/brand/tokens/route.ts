@@ -12,7 +12,7 @@ import { TOKEN_FORMATS } from "@/lib/tokens";
 export const GET = route("brand.read", async (req, _p, caller) => {
   const q = new URL(req.url).searchParams;
   const { format, context } = TokenQuery.parse(Object.fromEntries(q));
-  const all = await listRules(caller.workspace.id, { brand: q.get("brand") ?? undefined, context });
+  const all = await listRules(caller.project.id, { brand: q.get("brand") ?? undefined, context });
   const rules = context ? all : all.filter((r) => r.context === null);
   const slug = rules[0]?.brand ?? q.get("brand") ?? "brand";
   const headers = { "Cache-Control": "private, no-cache" };

@@ -74,23 +74,23 @@ export function usePref<T>(key: string, fallback: T): [T, (v: T) => void] {
 // ---- recents -----------------------------------------------------------------
 
 export type Recent = { kind: "asset" | "collection" | "search" | "brand"; id: string; label: string; href: string; at: number };
-/** Recents belong to a workspace: what you opened in one is not what you opened in another. */
-const recentsKey = (workspace: string | undefined) => `artbucket:recents:${workspace ?? "none"}`;
+/** Recents belong to a project: what you opened in one is not what you opened in another. */
+const recentsKey = (project: string | undefined) => `artbucket:recents:${project ?? "none"}`;
 
-/** `remember(item)`: note that something was opened in this workspace; it goes to the top of its Recents. */
+/** `remember(item)`: note that something was opened in this project; it goes to the top of its Recents. */
 export function useRemember() {
-  const workspace = useMe()?.workspace.id;
+  const project = useMe()?.project.id;
   return useCallback(
     (r: Omit<Recent, "at">) => {
-      const key = recentsKey(workspace);
+      const key = recentsKey(project);
       const rest = (read<Recent[]>(key) ?? []).filter((x) => !(x.kind === r.kind && x.id === r.id));
       writePref(key, [{ ...r, at: Date.now() }, ...rest].slice(0, 8));
     },
-    [workspace],
+    [project],
   );
 }
 
-export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.workspace.id), []);
+export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.project.id), []);
 
 type Named = { id: string; name: string };
 

@@ -33,7 +33,7 @@ import {
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
-import { AccountMenu, WorkspaceSwitcher, type Me } from "@/components/account";
+import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { Brands, type BrandInfo } from "@/components/brand-switcher";
 import { CollectionIcon, type Collection } from "@/components/collections";
 import { ExternalLink } from "@/components/external-link";
@@ -177,7 +177,7 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <WorkspaceSwitcher me={me} />
+            <ProjectSwitcher me={me} />
           </SidebarMenuItem>
           <SidebarMenuItem>
             {/* Jump, Notion style: it looks like a field, and ⌘K opens it from anywhere. The page's own field filters it. */}
@@ -223,7 +223,7 @@ export function AppSidebar({
                 hint={can("asset.review") && reviewCount ? `${reviewCount} waiting` : undefined}
               />
             </SidebarMenu>
-            {/* Out of the app, so set apart from the places: BrandHub, where the workspace's brands show, private ones too. */}
+            {/* Out of the app, so set apart from the places: BrandHub, where the project's brands show, private ones too. */}
             {me.hubUrl && (
               <SidebarMenu className="mt-3">
                 <SidebarMenuItem>

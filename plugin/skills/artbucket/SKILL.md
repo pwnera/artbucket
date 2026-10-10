@@ -76,7 +76,7 @@ between them:
 
 A brand's guidelines are pages people read (and portals publish), laid out over its rules. You can build
 them end to end over MCP, or with the CLI (`artbucket templates`, `pages`, `page save`, `page edit`,
-`theme set`, `publish`). It takes a key with write on the workspace; publishing also takes the share ability.
+`theme set`, `publish`). It takes a key with write on the project; publishing also takes the share ability.
 
 Start with `brand_status`: it names every brand and lists what the one you work on still lacks (colors,
 typefaces, logo, voice, pages, a publish, a portal), each step with the tools that do it. Take `next`

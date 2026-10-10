@@ -49,13 +49,13 @@ export const renditionKey = (sha256: string, transform: string, ext: string) =>
 /** A still derived from a file sharp can't read (lib/core/previews.ts), by the still's own hash. */
 export const previewKey = (sha256: string) => `previews/${sha256}`;
 
-/** Temp landing spot for a browser upload, before its hash is known: the workspace's, so no other can promote it. */
-export const stagingKey = (workspaceId: string, token: string) => `staging/${workspaceId}/${token}`;
+/** Temp landing spot for a browser upload, before its hash is known: the project's, so no other can promote it. */
+export const stagingKey = (projectId: string, token: string) => `staging/${projectId}/${token}`;
 
 /**
  * The advisory lock class (with hashtext of the hash) held while the row that
  * holds an original lands, after making sure the original is there, and while
- * one is swept: an upload of the same bytes in another workspace never loses
+ * one is swept: an upload of the same bytes in another project never loses
  * them to the sweeper.
  */
 export const BYTES_LOCK = 71;

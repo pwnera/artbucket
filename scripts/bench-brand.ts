@@ -251,9 +251,9 @@ const rubric = await readFile(join(ROOT, "rubric.md"), "utf8");
 const out = join(ROOT, "runs", run);
 await mkdir(out, { recursive: true });
 
-const [ws] = await sql<{ id: string }[]>`select id from workspaces order by created_at limit 1`;
-if (!ws) throw new Error("No workspace yet: make the first account");
-await sql`insert into api_keys (workspace_id, name, prefix, hash, scope) values (${ws.id}, ${`bench-brand-${run}`}, ${secret.slice(0, 10)}, ${hash}, 'write')`;
+const [ws] = await sql<{ id: string }[]>`select id from projects order by created_at limit 1`;
+if (!ws) throw new Error("No project yet: make the first account");
+await sql`insert into api_keys (project_id, name, prefix, hash, scope) values (${ws.id}, ${`bench-brand-${run}`}, ${secret.slice(0, 10)}, ${hash}, 'write')`;
 const made: string[] = [];
 const results: Result[] = [];
 
@@ -313,7 +313,7 @@ try {
 } finally {
   const warn = (what: string) => (err: unknown) => console.error(`Could not ${what}: ${(err as Error).message}`);
   if (process.env.BENCH_KEEP) console.log(`kept ${made.join(", ")}`);
-  else for (const b of made) await sql`delete from brands where workspace_id = ${ws.id} and slug = ${b}`.catch(warn(`delete brand ${b}`));
+  else for (const b of made) await sql`delete from brands where project_id = ${ws.id} and slug = ${b}`.catch(warn(`delete brand ${b}`));
   await sql`delete from api_keys where hash = ${hash}`.catch(warn("delete the bench's key"));
   await sql.end();
 }

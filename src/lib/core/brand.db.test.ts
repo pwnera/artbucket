@@ -6,9 +6,9 @@ import { AssetError } from "@/lib/core/errors";
 
 const refused = (err: unknown) => err instanceof AssetError && err.code === "limit_reached" && (err.detail as { limit: string }).limit === "brands";
 
-test("a plan of one brand: the workspace's untouched default brand doesn't take the slot, the next brand does", async () => {
+test("a plan of one brand: the project's untouched default brand doesn't take the slot, the next brand does", async () => {
   const { caller } = await signUp("Ada");
-  await plan(caller.workspace.organizationId, { brands: 1 });
+  await plan(caller.project.organizationId, { brands: 1 });
   const made = await createBrand(caller, { name: "Acme" });
   assert.equal(made.slug, "acme");
   await assert.rejects(createBrand(caller, { name: "Globex" }), refused);
@@ -16,7 +16,7 @@ test("a plan of one brand: the workspace's untouched default brand doesn't take 
 
 test("once the default brand is released it counts, and a plan of one is full", async () => {
   const { caller } = await signUp("Linus");
-  await plan(caller.workspace.organizationId, { brands: 1 });
+  await plan(caller.project.organizationId, { brands: 1 });
   await publishBrand(caller, undefined);
   await assert.rejects(createBrand(caller, { name: "Initech" }), refused);
 });

@@ -38,7 +38,7 @@ export async function makeBrand(caller: Caller, input: z.output<typeof BrandCrea
     const hub = visibility ? await setHub(caller, made.slug, { visibility }) : null;
     return { ...made, visibility: hub?.visibility ?? made.visibility, published: release.number, hub: hub ? { visibility: hub.visibility, url: hub.url } : release.hub };
   } catch (err) {
-    await deleteBrand(caller.workspace.id, made.slug).catch(() => {});
+    await deleteBrand(caller.project.id, made.slug).catch(() => {});
     throw err;
   }
 }
@@ -69,7 +69,7 @@ async function startBrand(caller: Caller, input: Omit<z.output<typeof BrandCreat
 type Book = Pick<BrandTemplate, "rules" | "theme" | "pages"> & { assets: Record<string, BrandJsonFile> };
 
 /**
- * A brand from a book: its files ingested first, into this workspace's
+ * A brand from a book: its files ingested first, into this project's
  * library, then its rules, theme and pages with the files' new ids. A file
  * that won't fetch leaves no half-made brand behind; with `lenient` (a
  * brand.json's files, from anywhere) it is left out of its rules instead,
@@ -103,7 +103,7 @@ async function fromBook(caller: Caller, input: { name: string; slug?: string; do
     await setTheme(caller, made.slug, ThemePatch.parse(seed.theme));
     for (const { slug, ...page } of seed.pages) await savePage(caller, made.slug, slug, PageInput.parse(page));
   } catch (err) {
-    await deleteBrand(caller.workspace.id, made.slug).catch(() => {});
+    await deleteBrand(caller.project.id, made.slug).catch(() => {});
     throw err;
   }
   return { ...made, rules: rules.length, skipped };

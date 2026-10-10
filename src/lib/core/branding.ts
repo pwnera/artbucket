@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
-import { assets, organizations, workspaces } from "@/lib/db/schema";
+import { assets, organizations, projects } from "@/lib/db/schema";
 import { callerFrom } from "@/lib/core/access";
 import { deliverableSql } from "@/lib/core/assets";
 import { appUrlFor, hostTarget } from "@/lib/core/domains";
@@ -28,8 +28,8 @@ async function servable(organizationId: string, id: string | null, spec: string,
   const [a] = await db
     .select({ id: assets.id })
     .from(assets)
-    .innerJoin(workspaces, eq(workspaces.id, assets.workspaceId))
-    .where(and(eq(assets.id, id), eq(workspaces.organizationId, organizationId), deliverableSql));
+    .innerJoin(projects, eq(projects.id, assets.projectId))
+    .where(and(eq(assets.id, id), eq(projects.organizationId, organizationId), deliverableSql));
   return a ? withSignature(`/a/${a.id}/${spec}`, longSig(a.id, days)) : null;
 }
 
@@ -57,7 +57,7 @@ export async function organizationFor(req: Request): Promise<string | null> {
   const at = await hostTarget(host);
   if (at) return at.organizationId;
   const caller = await callerFrom(req);
-  if (caller && (caller.user || caller.key)) return caller.workspace.organizationId;
+  if (caller && (caller.user || caller.key)) return caller.project.organizationId;
   return onlyOrganization();
 }
 
@@ -71,8 +71,8 @@ export async function emailBrand(organizationId: string | null) {
   return { ...brand, logo: brand.logo && `${base}${brand.logo}` };
 }
 
-/** Whether a workspace's organization has a brand of its own, and it: for share links and portals. */
-export async function brandOfWorkspace(workspaceId: string) {
-  const [w] = await db.select({ org: workspaces.organizationId }).from(workspaces).where(eq(workspaces.id, workspaceId));
+/** Whether a project's organization has a brand of its own, and it: for share links and portals. */
+export async function brandOfProject(projectId: string) {
+  const [w] = await db.select({ org: projects.organizationId }).from(projects).where(eq(projects.id, projectId));
   return brandOf(w?.org ?? null);
 }

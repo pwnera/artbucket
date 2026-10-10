@@ -29,7 +29,7 @@ import {
  * after 30 days, lib/storage.ts; a request makes it again). That removes the
  * entire job queue from v0.1 - add one when p99 on a cold request hurts.
  *
- * A stored rendition its workspace asked for counts toward its organization's
+ * A stored rendition its project asked for counts toward its organization's
  * storage (lib/core/usage.ts); one that doesn't fit is served, not kept.
  * `outside`: asked by someone a URL alone let in (a public asset, a signed
  * link). The organization doesn't choose what they ask, so theirs is kept
@@ -78,9 +78,9 @@ export async function renderAsset(
         const source = still ? previewKey(still) : originalKey(asset.sha256);
         const body = await render(source, transform, format, vector);
         if (outside) await putObject(key, body, CONTENT_TYPE[format]);
-        else if (await roomFor(asset.workspaceId, body.byteLength)) {
+        else if (await roomFor(asset.projectId, body.byteLength)) {
           await putObject(key, body, CONTENT_TYPE[format]);
-          await countRendition(key, asset.workspaceId, body.byteLength);
+          await countRendition(key, asset.projectId, body.byteLength);
         }
         return body;
       })

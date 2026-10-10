@@ -7,7 +7,7 @@
  *   ARTBUCKET_URL=http://localhost:3100 pnpm eval:mcp
  *
  * It needs the server's database (DATABASE_URL, read from .env) for one
- * thing: a write key of its own in the first workspace, like `pnpm bench`.
+ * thing: a write key of its own in the first project, like `pnpm bench`.
  * Then it puts the brand on a public portal of its own, over REST, and reads
  * the portal as an anonymous visitor would. Pass or fail, it then deletes the
  * portal and the brand it made, trashes the logos it ingested (not ones
@@ -93,9 +93,9 @@ function asSent(got: Section | undefined, sent: object, at: string) {
 let passed = 0;
 const ok = (what: string) => console.log(`ok ${++passed} ${what}`);
 
-const [ws] = await sql<{ id: string }[]>`select id from workspaces order by created_at limit 1`;
-if (!ws) throw new Error("No workspace yet: make the first account");
-await sql`insert into api_keys (workspace_id, name, prefix, hash, scope)
+const [ws] = await sql<{ id: string }[]>`select id from projects order by created_at limit 1`;
+if (!ws) throw new Error("No project yet: make the first account");
+await sql`insert into api_keys (project_id, name, prefix, hash, scope)
   values (${ws.id}, ${`eval-mcp-${run}`}, ${secret.slice(0, 10)}, ${hash}, 'write')`;
 /** Logos this run added; one the library already had deduped to it, and stays. */
 const ingested: string[] = [];
@@ -480,8 +480,8 @@ try {
   // Each on its own: one failing cleanup never keeps the others from running.
   const warn = (what: string) => (err: unknown) => console.error(`Cleanup: couldn't ${what}: ${(err as Error).message}`);
   if (portalId) await http("DELETE", `/api/v1/portals/${portalId}`).catch(warn(`delete portal ${portalSlug}`));
-  // SQL, not DELETE /brands: that refuses the default, which this brand is in an empty workspace.
-  await sql`delete from brands where workspace_id = ${ws.id} and slug = ${brand}`.catch(warn(`delete brand ${brand}`));
+  // SQL, not DELETE /brands: that refuses the default, which this brand is in an empty project.
+  await sql`delete from brands where project_id = ${ws.id} and slug = ${brand}`.catch(warn(`delete brand ${brand}`));
   for (const a of ingested) await http("DELETE", `/api/v1/assets/${a}`).catch(warn(`trash asset ${a}`));
   await sql`delete from api_keys where hash = ${hash}`.catch(warn("delete the eval's key"));
   await sql.end();

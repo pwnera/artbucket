@@ -25,8 +25,8 @@ export async function POST(req: Request) {
     } catch {
       return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 });
     }
-    // An agent connected to several workspaces names one per call: the same key, as its row there.
-    const res = await handleMcp(message, caller, (workspaceId) => callerFrom(req, workspaceId));
+    // An agent connected to several projects names one per call: the same key, as its row there.
+    const res = await handleMcp(message, caller, (projectId) => callerFrom(req, projectId));
     return res ? Response.json(res) : new Response(null, { status: 202 });
   } catch (err) {
     return handle(err);

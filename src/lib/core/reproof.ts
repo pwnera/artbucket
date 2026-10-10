@@ -38,7 +38,7 @@ export async function reprove() {
     const [done] = await db.update(domains).set(set).where(same).returning({ host: domains.host });
     if (!done || !r.unverify) return;
     unverified++;
-    await recordAudit(by, "domain.unverified", d.host, why, { organizationId: d.organizationId, workspaceId: null });
+    await recordAudit(by, "domain.unverified", d.host, why, { organizationId: d.organizationId, projectId: null });
   });
   if (unverified) forgetHosts();
 
@@ -60,7 +60,7 @@ export async function reprove() {
     if (!done) return;
     unverified++;
     mailLost = true;
-    await recordAudit(by, "email_domain.unverified", e.domain, why, { organizationId: e.organizationId, workspaceId: null });
+    await recordAudit(by, "email_domain.unverified", e.domain, why, { organizationId: e.organizationId, projectId: null });
   });
   if (mailLost) ssoOffered.forget();
 

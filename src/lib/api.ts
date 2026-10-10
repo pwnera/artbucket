@@ -55,7 +55,7 @@ export async function body<T extends z.ZodType>(req: Request, schema: T): Promis
 
 /**
  * What a route needs: an action (lib/permissions.ts), asked without a
- * target, so a caller with it on part of the workspace gets in and core
+ * target, so a caller with it on part of the project gets in and core
  * checks the thing itself. `null` lets in anyone who is somebody, or nobody:
  * core decides (people, invitations, settings).
  */
@@ -91,7 +91,7 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   if (can(caller, need)) {
     // About one brand: the action on that brand, which a grant on it or its being private changes (lib/access.ts).
     if (ACTIONS[need].on !== "brand") return caller;
-    const brand = await brandTarget(caller.workspace.id, new URL(req.url));
+    const brand = await brandTarget(caller.project.id, new URL(req.url));
     if (!brand || can(caller, need, brand)) return caller;
     // A private brand they can't read isn't there, for them.
     if (!can(caller, "brand.read", brand)) return fail(404, "not_found", "Not found");
@@ -99,7 +99,7 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   }
   if (caller.readOnly) return fail(403, "read_only", "This organization is read-only");
   if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
-  if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.workspace.name}`);
+  if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.project.name}`);
   return fail(401, "unauthorized", `Sign in, or send an API key with ${needs(need)}`, undefined, challenge);
 }
 

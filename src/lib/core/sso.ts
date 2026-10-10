@@ -16,12 +16,12 @@ import { atDomain, discoveryUrl, domainsOf, oidcConfigFrom, type OidcConfig } fr
 
 /**
  * An organization's own single sign-on: one OpenID Connect provider (Okta,
- * Entra ID, Google Workspace, Keycloak...) for the people at one email
+ * Entra ID, Google Project, Keycloak...) for the people at one email
  * domain. An admin registers this server with the provider, saves the
  * client here, and proves the domain with a TXT record. From then on anyone
  * at that domain signs in through the provider (lib/auth.ts, better-auth's
  * sso plugin), and the first time joins the organization, able to read the
- * workspace the admin picked (the oldest, unless they did).
+ * project the admin picked (the oldest, unless they did).
  *
  * Free, like the server-wide OIDC_* one: single sign-on is no paid tier.
  */
@@ -43,8 +43,8 @@ export const presentSso = (r: Row) => ({
   domain: r.domain,
   verified: r.domainVerified,
   required: r.required,
-  /** Where its people land the first time, able to read: null for the organization's oldest workspace. */
-  workspaceId: r.workspaceId,
+  /** Where its people land the first time, able to read: null for the organization's oldest project. */
+  projectId: r.projectId,
   record: { type: "TXT" as const, name: challengeName(r.domain), value: r.token ?? "" },
   redirectUri: redirectUri(r.organizationId),
 });
@@ -59,7 +59,7 @@ function mayManage(caller: Caller) {
   if (!can(caller, "organization.manage")) throw new AssetError("forbidden", `Single sign-on takes ${needs("organization.manage")}`);
 }
 
-const own = (caller: Caller) => eq(ssoProviders.organizationId, caller.workspace.organizationId);
+const own = (caller: Caller) => eq(ssoProviders.organizationId, caller.project.organizationId);
 
 export async function getSso(caller: Caller) {
   mayManage(caller);
@@ -77,7 +77,7 @@ async function discover(issuer: string, client: { clientId: string; clientSecret
   }
 }
 
-export type SsoInput = { issuer: string; clientId: string; clientSecret?: string; domain: string; workspaceId?: string | null };
+export type SsoInput = { issuer: string; clientId: string; clientSecret?: string; domain: string; projectId?: string | null };
 
 /**
  * Set up, or change, the organization's provider. Its domain is one of the
@@ -86,7 +86,7 @@ export type SsoInput = { issuer: string; clientId: string; clientSecret?: string
  */
 export async function saveSso(caller: Caller, input: SsoInput) {
   mayManage(caller);
-  const organizationId = caller.workspace.organizationId;
+  const organizationId = caller.project.organizationId;
   const issuer = input.issuer.trim().replace(/\/$/, "");
   const [had] = await db.select().from(ssoProviders).where(own(caller));
   // A new provider needs the feature (LIMIT_FEATURES, docs: configuration/limits); one already set up can still change.
@@ -96,7 +96,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
   const oidc = await discover(issuer, { clientId: input.clientId.trim(), clientSecret });
   // One of the organization's email domains, made if it isn't yet: proved there, it is proved here (lib/core/email-domains.ts).
   const { domain, token, verifiedAt } = await claimEmailDomain(organizationId, input.domain);
-  const workspaceId = await landingIn(organizationId, input.workspaceId);
+  const projectId = await landingIn(organizationId, input.projectId);
 
   const moved = !had || had.domain !== domain;
   const values = {
@@ -106,7 +106,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
     token,
     domainVerified: !!verifiedAt,
     userId: caller.user?.id ?? null,
-    ...(workspaceId !== undefined ? { workspaceId } : {}),
+    ...(projectId !== undefined ? { projectId } : {}),
     // Nobody at a new domain is held to the provider until an admin says so there.
     ...(moved ? { required: false } : {}),
   };
@@ -117,7 +117,7 @@ export async function saveSso(caller: Caller, input: SsoInput) {
         .values({ id: organizationId, providerId: organizationId, organizationId, ...values })
         .returning();
   ssoOffered.forget();
-  await recordAudit(caller, "sso.saved", domain, { issuer, workspaceId: row.workspaceId });
+  await recordAudit(caller, "sso.saved", domain, { issuer, projectId: row.projectId });
   return presentSso(row);
 }
 
@@ -219,11 +219,11 @@ export async function ssoAt(email: string) {
   return rows.sort((a, b) => b.domain.length - a.domain.length)[0] ?? null;
 }
 
-/** Someone the organization's provider signed in: a member from now on, able to read its landing workspace, unless they already had a grant there. */
+/** Someone the organization's provider signed in: a member from now on, able to read its landing project, unless they already had a grant there. */
 export async function joinThroughSso(user: { id: string; name: string; email: string }, providerId: string) {
   const row = await providerFor(providerId, user.email);
   if (!row) return;
   const organizationId = row.organizationId;
-  const workspaceId = await joinAt(user.id, organizationId, row.workspaceId);
-  if (workspaceId) await recordAudit({ actor: user.name || user.email, user }, "sso.joined", user.email, { scope: "read" }, { organizationId, workspaceId });
+  const projectId = await joinAt(user.id, organizationId, row.projectId);
+  if (projectId) await recordAudit({ actor: user.name || user.email, user }, "sso.joined", user.email, { scope: "read" }, { organizationId, projectId });
 }

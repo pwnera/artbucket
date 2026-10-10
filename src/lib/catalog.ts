@@ -151,9 +151,9 @@ export function impactLine(name: string, things: number, projects: number) {
   return `Changing ${name} reaches ${things} ${things === 1 ? "thing" : "things"} downstream, in ${projects} ${projects === 1 ? "project" : "projects"}.`;
 }
 
-/** Where the app shows it, in its own project (the proxy's `?workspace=` opens that one). */
+/** Where the app shows it, in its own project (the proxy's `?project=` opens that one). */
 export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { slug: string } | null; project: { id: string } }) {
-  const w = `workspace=${item.project.id}`;
+  const w = `project=${item.project.id}`;
   const brand = item.parent?.slug ?? "";
   switch (item.type) {
     case "asset":

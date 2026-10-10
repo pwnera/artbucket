@@ -770,8 +770,8 @@ export function Gallery({
   }, [uploading]);
 
   const narrowed = isNarrowed(view);
-  // Into the collection open, or the workspace itself: whatever the person may add to.
-  const canUpload = into ? can("asset.upload", { id: into }) : can("workspace.upload");
+  // Into the collection open, or the project itself: whatever the person may add to.
+  const canUpload = into ? can("asset.upload", { id: into }) : can("project.upload");
 
   // ⌘K offers Upload while this page can take one.
   useEffect(() => {
@@ -864,7 +864,7 @@ export function Gallery({
   }, []);
 
   // Asking someone without an account to send files there, by link.
-  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_workspace");
+  const canRequest = inCollection ? can("collection.collect", inCollection) : can("share.collect_project");
   const filtered = narrowed || view.collection !== null || view.review;
 
   const activeSearch = searches.find((sv) => canonical(sv.query) === apiQuery) ?? null;
@@ -1455,7 +1455,7 @@ export function Gallery({
               <EmptyDescription>Uploads from agents, contributors and upload links wait here for approval.</EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center">
-              {can("share.collect_workspace") && (
+              {can("share.collect_project") && (
                 <Button onClick={() => share({ kind: "upload" })}>
                   <IconFolderUp /> Request uploads by link
                 </Button>

@@ -341,7 +341,7 @@
             ]
           },
           "downloadable": {
-            "description": "Whether people outside the workspace may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+            "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
             "type": [
               "boolean",
               "null"
@@ -915,7 +915,7 @@
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
       },
       "from": {
-        "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this workspace",
+        "description": "Start as a copy of this brand's rules; or of a public BrandHub brand, as {org}/{brand}@{n} (the latest without @n): its rules, pages, theme and files, copied into this project",
         "anyOf": [
           {
             "type": "string",
@@ -959,7 +959,7 @@
         "pattern": "^[a-z0-9_]+$"
       },
       "publish": {
-        "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the workspace",
+        "description": "Publish it once made: true, or `{ note }` as POST /brands/{slug}/publish takes it. Takes share on the project",
         "anyOf": [
           {
             "type": "boolean"
@@ -1024,7 +1024,7 @@
         ]
       },
       "private": {
-        "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the workspace",
+        "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the project",
         "type": "boolean"
       },
       "brand": {
@@ -4845,7 +4845,7 @@
           "password",
           "members"
         ],
-        "description": "public: anyone; password: whoever has it; members: people with access to the workspace. Either of the last two takes access requests"
+        "description": "public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"
       },
       "password": {
         "description": "For access: password. Left out on a change, it stays",
@@ -5095,7 +5095,7 @@
           "password",
           "members"
         ],
-        "description": "members: people with access to the workspace; password: whoever has `password`; public: anyone with the address"
+        "description": "members: people with access to the project; password: whoever has `password`; public: anyone with the address"
       },
       "password": {
         "description": "For access: password. Left out on a change, it stays",

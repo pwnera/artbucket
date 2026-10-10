@@ -54,7 +54,7 @@ over all of its matches, which is most of the cost of the broad ones.
 The first run of this benchmark, before 1.0, had the default listing at a p50
 of 393 ms and a collection filter at 168 ms. Two things were asked of every
 row that rarely needed asking: whether it sat only in private collections,
-when the workspace had none, and a count of each collection's members joined
+when the project had none, and a count of each collection's members joined
 to every asset. Both are now skipped or answered from an index, which also
 took throughput from 87 to 211 requests a second.
 

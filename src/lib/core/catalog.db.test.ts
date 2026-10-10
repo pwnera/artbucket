@@ -11,13 +11,13 @@ import { ingestBytes } from "@/lib/core/assets";
 import { createBrand, createRule, publishBrand } from "@/lib/core/brand";
 import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
 import { createCollection } from "@/lib/core/collections";
-import { acceptInvitation, createInvitation, createWorkspace } from "@/lib/core/people";
+import { acceptInvitation, createInvitation, createProject } from "@/lib/core/people";
 import { createPortal } from "@/lib/core/portals";
 
 const ada = await signUp("Ada");
 const grace = await signUp("Grace");
-const org = ada.caller.workspace.organization.slug;
-const corporate = ada.caller.workspace;
+const org = ada.caller.project.organization.slug;
+const corporate = ada.caller.project;
 
 let made = 0;
 const png = () => sharp({ create: { width: 8, height: 8, channels: 3, background: { r: made++, g: 0, b: 0 } } }).png().toBuffer();
@@ -39,11 +39,11 @@ const deck = await upload("board-logo-deck.png", { collections: [secret.id] });
 await createRule(ada.caller, "acme", { key: "logo.board", type: "text", value: "Board", assets: [{ id: deck.id, rendition: null }] });
 
 // A second project, and a person who can read Corporate only.
-const q4 = await createWorkspace(ada.caller, { name: "Q4 Campaign" });
+const q4 = await createProject(ada.caller, { name: "Q4 Campaign" });
 const sam = await signUp("Sam");
-const { url } = await createInvitation(ada.caller, { email: sam.user.email, resource: "workspace", resourceId: corporate.id, scope: "read" });
+const { url } = await createInvitation(ada.caller, { email: sam.user.email, resource: "project", resourceId: corporate.id, scope: "read" });
 await acceptInvitation(url.split("/invite/")[1], { ...sam.user, ip: null });
-const samHere = (await callerFrom(request({ cookie: `${sam.cookie}; ab_workspace=${corporate.id}` })))!;
+const samHere = (await callerFrom(request({ cookie: `${sam.cookie}; ab_project=${corporate.id}` })))!;
 
 test("one search finds every type, grouped and counted, in every project the caller reaches", async () => {
   const r = await searchCatalog(ada.caller, parseQuery("logo"));
@@ -88,7 +88,7 @@ test("an address resolves to its object, and describe names what uses it", async
   assert.equal(d?.id, logo.id);
   assert.deepEqual(d!.usedBy.map((u) => u.type).sort(), ["brand", "collection"]);
   assert.equal(d!.usedByCount, 2);
-  assert.match(d!.open, new RegExp(`/assets/${logo.id}\\?workspace=${corporate.id}`));
+  assert.match(d!.open, new RegExp(`/assets/${logo.id}\\?project=${corporate.id}`));
 });
 
 test("lineage shows one hop each way, with how far each node goes on, and the impact line", async () => {
@@ -119,7 +119,7 @@ test("who can reach it: each person's role and the grant it comes through, then 
 });
 
 test("the catalog spans the organization's projects: Q4 is there for its admin", async () => {
-  await upload("q4-hero.png", {}, (await callerFrom(request({ cookie: `${ada.cookie}; ab_workspace=${q4.id}` })))!);
+  await upload("q4-hero.png", {}, (await callerFrom(request({ cookie: `${ada.cookie}; ab_project=${q4.id}` })))!);
   const r = await searchCatalog(ada.caller, parseQuery("hero"));
   assert.deepEqual(r.projects.map((p) => p.name), ["Q4 Campaign"]);
 });

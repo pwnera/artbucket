@@ -4,7 +4,7 @@ import { assets, collections, fields } from "@/lib/db/schema";
 import { AssetError } from "@/lib/core/errors";
 import type { FieldDef, FieldType } from "@/lib/fields";
 
-/** A workspace's custom fields. `ws` is the workspace id; the scope was checked by the route. */
+/** A project's custom fields. `ws` is the project id; the scope was checked by the route. */
 
 const toDef = (f: typeof fields.$inferSelect): FieldDef => ({
   key: f.key,
@@ -14,15 +14,15 @@ const toDef = (f: typeof fields.$inferSelect): FieldDef => ({
   required: f.required,
 });
 
-const byKey = (ws: string, key: string) => and(eq(fields.workspaceId, ws), eq(fields.key, key));
+const byKey = (ws: string, key: string) => and(eq(fields.projectId, ws), eq(fields.key, key));
 
 export async function listFields(ws: string): Promise<FieldDef[]> {
-  const rows = await db.select().from(fields).where(eq(fields.workspaceId, ws)).orderBy(asc(fields.position), asc(fields.createdAt));
+  const rows = await db.select().from(fields).where(eq(fields.projectId, ws)).orderBy(asc(fields.position), asc(fields.createdAt));
   return rows.map(toDef);
 }
 
 export async function createField(ws: string, input: FieldDef & { position: number }): Promise<FieldDef> {
-  const [row] = await db.insert(fields).values({ ...input, workspaceId: ws }).onConflictDoNothing().returning();
+  const [row] = await db.insert(fields).values({ ...input, projectId: ws }).onConflictDoNothing().returning();
   if (!row) throw new AssetError("conflict", `A field with key "${input.key}" already exists`);
   return toDef(row);
 }
@@ -57,11 +57,11 @@ export async function deleteField(ws: string, key: string): Promise<boolean> {
         fields: sql`${assets.fields} - ${key}::text`,
         inherited: sql`${assets.inherited} - ${key}::text`,
       })
-      .where(and(eq(assets.workspaceId, ws), sql`(${assets.fields} ? ${key} or ${assets.inherited} ? ${key})`));
+      .where(and(eq(assets.projectId, ws), sql`(${assets.fields} ? ${key} or ${assets.inherited} ? ${key})`));
     await tx
       .update(collections)
       .set({ fields: sql`${collections.fields} - ${key}::text` })
-      .where(and(eq(collections.workspaceId, ws), sql`${collections.fields} ? ${key}`));
+      .where(and(eq(collections.projectId, ws), sql`${collections.fields} ? ${key}`));
     return true;
   });
 }

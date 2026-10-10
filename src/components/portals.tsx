@@ -100,7 +100,7 @@ const ASKED: Record<Exclude<Request["kind"], "access">, string> = { asset: "Asse
 const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
   public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it", icon: IconWorld },
   password: { label: "Whoever has the password", hint: "Anyone else can ask for access", icon: IconLock },
-  members: { label: "People in this workspace", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
+  members: { label: "People in this project", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
 };
 
 /** The Select's value for "no domain": /p/{slug} only. */

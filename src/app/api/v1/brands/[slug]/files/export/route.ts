@@ -8,5 +8,5 @@ import { BrandExportInput } from "@/lib/schemas";
  * it was written, so a sync rewrites only what changed.
  */
 export const POST = route<{ slug: string }>("brand.read", async (req, { slug }, caller) =>
-  ok({ data: await exportBrand(caller.workspace.id, slug, await body(req, BrandExportInput)) }),
+  ok({ data: await exportBrand(caller.project.id, slug, await body(req, BrandExportInput)) }),
 );

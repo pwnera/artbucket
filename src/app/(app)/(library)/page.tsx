@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(await searchParams)) for (const x of [v].flat()) params.append(k, x);
   // Custom fields moved into Settings; old links still land there.
-  if (params.has("fields")) redirect("/settings/workspace/fields");
+  if (params.has("fields")) redirect("/settings/project/fields");
   const view = parseView(params);
   const query = viewQuery(view, false);
   const empty: Listing = { data: [], total: 0, facets: { tags: [] } };

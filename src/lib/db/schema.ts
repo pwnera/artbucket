@@ -47,10 +47,10 @@ export const assets = pgTable(
   "assets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
-    /** Unique within a workspace. Storage is keyed by it alone, so workspaces share identical bytes. */
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
+    /** Unique within a project. Storage is keyed by it alone, so projects share identical bytes. */
     sha256: text("sha256").notNull(),
     filename: text("filename").notNull(),
     mime: text("mime").notNull(),
@@ -157,9 +157,9 @@ export const assets = pgTable(
       .default(sql`now()`),
   },
   (t) => [
-    unique("assets_workspace_sha256_unique").on(t.workspaceId, t.sha256),
-    index("assets_workspace_created_at_idx").on(t.workspaceId, t.createdAt.desc()),
-    // Whether anything still holds some bytes, across workspaces: the sweeper asks.
+    unique("assets_project_sha256_unique").on(t.projectId, t.sha256),
+    index("assets_project_created_at_idx").on(t.projectId, t.createdAt.desc()),
+    // Whether anything still holds some bytes, across projects: the sweeper asks.
     index("assets_sha256_idx").on(t.sha256),
     index("assets_deleted_at_idx").on(t.deletedAt).where(sql`${t.deletedAt} is not null`),
     index("assets_search_idx").using("gin", t.search),
@@ -183,9 +183,9 @@ export type NewAsset = typeof assets.$inferInsert;
 /** A named set of assets that can carry field values its members inherit. */
 export const collections = pgTable("collections", {
   id: uuid("id").primaryKey().defaultRandom(),
-  workspaceId: uuid("workspace_id")
+  projectId: uuid("project_id")
     .notNull()
-    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
   icon: text("icon"),
@@ -215,16 +215,16 @@ export const collectionAssets = pgTable(
 );
 
 /**
- * A workspace's custom field schema. `key` is the identity: it is what asset
+ * A project's custom field schema. `key` is the identity: it is what asset
  * values are stored under, so it and `type` never change once created. Make a
  * new field instead.
  */
 export const fields = pgTable(
   "fields",
   {
-  workspaceId: uuid("workspace_id")
+  projectId: uuid("project_id")
     .notNull()
-    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
   key: text("key").notNull(),
   label: text("label").notNull(),
   type: text("type").$type<FieldType>().notNull(),
@@ -236,7 +236,7 @@ export const fields = pgTable(
     .default(sql`now()`),
   },
   (t) => [
-    primaryKey({ columns: [t.workspaceId, t.key] }),
+    primaryKey({ columns: [t.projectId, t.key] }),
     check("fields_type_check", sql`${t.type} in ('text', 'number', 'date', 'boolean', 'select')`),
   ],
 );
@@ -247,9 +247,9 @@ export const fields = pgTable(
  */
 export const savedSearches = pgTable("saved_searches", {
   id: uuid("id").primaryKey().defaultRandom(),
-  workspaceId: uuid("workspace_id")
+  projectId: uuid("project_id")
     .notNull()
-    .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   query: text("query").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -258,7 +258,7 @@ export const savedSearches = pgTable("saved_searches", {
 });
 
 /**
- * API keys, one workspace each. Only a SHA-256 of the secret is stored: keys
+ * API keys, one project each. Only a SHA-256 of the secret is stored: keys
  * are 256 random bits, so a fast hash is enough and a leaked table leaks no usable key. `prefix`
  * is the first characters of the secret, to tell keys apart in a list.
  */
@@ -267,14 +267,14 @@ export const apiKeys = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     /**
-     * A key works in one workspace, with one scope there. An agent a person
-     * connected to several workspaces at once holds one secret, so one
+     * A key works in one project, with one scope there. An agent a person
+     * connected to several projects at once holds one secret, so one
      * `hash`, with a row in each (lib/core/oauth.ts): the request says which
      * one it means, else it is in the oldest.
      */
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     prefix: text("prefix").notNull(),
     hash: text("hash").notNull(),
@@ -305,7 +305,7 @@ export const apiKeys = pgTable(
   },
   (t) => [
     check("api_keys_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
-    unique("api_keys_hash_workspace_unique").on(t.hash, t.workspaceId),
+    unique("api_keys_hash_project_unique").on(t.hash, t.projectId),
     index("api_keys_refresh_hash_idx").on(t.refreshHash),
   ],
 );
@@ -313,25 +313,25 @@ export const apiKeys = pgTable(
 export type Visibility = "private" | "public";
 
 /**
- * A brand: its own rules and its own history. Exactly one per workspace is the default,
+ * A brand: its own rules and its own history. Exactly one per project is the default,
  * which is what /brand and an unqualified /api/v1/brand/rules mean.
  */
 export const brands = pgTable(
   "brands",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
-    /** Only grants on it, and admins, reach it in the app (lib/access.ts): a draft kept from the rest of the workspace. Delivery is apart. */
+    /** Only grants on it, and admins, reach it in the app (lib/access.ts): a draft kept from the rest of the project. Delivery is apart. */
     private: boolean("private").notNull().default(false),
     /** How its pages look (lib/brand-theme.ts ThemeSettings): only what was set, the rest read from the rules. */
     theme: jsonb("theme").$type<ThemeSettings>().notNull().default({}),
     /**
-     * Who sees it on BrandHub (lib/core/hub.ts), at {org}/{brand}: its workspace's people
+     * Who sees it on BrandHub (lib/core/hub.ts), at {org}/{brand}: its project's people
      * (`private`), or anyone and any agent (`public`). Either way, its latest publish.
      */
     visibility: text("visibility").$type<Visibility>().notNull().default("private"),
@@ -364,8 +364,8 @@ export const brands = pgTable(
   },
   (t) => [
     check("brands_visibility_check", sql`${t.visibility} in ('private', 'public')`),
-    unique("brands_workspace_slug_unique").on(t.workspaceId, t.slug),
-    uniqueIndex("brands_one_default").on(t.workspaceId).where(sql`${t.isDefault}`),
+    unique("brands_project_slug_unique").on(t.projectId, t.slug),
+    uniqueIndex("brands_one_default").on(t.projectId).where(sql`${t.isDefault}`),
     index("brands_domain_idx").on(t.domain),
   ],
 );
@@ -533,9 +533,9 @@ export const brandComments = pgTable(
   "brand_comments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     brandId: uuid("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
@@ -640,9 +640,9 @@ export const activity = pgTable(
   "activity",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     at: timestamp("at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -656,7 +656,7 @@ export const activity = pgTable(
     /** Suggested tags or fields, a rejection's reason, the version it is. */
     detail: jsonb("detail").$type<{ tags?: string[]; fields?: string[]; note?: string; version?: number }>(),
   },
-  (t) => [index("activity_workspace_at_idx").on(t.workspaceId, t.at.desc())],
+  (t) => [index("activity_project_at_idx").on(t.projectId, t.at.desc())],
 );
 
 // ---- people -----------------------------------------------------------------
@@ -780,14 +780,14 @@ export const ssoProviders = pgTable("sso_providers", {
   required: boolean("required").notNull().default(false),
   /** What the TXT record holds. Nullable only because better-auth refuses a required column it never writes. */
   token: text("token"),
-  /** Where its people land the first time, able to read: null for the organization's oldest workspace. */
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+  /** Where its people land the first time, able to read: null for the organization's oldest project. */
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ---- tenancy and access -----------------------------------------------------
 
-/** A team, or a client of an agency: people, and the workspaces they share. */
+/** A team, or a client of an agency: people, and the projects they share. */
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
@@ -797,10 +797,10 @@ export const organizations = pgTable("organizations", {
 
 /**
  * A library: its own assets, collections, fields, brands, searches and keys.
- * Nothing crosses from one workspace to another but the stored bytes.
+ * Nothing crosses from one project to another but the stored bytes.
  */
-export const workspaces = pgTable(
-  "workspaces",
+export const projects = pgTable(
+  "projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id")
@@ -810,13 +810,13 @@ export const workspaces = pgTable(
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("workspaces_org_slug_unique").on(t.organizationId, t.slug)],
+  (t) => [unique("projects_org_slug_unique").on(t.organizationId, t.slug)],
 );
 
 /**
  * What a person may do, and where: a scope (lib/scopes.ts) on an
- * organization, a workspace, a collection or one asset. Grants add up and
- * reach down: admin on the organization is admin in every workspace, write on
+ * organization, a project, a collection or one asset. Grants add up and
+ * reach down: admin on the organization is admin in every project, write on
  * a collection is write on its assets (lib/access.ts). Having one is being a
  * member. `resourceId` names the thing; it is not a foreign key, so core
  * deletes a collection's or an asset's grants with it.
@@ -833,12 +833,12 @@ export const grants = pgTable(
      * each of its members has it (lib/core/shares.ts). The thing stays in its own
      * project, kept once.
      */
-    holderProjectId: uuid("holder_project_id").references((): AnyPgColumn => workspaces.id, { onDelete: "cascade" }),
+    holderProjectId: uuid("holder_project_id").references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     /** Null for a grant on the organization itself. */
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     resource: text("resource").$type<Resource>().notNull(),
     resourceId: uuid("resource_id").notNull(),
     scope: text("scope").$type<Scope>().notNull(),
@@ -851,9 +851,9 @@ export const grants = pgTable(
     check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}, ${t.holderProjectId}) = 1`),
     check("grants_share_check", sql`${t.holderProjectId} is null or (${t.scope} = 'read' and ${t.resource} in ('brand', 'collection', 'asset'))`),
     index("grants_org_idx").on(t.organizationId),
-    check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset', 'brand')`),
+    check("grants_resource_check", sql`${t.resource} in ('organization', 'project', 'collection', 'asset', 'brand')`),
     check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
-    check("grants_workspace_check", sql`(${t.resource} = 'organization') = (${t.workspaceId} is null)`),
+    check("grants_project_check", sql`(${t.resource} = 'organization') = (${t.projectId} is null)`),
   ],
 );
 
@@ -901,7 +901,7 @@ export const invitations = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     resource: text("resource").$type<Resource>().notNull(),
     resourceId: uuid("resource_id").notNull(),
@@ -925,7 +925,7 @@ export type ShareKind = "view" | "upload";
 
 /**
  * A link for people without an account. `view` shows a collection or one
- * asset; `upload` takes files into a collection (or the workspace) as
+ * asset; `upload` takes files into a collection (or the project) as
  * proposals. The token is kept as is, so its maker can copy the link again:
  * a password (scrypt, lib/share.ts) is what protects one that matters.
  */
@@ -933,9 +933,9 @@ export const shareLinks = pgTable(
   "share_links",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+      .references(() => projects.id, { onDelete: "cascade" }),
     kind: text("kind").$type<ShareKind>().notNull(),
     collectionId: uuid("collection_id").references(() => collections.id, { onDelete: "cascade" }),
     assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
@@ -947,7 +947,7 @@ export const shareLinks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("share_links_workspace_idx").on(t.workspaceId),
+    index("share_links_project_idx").on(t.projectId),
     check("share_links_kind_check", sql`${t.kind} in ('view', 'upload')`),
     check(
       "share_links_target_check",
@@ -958,7 +958,7 @@ export const shareLinks = pgTable(
 
 /**
  * Who changed who may do what: sign-ins, members, grants, invitations, keys,
- * share links, workspaces. What happened to assets is `activity`; this is the
+ * share links, projects. What happened to assets is `activity`; this is the
  * trail a security review reads. Rows outlive what they name.
  */
 export const audit = pgTable(
@@ -968,7 +968,7 @@ export const audit = pgTable(
     at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
     /** Null for what belongs to a person, not an organization: signing in. */
     organizationId: uuid("organization_id"),
-    workspaceId: uuid("workspace_id"),
+    projectId: uuid("project_id"),
     actor: text("actor").notNull(),
     userId: text("user_id"),
     keyId: uuid("key_id"),
@@ -983,7 +983,7 @@ export const audit = pgTable(
 
 /**
  * Settings (lib/settings.ts): one row per key and place, an organization's or
- * a workspace's. Secret properties are sealed before they get here.
+ * a project's. Secret properties are sealed before they get here.
  */
 export const settings = pgTable(
   "settings",
@@ -993,30 +993,30 @@ export const settings = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     /** Null for the organization's own. */
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     value: jsonb("value").$type<Record<string, unknown>>().notNull(),
     updatedBy: text("updated_by").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("settings_place_key_unique").on(t.organizationId, t.workspaceId, t.key).nullsNotDistinct()],
+  (t) => [unique("settings_place_key_unique").on(t.organizationId, t.projectId, t.key).nullsNotDistinct()],
 );
 
 /**
- * Delivery traffic: what /a/{id} served, per workspace and day (lib/core/usage.ts).
+ * Delivery traffic: what /a/{id} served, per project and day (lib/core/usage.ts).
  * Counted by the delivery route, read in Settings, Usage.
  */
 export const traffic = pgTable(
   "traffic",
   {
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+      .references(() => projects.id, { onDelete: "cascade" }),
     day: date("day", { mode: "string" }).notNull(),
     requests: integer("requests").notNull().default(0),
     bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.workspaceId, t.day] })],
+  (t) => [primaryKey({ columns: [t.projectId, t.day] })],
 );
 
 // ---- portals ------------------------------------------------------------------
@@ -1026,16 +1026,16 @@ export const traffic = pgTable(
  * /p/{slug} or a domain of its own, for people outside the team. It shows
  * only approved, unexpired, current assets, and offers renditions made for a
  * purpose rather than raw originals. Who gets in: anyone (`public`), whoever
- * has the password, or people with access to the workspace (`members`); an
+ * has the password, or people with access to the project (`members`); an
  * approved access request lets someone in either of the last two.
  */
 export const portals = pgTable(
   "portals",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+      .references(() => projects.id, { onDelete: "cascade" }),
     /** Its address: /p/{slug}. Unique on the server. */
     slug: text("slug").notNull().unique(),
     name: text("name").notNull(),
@@ -1053,7 +1053,7 @@ export const portals = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("portals_workspace_idx").on(t.workspaceId),
+    index("portals_project_idx").on(t.projectId),
     check("portals_access_check", sql`${t.access} in ('public', 'password', 'members')`),
     check("portals_password_check", sql`${t.access} <> 'password' or ${t.passwordHash} is not null`),
   ],
@@ -1198,7 +1198,7 @@ export const domains = pgTable("domains", {
  * A domain the organization's people have their email at, proved by a TXT
  * record on the domain itself (lib/core/email-domains.ts). Not a custom
  * domain: it serves nothing. Single sign-on picks one; with `join`, anyone
- * whose address is at exactly it may join, able to read its workspace.
+ * whose address is at exactly it may join, able to read its project.
  */
 export const emailDomains = pgTable("email_domains", {
   domain: text("domain").primaryKey(),
@@ -1212,8 +1212,8 @@ export const emailDomains = pgTable("email_domains", {
   /** Since when that record has been gone, at every look; null while it is there. */
   missingSince: timestamp("missing_since", { withTimezone: true }),
   join: boolean("join").notNull().default(false),
-  /** Where whoever joins by it lands, able to read: null for the organization's oldest workspace. */
-  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+  /** Where whoever joins by it lands, able to read: null for the organization's oldest project. */
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("email_domains_org_idx").on(t.organizationId)]);
 
@@ -1366,18 +1366,18 @@ export const instance = pgTable("instance", {
 /**
  * Renditions stored (lib/core/renditions.ts), so their bytes count toward the
  * organization's storage while the bucket keeps them (RENDITION_DAYS). The
- * workspace whose asset made it first; a rendition of the same bytes elsewhere
- * is the same object, counted once. Indexed by workspace and age: storage is
+ * project whose asset made it first; a rendition of the same bytes elsewhere
+ * is the same object, counted once. Indexed by project and age: storage is
  * summed per organization on every upload and rendition (lib/core/usage.ts).
  */
 export const renditions = pgTable("renditions", {
   key: text("key").primaryKey(),
-  workspaceId: uuid("workspace_id")
+  projectId: uuid("project_id")
     .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
+    .references(() => projects.id, { onDelete: "cascade" }),
   bytes: bigint("bytes", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("renditions_workspace_created_idx").on(t.workspaceId, t.createdAt)]);
+}, (t) => [index("renditions_project_created_idx").on(t.projectId, t.createdAt)]);
 
 // ---- insights -----------------------------------------------------------------
 
@@ -1393,9 +1393,9 @@ export const events = pgTable(
   "events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+      .references(() => projects.id, { onDelete: "cascade" }),
     /** The brand it was about: a hub listing's, a check's. */
     brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
     kind: text("kind").$type<EventKind>().notNull(),
@@ -1421,9 +1421,9 @@ export const events = pgTable(
     at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("events_workspace_day_idx").on(t.workspaceId, t.day),
+    index("events_project_day_idx").on(t.projectId, t.day),
     index("events_asset_idx").on(t.assetId, t.at.desc()),
-    // BrandHub's pull counts, across workspaces (lib/core/events.ts pullCounts): only events about a brand.
+    // BrandHub's pull counts, across projects (lib/core/events.ts pullCounts): only events about a brand.
     index("events_brand_day_idx").on(t.brandId, t.day).where(sql`${t.brandId} is not null`),
     // The days the rollup reads and drops.
     index("events_day_idx").on(t.day),
@@ -1438,7 +1438,7 @@ export const events = pgTable(
  * rollUp), and kept after the raw rows go, for ROLLUP_DAYS (lib/insights.ts).
  */
 const counted = {
-  workspaceId: uuid("workspace_id").notNull(),
+  projectId: uuid("project_id").notNull(),
   brandId: uuid("brand_id"),
   day: date("day", { mode: "string" }).notNull(),
   kind: text("kind").$type<EventKind>().notNull(),
@@ -1458,21 +1458,21 @@ export const eventDays = pgTable(
   "event_days",
   {
     ...counted,
-    workspaceId: uuid("workspace_id")
+    projectId: uuid("project_id")
       .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
+      .references(() => projects.id, { onDelete: "cascade" }),
     brandId: uuid("brand_id").references(() => brands.id, { onDelete: "cascade" }),
     assetId: uuid("asset_id").references(() => assets.id, { onDelete: "cascade" }),
   },
   (t) => [
-    index("event_days_workspace_day_idx").on(t.workspaceId, t.day),
+    index("event_days_project_day_idx").on(t.projectId, t.day),
     index("event_days_asset_idx").on(t.assetId),
     index("event_days_day_idx").on(t.day),
     index("event_days_brand_day_idx").on(t.brandId, t.day).where(sql`${t.brandId} is not null`),
   ],
 );
 
-const DIMS = sql.raw("workspace_id, brand_id, day, kind, surface, actor, client, asset_id, subject, version, verdict, reasons, referrer");
+const DIMS = sql.raw("project_id, brand_id, day, kind, surface, actor, client, asset_id, subject, version, verdict, reasons, referrer");
 
 /**
  * What every chart reads: the rollup, and the raw events of the days not
@@ -1495,7 +1495,7 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
 /**
  * Every object a person or an agent can find, in one shape (lib/core/catalog.ts,
  * PRD: Artbucket Catalog): assets, collections, brands and portals, and the
- * parts of a brand (its rules and pages), each with its workspace, an address
+ * parts of a brand (its rules and pages), each with its project, an address
  * segment (`slug`), a status on one lifecycle (lib/catalog.ts STATUSES) and a
  * search vector. A view, so nothing is written twice; an asset's vector is its
  * indexed column, the rest are small enough to read as they are.
@@ -1506,7 +1506,7 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
 export const catalogObjects = pgView("catalog_objects", {
   id: uuid("id").notNull(),
   type: text("type").$type<"asset" | "collection" | "brand" | "portal" | "rule" | "page">().notNull(),
-  workspaceId: uuid("workspace_id").notNull(),
+  projectId: uuid("project_id").notNull(),
   /** A part's object: a rule's or a page's brand. */
   parentId: uuid("parent_id"),
   slug: text("slug").notNull(),
@@ -1526,7 +1526,7 @@ export const catalogObjects = pgView("catalog_objects", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   search: tsvector("search").notNull(),
 }).as(
-  sql`select a.id, 'asset' as type, a.workspace_id, null::uuid as parent_id,
+  sql`select a.id, 'asset' as type, a.project_id, null::uuid as parent_id,
       coalesce(nullif(${slugSql("regexp_replace(a.filename, '\\.[^.]*$', '')")}, ''), a.id::text) as slug,
       a.filename as name, a.metadata ->> 'description' as description,
       case when a.status = 'draft' then 'draft' when a.status = 'proposed' then 'in_review'
@@ -1540,27 +1540,27 @@ export const catalogObjects = pgView("catalog_objects", {
       a.tags, a.created_at, a.updated_at, a.search
     from ${assets} a where a.deleted_at is null
     union all
-    select c.id, 'collection', c.workspace_id, null, ${slugSql("c.name")}, c.name, null, 'current', null, null, c.private, '{}'::uuid[], '[]'::jsonb,
+    select c.id, 'collection', c.project_id, null, ${slugSql("c.name")}, c.name, null, 'current', null, null, c.private, '{}'::uuid[], '[]'::jsonb,
       c.created_at, c.created_at, to_tsvector('simple', c.name)
     from ${collections} c
     union all
-    select b.id, 'brand', b.workspace_id, null, b.slug, b.name, null,
+    select b.id, 'brand', b.project_id, null, b.slug, b.name, null,
       case when r.number is null then 'draft' else 'current' end, r.number, null, b.private, '{}'::uuid[], '[]'::jsonb,
       b.created_at, coalesce(u.at, b.created_at), to_tsvector('simple', b.name || ' ' || b.slug || ' ' || coalesce(b.domain, ''))
     from ${brands} b
     left join lateral (select max(v.number) as number from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null) r on true
     left join lateral (select max(v.updated_at) as at from ${brandVersions} v where v.brand_id = b.id) u on true
     union all
-    select p.id, 'portal', p.workspace_id, null, p.slug, p.name, p.intro,
+    select p.id, 'portal', p.project_id, null, p.slug, p.name, p.intro,
       case when p.expires_at < now() then 'archived' else 'current' end, null, null, false, '{}'::uuid[], '[]'::jsonb,
       p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))
     from ${portals} p
     union all
-    select r.id, 'rule', b.workspace_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
+    select r.id, 'rule', b.project_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
       r.created_at, r.updated_at, to_tsvector('simple', regexp_replace(r.key, '[._-]+', ' ', 'g') || ' ' || coalesce(r.label, '') || ' ' || coalesce(r.usage, ''))
     from ${brandRules} r join ${brands} b on b.id = r.brand_id where r.context is null
     union all
-    select g.id, 'page', b.workspace_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
+    select g.id, 'page', b.project_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
       g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))
     from ${brandPages} g join ${brands} b on b.id = g.brand_id`,
 );
@@ -1592,7 +1592,7 @@ export const catalogEdges = pgView("catalog_edges", {
     union all
     select s.id, b.id, 'fork', b.forked_from from ${brands} b
       join ${organizations} o on o.slug = split_part(b.forked_from, '/', 1)
-      join ${workspaces} w on w.organization_id = o.id
-      join ${brands} s on s.workspace_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
+      join ${projects} w on w.organization_id = o.id
+      join ${brands} s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
     where b.forked_from is not null`,
 );

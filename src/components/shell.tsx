@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { switchedElsewhere, workspaceChannel, type Me } from "@/components/account";
+import { switchedElsewhere, projectChannel, type Me } from "@/components/account";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
@@ -151,7 +151,7 @@ function JoinBanner({ offer }: { offer: NonNullable<Me["joinable"]> }) {
     setBusy(null);
     if (!ok) return;
     setGone(true);
-    if (method === "POST") toast.success(`You joined ${offer.organization.name}`, { description: "Switch to it from the workspace menu." });
+    if (method === "POST") toast.success(`You joined ${offer.organization.name}`, { description: "Switch to it from the project menu." });
     router.refresh();
   };
   return (
@@ -215,20 +215,20 @@ export function Shell({
 
   const chord = useShortcuts({ setPalette: setSearching, setHelp });
 
-  // The workspace is a cookie every tab shares, so a switch in another tab
+  // The project is a cookie every tab shares, so a switch in another tab
   // silently points this one's requests (uploads, new collections) at it.
   // Catch up when this tab is looked at again, or at once when told.
-  const workspace = sidebar.me.workspace.id;
+  const project = sidebar.me.project.id;
   useEffect(() => {
     switchedElsewhere(); // what the cookie says now is what this page was drawn for
     const check = () => {
       const to = switchedElsewhere();
-      if (!to || to === workspace) return;
-      toast.info("You switched workspace in another tab", { id: "workspace" });
+      if (!to || to === project) return;
+      toast.info("You switched project in another tab", { id: "project" });
       router.refresh();
     };
     const onVisible = () => document.visibilityState === "visible" && check();
-    const channel = workspaceChannel();
+    const channel = projectChannel();
     window.addEventListener("focus", check);
     document.addEventListener("visibilitychange", onVisible);
     channel?.addEventListener("message", check);
@@ -237,7 +237,7 @@ export function Shell({
       document.removeEventListener("visibilitychange", onVisible);
       channel?.removeEventListener("message", check);
     };
-  }, [workspace, router]);
+  }, [project, router]);
 
   // The layout's counts load once, not per navigation. As pages change they
   // refresh in the background, at most every 15s, so Review stays current.

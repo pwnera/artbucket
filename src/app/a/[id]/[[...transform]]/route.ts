@@ -49,7 +49,7 @@ export async function GET(req: Request, { params }: Ctx) {
     const url = new URL(req.url);
     const s = url.searchParams.get("s");
     // A suspended organization's files go to its own people only, neither public nor signed (lib/suspension.ts).
-    const off = await suspendedIn(asset.workspaceId);
+    const off = await suspendedIn(asset.projectId);
     const open = deliverable(asset);
     const until = open && !asset.public && !off ? validUntil(asset.id, s) : null;
     let cache: string;
@@ -61,8 +61,8 @@ export async function GET(req: Request, { params }: Ctx) {
       cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
       by = { surface: "link", ...who(null) };
     } else {
-      // In the asset's workspace: someone in several sees each one's assets, whichever they have open.
-      const caller = await callerFrom(req, asset.workspaceId);
+      // In the asset's project: someone in several sees each one's assets, whichever they have open.
+      const caller = await callerFrom(req, asset.projectId);
       if (!(caller && (await getAsset(caller, id)))) {
         // Made public, unarchived, renewed or approved later, it is back: no cache may remember the refusal.
         const again = { "Cache-Control": "no-cache" };
@@ -82,7 +82,7 @@ export async function GET(req: Request, { params }: Ctx) {
     // Shown, not handed out, to anyone the URL alone let in. A member who opened such a URL is let through, as a member.
     const kept = (by.surface === "public" || by.surface === "link") && !isDownloadable(asset);
     if (kept && (download || (!transform?.length && !drawn(req)))) {
-      const caller = await callerFrom(req, asset.workspaceId);
+      const caller = await callerFrom(req, asset.projectId);
       if (!(caller && (await getAsset(caller, id)))) {
         return fail(403, "shown_only", "This file is shown, not handed out: its owner hasn't made it downloadable", undefined, { "Cache-Control": "no-cache" });
       }
@@ -95,10 +95,10 @@ export async function GET(req: Request, { params }: Ctx) {
     // The app drawing its own pages (thumbnails, previews) answers nobody's question, and a video's later ranges are one play.
     const counts = !(by.surface === "app" && referrer === url.hostname && !download) && !(range && !/^bytes=0-/.test(range));
     const served = (bytes: number) => {
-      countTraffic(asset.workspaceId, bytes);
+      countTraffic(asset.projectId, bytes);
       // Whether it was already replaced when it went out: release adoption counts what still loads an old version.
       const verdict = asset.supersededBy ? "superseded" : "current";
-      if (counts) record({ workspaceId: asset.workspaceId, kind: "fetch", ...by, assetId: asset.id, version: asset.version, verdict, referrer });
+      if (counts) record({ projectId: asset.projectId, kind: "fetch", ...by, assetId: asset.id, version: asset.version, verdict, referrer });
     };
 
     if (download) {
@@ -149,7 +149,7 @@ export async function GET(req: Request, { params }: Ctx) {
     const { body, length, contentType } = await renderAsset(asset, asked, { outside }).catch(async (err) => {
       // Past that bound, a member who opened such a URL makes what they like, as a member.
       if (!(outside && err instanceof AssetError && err.code === "forbidden")) throw err;
-      const caller = await callerFrom(req, asset.workspaceId);
+      const caller = await callerFrom(req, asset.projectId);
       if (!(caller && (await getAsset(caller, id)))) throw err;
       return renderAsset(asset, asked);
     });

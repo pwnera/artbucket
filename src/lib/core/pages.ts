@@ -131,7 +131,7 @@ export async function checkRefs(caller: Caller, page: { cover?: string | null; s
       const [found] = await db
         .select({ id: savedSearches.id })
         .from(savedSearches)
-        .where(and(eq(savedSearches.id, p.search), eq(savedSearches.workspaceId, caller.workspace.id)));
+        .where(and(eq(savedSearches.id, p.search), eq(savedSearches.projectId, caller.project.id)));
       if (!found) errors.push(`${at}.search: no saved search ${p.search}`);
     }
     if (p.query !== undefined) {
@@ -149,7 +149,7 @@ export async function checkRefs(caller: Caller, page: { cover?: string | null; s
     const found = await db
       .select({ id: assets.id })
       .from(assets)
-      .where(and(eq(assets.workspaceId, caller.workspace.id), isNull(assets.deletedAt), inArray(assets.id, [...new Set(refs.map((r) => r.id))])));
+      .where(and(eq(assets.projectId, caller.project.id), isNull(assets.deletedAt), inArray(assets.id, [...new Set(refs.map((r) => r.id))])));
     const live = new Set(found.map((f) => f.id));
     for (const r of refs) if (!live.has(r.id)) errors.push(`${r.at}: no asset ${r.id}`);
   }
@@ -161,7 +161,7 @@ export async function checkRefs(caller: Caller, page: { cover?: string | null; s
  * bound before. Returns the brand's rules, for the page's warnings.
  */
 async function check(caller: Caller, brandSlug: string, page: { cover?: string | null; sections: Section[] }, had: Set<string>) {
-  const rules = await listRules(caller.workspace.id, { brand: brandSlug });
+  const rules = await listRules(caller.project.id, { brand: brandSlug });
   refuse([...checkBindings(page.sections, rules, had), ...(await checkRefs(caller, page))]);
   return rules;
 }
@@ -259,7 +259,7 @@ export async function getPage(ws: string, brandSlug: string | undefined, slug: s
  * the one it was made from, refused when the page says something else now.
  */
 export async function savePage(caller: Caller, brandSlug: string | undefined, slug: string, input: z.output<typeof PageInput>, revision?: string) {
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const named = pageSlug.safeParse(slug);
   refuse(named.success ? [] : issues(named.error, "page"));
   const { sections, errors } = parseSections(input.sections);
@@ -296,7 +296,7 @@ export async function savePage(caller: Caller, brandSlug: string | undefined, sl
  * apply to the page as it is.
  */
 export async function editPage(caller: Caller, brandSlug: string | undefined, slug: string, ops: PageOp[], revision?: string) {
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   // The checks read the library, so they run before the brand's lock is taken. An edit that lands
   // in between would be written over: the ops are applied again to what it wrote instead.
   for (let tries = 1; ; tries++) {
@@ -359,7 +359,7 @@ async function editOnce(caller: Caller, brand: Brand, slug: string, ops: PageOp[
 
 /** Delete a page. One with pages under it stays until they are moved or deleted: a tree never loses a branch silently. */
 export async function deletePage(caller: Caller, brandSlug: string | undefined, slug: string) {
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   return tracked(brand.id, caller.actor, [], async (tx) => {
     const children = await tx
       .select({ slug: brandPages.slug })
@@ -388,10 +388,10 @@ export async function deletePage(caller: Caller, brandSlug: string | undefined, 
  * there are instead, and is refused only when one of its slugs is taken.
  */
 export async function generatePages(caller: Caller, brandSlug?: string, set?: { topic: string; parent?: string }) {
-  const brand = await resolveBrand(caller.workspace.id, brandSlug);
+  const brand = await resolveBrand(caller.project.id, brandSlug);
   const drafts: { slug: string; title: string; parent?: string | null; sections: SectionInput[] }[] = set
     ? pageSet(set.topic, set.parent)
-    : initialPages(await listRules(caller.workspace.id, { brand: brand.slug }), brand.name);
+    : initialPages(await listRules(caller.project.id, { brand: brand.slug }), brand.name);
   if (set && !drafts.length) refuse(["set.topic: needs a letter or a digit, for the pages' slugs"]);
   const made = drafts.map((d, i) => {
     const { sections, errors } = parseSections(d.sections, d.slug);

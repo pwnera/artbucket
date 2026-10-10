@@ -56,7 +56,7 @@ async function Tab({ params }: Props) {
     can(me, "insights.read") ? get(`brands/${encodeURIComponent(slug)}/insights`, (x: { data: BrandSignals }) => x.data, null) : null,
     release && before ? changesBetween(slug, before, release.number).then((c) => c && releaseSummary(c)) : null,
     // The card readers see: the release as BrandHub reads it, for this person, private or not (lib/core/hub.ts).
-    release ? hubViewer().then((viewer) => viewer && hubBrand(me.workspace.organization.slug, slug, { viewer, workspace: me.workspace.id })) : null,
+    release ? hubViewer().then((viewer) => viewer && hubBrand(me.project.organization.slug, slug, { viewer, project: me.project.id })) : null,
     // Counted as /releases/new counts them.
     get(`brands/${encodeURIComponent(slug)}/comments`, (x: { data: Thread[] }) => openCounts(x.data).open, null),
   ]);

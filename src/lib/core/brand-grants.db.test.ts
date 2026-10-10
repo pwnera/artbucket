@@ -10,18 +10,18 @@ import { searchCatalog, whoCan } from "@/lib/core/catalog";
 import { acceptInvitation, createInvitation, setGrant } from "@/lib/core/people";
 
 const ada = await signUp("Ada");
-const ws = ada.caller.workspace;
+const ws = ada.caller.project;
 await createBrand(ada.caller, { name: "Acme", slug: "acme" });
 await createBrand(ada.caller, { name: "Acme Kids", slug: "kids" });
 const kids = await resolveBrand(ws.id, "kids");
 
-// Sam reads the workspace and edits Acme Kids only.
+// Sam reads the project and edits Acme Kids only.
 const sam = await signUp("Sam");
-const { url } = await createInvitation(ada.caller, { email: sam.user.email, resource: "workspace", resourceId: ws.id, scope: "read" });
+const { url } = await createInvitation(ada.caller, { email: sam.user.email, resource: "project", resourceId: ws.id, scope: "read" });
 await acceptInvitation(url.split("/invite/")[1], { ...sam.user, ip: null });
 await setGrant(ada.caller, { user: sam.user.id, resource: "brand", resourceId: kids.id, scope: "write" });
-const asSam = (path: string, method = "PATCH") => new Request(new URL(path, process.env.APP_URL), { method, headers: { cookie: `${sam.cookie}; ab_workspace=${ws.id}`, authorization: "" } });
-const samHere = async () => (await callerFrom(request({ cookie: `${sam.cookie}; ab_workspace=${ws.id}` })))!;
+const asSam = (path: string, method = "PATCH") => new Request(new URL(path, process.env.APP_URL), { method, headers: { cookie: `${sam.cookie}; ab_project=${ws.id}`, authorization: "" } });
+const samHere = async () => (await callerFrom(request({ cookie: `${sam.cookie}; ab_project=${ws.id}` })))!;
 
 test("a grant on one brand edits that brand, and no other", async () => {
   const ok = await authorize(asSam("/api/v1/brands/kids/theme"), "brand.edit");
@@ -33,12 +33,12 @@ test("a grant on one brand edits that brand, and no other", async () => {
   assert.ok(!(rules instanceof Response));
 });
 
-test("making brands is the workspace's, not a brand's", async () => {
+test("making brands is the project's, not a brand's", async () => {
   const no = await authorize(asSam("/api/v1/brands", "POST"), "brand.create");
   assert.ok(no instanceof Response && no.status === 403);
 });
 
-test("a private brand is gone for the workspace's readers, there for its grants and admins", async () => {
+test("a private brand is gone for the project's readers, there for its grants and admins", async () => {
   await updateBrand(ws.id, "acme", { private: true });
   const sams = (await listBrands(ws.id, await samHere())).map((b) => b.slug);
   assert.ok(!sams.includes("acme"));

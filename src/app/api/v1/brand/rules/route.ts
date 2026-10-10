@@ -10,11 +10,11 @@ const brandOf = (req: Request) => new URL(req.url).searchParams.get("brand") ?? 
  * brand's rules unless one is named. Without a context, every rule and
  * version; with one, one rule per key, the context's own first.
  * `?asset={id}`: only the rules that point at that asset, across every brand
- * unless one is named. Anyone with access to part of the workspace may read
+ * unless one is named. Anyone with access to part of the project may read
  * its guidelines.
  */
 export const GET = route("brand.read", async (req, _p, caller) => {
-  const ws = caller.workspace.id;
+  const ws = caller.project.id;
   const q = new URL(req.url).searchParams;
   const opts = { brand: brandOf(req), context: q.get("context") ?? undefined, asset: q.get("asset") ?? undefined };
   const [data, contexts] = await Promise.all([

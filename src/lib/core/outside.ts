@@ -48,7 +48,7 @@ export function privateNote(a: Asset) {
 
 /** Where people outside can see it without a link from here: public, or the public portals showing it. */
 export async function outsideReach(caller: Caller, a: Asset) {
-  const portals = deliverable(a) && !a.public ? await publicPortalsShowing(caller.workspace.id, a.id) : [];
+  const portals = deliverable(a) && !a.public ? await publicPortalsShowing(caller.project.id, a.id) : [];
   const share = can(caller, "asset.share", a);
   return {
     public: a.public && deliverable(a),
@@ -73,7 +73,7 @@ export async function outsideUrl(caller: Caller, a: Asset, expiresIn: number, re
     if (!signed) throw new AssetError("not_found", `No asset ${a.id}`);
     return { ...signed, via: "share" as const, portals: [] };
   }
-  const portals = await publicPortalsShowing(caller.workspace.id, a.id);
+  const portals = await publicPortalsShowing(caller.project.id, a.id);
   if (!portals.length) throw new AssetError("forbidden", `${privateNote(a)} To look at it yourself, open the fetchUrl rendition_url gives without expiresIn.`);
   // The longest any of them would sign it for.
   const until = portals.some((p) => !p.expiresAt) ? null : new Date(Math.max(...portals.map((p) => p.expiresAt!.getTime())));

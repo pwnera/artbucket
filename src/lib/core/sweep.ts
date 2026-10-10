@@ -12,7 +12,7 @@ import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putOb
 /**
  * The one path bytes leave by. A deleted asset stays restorable for
  * PURGE_DAYS, then its row goes; an original goes when no row, deleted or
- * not, in any workspace, holds it: after a purge, a workspace or an
+ * not, in any project, holds it: after a purge, a project or an
  * organization deleted, or an upload that died between storage and the
  * database. Stills for previews go the same way. Staging and renditions
  * expire by the bucket's lifecycle rules (lib/storage.ts).

@@ -20,7 +20,7 @@ import { send } from "@/lib/send";
 type Person = { id: string; name: string; email: string };
 type GroupGrant = { id: string; resource: string; resourceId: string; label: string | null; scope: Scope };
 export type GroupRow = { id: string; name: string; members: Person[]; grants: GroupGrant[] };
-type Place = { resource: "organization" | "workspace"; resourceId: string; label: string };
+type Place = { resource: "organization" | "project"; resourceId: string; label: string };
 
 export function GroupsPanel({ groups, people, places }: { groups: GroupRow[]; people: Person[]; places: Place[] }) {
   const router = useRouter();

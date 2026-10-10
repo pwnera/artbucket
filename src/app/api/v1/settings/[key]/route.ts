@@ -8,7 +8,7 @@ type P = { key: string };
 /** PATCH /api/v1/settings/{key}?context=organization - change it here; a blank secret keeps it. */
 export const PATCH = route<P>(null, async (req, { key }, caller) => {
   // Branding is a feature the limits can switch off (lib/limits.ts): refused here, since the setting is generic.
-  if (key === "branding") await checkLimit(caller.workspace.organizationId, "branding");
+  if (key === "branding") await checkLimit(caller.project.organizationId, "branding");
   return ok({ data: await updateSetting(caller, contextOf(req), key, await body(req, SettingPatch)) });
 });
 
