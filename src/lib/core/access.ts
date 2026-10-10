@@ -2,7 +2,7 @@ import { and, asc, eq, gt, inArray, isNull, or, sql, type SQL } from "drizzle-or
 import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
-import { apiKeys, collections, grants, organizations, workspaces } from "@/lib/db/schema";
+import { apiKeys, collections, grants, groupMembers, organizations, workspaces } from "@/lib/db/schema";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
 import { hashKey } from "@/lib/core/keys";
@@ -120,16 +120,20 @@ export async function hiddenIn(workspaceId: string): Promise<string[]> {
   return (await privateCollections(eq(collections.workspaceId, workspaceId))).map((r) => r.id);
 }
 
+/** The grants a person holds: their own, and their groups' (lib/core/groups.ts). */
+export const heldBy = (userId: string) =>
+  or(eq(grants.userId, userId), inArray(grants.groupId, db.select({ id: groupMembers.groupId }).from(groupMembers).where(eq(groupMembers.userId, userId))))!;
+
 /** Workspaces a person can open: all of an organization they have a grant on, and any they have a grant in. */
 const reachable = (userId: string) =>
   or(
-    inArray(workspaces.organizationId, db.select({ id: grants.resourceId }).from(grants).where(and(eq(grants.userId, userId), eq(grants.resource, "organization")))),
-    inArray(workspaces.id, db.select({ id: grants.workspaceId }).from(grants).where(eq(grants.userId, userId))),
+    inArray(workspaces.organizationId, db.select({ id: grants.resourceId }).from(grants).where(and(heldBy(userId), eq(grants.resource, "organization")))),
+    inArray(workspaces.id, db.select({ id: grants.workspaceId }).from(grants).where(heldBy(userId))),
   )!;
 
 /** Every workspace a person can open, and their grants: one round trip. */
 export async function workspacesOf(userId: string) {
-  const [mine, open] = await Promise.all([db.select().from(grants).where(eq(grants.userId, userId)), workspacesWhere(reachable(userId))]);
+  const [mine, open] = await Promise.all([db.select().from(grants).where(heldBy(userId)), workspacesWhere(reachable(userId))]);
   return { grants: mine, workspaces: open };
 }
 
@@ -177,7 +181,7 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
     const [[workspace], hidden, theirs] = await Promise.all([
       workspacesWhere(eq(workspaces.id, key.workspaceId)),
       hiddenIn(key.workspaceId),
-      key.userId ? db.select().from(grants).where(eq(grants.userId, key.userId)) : null,
+      key.userId ? db.select().from(grants).where(heldBy(key.userId)) : null,
     ]);
     // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
     const access = theirs ? capAt(accessIn(theirs, workspace, hidden), key.scope) : { scope: key.scope, narrow: NONE, hidden };

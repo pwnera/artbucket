@@ -1237,7 +1237,8 @@ export function openapi(serverUrl: string) {
           scope: "any",
           description:
             "A scope on the organization (its admins only), a workspace, a collection or one asset (admins of the " +
-            "workspace). Grants add up and reach down. Only for people already in the organization; invite anyone else.",
+            "workspace), held by a member (`user`) or a group (`group`). Grants add up and reach down. Only for people " +
+            "already in the organization; invite anyone else.",
           body: S.GrantInput,
           ok: [200, "The grant", data(S.Grant)],
         }),
@@ -1245,6 +1246,30 @@ export function openapi(serverUrl: string) {
       "/api/v1/grants/{id}": {
         parameters: [path("id", "Grant id")],
         delete: op({ summary: "Take access away", scope: "any", description: "An organization keeps at least one admin.", ok: [200, "Removed", S.Deleted] }),
+      },
+      "/api/v1/groups": {
+        get: op({
+          summary: "The organization's groups",
+          scope: "any",
+          description: "Each with its members and its grants. A grant held by a group is each member's. Admins of the workspace.",
+          ok: [200, "Groups", data(z.array(S.GroupInfo))],
+        }),
+        post: op({ summary: "Make a group", scope: "any", description: "The organization's admins.", body: S.GroupInput, ok: [201, "Created", data(S.GroupInfo)] }),
+      },
+      "/api/v1/groups/{id}": {
+        parameters: [path("id", "Group id")],
+        patch: op({ summary: "Rename a group", scope: "any", body: S.GroupInput, ok: [200, "Renamed", data(z.object({ id: z.uuid(), name: z.string() }))] }),
+        delete: op({ summary: "Delete a group", scope: "any", description: "Its grants go with it: members keep what they hold themselves.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/groups/{id}/members": {
+        parameters: [path("id", "Group id")],
+        post: op({
+          summary: "Add and remove members",
+          scope: "any",
+          description: "People of the organization only. Joining a group whose grants make an editor takes a seat.",
+          body: S.GroupMembersChange,
+          ok: [200, "The group", data(S.GroupInfo)],
+        }),
       },
       "/api/v1/invitations": {
         post: op({

@@ -414,6 +414,13 @@
       "when": 1791644408258,
       "tag": "0058_grant_roles_only",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791644536918,
+      "tag": "0059_groups",
+      "breakpoints": true
     }
   ]
 }

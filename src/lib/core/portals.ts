@@ -21,7 +21,7 @@ import {
   type PortalRequestStatus,
 } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
-import { hiddenIn, ipOf, workspaceById, type Caller } from "@/lib/core/access";
+import { heldBy, hiddenIn, ipOf, workspaceById, type Caller } from "@/lib/core/access";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
 import { listUpdates } from "@/lib/core/brand";
 import { brandOfWorkspace } from "@/lib/core/branding";
@@ -508,7 +508,7 @@ export async function reader(headers: Headers | undefined) {
   if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
   if (!session) return null;
-  const mine = await db.select().from(grants).where(eq(grants.userId, session.user.id));
+  const mine = await db.select().from(grants).where(heldBy(session.user.id));
   const may = async (workspaceId: string, action: Action) => {
     const ws = await workspaceById(workspaceId);
     if (!ws) return false;

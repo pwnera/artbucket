@@ -1,15 +1,15 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, asc, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, collections, grants, invitations, organizations, users, workspaces } from "@/lib/db/schema";
+import { assets, brands, collections, grants, groupMembers, groups, invitations, organizations, users, workspaces } from "@/lib/db/schema";
 import { recordAudit, type AuditBy } from "@/lib/core/audit";
 import { appUrlFor } from "@/lib/core/domains";
 import { joinableAt } from "@/lib/core/email-domains";
 import { invitationEmail, sendAs } from "@/lib/core/mail";
 import { slugify } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
-import { checkLimit, checkOrganizations } from "@/lib/core/usage";
-import { defaultWorkspace, placed, type Caller } from "@/lib/core/access";
+import { checkLimit, checkOrganizations, isEditor } from "@/lib/core/usage";
+import { defaultWorkspace, heldBy, placed, type Caller } from "@/lib/core/access";
 import { onlyOrganization } from "@/lib/core/branding";
 import { highest, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -223,7 +223,7 @@ export async function listWorkspaces(caller: Caller) {
   const mine = await db
     .select({ workspaceId: grants.workspaceId, resource: grants.resource, scope: grants.scope })
     .from(grants)
-    .where(and(eq(grants.userId, caller.user.id), eq(grants.organizationId, caller.workspace.organizationId)));
+    .where(and(heldBy(caller.user.id), eq(grants.organizationId, caller.workspace.organizationId)));
   return all
     .map((w) => ({
       ...w,
@@ -319,7 +319,7 @@ async function target(caller: Caller, resource: Resource, resourceId: string): P
 }
 
 /** Names for grants and invitations, looked up in one query per kind. */
-async function labels(rows: { resource: Resource; resourceId: string }[]) {
+export async function labels(rows: { resource: Resource; resourceId: string }[]) {
   const ids = (r: Resource) => [...new Set(rows.filter((x) => x.resource === r).map((x) => x.resourceId))];
   const [o, w, c, a] = await Promise.all([
     ids("organization").length ? db.select({ id: organizations.id, label: organizations.name }).from(organizations).where(inArray(organizations.id, ids("organization"))) : [],
@@ -380,9 +380,11 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
   const label = await labels([...rows.map((r) => r.grant), ...waiting]);
   const people = new Map<string, { id: string; name: string; email: string; grants: ReturnType<typeof presentGrant>[] }>();
   for (const { grant, name, email } of rows) {
-    const p = people.get(grant.userId) ?? { id: grant.userId, name, email, grants: [] };
+    // Joined on users: a person's own grants, never a group's.
+    const id = grant.userId!;
+    const p = people.get(id) ?? { id, name, email, grants: [] };
     p.grants.push(presentGrant(grant, label(grant.resourceId)));
-    people.set(grant.userId, p);
+    people.set(id, p);
   }
   const base = await appUrlFor(caller.workspace.organizationId);
   return {
@@ -402,7 +404,7 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
   };
 }
 
-const presentGrant = (g: typeof grants.$inferSelect, label: string | null) => ({
+export const presentGrant = (g: typeof grants.$inferSelect, label: string | null) => ({
   id: g.id,
   resource: g.resource,
   resourceId: g.resourceId,
@@ -422,16 +424,18 @@ async function keepsAnAdmin(tx: Tx, organizationId: string, losing: string) {
 }
 
 /**
- * Give a member a scope on something, or change it. Only for people already
- * in the organization: anyone else gets an invitation.
+ * Give a member, or a group of the organization (lib/core/groups.ts), a
+ * scope on something, or change it. Only for people already in the
+ * organization: anyone else gets an invitation.
  */
-export async function setGrant(caller: Caller, input: { user: string; resource: Resource; resourceId: string; scope: Scope }) {
+export async function setGrant(caller: Caller, input: ({ user: string; group?: undefined } | { group: string; user?: undefined }) & { resource: Resource; resourceId: string; scope: Scope }) {
   const t = await target(caller, input.resource, input.resourceId);
+  if (input.group) return setGroupGrant(caller, input.group, t, input.scope);
   const [member] = await db
     .select({ id: users.id, email: users.email })
     .from(users)
     .innerJoin(grants, eq(grants.userId, users.id))
-    .where(and(eq(users.id, input.user), eq(grants.organizationId, t.organizationId)))
+    .where(and(eq(users.id, input.user!), eq(grants.organizationId, t.organizationId)))
     .limit(1);
   if (!member) throw new AssetError("not_found", "No such member; invite them instead");
   if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { user: member.id });
@@ -453,6 +457,31 @@ export async function setGrant(caller: Caller, input: { user: string; resource: 
   return presentGrant(row, t.label);
 }
 
+/** A group's grant: each member who isn't an editor yet takes a seat when it makes them one (lib/core/usage.ts). */
+async function setGroupGrant(caller: Caller, groupId: string, t: Target, scope: Scope) {
+  const [group] = await db.select().from(groups).where(and(eq(groups.id, groupId), eq(groups.organizationId, t.organizationId)));
+  if (!group) throw new AssetError("not_found", "No such group in this organization");
+  const row = await db.transaction(async (tx) => {
+    if (EDITS.includes(scope)) await checkLimit(t.organizationId, "editors", { adding: await newEditors(tx, t.organizationId, groupId), tx });
+    const [row] = await tx
+      .insert(grants)
+      .values({ groupId, organizationId: t.organizationId, workspaceId: t.workspaceId, resource: t.resource, resourceId: t.resourceId, scope })
+      .onConflictDoUpdate({ target: [grants.groupId, grants.resource, grants.resourceId], set: { scope } })
+      .returning();
+    return row;
+  });
+  await recordAudit(caller, "grant.set", group.name, { resource: t.resource, on: t.label, scope, group: true }, { workspaceId: t.workspaceId });
+  return presentGrant(row, t.label);
+}
+
+/** How many of these people (a group's members, by default) would take an editor's seat they don't hold yet. */
+export async function newEditors(tx: Tx, organizationId: string, groupId: string, people?: string[]) {
+  const ids = people ?? (await tx.select({ id: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, groupId))).map((m) => m.id);
+  let n = 0;
+  for (const id of ids) if (!(await isEditor(organizationId, id, tx))) n++;
+  return n;
+}
+
 export async function removeGrant(caller: Caller, id: string) {
   const [g] = await db.select().from(grants).where(and(eq(grants.id, id), visible(caller)));
   if (!g) return false;
@@ -460,10 +489,23 @@ export async function removeGrant(caller: Caller, id: string) {
   await db.transaction(async (tx) => {
     if (g.resource === "organization" && g.scope === "admin") await keepsAnAdmin(tx, g.organizationId, g.id);
     await tx.delete(grants).where(eq(grants.id, id));
+    // Their last grant here: they leave the organization, and its groups with it.
+    if (g.userId) await leaveGroupsIfGone(tx, g.userId, g.organizationId);
   });
-  const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, g.userId));
-  await recordAudit(caller, "grant.removed", u?.email ?? g.userId, { resource: g.resource, on: t.label, scope: g.scope }, { workspaceId: g.workspaceId });
+  const holder = g.userId
+    ? (await db.select({ name: users.email }).from(users).where(eq(users.id, g.userId)))[0]?.name
+    : (await db.select({ name: groups.name }).from(groups).where(eq(groups.id, g.groupId!)))[0]?.name;
+  await recordAudit(caller, "grant.removed", holder ?? g.userId ?? g.groupId, { resource: g.resource, on: t.label, scope: g.scope }, { workspaceId: g.workspaceId });
   return true;
+}
+
+/** Out of an organization's groups once they hold no grant of their own in it: a group never lets a former member back in. */
+export async function leaveGroupsIfGone(tx: Tx, userId: string, organizationId: string) {
+  const [still] = await tx.select({ id: grants.id }).from(grants).where(and(eq(grants.userId, userId), eq(grants.organizationId, organizationId))).limit(1);
+  if (still) return;
+  await tx
+    .delete(groupMembers)
+    .where(and(eq(groupMembers.userId, userId), inArray(groupMembers.groupId, tx.select({ id: groups.id }).from(groups).where(eq(groups.organizationId, organizationId)))));
 }
 
 /**

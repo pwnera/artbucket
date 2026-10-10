@@ -334,7 +334,15 @@ const on = {
   resourceId: uuid.describe("The organization's, workspace's, collection's or asset's id"),
   scope: z.enum(SCOPES),
 };
-export const GrantInput = z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on });
+export const GrantInput = z.union([
+  z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on }),
+  z.strictObject({ group: uuid.describe("A group's id, from /api/v1/groups: each of its members has the grant"), ...on }),
+]);
+export const GroupInput = z.strictObject({ name: z.string().trim().min(1).max(80) });
+export const GroupMembersChange = z.strictObject({
+  add: z.array(z.string().min(1).max(64)).max(200).optional().describe("Members' user ids, from /api/v1/members"),
+  remove: z.array(z.string().min(1).max(64)).max(200).optional(),
+});
 export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
 
 export const ShareCreate = z.strictObject({
@@ -1226,6 +1234,14 @@ export const Grant = z.object({
   label: z.string().nullable().describe("The name of what it is on"),
   scope: z.enum(SCOPES),
   createdAt: date,
+});
+export const GroupInfo = z.object({
+  id: uuid,
+  name: z.string(),
+  source: z.enum(["manual", "sso"]).describe("Made by an admin, or synced from single sign-on"),
+  createdAt: date,
+  members: z.array(z.object({ id: z.string(), name: z.string(), email: z.string() })),
+  grants: z.array(Grant),
 });
 export const Invitation = z.object({
   id: uuid,

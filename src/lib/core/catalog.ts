@@ -9,6 +9,8 @@ import {
   catalogObjects,
   collections,
   grants,
+  groupMembers,
+  groups,
   organizations,
   portals,
   shareLinks,
@@ -28,7 +30,7 @@ import {
   type CatalogType,
   type EdgeKind,
 } from "@/lib/catalog";
-import { hiddenIn, workspacesOf, type Caller, type Workspace } from "@/lib/core/access";
+import { heldBy, hiddenIn, workspacesOf, type Caller, type Workspace } from "@/lib/core/access";
 
 /**
  * The catalog (PRD: Artbucket Catalog): one search, one describe, one lineage
@@ -225,7 +227,7 @@ async function whereOf(caller: Caller, q: CatalogQuery, reaches: Reach[]): Promi
     q.uses.length ? ids(q.uses).then((x) => walk(x, "down")) : null,
     q.usedBy.length ? ids(q.usedBy).then((x) => walk(x, "up")) : null,
   ]);
-  const admins = q.admin.includes("me") && caller.user ? db.select({ id: grants.resourceId }).from(grants).where(and(eq(grants.userId, caller.user.id), eq(grants.scope, "admin"))) : null;
+  const admins = q.admin.includes("me") && caller.user ? db.select({ id: grants.resourceId }).from(grants).where(and(heldBy(caller.user.id), eq(grants.scope, "admin"))) : null;
   const where = and(
     seen(reaches),
     tsq ? sql`${o.search} @@ ${tsq}` : undefined,
@@ -471,21 +473,33 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     objectType === "asset" ? and(eq(grants.resource, "asset"), eq(grants.resourceId, objectId)) : undefined,
     cols.length ? and(eq(grants.resource, "collection"), inArray(grants.resourceId, cols)) : undefined,
   );
-  const found = await db
-    .select({ userId: grants.userId, name: users.name, email: users.email, resource: grants.resource, resourceId: grants.resourceId, scope: grants.scope })
-    .from(grants)
-    .innerJoin(users, eq(users.id, grants.userId))
-    .where(and(path, who ? or(eq(users.id, who), eq(users.email, who.toLowerCase())) : undefined));
-  const via = (g: (typeof found)[number]) =>
-    g.resource === "organization"
-      ? `Organization ${caller.workspace.organization.name}`
-      : g.resource === "workspace"
-        ? `Project ${item.project.name}`
-        : g.resource === "asset"
-          ? "Directly on this asset"
-          : g.resourceId === objectId
-            ? "Directly on this collection"
-            : `Collection ${names.find((n) => n.id === g.resourceId)?.name ?? ""}`;
+  // A person's own grants, and their groups': a group's grant is each member's, said as coming through it.
+  const person = who ? or(eq(users.id, who), eq(users.email, who.toLowerCase())) : undefined;
+  const cols_ = { userId: users.id, name: users.name, email: users.email, resource: grants.resource, resourceId: grants.resourceId, scope: grants.scope };
+  const [own, viaGroups] = await Promise.all([
+    db.select({ ...cols_, group: sql<string | null>`null` }).from(grants).innerJoin(users, eq(users.id, grants.userId)).where(and(path, person)),
+    db
+      .select({ ...cols_, group: groups.name })
+      .from(grants)
+      .innerJoin(groups, eq(groups.id, grants.groupId))
+      .innerJoin(groupMembers, eq(groupMembers.groupId, groups.id))
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .where(and(path, person)),
+  ]);
+  const found = [...own, ...viaGroups];
+  const via = (g: (typeof found)[number]) => {
+    const on =
+      g.resource === "organization"
+        ? `Organization ${caller.workspace.organization.name}`
+        : g.resource === "workspace"
+          ? `Project ${item.project.name}`
+          : g.resource === "asset"
+            ? "Directly on this asset"
+            : g.resourceId === objectId
+              ? "Directly on this collection"
+              : `Collection ${names.find((n) => n.id === g.resourceId)?.name ?? ""}`;
+    return g.group ? `Group ${g.group}, on ${on.charAt(0).toLowerCase()}${on.slice(1)}` : on;
+  };
   const best = new Map<string, Holder>();
   for (const g of found) {
     // Private: the organization's and the project's roles reach it only as admin.

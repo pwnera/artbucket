@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { People, type Members } from "@/components/settings/access";
+import { GroupsPanel, type GroupRow } from "@/components/settings/groups";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import type { HubOffer } from "@/components/hub-offers";
@@ -34,6 +35,7 @@ const LOADS: Record<string, string> = {
   "workspace/members": "members?in=workspace",
   "organization/usage": "usage",
   "organization/workspaces": "workspaces",
+  "organization/groups": "groups",
   "organization/email": "settings?context=organization",
   "organization/branding": "settings?context=organization",
   "organization/hub": "github-orgs",
@@ -67,6 +69,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
   const forHub = `${context}/${section}` === "organization/hub";
   const forDomains = `${context}/${section}` === "organization/domains";
   const forSso = `${context}/${section}` === "organization/sso";
+  const forGroups = `${context}/${section}` === "organization/groups";
   const [me, loaded, collections, reports, domains, offers, spaces] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
@@ -80,8 +83,10 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     // And the listings those domains claim.
     forHub ? get("hub/offers", (b: { data: HubOffer[] }) => b.data, []) : [],
     // Where people joining by email domain or single sign-on land, when there is more than one.
-    forDomains || forSso ? get("workspaces", (b: { data: Workspace[] }) => b.data, []) : [],
+    forDomains || forSso || forGroups ? get("workspaces", (b: { data: Workspace[] }) => b.data, []) : [],
   ]);
+  // Who can be put in a group: the organization's people.
+  const people = forGroups ? await get("members", (b: Members) => b.data.map(({ id, name, email }) => ({ id, name, email })), []) : [];
   if (!opens(me, s)) redirect("/settings");
   // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
   if (locked(me, s)) redirect(me.upgrade ?? "/settings");
@@ -104,6 +109,17 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
       );
     case "organization/usage":
       return <UsagePanel usage={data<Usage>()} />;
+    case "organization/groups":
+      return (
+        <GroupsPanel
+          groups={data<GroupRow[]>()}
+          people={people}
+          places={[
+            { resource: "organization", resourceId: ws.organization.id, label: `${ws.organization.name} (every workspace)` },
+            ...spaces.map((w) => ({ resource: "workspace" as const, resourceId: w.id, label: w.name })),
+          ]}
+        />
+      );
     case "workspace/members":
       return (
         <div className="space-y-4">

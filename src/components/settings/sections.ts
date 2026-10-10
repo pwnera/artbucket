@@ -100,6 +100,14 @@ export const SECTIONS: Section[] = [
   },
   {
     context: "organization",
+    id: "groups",
+    label: "Groups",
+    icon: IconUsersGroup,
+    description: "People who share access: give a group a role, and each of its members has it.",
+    action: "organization.manage",
+  },
+  {
+    context: "organization",
     id: "usage",
     label: "Usage",
     icon: IconChartBar,

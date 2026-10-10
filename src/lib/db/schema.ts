@@ -823,9 +823,9 @@ export const grants = pgTable(
   "grants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    /** Who holds it: a person, or a group (its members each have it). Exactly one. */
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references((): AnyPgColumn => groups.id, { onDelete: "cascade" }),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -838,11 +838,45 @@ export const grants = pgTable(
   },
   (t) => [
     unique("grants_user_resource_unique").on(t.userId, t.resource, t.resourceId),
+    unique("grants_group_resource_unique").on(t.groupId, t.resource, t.resourceId),
+    check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}) = 1`),
     index("grants_org_idx").on(t.organizationId),
     check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset')`),
     check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
     check("grants_workspace_check", sql`(${t.resource} = 'organization') = (${t.workspaceId} is null)`),
   ],
+);
+
+/**
+ * People of an organization who share access: a grant held by a group is
+ * each member's (lib/core/groups.ts). Made by its admins, or synced from
+ * single sign-on later (`source`). Leaving the organization leaves its groups.
+ */
+export const groups = pgTable(
+  "groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    source: text("source").$type<"manual" | "sso">().notNull().default("manual"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("groups_org_name_unique").on(t.organizationId, t.name), check("groups_source_check", sql`${t.source} in ('manual', 'sso')`)],
+);
+
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("group_members_user_idx").on(t.userId)],
 );
 
 /**

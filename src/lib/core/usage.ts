@@ -1,7 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, or, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
+import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, groupMembers, invitations, pageViews, portals, renditions, settings, traffic, workspaces } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
@@ -119,7 +119,11 @@ export async function uncountRenditions(workspaceId: string, hash: string) {
 /** People with write or admin anywhere in it, and invitations that would make more: a seat is taken when it is offered. */
 async function editorsOf(organizationId: string, q: Tx | typeof db = db) {
   const [[people], [waiting]] = await Promise.all([
-    q.select({ n: countDistinct(grants.userId) }).from(grants).where(and(eq(grants.organizationId, organizationId), EDITOR)),
+    // A person, or a member of a group, with write or admin: each person once.
+    q.execute<{ n: number }>(sql`select count(distinct u)::int as n from (
+      select ${grants.userId} as u from ${grants} where ${grants.organizationId} = ${organizationId} and ${EDITOR} and ${grants.userId} is not null
+      union select gm.user_id from ${groupMembers} gm join ${grants} on ${grants.groupId} = gm.group_id where ${grants.organizationId} = ${organizationId} and ${EDITOR}
+    ) e`).then((r) => [r[0]]),
     q
       .select({ n: count() })
       .from(invitations)
@@ -157,8 +161,21 @@ const brandsOf = async (organizationId: string, q: Tx | typeof db = db) =>
 const domainsOf = async (organizationId: string, q: Tx | typeof db = db) =>
   (await q.select({ n: count() }).from(domains).where(eq(domains.organizationId, organizationId)))[0].n;
 
-const isEditor = async (organizationId: string, userId: string, q: Tx | typeof db = db) =>
-  !!(await q.select({ id: grants.id }).from(grants).where(and(eq(grants.organizationId, organizationId), eq(grants.userId, userId), EDITOR)).limit(1))[0];
+/** Already takes an editor's seat: write or admin of their own, or through a group. */
+export const isEditor = async (organizationId: string, userId: string, q: Tx | typeof db = db) =>
+  !!(
+    await q
+      .select({ id: grants.id })
+      .from(grants)
+      .where(
+        and(
+          eq(grants.organizationId, organizationId),
+          EDITOR,
+          or(eq(grants.userId, userId), inArray(grants.groupId, q.select({ id: groupMembers.groupId }).from(groupMembers).where(eq(groupMembers.userId, userId)))),
+        ),
+      )
+      .limit(1)
+  )[0];
 
 const n = (count: number, what: string) => `${count} ${what}${count === 1 ? "" : "s"}`;
 
