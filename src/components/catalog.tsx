@@ -14,6 +14,7 @@ import {
   IconSearch,
   IconStack2,
   IconUser,
+  IconUsersGroup,
   IconWorld,
   IconFolder,
   IconLink,
@@ -24,6 +25,10 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { send } from "@/lib/send";
+import { useCan, useMe } from "@/components/can";
+import { Combobox } from "@/components/combobox";
+import { ROLES, roleName, type Scope } from "@/lib/scopes";
+import { undoable } from "@/lib/undo";
 import { CatalogTree } from "@/components/catalog-tree";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
@@ -32,7 +37,7 @@ import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
-import type { ActivityLine, CatalogItem, Holder } from "@/lib/core/catalog";
+import type { ActivityLine, CatalogItem, Granted, Holder } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -193,7 +198,7 @@ function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: 
       </nav>
       {tab === "overview" && <Overview o={o} go={go} />}
       {tab === "lineage" && <LineageGraph key={o.id} id={o.id} onOpen={(id) => go(id, "lineage")} />}
-      {tab === "access" && <Access key={o.id} id={o.id} />}
+      {tab === "access" && <Access key={o.id} o={o} />}
       {tab === "activity" && <Activity key={o.id} id={o.id} />}
     </div>
   );
@@ -348,10 +353,11 @@ function ShareToProject({ o, projects }: { o: Described; projects: TreeProject[]
   );
 }
 
-/** GET a catalog view of one object, as the tab opens. Keyed by the object where used, so another starts empty. */
+/** GET a catalog view of one object, as the tab opens, and again on `reload`. Keyed by the object where used, so another starts empty. */
 function useView<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [n, setN] = useState(0);
   useEffect(() => {
     let live = true;
     fetch(path)
@@ -361,15 +367,23 @@ function useView<T>(path: string) {
     return () => {
       live = false;
     };
-  }, [path]);
-  return { data, error };
+  }, [path, n]);
+  return { data, error, reload: () => setN((x) => x + 1) };
 }
 
 const KIND: Record<Holder["kind"], React.ComponentType<{ className?: string }>> = { person: IconUser, agent: IconRobot, project: IconFolder, public: IconWorld, link: IconLink };
 
-function Access({ id }: { id: string }) {
-  const { data, error } = useView<{ private: boolean; holders: Holder[] }>(`/api/v1/catalog/${id}/access`);
+type AccessView = { private: boolean; holders: Holder[]; on: { type: "asset" | "brand" | "collection"; id: string; name: string } | null; granted: Granted[] };
+
+function Access({ o }: { o: Described }) {
+  const { data, error, reload } = useView<AccessView>(`/api/v1/catalog/${o.id}/access`);
+  const can = useCan();
+  // Grants are made in the project open, by its admins (lib/core/people.ts target).
+  const me = useMe();
+  const manage = can("member.manage") && me?.project.id === o.project.id;
   return (
+    <div className="space-y-4">
+      {data?.on && manage && <Grants on={data.on} granted={data.granted} reload={reload} />}
     <Card title="Who can reach it">
       <p className="text-muted-foreground text-sm">
         Grants reach down: organization, then project, then this object. The highest role on the way wins.
@@ -408,6 +422,108 @@ function Access({ id }: { id: string }) {
           </table>
         </div>
       )}
+    </Card>
+    </div>
+  );
+}
+
+/**
+ * Grants on this object, made here: a person or a group, with a role. Each
+ * changes in place or is taken back (with an undo). On an asset, up to
+ * Editor: admin over one asset is admin over nothing else.
+ */
+function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; granted: Granted[]; reload: () => void }) {
+  const [people, setPeople] = useState<{ value: string; label: string; hint?: string }[] | null>(null);
+  const [role, setRole] = useState<Scope>("read");
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      fetch("/api/v1/members?in=project").then((r) => (r.ok ? r.json() : { data: [] })),
+      fetch("/api/v1/groups").then((r) => (r.ok ? r.json() : { data: [] })),
+    ]).then(([m, g]: [{ data: { id: string; name: string; email: string }[] }, { data: { id: string; name: string }[] }]) => {
+      if (!live) return;
+      setPeople([
+        ...g.data.map((x) => ({ value: `group:${x.id}`, label: x.name, hint: "Group" })),
+        ...m.data.map((x) => ({ value: `user:${x.id}`, label: x.name || x.email, hint: x.email })),
+      ]);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const roles = on.type === "asset" ? ROLES.filter((r) => r.scope !== "admin") : ROLES;
+  const grant = async (kind: "user" | "group", id: string, scope: Scope) => {
+    setBusy(id);
+    const done = await send("POST", "/api/v1/grants", { [kind]: id, resource: on.type, resourceId: on.id, scope });
+    setBusy(null);
+    if (done) reload();
+    return done;
+  };
+  const remove = async (g: Granted) => {
+    setBusy(g.id);
+    const done = await send("DELETE", `/api/v1/grants/${g.grant}`);
+    setBusy(null);
+    if (!done) return;
+    reload();
+    undoable(`${g.who} no longer has a role on ${on.name}`, { undo: () => grant(g.kind === "group" ? "group" : "user", g.id, g.scope as Scope) });
+  };
+  const held = new Set(granted.map((g) => `${g.kind === "group" ? "group" : "user"}:${g.id}`));
+  return (
+    <Card title={`Granted on ${on.name}`} aside={<span className="text-muted-foreground text-sm tabular-nums">{granted.length}</span>}>
+      {granted.length > 0 && (
+        <ul className="space-y-1">
+          {granted.map((g) => (
+            <li key={g.grant} className="flex items-center gap-2 text-sm">
+              {g.kind === "group" ? <IconUsersGroup aria-hidden className="text-muted-foreground size-4 shrink-0" /> : <IconUser aria-hidden className="text-muted-foreground size-4 shrink-0" />}
+              <span className="min-w-0 flex-1 truncate">{g.who}</span>
+              <Select value={g.scope} onValueChange={(v) => void grant(g.kind === "group" ? "group" : "user", g.id, v as Scope)}>
+                <SelectTrigger size="sm" className="h-7 w-32" aria-label={`${g.who}'s role`}>
+                  <SelectValue>{roleName(g.scope as Scope)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {roles.map((r) => (
+                    <SelectItem key={r.scope} value={r.scope}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <IconButton variant="ghost" size="icon-xs" label={`Take back ${g.who}'s role`} pending={busy === g.id} className="text-muted-foreground hover:text-destructive" onClick={() => void remove(g)}>
+                <IconX />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Combobox
+          className="min-w-56 flex-1"
+          options={(people ?? []).filter((p) => !held.has(p.value))}
+          value=""
+          placeholder={people ? "Add a person or a group" : "Loading people"}
+          onChange={(v) => {
+            const [kind, id] = v.split(":") as ["user" | "group", string];
+            if (id) void grant(kind, id, role);
+          }}
+        />
+        <Select value={role} onValueChange={(v) => setRole(v as Scope)}>
+          <SelectTrigger className="w-36" aria-label="Role to grant">
+            <SelectValue>{roleName(role)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="end">
+            {roles.map((r) => (
+              <SelectItem key={r.scope} value={r.scope}>
+                <span className="grid">
+                  <span>{r.label}</span>
+                  <span className="text-muted-foreground text-xs">{r.hint}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <p className="text-muted-foreground text-xs">{"It reaches everything inside it. A group's grant is each of its members'."}</p>
     </Card>
   );
 }

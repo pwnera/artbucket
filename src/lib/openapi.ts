@@ -616,6 +616,13 @@ export function openapi(serverUrl: string) {
               name: z.string(),
               private: z.boolean(),
               holders: z.array(z.object({ kind: z.string(), who: z.string(), role: z.string(), scope: z.string().nullable(), via: z.string() })),
+              on: z
+                .object({ type: z.enum(["asset", "brand", "collection"]), id: z.uuid(), name: z.string() })
+                .nullable()
+                .describe("What takes a grant here (a rule's or a page's brand); POST /api/v1/grants with it. Null for a portal"),
+              granted: z
+                .array(z.object({ grant: z.uuid(), kind: z.enum(["person", "group"]), id: z.string(), who: z.string(), scope: z.string() }))
+                .describe("The grants made on it, each changed with POST /api/v1/grants or taken back with DELETE /api/v1/grants/{grant}"),
             }),
           ],
         }),

@@ -11,7 +11,7 @@ import { ingestBytes } from "@/lib/core/assets";
 import { createBrand, createRule, publishBrand } from "@/lib/core/brand";
 import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
 import { createCollection } from "@/lib/core/collections";
-import { acceptInvitation, createInvitation, createProject } from "@/lib/core/people";
+import { acceptInvitation, createInvitation, createProject, removeGrant, setGrant } from "@/lib/core/people";
 import { createPortal } from "@/lib/core/portals";
 
 const ada = await signUp("Ada");
@@ -116,6 +116,20 @@ test("who can reach it: each person's role and the grant it comes through, then 
   // The private deck: Sam's project role doesn't reach it.
   const d = (await whoCan(ada.caller, deck.id))!;
   assert.ok(!d.holders.some((h) => h.who === "Sam"));
+});
+
+test("grants are made from the catalog: what takes them, and the ones made there", async () => {
+  const g = await setGrant(ada.caller, { user: samHere.user!.id, resource: "asset", resourceId: deck.id, scope: "write" });
+  const d = (await whoCan(ada.caller, deck.id))!;
+  assert.deepEqual(d.on, { type: "asset", id: deck.id, name: "board-logo-deck.png" });
+  assert.deepEqual(d.granted.map((x) => [x.grant, x.kind, x.who, x.scope]), [[g.id, "person", "Sam", "write"]]);
+  assert.equal(d.holders.find((h) => h.who === "Sam")?.via, "Directly on this asset");
+  // A rule takes no grant of its own: its brand does.
+  const rule = (await whoCan(ada.caller, `${org}/${corporate.slug}/brand/acme/rule/logo.board`))!;
+  assert.equal(rule.on?.type, "brand");
+  assert.equal(rule.on?.name, "Acme");
+  await removeGrant(ada.caller, g.id);
+  assert.equal((await whoCan(ada.caller, deck.id))!.granted.length, 0);
 });
 
 test("the catalog spans the organization's projects: Q4 is there for its admin", async () => {

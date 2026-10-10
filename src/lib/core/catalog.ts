@@ -17,7 +17,7 @@ import {
   users,
   projects,
 } from "@/lib/db/schema";
-import { accessIn, highest, reach, widest, type Access } from "@/lib/access";
+import { accessIn, highest, reach, widest, type Access, type Resource } from "@/lib/access";
 import { allows, roleName, type Scope } from "@/lib/scopes";
 import {
   EXPIRING_DAYS,
@@ -517,6 +517,9 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     best.set(g.userId, { kind: "person", who: g.name || g.email, role: roleName(g.scope), scope: g.scope, via: via(g) });
   }
   const holders = [...best.values()];
+  // What takes a grant here (a rule or a page: its brand), and the grants made on it, to change or take back.
+  const on = GRANTABLE.includes(objectType) ? { type: objectType as Resource, id: objectId, name: item.parent?.name ?? item.name } : null;
+  const granted = on && !who ? await grantedOn(on.type, on.id) : [];
   if (!who) {
     const keys = await db
       .select({ name: apiKeys.name, scope: apiKeys.scope, userId: apiKeys.userId, person: users.name })
@@ -534,8 +537,23 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     for (const x of await sharesOf(objectId)) holders.push({ kind: "project", who: x.project.name, role: "Viewer", scope: "read", via: `Shared from ${item.project.name}: its members read the latest release` });
     holders.push(...(await delivery(objectType, objectId)));
   }
-  return { id: item.id, name: item.name, private: obj.private, holders };
+  return { id: item.id, name: item.name, private: obj.private, holders, on, granted };
 }
+
+const GRANTABLE: CatalogType[] = ["asset", "brand", "collection"];
+
+/** The grants made on one thing, to a person or a group. */
+async function grantedOn(resource: Resource, id: string) {
+  const rows = await db
+    .select({ grant: grants.id, userId: grants.userId, groupId: grants.groupId, scope: grants.scope, person: sql<string | null>`coalesce(nullif(${users.name}, ''), ${users.email})`, group: groups.name })
+    .from(grants)
+    .leftJoin(users, eq(users.id, grants.userId))
+    .leftJoin(groups, eq(groups.id, grants.groupId))
+    .where(and(eq(grants.resource, resource), eq(grants.resourceId, id)))
+    .orderBy(asc(grants.createdAt));
+  return rows.map((r) => ({ grant: r.grant, kind: r.groupId ? ("group" as const) : ("person" as const), id: (r.groupId ?? r.userId)!, who: (r.group ?? r.person) ?? "", scope: r.scope }));
+}
+export type Granted = Awaited<ReturnType<typeof grantedOn>>[number];
 
 /** The other door: who receives it without a grant. */
 async function delivery(type: CatalogType, id: string): Promise<Holder[]> {
