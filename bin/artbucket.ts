@@ -14,6 +14,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { hostname, homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { crc32, deflateRawSync } from "node:zlib";
 
 const HELP = `artbucket <command>
 
@@ -51,6 +52,9 @@ const HELP = `artbucket <command>
                           who reaches it, and the grant behind each role
   brands                  list brands; the default is starred
   sites                   list the project's sites: their kind, address and URL
+  site push [dir] --site <address> [--path /docs] [--kind docs]
+                          deploy a built site: dir (dist/ by default) zipped and
+                          sent, live at --path (/ by default) once checked
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
   rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
@@ -139,6 +143,9 @@ const { values: opt, positionals } = parseArgs({
     limit: { type: "string" },
     project: { type: "string" },
     to: { type: "string" },
+    site: { type: "string" },
+    path: { type: "string" },
+    kind: { type: "string" },
     direction: { type: "string" },
     depth: { type: "string" },
     width: { type: "string" },
@@ -209,6 +216,64 @@ async function savedKey(): Promise<string | undefined> {
 /** A token answer as it is saved: a key that lapses with what renews it, or a plain key. */
 const loginOf = (t: { access_token: string; refresh_token?: string; expires_in?: number }, client: string): string | Login =>
   t.refresh_token && t.expires_in ? { token: t.access_token, refresh: t.refresh_token, client, expires: Date.now() + t.expires_in * 1000 } : t.access_token;
+
+/**
+ * A folder as a zip, deflated, hidden files left out: what site push sends.
+ * Written here, as the CLI is one file with no dependencies.
+ */
+async function zipFolder(dir: string) {
+  const names: string[] = [];
+  const walk = async (d: string, rel: string) => {
+    for (const e of await readdir(d, { withFileTypes: true })) {
+      if (e.name.startsWith(".")) continue;
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) await walk(join(d, e.name), r);
+      else if (e.isFile()) names.push(r);
+    }
+  };
+  await walk(dir, "");
+  if (!names.length) throw new Error(`${dir} holds no files: build the site first`);
+  const parts: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+  for (const name of names) {
+    const data = await readFile(join(dir, name));
+    const packed = deflateRawSync(data);
+    const crc = crc32(data) >>> 0;
+    const n = Buffer.from(name);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(packed.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(n.length, 26);
+    parts.push(local, n, packed);
+    const head = Buffer.alloc(46);
+    head.writeUInt32LE(0x02014b50, 0);
+    head.writeUInt16LE(20, 4);
+    head.writeUInt16LE(20, 6);
+    head.writeUInt16LE(0x0800, 8);
+    head.writeUInt16LE(8, 10);
+    head.writeUInt32LE(crc, 16);
+    head.writeUInt32LE(packed.length, 20);
+    head.writeUInt32LE(data.length, 24);
+    head.writeUInt16LE(n.length, 28);
+    head.writeUInt32LE(offset, 42);
+    central.push(head, n);
+    offset += 30 + n.length + packed.length;
+  }
+  const dirBytes = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(names.length, 8);
+  end.writeUInt16LE(names.length, 10);
+  end.writeUInt32LE(dirBytes.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return { zip: Buffer.concat([...parts, dirBytes, end]), files: names.length };
+}
 
 async function api(method: string, path: string, body?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
@@ -690,6 +755,23 @@ async function main() {
         return out(r, () => r.holders.map((h: { who: string; role: string; via: string }) => `${h.role.padEnd(12)} ${h.who.padEnd(28)} ${h.via}`).join("\n"));
       }
       throw new Error("artbucket catalog search|show|lineage|access");
+    }
+    case "site": {
+      const [sub, dir = "dist"] = args;
+      if (sub !== "push") throw new Error("artbucket site push [dir] --site <address> [--path /docs] [--kind docs]");
+      if (!opt.site) throw new Error("--site: the site's address, as artbucket sites lists it");
+      const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
+      if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);
+      const { zip, files } = await zipFolder(resolve(dir));
+      const q = new URLSearchParams({ path: opt.path ?? "/", ...(opt.kind && { kind: opt.kind }) });
+      const res = await fetch(`${BASE}/api/v1/sites/${site.id}/deployments?${q}`, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
+        body: zip,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw failed(res, json, "site push");
+      return out(json, () => `Live: ${site.url}${json.data.path === "/" ? "" : json.data.path} (${files} files)`);
     }
     case "sites": {
       const r = await api("GET", "/api/v1/sites");
