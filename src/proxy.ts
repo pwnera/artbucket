@@ -231,9 +231,8 @@ export async function proxy(req: NextRequest) {
     NextResponse.next(init);
   // Next's own trailing-slash redirect is off (next.config.ts) so a build's folders keep theirs; everything else loses it here, as before.
   if (!builds.has(res) && pathname.length > 1 && pathname.endsWith("/")) {
-    const to = req.nextUrl.clone();
-    to.pathname = pathname.replace(/\/+$/, "") || "/";
-    return NextResponse.redirect(to, 308);
+    // Not nextUrl, which puts back the slash it was asked with.
+    return NextResponse.redirect(new URL(`${pathname.replace(/\/+$/, "") || "/"}${req.nextUrl.search}`, req.url), 308);
   }
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
   // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's. A build's
