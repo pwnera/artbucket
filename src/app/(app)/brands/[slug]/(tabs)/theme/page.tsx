@@ -31,7 +31,7 @@ async function Tab({ params }: Props) {
   if (!head || !view?.data) notFound();
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
-      <BrandThemeTab slug={head.brand.slug} theme={view.data.theme} />
+      <BrandThemeTab slug={head.brand.slug} theme={view.data.theme} behind={head.status?.publish === "behind"} released={!!head.release} />
     </div>
   );
 }
