@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { IconSparkles } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -16,7 +17,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
  * reach it), and the frame tells the app which conversation it shows
  * (postMessage { type: "artbucket:assistant", chat }), so reopening anywhere
  * carries on with it. With an asset open, the frame is told its id. The frame
- * asks the panel to close ({ close: true }) on Escape, which only it hears.
+ * asks the panel to close ({ close: true }) on Escape, which only it hears, and
+ * says when a change the person approved there was made ({ changed: true }), so
+ * the page beside it shows it.
  */
 
 type AssistantValue = {
@@ -80,13 +83,15 @@ export function AssistantPanel({ asset }: { asset?: string }) {
     setNested((n) => n + 1);
     return () => setNested((n) => n - 1);
   }, [setNested, asset]);
+  const router = useRouter();
   const onMessage = useEffectEvent((e: MessageEvent) => {
     if (!a || e.origin !== new URL(a.url, window.location.href).origin) return;
-    const data = e.data as { type?: string; chat?: unknown; close?: unknown } | null;
+    const data = e.data as { type?: string; chat?: unknown; close?: unknown; changed?: unknown } | null;
     if (data?.type !== "artbucket:assistant") return;
     if (typeof data.chat === "string" || data.chat === null) a.setChat(data.chat);
     // Escape pressed inside the frame, which the panel can't hear itself.
     if (data.close === true) a.setOpen(false);
+    if (data.changed === true) router.refresh();
   });
   useEffect(() => {
     const listen = (e: MessageEvent) => onMessage(e);
@@ -116,7 +121,7 @@ export function AssistantPanel({ asset }: { asset?: string }) {
           <SheetTitle className="flex items-center gap-1.5 text-sm">
             <IconSparkles className="text-primary-ink size-4" /> Ask
           </SheetTitle>
-          <SheetDescription className="sr-only">Questions about your library, answered from what you can see.</SheetDescription>
+          <SheetDescription className="sr-only">Questions about your library, answered from what you can see; changes wait for your approval.</SheetDescription>
         </SheetHeader>
         {src && <iframe key={src} src={src} title="Assistant" className="min-h-0 w-full flex-1 border-0" allow="clipboard-write" />}
       </SheetContent>
