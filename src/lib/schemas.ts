@@ -198,6 +198,12 @@ export const ProposeTags = z.strictObject({
   tags: z.array(z.string().min(1).max(MAX_TAG_LENGTH)).min(1).max(50),
 });
 
+/** PUT /api/v1/assets/{id}/working: an agent says it is at work on the asset. */
+export const SetWorking = z.strictObject({
+  label: z.string().trim().min(1).max(80).describe('What it is doing, as the app shows it after its name: "suggesting tags"'),
+  seconds: z.number().int().min(5).max(600).optional().describe("How long to show it at most; 120 by default. Proposals end it sooner"),
+});
+
 export const ProposeFields = z.strictObject({
   fields: z
     .record(z.string(), z.unknown())
@@ -534,6 +540,10 @@ export const Asset = z.object({
   reviewNote: z.string().nullable().describe("Why a person rejected it"),
   proposedTags: z.array(z.string()),
   proposedFields: fieldValues.describe("Custom field values an agent suggested, waiting for a person to accept or dismiss"),
+  working: z
+    .object({ label: z.string(), by: z.string().describe("The agent's name"), until: date })
+    .nullable()
+    .describe("An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"),
   rights: Rights,
   ...provenanceOut,
   supersededBy: uuid.nullable().describe("The asset that replaces this one"),
@@ -1233,6 +1243,7 @@ export const Me = z.object({
       .optional()
       .describe("The operator's terms and privacy policy (TERMS_URL, PRIVACY_URL), which making an account agrees to; null when neither is set"),
   }),
+  assistant: z.string().url().nullable().describe("Where the server's assistant answers questions about the library (ASSISTANT_URL), for a person; null without one"),
 });
 
 export const Grant = z.object({

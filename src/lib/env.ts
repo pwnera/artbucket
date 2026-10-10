@@ -62,6 +62,14 @@ const schema = z.object({
    */
   GIT_CONNECT_URL: z.string().url().optional(),
   /**
+   * An assistant this server offers beside the app: a page that answers
+   * questions about the library (through the API or MCP, as the person). The
+   * app opens it in a panel by an Ask button, at ?embed=1, with &asset={id}
+   * while an asset is open. It must allow being framed by the app's origin.
+   * Unset: no button.
+   */
+  ASSISTANT_URL: z.string().url().optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.

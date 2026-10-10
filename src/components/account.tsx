@@ -74,6 +74,8 @@ export type Me = {
   billing: string | null;
   /** Where a brand gets kept in a Git repository (GIT_CONNECT_URL, lib/git.ts): a project admin's, when the server has a Git integration. */
   git: string | null;
+  /** Where the server's assistant answers questions about the library (ASSISTANT_URL); null without one. */
+  assistant: string | null;
   /** This server runs BrandHub (HUB_URL). */
   hub: boolean;
   /** Where BrandHub shows the project's brands, private ones too (lib/hub.ts hubHome); null without HUB_URL. */

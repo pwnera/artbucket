@@ -126,6 +126,8 @@ export type Asset = {
   reviewNote: string | null;
   /** Tags an agent suggested, waiting to be accepted or dismissed. */
   proposedTags: string[];
+  /** An agent at work on it now, until its suggestions land or the time ends (PUT /api/v1/assets/{id}/working). */
+  working?: { label: string; by: string; until: string } | null;
   /** Custom field values an agent suggested, by key, waiting for a person. */
   proposedFields?: Record<string, unknown>;
   rights: Rights | null;

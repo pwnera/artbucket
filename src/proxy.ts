@@ -51,6 +51,8 @@ const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace(":
 
 /** Cloudflare Turnstile's script and frame, on sign-up (lib/auth.ts), when TURNSTILE_* is set. */
 const turnstile = process.env.TURNSTILE_SITE_KEY ? " https://challenges.cloudflare.com" : "";
+// The assistant's panel (ASSISTANT_URL, components/assistant.tsx) frames its page.
+const assistant = origin(process.env.ASSISTANT_URL);
 
 /**
  * Scripts: only those carrying this response's nonce, and what they load
@@ -75,7 +77,9 @@ const csp = (nonce: string, picking: boolean) => [
   `img-src 'self' data: blob: ${app}`.trim(),
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
-  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com" + turnstile,
+  "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com" +
+    turnstile +
+    (assistant ? ` ${assistant}` : ""),
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
