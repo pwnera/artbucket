@@ -39,6 +39,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1141.0",
     "@better-auth/sso": "1.7.6",
     "@lottiefiles/dotlottie-web": "^0.80.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@tabler/icons-react": "^3.48.0",
     "@tiptap/core": "3.31.3",
     "@tiptap/extension-bubble-menu": "3.31.3",
