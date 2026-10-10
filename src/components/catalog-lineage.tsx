@@ -13,6 +13,7 @@ import {
   ReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeProps,
   type ReactFlowInstance,
 } from "@xyflow/react";
@@ -252,6 +253,18 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
     [graph],
   );
 
+  // A card dragged stays where it is dropped: its place is the graph's, so a hop added later lays out around it.
+  const moved = useCallback((changes: NodeChange<Node<Data>>[]) => {
+    const drags = changes.flatMap((c) => (c.type === "position" && c.position ? [c] : []));
+    if (!drags.length) return;
+    setGraph((g) => {
+      if (!g) return g;
+      const at = new Map(g.at);
+      for (const c of drags) at.set(c.id, c.position!);
+      return { ...g, at };
+    });
+  }, []);
+
   const flow = useMemo(() => {
     if (!graph) return null;
     const edgeList = [...graph.edges.values()];
@@ -324,6 +337,7 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
           fitView
           fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
           nodesConnectable={false}
+          onNodesChange={moved}
           onNodeClick={(_, n) => setPicked((p) => (p === n.id ? null : n.id))}
           onNodeDoubleClick={(_, n) => n.id !== id && onOpen(n.id)}
           onPaneClick={() => setPicked(null)}
@@ -386,7 +400,7 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
           )}
         </ReactFlow>
       </div>
-      <p className="text-muted-foreground text-xs">Click a card for its details, double-click to walk the catalog to it. A + shows the next hop, a - hides it again.</p>
+      <p className="text-muted-foreground text-xs">Click a card for its details, double-click to walk the catalog to it, drag it to move it. A + shows the next hop, a - hides it again.</p>
     </div>
   );
 }
