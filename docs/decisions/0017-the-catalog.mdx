@@ -1,0 +1,46 @@
+---
+title: "0017: One catalog, with grants on every object"
+description: Accepted, v2.0. Sets 0010's freeze aside until the catalog ships.
+---
+
+## Context
+
+Each workspace was an island: nothing crossed from one to another but the
+stored bytes. A brand a campaign team needed was copied into its workspace,
+and the copies drifted. Grants stopped at collections and assets, so a
+sub-brand team couldn't edit one brand, and a draft brand couldn't be kept
+from the rest of the workspace. The links between things (a logo to the rules
+that name it, a collection to the portals that offer it) were all stored, and
+nothing read them together.
+
+## Decision
+
+- **One catalog per organization.** Every asset, collection, brand and portal,
+  and a brand's rules and pages, has one address
+  (`{org}/{project}/{type}/{slug}[@release]`), one status on one lifecycle and
+  one search, read from views over the tables as they are. Lineage is a view
+  over the links already stored.
+- **The workspace is the project.** The wall between teams and clients keeps
+  its place and takes the catalog's word, in the API and in the database.
+- **Roles alone decide.** Viewer, Contributor, Editor, Admin; nothing is
+  switched off per grant. A grant is held by a person, a group, or a project
+  (a share), and can be on a brand. A role is decided in four steps: the path
+  (organization, project, the object, an asset's collections), the grants on it
+  held by the caller, their groups and the projects they are a member of, a
+  private object turning away roles below admin from above, and the highest
+  role winning, an agent's key held to its person's.
+- **A share is a grant a project holds, always read.** The thing is kept and
+  edited once, in its own project.
+- **Reading a brand or a portal takes a role on its project or a grant on
+  it.** A share, or a grant on one collection, reaches nothing else.
+
+## Consequences
+
+- v1 changes in place while the catalog lands (`pnpm contract:freeze
+  --break`), which [0010](/decisions/0010-frozen-v1)'s test otherwise refuses.
+  Once it ships, v1 freezes again, and later changes are additions only.
+- Every role has a reason: the catalog's Access tab and
+  `GET /api/v1/catalog/{ref}/access` name the grant behind it.
+- A brand shared into a project is read where it is: its members see its
+  drafts in the app, and its releases on portals. Keeping drafts from them is
+  left to a later release view.

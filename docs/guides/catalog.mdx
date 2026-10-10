@@ -1,0 +1,84 @@
+---
+title: The catalog
+description: Every asset, collection, brand and portal of an organization in one place, with one search, its lineage and who can reach it.
+---
+
+The catalog is every object of an organization you can reach, project by
+project: brands (with their rules and guideline pages), collections, assets
+and portals. **Catalog** in the sidebar shows it as a tree; **Explore**
+searches all of it at once.
+
+## Addresses
+
+Every object has one address, accepted anywhere an id is:
+
+```text
+{org}/{project}/{type}/{slug}[@release]
+acme/corporate/asset/logo-primary@4
+acme/corporate/brand/acme/rule/logo.primary
+```
+
+A brand's slug is unique in its project; an asset's comes from its filename,
+and `@n` picks a version.
+
+## Search
+
+One query language, the same in Explore, the API, MCP and the CLI: free words,
+and filters inline.
+
+| Filter | Example | Meaning |
+| --- | --- | --- |
+| `type:` | `type:asset,rule` | Object types, a comma for or |
+| `project:` | `project:corporate` | A project, by slug |
+| `status:` | `status:current` | `draft`, `in_review`, `current`, `replaced`, `archived` |
+| `tag:` | `tag:campaign-q4` | Carrying a tag |
+| `uses:` | `uses:acme/corporate/brand/acme` | What is downstream of an address |
+| `usedby:` | `usedby:acme/corporate/portal/press` | What is upstream of it |
+| `admin:` | `admin:me` | What you hold Admin on directly |
+
+Replaced, archived and expired matches are left out unless `status:` asks for
+them, and the results say what was left out.
+
+## Lineage
+
+What an object comes from and what uses it, from links already stored: an
+asset to what replaced it and what was made from it, to the brands whose rules
+name it and the collections it is in; a collection or a brand to the portals
+that offer it; a brand to its forks. The **Lineage** tab draws one hop each
+way; a **+** on a card's outward side brings the next hop in. The impact line
+says what changing the object reaches, in how many projects. Only what you can
+reach is drawn: the rest is counted.
+
+## Who can reach it
+
+Roles are one ladder: Viewer, Contributor, Editor, Admin. A grant is on the
+organization, a project, a brand, a collection or an asset, and is held by a
+person, a group of the organization's people (Settings, Groups), or a
+project (a share). Grants add up and reach down; the highest role on the path
+wins; a private brand, collection or asset turns away roles from above, admins
+excepted; an agent's key is held to its person's role. Reading a brand or a
+portal takes a role on its project or a grant on it. The **Access** tab names
+the grant behind every role.
+
+### Sharing into another project
+
+A brand, a collection or an asset can be shared into another project of the
+organization: its members read it, as Viewers, where it is, kept and edited in
+its own project. Its admin shares it (**Share to project**, or
+`artbucket share <address> --to <project>`); an admin of either project takes
+it back.
+
+## API, MCP and CLI
+
+| | |
+| --- | --- |
+| `GET /api/v1/catalog?q=` | Search every type |
+| `GET /api/v1/catalog/tree` | Every project you reach and its objects |
+| `GET /api/v1/catalog/{ref}` | One object, by id or URL-encoded address |
+| `GET /api/v1/catalog/{ref}/lineage` | What it comes from and what uses it |
+| `GET /api/v1/catalog/{ref}/access` | Who reaches it, and why |
+| `POST /api/v1/grants` | A grant, for a `user`, a `group` or a `project` (a share) |
+| `/api/v1/groups` | The organization's groups and their members |
+
+MCP: `search_catalog`, `describe_object`, `lineage`, `who_can`,
+`share_object`. CLI: `artbucket catalog search|show|lineage|access`.
