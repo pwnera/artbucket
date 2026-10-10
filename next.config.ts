@@ -14,6 +14,8 @@ const config: NextConfig = {
   outputFileTracingIncludes: { "/api/**/*": ["./node_modules/playwright-core/**/*", "./node_modules/mupdf/**/*"] },
   // The dev badge sits bottom-left by default, on top of the sidebar's footer.
   devIndicators: { position: "bottom-right" },
+  // src/proxy.ts drops a trailing slash itself, but on a built site's own address, whose folders keep it (lib/core/sites.ts).
+  skipTrailingSlashRedirect: true,
   // OAuth discovery (lib/core/oauth.ts). The path after either one names the resource or issuer; there is one of each.
   async rewrites() {
     return [

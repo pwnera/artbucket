@@ -16,6 +16,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   try {
     const f = await siteFile(slug, passOf(req), rest);
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    // Relative to the address asked (this one is the proxy's rewrite): /guide to guide/.
+    if ("slash" in f) return new Response(null, { status: 308, headers: { Location: `${path.at(-1) ?? ""}/${new URL(req.url).search}` } });
     const { body, length } = await getStream(f.key);
     return new Response(body, {
       status: f.status,

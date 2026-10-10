@@ -167,10 +167,14 @@ export async function siteFile(slug: string, pass: Pass, rest: string) {
     .where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live")));
   const mount = live.sort((a, b) => b.path.length - a.path.length).find((m) => underMount(rest, m.path));
   if (!mount) return null;
-  const inner = mount.path === "/" ? rest : rest.slice(mount.path.length) || "/";
+  const inner = mount.path === "/" ? rest || "/" : rest.slice(mount.path.length);
+  // A folder asked without its slash gets one, as static hosts do: its page's relative links resolve under it.
+  if (!inner) return { slash: true as const };
   for (const name of candidates(inner)) {
     const key = mount.prefix + name;
-    if ((await sizeOf(key)) !== null) return { key, contentType: contentTypeOf(name), status: name === "404.html" && !inner.endsWith("404.html") ? 404 : 200, open: p.access === "public" };
+    if ((await sizeOf(key)) === null) continue;
+    if (name.endsWith("index.html") && !inner.endsWith("/")) return { slash: true as const };
+    return { key, contentType: contentTypeOf(name), status: name === "404.html" && !inner.endsWith("404.html") ? 404 : 200, open: p.access === "public" };
   }
   return null;
 }

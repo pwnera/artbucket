@@ -18,12 +18,19 @@ const pack = (files: Record<string, string>) => zip(Object.entries(files).map(([
 const docs = await createPortal(ada.caller, { name: "Docs", slug: `docs-${Date.now().toString(36)}`, kind: "docs" });
 
 test("a zip goes live at its mount, and a request finds its file, its .html, then the 404 page", async () => {
-  const d = (await deploy(ada.caller, docs.id, pack({ "dist/index.html": "home", "dist/guide.html": "guide", "dist/404.html": "lost", "dist/app.js": "1" })))!;
+  const d = (await deploy(ada.caller, docs.id, pack({ "dist/index.html": "home", "dist/guide.html": "guide", "dist/start/index.html": "start", "dist/404.html": "lost", "dist/app.js": "1" })))!;
   assert.equal(d.state, "live");
-  assert.equal(d.files, 4);
+  assert.equal(d.files, 5);
   assert.equal((await siteFile(docs.slug, {}, "/"))?.status, 200);
-  assert.match((await siteFile(docs.slug, {}, "/guide"))!.key, /guide\.html$/);
-  assert.equal((await siteFile(docs.slug, {}, "/app.js"))?.contentType, "text/javascript; charset=utf-8");
+  const file = async (rest: string) => {
+    const f = await siteFile(docs.slug, {}, rest);
+    return f && !("slash" in f) ? f : null;
+  };
+  assert.match((await file("/guide"))!.key, /guide\.html$/);
+  // A folder keeps its slash, so its page's relative links resolve under it.
+  assert.deepEqual(await siteFile(docs.slug, {}, "/start"), { slash: true });
+  assert.match((await file("/start/"))!.key, /start\/index\.html$/);
+  assert.equal((await file("/app.js"))?.contentType, "text/javascript; charset=utf-8");
   assert.equal((await siteFile(docs.slug, {}, "/nowhere"))?.status, 404);
 });
 
@@ -42,7 +49,8 @@ test("what can't serve is refused, and a brand portal's root stays Artbucket's",
   await assert.rejects(deploy(ada.caller, press.id, pack({ "index.html": "x" }), { kind: "docs" }), /root is drawn by Artbucket/);
   // Beside it, at a path, a build answers there and the portal keeps the rest.
   await deploy(ada.caller, press.id, pack({ "index.html": "docs" }), { path: "/docs", kind: "docs" });
-  assert.equal((await siteFile(press.slug, {}, "/docs"))?.status, 200);
+  assert.deepEqual(await siteFile(press.slug, {}, "/docs"), { slash: true });
+  assert.equal((await siteFile(press.slug, {}, "/docs/"))?.status, 200);
   assert.equal(await siteFile(press.slug, {}, "/"), null);
 });
 
