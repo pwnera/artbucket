@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gt, isNotNull, isNull, ne, or, sql } from "d
 import { db } from "@/lib/db";
 import { brandRules, brands, brandVersions, organizations, portalBrands, portals, workspaces, type Visibility } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
+import { can, type Who } from "@/lib/permissions";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { pullCounts } from "@/lib/core/events";
@@ -34,8 +35,8 @@ export async function resolveBrand(ws: string, slug?: string | null): Promise<Br
   return b;
 }
 
-/** Every brand, the default first, with how many rules each has. */
-export async function listBrands(ws: string) {
+/** Every brand, the default first, with how many rules each has; with `who`, only those they may read (a private one takes a grant on it). */
+export async function listBrands(ws: string, who?: Who) {
   const rows = await db
     .select({ brand: brands, rules: count(brandRules.id) })
     .from(brands)
@@ -43,13 +44,16 @@ export async function listBrands(ws: string) {
     .where(eq(brands.workspaceId, ws))
     .groupBy(brands.id)
     .orderBy(desc(brands.isDefault), asc(brands.name));
-  return rows.map(({ brand, rules }) => ({ ...present(brand), rules }));
+  return rows.filter(({ brand }) => !who || can(who, "brand.read", brand)).map(({ brand, rules }) => ({ ...present(brand), rules }));
 }
 
 export const present = (b: Brand) => ({
+  id: b.id,
   slug: b.slug,
   name: b.name,
   default: b.isDefault,
+  /** Only grants on it, and admins, reach it in the app. */
+  private: b.private,
   visibility: b.visibility,
   from: b.forkedFrom,
   domain: b.domain,
@@ -58,7 +62,7 @@ export const present = (b: Brand) => ({
   createdAt: b.createdAt,
 });
 
-export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true; domain?: string | null }) {
+export async function updateBrand(ws: string, slug: string, patch: { name?: string; slug?: string; default?: true; domain?: string | null; private?: boolean }) {
   const b = await resolveBrand(ws, slug);
   const domain = patch.domain ? brandDomain(patch.domain) : patch.domain;
   if (patch.domain && !domain) throw new AssetError("invalid", `domain: not a domain: "${patch.domain}". Say acme.com`);
@@ -84,6 +88,7 @@ export async function updateBrand(ws: string, slug: string, patch: { name?: stri
         ...(patch.slug !== undefined && { slug: patch.slug }),
         ...(patch.default && { isDefault: true }),
         ...(domain !== undefined && { domain }),
+        ...(patch.private !== undefined && { private: patch.private }),
       })
       .where(eq(brands.id, b.id))
       .returning();
@@ -213,4 +218,21 @@ export async function setHub(caller: Caller, slug: string, patch: { visibility?:
   if (!row) throw new AssetError("not_found", `No brand "${slug}"`);
   if (visibility !== b.visibility) await recordAudit(caller, visibility === "public" ? "brand.public" : "brand.private", b.name, { brand: b.slug });
   return (await hubOf(row))!;
+}
+
+/**
+ * The brand a request is about, for lib/api.ts to check its action on it:
+ * /api/v1/brands/{slug}/..., a rule by id (/api/v1/brand/rules/{id}), else
+ * `?brand=`, else the default. Null when there is none: core says not found.
+ */
+export async function brandTarget(ws: string, url: URL): Promise<{ id: string; private: boolean } | null> {
+  const bySlug = url.pathname.match(/^\/api\/v1\/brands\/([^/]+)/)?.[1];
+  const byRule = url.pathname.match(/^\/api\/v1\/brand\/rules\/([0-9a-f-]{36})/i)?.[1];
+  const where = byRule
+    ? eq(brands.id, db.select({ id: brandRules.brandId }).from(brandRules).where(eq(brandRules.id, byRule)))
+    : bySlug || url.searchParams.get("brand")
+      ? eq(brands.slug, decodeURIComponent(bySlug ?? url.searchParams.get("brand")!))
+      : eq(brands.isDefault, true);
+  const [b] = await db.select({ id: brands.id, private: brands.private }).from(brands).where(and(eq(brands.workspaceId, ws), where));
+  return b ?? null;
 }

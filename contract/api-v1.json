@@ -17764,6 +17764,11 @@
                     "items": {
                       "type": "object",
                       "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -17772,6 +17777,10 @@
                         },
                         "default": {
                           "type": "boolean"
+                        },
+                        "private": {
+                          "type": "boolean",
+                          "description": "Only grants on it, and admins, reach it in the app"
                         },
                         "visibility": {
                           "type": "string",
@@ -17814,9 +17823,11 @@
                         }
                       },
                       "required": [
+                        "id",
                         "slug",
                         "name",
                         "default",
+                        "private",
                         "visibility",
                         "rules",
                         "createdAt"
@@ -17985,6 +17996,11 @@
                   "data": {
                     "type": "object",
                     "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
                       "slug": {
                         "type": "string"
                       },
@@ -17993,6 +18009,10 @@
                       },
                       "default": {
                         "type": "boolean"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Only grants on it, and admins, reach it in the app"
                       },
                       "visibility": {
                         "type": "string",
@@ -18083,9 +18103,11 @@
                       }
                     },
                     "required": [
+                      "id",
                       "slug",
                       "name",
                       "default",
+                      "private",
                       "visibility",
                       "rules",
                       "createdAt"
@@ -18396,6 +18418,11 @@
                   "data": {
                     "type": "object",
                     "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
                       "slug": {
                         "type": "string"
                       },
@@ -18404,6 +18431,10 @@
                       },
                       "default": {
                         "type": "boolean"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Only grants on it, and admins, reach it in the app"
                       },
                       "visibility": {
                         "type": "string",
@@ -18446,9 +18477,11 @@
                       }
                     },
                     "required": [
+                      "id",
                       "slug",
                       "name",
                       "default",
+                      "private",
                       "visibility",
                       "rules",
                       "createdAt"
@@ -18536,6 +18569,10 @@
                       "type": "null"
                     }
                   ]
+                },
+                "private": {
+                  "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the workspace",
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
@@ -18554,6 +18591,11 @@
                   "data": {
                     "type": "object",
                     "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
                       "slug": {
                         "type": "string"
                       },
@@ -18562,6 +18604,10 @@
                       },
                       "default": {
                         "type": "boolean"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Only grants on it, and admins, reach it in the app"
                       },
                       "visibility": {
                         "type": "string",
@@ -18599,9 +18645,11 @@
                       }
                     },
                     "required": [
+                      "id",
                       "slug",
                       "name",
                       "default",
+                      "private",
                       "visibility",
                       "createdAt"
                     ],
@@ -36082,14 +36130,32 @@
                                 "admin"
                               ]
                             }
+                          },
+                          "brands": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "string",
+                              "enum": [
+                                "read",
+                                "propose",
+                                "write",
+                                "admin"
+                              ]
+                            }
                           }
                         },
                         "required": [
                           "collections",
-                          "assets"
+                          "assets",
+                          "brands"
                         ],
                         "additionalProperties": false,
-                        "description": "Grants on single collections and assets here, by id: what reaches past the workspace scope"
+                        "description": "Grants on single collections, assets and brands here, by id: what reaches past the workspace scope"
                       },
                       "hidden": {
                         "type": "array",
@@ -36098,7 +36164,7 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "description": "The workspace's private collections: only a grant on one, or admin, reaches it"
+                        "description": "The workspace's private collections and brands: only a grant on one, or admin, reaches it"
                       },
                       "workspaces": {
                         "type": "array",
@@ -38566,7 +38632,8 @@
                                   "organization",
                                   "workspace",
                                   "collection",
-                                  "asset"
+                                  "asset",
+                                  "brand"
                                 ]
                               },
                               "resourceId": {
@@ -38649,7 +38716,8 @@
                             "organization",
                             "workspace",
                             "collection",
-                            "asset"
+                            "asset",
+                            "brand"
                           ]
                         },
                         "resourceId": {
@@ -38785,7 +38853,8 @@
                         "organization",
                         "workspace",
                         "collection",
-                        "asset"
+                        "asset",
+                        "brand"
                       ],
                       "description": "What the grant is on; it reaches everything inside it"
                     },
@@ -38828,7 +38897,8 @@
                         "organization",
                         "workspace",
                         "collection",
-                        "asset"
+                        "asset",
+                        "brand"
                       ],
                       "description": "What the grant is on; it reaches everything inside it"
                     },
@@ -38883,7 +38953,8 @@
                           "organization",
                           "workspace",
                           "collection",
-                          "asset"
+                          "asset",
+                          "brand"
                         ]
                       },
                       "resourceId": {
@@ -39139,7 +39210,8 @@
                                   "organization",
                                   "workspace",
                                   "collection",
-                                  "asset"
+                                  "asset",
+                                  "brand"
                                 ]
                               },
                               "resourceId": {
@@ -39344,7 +39416,8 @@
                                 "organization",
                                 "workspace",
                                 "collection",
-                                "asset"
+                                "asset",
+                                "brand"
                               ]
                             },
                             "resourceId": {
@@ -39747,7 +39820,8 @@
                                 "organization",
                                 "workspace",
                                 "collection",
-                                "asset"
+                                "asset",
+                                "brand"
                               ]
                             },
                             "resourceId": {
@@ -39880,7 +39954,8 @@
                     "organization",
                     "workspace",
                     "collection",
-                    "asset"
+                    "asset",
+                    "brand"
                   ],
                   "description": "What the grant is on; it reaches everything inside it"
                 },
@@ -39936,7 +40011,8 @@
                           "organization",
                           "workspace",
                           "collection",
-                          "asset"
+                          "asset",
+                          "brand"
                         ]
                       },
                       "resourceId": {
@@ -40081,7 +40157,8 @@
                           "organization",
                           "workspace",
                           "collection",
-                          "asset"
+                          "asset",
+                          "brand"
                         ]
                       },
                       "resourceId": {
@@ -40307,7 +40384,8 @@
                           "organization",
                           "workspace",
                           "collection",
-                          "asset"
+                          "asset",
+                          "brand"
                         ]
                       },
                       "label": {
@@ -40431,7 +40509,8 @@
                           "organization",
                           "workspace",
                           "collection",
-                          "asset"
+                          "asset",
+                          "brand"
                         ]
                       },
                       "scope": {
@@ -55510,6 +55589,11 @@
                   "data": {
                     "type": "object",
                     "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
                       "slug": {
                         "type": "string"
                       },
@@ -55518,6 +55602,10 @@
                       },
                       "default": {
                         "type": "boolean"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Only grants on it, and admins, reach it in the app"
                       },
                       "visibility": {
                         "type": "string",
@@ -55685,9 +55773,11 @@
                       }
                     },
                     "required": [
+                      "id",
                       "slug",
                       "name",
                       "default",
+                      "private",
                       "visibility",
                       "rules",
                       "createdAt",

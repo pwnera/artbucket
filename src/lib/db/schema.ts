@@ -326,6 +326,8 @@ export const brands = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
+    /** Only grants on it, and admins, reach it in the app (lib/access.ts): a draft kept from the rest of the workspace. Delivery is apart. */
+    private: boolean("private").notNull().default(false),
     /** How its pages look (lib/brand-theme.ts ThemeSettings): only what was set, the rest read from the rules. */
     theme: jsonb("theme").$type<ThemeSettings>().notNull().default({}),
     /**
@@ -841,7 +843,7 @@ export const grants = pgTable(
     unique("grants_group_resource_unique").on(t.groupId, t.resource, t.resourceId),
     check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}) = 1`),
     index("grants_org_idx").on(t.organizationId),
-    check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset')`),
+    check("grants_resource_check", sql`${t.resource} in ('organization', 'workspace', 'collection', 'asset', 'brand')`),
     check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
     check("grants_workspace_check", sql`(${t.resource} = 'organization') = (${t.workspaceId} is null)`),
   ],
@@ -1507,7 +1509,7 @@ export const catalogObjects = pgView("catalog_objects", {
   release: integer("release"),
   /** The last day an asset may be used (lib/rights.ts). */
   expires: text("expires"),
-  /** Only grants on it reach it (lib/access.ts): an asset's own flag, or every collection it is in. */
+  /** Only grants on it reach it (lib/access.ts): an asset's own flag or every collection it is in; a part, its brand's. */
   private: boolean("private").notNull(),
   /** An asset's collections. */
   collections: uuid("collections").array().notNull(),
@@ -1535,7 +1537,7 @@ export const catalogObjects = pgView("catalog_objects", {
     from ${collections} c
     union all
     select b.id, 'brand', b.workspace_id, null, b.slug, b.name, null,
-      case when r.number is null then 'draft' else 'current' end, r.number, null, false, '{}'::uuid[], '[]'::jsonb,
+      case when r.number is null then 'draft' else 'current' end, r.number, null, b.private, '{}'::uuid[], '[]'::jsonb,
       b.created_at, coalesce(u.at, b.created_at), to_tsvector('simple', b.name || ' ' || b.slug || ' ' || coalesce(b.domain, ''))
     from ${brands} b
     left join lateral (select max(v.number) as number from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null) r on true
@@ -1546,11 +1548,11 @@ export const catalogObjects = pgView("catalog_objects", {
       p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))
     from ${portals} p
     union all
-    select r.id, 'rule', b.workspace_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, false, '{}'::uuid[], '[]'::jsonb,
+    select r.id, 'rule', b.workspace_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
       r.created_at, r.updated_at, to_tsvector('simple', regexp_replace(r.key, '[._-]+', ' ', 'g') || ' ' || coalesce(r.label, '') || ' ' || coalesce(r.usage, ''))
     from ${brandRules} r join ${brands} b on b.id = r.brand_id where r.context is null
     union all
-    select g.id, 'page', b.workspace_id, b.id, g.slug, g.title, g.lede, 'current', null, null, false, '{}'::uuid[], '[]'::jsonb,
+    select g.id, 'page', b.workspace_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
       g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))
     from ${brandPages} g join ${brands} b on b.id = g.brand_id`,
 );

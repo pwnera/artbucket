@@ -1023,6 +1023,10 @@
           }
         ]
       },
+      "private": {
+        "description": "Only grants on it, and admins, reach it in the app: a draft kept from the rest of the workspace",
+        "type": "boolean"
+      },
       "brand": {
         "type": "string",
         "minLength": 1,

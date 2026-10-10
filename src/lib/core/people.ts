@@ -310,7 +310,9 @@ async function target(caller: Caller, resource: Resource, resourceId: string): P
   const [row] =
     resource === "collection"
       ? await db.select({ label: collections.name }).from(collections).where(and(eq(collections.id, resourceId), eq(collections.workspaceId, ws)))
-      : await db
+      : resource === "brand"
+        ? await db.select({ label: brands.name }).from(brands).where(and(eq(brands.id, resourceId), eq(brands.workspaceId, ws)))
+        : await db
           .select({ label: sql<string>`coalesce(${assets.metadata} ->> 'title', ${assets.filename})` })
           .from(assets)
           .where(and(eq(assets.id, resourceId), eq(assets.workspaceId, ws)));
@@ -321,7 +323,7 @@ async function target(caller: Caller, resource: Resource, resourceId: string): P
 /** Names for grants and invitations, looked up in one query per kind. */
 export async function labels(rows: { resource: Resource; resourceId: string }[]) {
   const ids = (r: Resource) => [...new Set(rows.filter((x) => x.resource === r).map((x) => x.resourceId))];
-  const [o, w, c, a] = await Promise.all([
+  const [o, w, c, a, b] = await Promise.all([
     ids("organization").length ? db.select({ id: organizations.id, label: organizations.name }).from(organizations).where(inArray(organizations.id, ids("organization"))) : [],
     ids("workspace").length ? db.select({ id: workspaces.id, label: workspaces.name }).from(workspaces).where(inArray(workspaces.id, ids("workspace"))) : [],
     ids("collection").length ? db.select({ id: collections.id, label: collections.name }).from(collections).where(inArray(collections.id, ids("collection"))) : [],
@@ -331,8 +333,9 @@ export async function labels(rows: { resource: Resource; resourceId: string }[])
           .from(assets)
           .where(inArray(assets.id, ids("asset")))
       : [],
+    ids("brand").length ? db.select({ id: brands.id, label: brands.name }).from(brands).where(inArray(brands.id, ids("brand"))) : [],
   ]);
-  const map = new Map([...o, ...w, ...c, ...a].map((x) => [x.id, x.label]));
+  const map = new Map([...o, ...w, ...c, ...a, ...b].map((x) => [x.id, x.label]));
   return (id: string) => map.get(id) ?? null;
 }
 
@@ -513,7 +516,7 @@ export async function leaveGroupsIfGone(tx: Tx, userId: string, organizationId: 
  * it at their workspace scope. An admin
  * reaches it anyway; a key has nobody to give it to.
  */
-export async function keepReach(caller: Caller, resource: "collection" | "asset", id: string, tx: Tx | typeof db = db) {
+export async function keepReach(caller: Caller, resource: "collection" | "asset" | "brand", id: string, tx: Tx | typeof db = db) {
   if (!caller.user || !caller.scope || caller.scope === "admin") return;
   await tx
     .insert(grants)

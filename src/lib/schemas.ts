@@ -280,6 +280,7 @@ export const BrandPatch = z.strictObject({
   slug: brandSlug.optional(),
   default: z.literal(true).optional().describe("Make this the default brand"),
   domain: z.string().trim().max(253).nullable().optional().describe("Its own domain, e.g. acme.com (a URL is read as its host, without www); null clears it"),
+  private: z.boolean().optional().describe("Only grants on it, and admins, reach it in the app: a draft kept from the rest of the workspace"),
 });
 export const VersionPatch = z.strictObject({
   name: z.string().trim().min(1).max(120).nullable().describe("Keep this version as a named checkpoint; null clears it"),
@@ -606,9 +607,11 @@ export const BrandRules = z.object({
 });
 
 export const Brand = z.object({
+  id: uuid,
   slug: z.string(),
   name: z.string(),
   default: z.boolean(),
+  private: z.boolean().describe("Only grants on it, and admins, reach it in the app"),
   visibility: z.enum(["private", "public"]).describe("Who sees it on BrandHub"),
   from: z.string().nullable().optional().describe("The BrandHub brand it started from, as {org}/{brand}@{n}"),
   domain: z.string().nullable().optional().describe("Its own domain (acme.com): whoever proves it may claim its BrandHub listing"),
@@ -1166,9 +1169,9 @@ export const Me = z.object({
   narrowed: z.boolean().describe("No scope on the workspace, but grants on some collections or assets in it"),
   email: z.boolean().describe("The organization can send email now: invitations and links go out by mail"),
   narrow: z
-    .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)) })
-    .describe("Grants on single collections and assets here, by id: what reaches past the workspace scope"),
-  hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
+    .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)), brands: z.record(uuid, z.enum(SCOPES)) })
+    .describe("Grants on single collections, assets and brands here, by id: what reaches past the workspace scope"),
+  hidden: z.array(uuid).describe("The workspace's private collections and brands: only a grant on one, or admin, reaches it"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
   features: z
     .array(z.enum(FEATURES))

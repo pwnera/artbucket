@@ -12,6 +12,7 @@ import {
   IconLink,
   IconLock,
   IconMail,
+  IconPalette,
   IconPhoto,
   IconPlus,
   IconRefresh,
@@ -50,7 +51,7 @@ import { useFlashNew } from "@/lib/motion";
 import { SavedMark } from "@/components/settings/panels";
 import { useKept } from "@/lib/motion";
 
-type Resource = "organization" | "workspace" | "collection" | "asset";
+type Resource = "organization" | "workspace" | "collection" | "asset" | "brand";
 type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope };
 type Invitation = {
   id: string;
@@ -69,7 +70,7 @@ export type Members = { data: Member[]; invitations: Invitation[] };
 type AuditEntry = { id: string; at: string; actor: string; action: AuditAction; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
 export type AuditPage = { data: AuditEntry[]; next: string | null };
 
-const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto };
+const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto, brand: IconPalette };
 
 /** A role in a picker: its name, and what it may do under it, so the choice is made knowing. The trigger shows the name only. */
 function RoleOption({ label, hint }: { label: string; hint: string }) {
@@ -95,12 +96,15 @@ export function People({
   me,
   members,
   collections,
+  brands = [],
   view = "organization",
   inviting = false,
 }: {
   me: Me;
   members: Members;
   collections: SidebarData["collections"];
+  /** Brands a grant can be on, beside the workspace and its collections. */
+  brands?: { id: string; name: string; private?: boolean }[];
   view?: "organization" | "workspace";
   /** Open with the invite dialog up: ⌘K's "Invite people". */
   inviting?: boolean;
@@ -121,6 +125,7 @@ export function People({
     ...(view === "organization" && can(me, "organization.manage") ? [{ resource: "organization" as const, resourceId: me.workspace.organization.id, label: `${me.workspace.organization.name} (every workspace)` }] : []),
     { resource: "workspace", resourceId: me.workspace.id, label: `${me.workspace.name} (this workspace)` },
     ...collections.map((c) => ({ resource: "collection" as const, resourceId: c.id, label: `${c.name} (${c.private ? "private " : ""}collection)` })),
+    ...brands.map((b) => ({ resource: "brand" as const, resourceId: b.id, label: `${b.name} (${b.private ? "private " : ""}brand)` })),
   ];
   const refresh = () => router.refresh();
 

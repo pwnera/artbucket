@@ -54,8 +54,8 @@ test("private collections and assets are out of the workspace scope's reach", ()
 
 test("reach lists what a scope reaches", () => {
   const a = accessIn([g("collection", "c1", "read"), g("collection", "c2", "write"), g("asset", "x", "propose")], ws);
-  assert.deepEqual(reach(a, "read"), { collections: ["c1", "c2"], assets: ["x"] });
-  assert.deepEqual(reach(a, "write"), { collections: ["c2"], assets: [] });
+  assert.deepEqual(reach(a, "read"), { collections: ["c1", "c2"], assets: ["x"], brands: [] });
+  assert.deepEqual(reach(a, "write"), { collections: ["c2"], assets: [], brands: [] });
 });
 
 test("an agent's key is held to its grant and its person's access, whichever is lower", () => {

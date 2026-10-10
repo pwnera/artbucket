@@ -18,7 +18,7 @@ export type VersionRow = { number: number; publishedAt: string | null; note: str
 /** A release: a version readers got. */
 export type Release = { number: number; publishedAt: string; note: string | null; rules: number; pages: number | null };
 /** The brand as GET /api/v1/brands lists it: `from` is the BrandHub brand it started from, `domain` its own. */
-export type HeadBrand = BrandInfo & { from?: string | null; domain?: string | null };
+export type HeadBrand = BrandInfo & { from?: string | null; domain?: string | null; private?: boolean };
 
 export const brandHead = cache(async (slug: string) => {
   const brand = (await brands()).find((b) => b.slug === slug) as HeadBrand | undefined;

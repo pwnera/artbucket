@@ -18,18 +18,18 @@ import { allows, SCOPES, type Scope } from "./scopes.ts";
  * Relative imports: `pnpm test` runs this under plain Node.
  */
 
-export const RESOURCES = ["organization", "workspace", "collection", "asset"] as const;
+export const RESOURCES = ["organization", "workspace", "collection", "asset", "brand"] as const;
 export type Resource = (typeof RESOURCES)[number];
 
-export type Narrow = { collections: Record<string, Scope>; assets: Record<string, Scope> };
+export type Narrow = { collections: Record<string, Scope>; assets: Record<string, Scope>; brands: Record<string, Scope> };
 /**
- * `hidden`: the workspace's private collections. The workspace scope doesn't
- * reach into those, nor into private assets, unless it is admin: only a
- * grant on the thing (or a collection it is in) does.
+ * `hidden`: the workspace's private collections and brands. The workspace
+ * scope doesn't reach into those, nor into private assets, unless it is
+ * admin: only a grant on the thing (or a collection it is in) does.
  */
 export type Access = { scope: Scope | null; narrow: Narrow; hidden: string[] };
 
-export const NONE: Narrow = { collections: {}, assets: {} };
+export const NONE: Narrow = { collections: {}, assets: {}, brands: {} };
 
 export function highest(...scopes: (Scope | null | undefined)[]): Scope | null {
   let best = -1;
@@ -58,11 +58,20 @@ export const assetLevels = (a: Access, asset: { id: string; collections: string[
   ...asset.collections.map((c) => ({ scope: a.narrow.collections[c] ?? null })),
 ];
 
+/** A brand's levels: the workspace's (turned away when it is private, admins excepted) and grants on the brand itself. */
+export const brandLevels = (a: Access, brand: { id: string; private?: boolean }): Level[] => [
+  top(a, !!brand.private),
+  { scope: a.narrow.brands[brand.id] ?? null },
+];
+
+export const brandScope = (a: Access, brand: { id: string; private?: boolean }) => highest(...brandLevels(a, brand).map((l) => l.scope));
+
 /** Every level: somewhere in the workspace. */
 export const allLevels = (a: Access): Level[] => [
   { scope: a.scope },
   ...Object.values(a.narrow.collections).map((scope) => ({ scope })),
   ...Object.values(a.narrow.assets).map((scope) => ({ scope })),
+  ...Object.values(a.narrow.brands).map((scope) => ({ scope })),
 ];
 
 /** Whether some level allows `need`. */
@@ -84,7 +93,7 @@ export const isNarrowed = (a: Access) => a.scope === null && widest(a) !== null;
 export function reach(a: Access, need: Scope) {
   const at = SCOPES.indexOf(need);
   const pick = (m: Record<string, Scope>) => Object.keys(m).filter((k) => SCOPES.indexOf(m[k]) >= at);
-  return { collections: pick(a.narrow.collections), assets: pick(a.narrow.assets) };
+  return { collections: pick(a.narrow.collections), assets: pick(a.narrow.assets), brands: pick(a.narrow.brands) };
 }
 
 type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | null; scope: Scope };
@@ -95,7 +104,7 @@ type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | 
  * rest are narrow. `hidden`: the workspace's private collections.
  */
 export function accessIn(grants: GrantRow[], workspace: { id: string; organizationId: string }, hidden: string[] = []): Access {
-  const narrow: Narrow = { collections: {}, assets: {} };
+  const narrow: Narrow = { collections: {}, assets: {}, brands: {} };
   let scope: Scope | null = null;
   for (const g of grants) {
     if (g.resource === "organization") {
@@ -104,6 +113,7 @@ export function accessIn(grants: GrantRow[], workspace: { id: string; organizati
     else if (g.resource === "workspace") scope = highest(scope, g.scope);
     else if (g.resource === "collection") narrow.collections[g.resourceId] = highest(narrow.collections[g.resourceId], g.scope)!;
     else if (g.resource === "asset") narrow.assets[g.resourceId] = highest(narrow.assets[g.resourceId], g.scope)!;
+    else if (g.resource === "brand") narrow.brands[g.resourceId] = highest(narrow.brands[g.resourceId], g.scope)!;
   }
   return { scope, narrow, hidden };
 }
@@ -115,5 +125,5 @@ export const lowest = (a: Scope | null, b: Scope | null): Scope | null =>
 /** Access held to at most `max` everywhere: a person's, as their agent's key sees it. */
 export function capAt(a: Access, max: Scope): Access {
   const cap = (m: Record<string, Scope>) => Object.fromEntries(Object.entries(m).map(([id, s]) => [id, lowest(s, max)!]));
-  return { ...a, scope: lowest(a.scope, max), narrow: { collections: cap(a.narrow.collections), assets: cap(a.narrow.assets) } };
+  return { ...a, scope: lowest(a.scope, max), narrow: { collections: cap(a.narrow.collections), assets: cap(a.narrow.assets), brands: cap(a.narrow.brands) } };
 }

@@ -70,11 +70,13 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
   const forDomains = `${context}/${section}` === "organization/domains";
   const forSso = `${context}/${section}` === "organization/sso";
   const forGroups = `${context}/${section}` === "organization/groups";
-  const [me, loaded, collections, reports, domains, offers, spaces] = await Promise.all([
+  const [me, loaded, collections, brandList, reports, domains, offers, spaces] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
     // What a member's access can be scoped to.
     forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
+    // And its brands.
+    forMembers ? get("brands", (b: { data: { id: string; name: string; private?: boolean }[] }) => b.data, []) : [],
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
     // And its domains: a verified one proves its listings as a GitHub account does.
@@ -130,7 +132,7 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
             </Link>
             .
           </p>
-          <People me={me} members={loaded as Members} collections={collections} view="workspace" />
+          <People me={me} members={loaded as Members} collections={collections} brands={brandList} view="workspace" />
         </div>
       );
     case "organization/workspaces":

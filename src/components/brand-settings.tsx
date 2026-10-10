@@ -119,6 +119,27 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
         </form>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
           <p className="flex items-center gap-1.5 text-sm">
+            {brand.private ? "Private" : "Everyone in the workspace"}
+            <InfoTip>A private brand is reached only by people given access to it, and admins: a draft kept from the rest of the workspace. Portals and BrandHub are apart.</InfoTip>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            pending={busy === "private"}
+            onClick={async () => {
+              setBusy("private");
+              const done = await send("PATCH", `/api/v1/brands/${b}`, { private: !brand.private });
+              setBusy(null);
+              if (!done) return;
+              toast.success(brand.private ? `${brand.name} is the workspace's again` : `${brand.name} is private`);
+              router.refresh();
+            }}
+          >
+            {brand.private ? "Open to the workspace" : "Make private"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+          <p className="flex items-center gap-1.5 text-sm">
             {brand.default ? "Default brand" : "Not the default brand"}
             <InfoTip>Agents and the API read the default brand when no brand is named.</InfoTip>
           </p>

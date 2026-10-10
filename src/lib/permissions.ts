@@ -1,4 +1,4 @@
-import { allLevels, allowsOn, assetLevels, collectionLevels, type Access } from "./access.ts";
+import { allLevels, allowsOn, assetLevels, brandLevels, collectionLevels, type Access } from "./access.ts";
 import { allows, type Scope } from "./scopes.ts";
 
 /**
@@ -14,6 +14,7 @@ import { allows, type Scope } from "./scopes.ts";
  *   workspace     the whole workspace
  *   collection    one collection; its assets' actions reach it too
  *   asset         one asset, directly or through a collection it is in
+ *   brand         one brand: the workspace's role, or a grant on the brand
  *   anywhere      somewhere in the workspace: a grant on any part will do
  *
  * Asked without a target, a collection or asset action means "on some of
@@ -22,7 +23,7 @@ import { allows, type Scope } from "./scopes.ts";
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
 
-export type On = "organization" | "workspace" | "collection" | "asset" | "anywhere";
+export type On = "organization" | "workspace" | "collection" | "asset" | "brand" | "anywhere";
 
 export const ACTIONS = {
   // The library, to look at
@@ -57,18 +58,20 @@ export const ACTIONS = {
   "search.save": { scope: "write", on: "workspace" },
   "search.delete": { scope: "write", on: "workspace" },
   // The brand
-  "brand.read": { scope: "read", on: "anywhere" },
-  "brand.edit": { scope: "write", on: "workspace" },
-  /** With brand.edit: its rules, pages and history go, so deleting must be on too. */
-  "brand.delete": { scope: "write", on: "workspace" },
+  "brand.read": { scope: "read", on: "brand" },
+  /** Making a brand: the workspace's, not one brand's. */
+  "brand.create": { scope: "write", on: "workspace" },
+  "brand.edit": { scope: "write", on: "brand" },
+  /** With brand.edit: its rules, pages and history go. */
+  "brand.delete": { scope: "write", on: "brand" },
   /**
    * Comment on its pages, reply, resolve and reopen a thread, and edit or
    * delete one's own comment; deleting someone else's takes brand.edit.
    * Propose: saying something about the guidelines, not changing them.
    */
-  "brand.comment": { scope: "propose", on: "workspace" },
+  "brand.comment": { scope: "propose", on: "brand" },
   /** Put the brand's pages and rules, as they stand, in front of portal visitors. */
-  "brand.publish": { scope: "write", on: "workspace" },
+  "brand.publish": { scope: "write", on: "brand" },
   // Sharing, keys, people, settings
   "share.manage": { scope: "write", on: "anywhere" },
   "share.collect_workspace": { scope: "write", on: "workspace" },
@@ -104,6 +107,13 @@ export function can(who: Who, action: Action, target?: Target | null): boolean {
       return allowsOn(target ? collectionLevels(who, target.id) : allLevels(who), scope);
     case "asset":
       return allowsOn(target ? assetLevels(who, { ...target, collections: target.collections ?? [] }) : allLevels(who), scope);
+    case "brand":
+      // A brand that isn't private reads like the workspace's other things: any grant in it will do.
+      // Without one named, some brand: the workspace's role or a grant on a brand, never a collection's.
+      return (
+        allowsOn(target ? brandLevels(who, target) : [{ scope: who.scope }, ...Object.values(who.narrow.brands).map((s) => ({ scope: s }))], scope) ||
+        (scope === "read" && !target?.private && allowsOn(allLevels(who), scope))
+      );
   }
 }
 

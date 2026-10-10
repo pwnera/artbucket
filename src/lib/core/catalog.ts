@@ -81,7 +81,14 @@ function seenIn({ workspace, access }: Reach): SQL {
     r.collections.length ? sql`${o.collections} && ${uuids(r.collections)}` : undefined,
   )!;
   const collection = or(open, r.collections.length ? inArray(o.id, r.collections) : undefined)!;
-  return and(inW, sql`(case ${o.type} when 'asset' then ${asset} when 'collection' then ${collection} else true end)`)!;
+  // A brand and its parts: any grant here reads one that isn't private; a private one takes a grant on it.
+  const granted = (col: typeof o.id | typeof o.parentId) => (r.brands.length ? inArray(col, r.brands) : sql`false`);
+  const brand = or(sql`not ${o.private}`, granted(o.id))!;
+  const part = or(sql`not ${o.private}`, granted(o.parentId))!;
+  return and(
+    inW,
+    sql`(case ${o.type} when 'asset' then ${asset} when 'collection' then ${collection} when 'brand' then ${brand} when 'rule' then ${part} when 'page' then ${part} else true end)`,
+  )!;
 }
 
 const seen = (reaches: Reach[]) => (reaches.length ? or(...reaches.map(seenIn))! : sql`false`);
@@ -452,6 +459,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     and(eq(grants.resource, "organization"), eq(grants.resourceId, ws.organizationId)),
     and(eq(grants.resource, "workspace"), eq(grants.resourceId, item.project.id)),
     objectType === "asset" ? and(eq(grants.resource, "asset"), eq(grants.resourceId, objectId)) : undefined,
+    objectType === "brand" ? and(eq(grants.resource, "brand"), eq(grants.resourceId, objectId)) : undefined,
     cols.length ? and(eq(grants.resource, "collection"), inArray(grants.resourceId, cols)) : undefined,
   );
   // A person's own grants, and their groups': a group's grant is each member's, said as coming through it.
@@ -474,8 +482,8 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
         ? `Organization ${caller.workspace.organization.name}`
         : g.resource === "workspace"
           ? `Project ${item.project.name}`
-          : g.resource === "asset"
-            ? "Directly on this asset"
+          : g.resource === "asset" || g.resource === "brand"
+            ? `Directly on this ${g.resource}`
             : g.resourceId === objectId
               ? "Directly on this collection"
               : `Collection ${names.find((n) => n.id === g.resourceId)?.name ?? ""}`;

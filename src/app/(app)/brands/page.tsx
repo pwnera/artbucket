@@ -31,5 +31,5 @@ export default async function Brands({ searchParams }: { searchParams: Promise<{
     };
     return { ...b, hub: hubs[i], look };
   }) as BrandRow[];
-  return <BrandsPage brands={rows} canShare={can(me, "brand.publish")} canEdit={can(me, "brand.edit")} q={q} offers={offers} />;
+  return <BrandsPage brands={rows} canShare={can(me, "brand.publish")} canEdit={can(me, "brand.create")} q={q} offers={offers} />;
 }

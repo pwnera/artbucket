@@ -63,7 +63,7 @@ export type Me = {
   narrowed: boolean;
   /** The organization can send email now. */
   email: boolean;
-  narrow: { collections: Record<string, Scope>; assets: Record<string, Scope> };
+  narrow: { collections: Record<string, Scope>; assets: Record<string, Scope>; brands: Record<string, Scope> };
   hidden: string[];
   workspaces: WorkspaceRef[];
   /** What the organization may use, of what its limits can switch off; null is everything. */

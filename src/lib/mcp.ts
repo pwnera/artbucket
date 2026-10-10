@@ -33,7 +33,7 @@ import { checkUse } from "@/lib/core/check";
 import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
 import { parseQuery } from "@/lib/catalog";
 import { record, who } from "@/lib/core/events";
-import { deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
+import { brandTarget, deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
 import { createCollection, deleteCollection, getCollection, listCollections, setMembers, updateCollection } from "@/lib/core/collections";
 import { createField, deleteField, listFields, updateField } from "@/lib/core/fields";
@@ -46,7 +46,7 @@ import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { fetchUrl, outsideReach, outsideUrl } from "@/lib/core/outside";
-import { can, needs, type Action } from "@/lib/permissions";
+import { ACTIONS, can, needs, type Action } from "@/lib/permissions";
 import { allows } from "@/lib/scopes";
 import { refusedValue } from "@/lib/refused";
 import { normalizeTags } from "@/lib/search";
@@ -454,7 +454,7 @@ const TOOLS: Record<ToolName, Tool> = {
   brand_rules: tool({
     // Built per call: the brands and their contexts are the library's own.
     description: async (caller) => {
-      const brands = await listBrands(caller.workspace.id);
+      const brands = await listBrands(caller.workspace.id, caller);
       const contexts = await Promise.all(brands.map(async (b) => [b, await listContexts(caller.workspace.id, b.slug)] as const));
       return [
         "A brand's rules as data: colors (hex), logo use, type, tone, each with a sentence on how to use it",
@@ -500,7 +500,7 @@ const TOOLS: Record<ToolName, Tool> = {
       "AdCP brand.json (read at https://{domain}/.well-known/brand.json, its logos ingested; `brandJson` passes the document itself, `brand` picks one of a " +
       "house's brands), which says what it left out in `skipped` and `dropped`. `slug` is made from the name when left out. `publish` releases it once made, " +
       "`visibility: public` lists it on BrandHub: only when the person asks. Returns the brand and its url. Next: brand_status with its slug, which says what it lacks.",
-    action: "brand.edit",
+    action: "brand.create",
     readOnly: false,
     input: TOOL_INPUTS.create_brand,
     run: async (input, caller) => {
@@ -1282,7 +1282,7 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
       const resources: Record<string, string>[] = [
         { uri: PLAYBOOK_URI, name: "brand-playbook", title: "Building a brand site: the playbook", description: "What a good brand site is, and a worked example in calls", mimeType: "text/markdown" },
       ];
-      for (const b of await listBrands(caller.workspace.id)) {
+      for (const b of await listBrands(caller.workspace.id, caller)) {
         const uri = rulesUri(b);
         const all = { uri, name: `brand-rules-${b.slug}`, title: `${b.name}: brand rules`, mimeType: "application/json" };
         resources.push({ ...all, description: `Every rule of ${b.name}${b.default ? ", the default brand" : ""}` });
@@ -1359,9 +1359,15 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
       // For Connections (lib/core/insights.ts): the tool's name and how it came out, never its arguments.
       const called = (verdict: "ok" | "refused" | "error") =>
         record({ workspaceId: caller.workspace.id, kind: "tool", surface: "mcp", ...who(caller), subject: name, verdict });
-      if (!can(caller, t.action)) {
+      // About one brand (its `brand` or `which`, else the default): the action on that brand, as REST checks it.
+      const named = (rest as { brand?: unknown; which?: unknown }).brand ?? (rest as { which?: unknown }).which;
+      const brand =
+        ACTIONS[t.action].on === "brand"
+          ? await brandTarget(caller.workspace.id, new URL(`${env.APP_URL}/?${typeof named === "string" ? new URLSearchParams({ brand: named }) : ""}`))
+          : null;
+      if (!can(caller, t.action, brand)) {
         called("refused");
-        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}` }, true));
+        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}${brand ? " on this brand" : ""}` }, true));
       }
       const args = t.input.safeParse(rest);
       // An argument the tool doesn't take is a mistake, not a no-op: set_rules({ rules: [...] }) would answer

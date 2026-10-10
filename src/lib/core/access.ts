@@ -2,7 +2,8 @@ import { and, asc, eq, gt, inArray, isNull, or, sql, type SQL } from "drizzle-or
 import { z } from "zod";
 import pkg from "../../../package.json" with { type: "json" };
 import { db } from "@/lib/db";
-import { apiKeys, collections, grants, groupMembers, organizations, workspaces } from "@/lib/db/schema";
+import { apiKeys, brands, collections, grants, groupMembers, organizations, workspaces } from "@/lib/db/schema";
+import { unionAll } from "drizzle-orm/pg-core";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
 import { hashKey } from "@/lib/core/keys";
@@ -107,17 +108,24 @@ const NOWHERE: Workspace = { id: NIL, slug: "", name: "", organizationId: NIL, o
 /** The caller can open their workspace: a key, a scope there or on its organization, or grants inside it. */
 export const placed = (c: Caller) => !!c.key || !!c.scope || !!c.orgScope || isNarrowed(c);
 
-/** Private collections where `where` says: what a workspace's scope doesn't reach (lib/access.ts). */
+/** Private collections and brands where `where` says: what a workspace's scope doesn't reach (lib/access.ts). */
 const privateCollections = (where: SQL) =>
-  db
-    .select({ id: collections.id, workspaceId: collections.workspaceId })
-    .from(collections)
-    .innerJoin(workspaces, eq(workspaces.id, collections.workspaceId))
-    .where(and(eq(collections.private, true), where));
+  unionAll(
+    db
+      .select({ id: collections.id, workspaceId: collections.workspaceId })
+      .from(collections)
+      .innerJoin(workspaces, eq(workspaces.id, collections.workspaceId))
+      .where(and(eq(collections.private, true), where)),
+    db
+      .select({ id: brands.id, workspaceId: brands.workspaceId })
+      .from(brands)
+      .innerJoin(workspaces, eq(workspaces.id, brands.workspaceId))
+      .where(and(eq(brands.private, true), where)),
+  );
 
-/** The workspace's private collections. */
+/** The workspace's private collections and brands. */
 export async function hiddenIn(workspaceId: string): Promise<string[]> {
-  return (await privateCollections(eq(collections.workspaceId, workspaceId))).map((r) => r.id);
+  return (await privateCollections(eq(workspaces.id, workspaceId))).map((r) => r.id);
 }
 
 /** The grants a person holds: their own, and their groups' (lib/core/groups.ts). */

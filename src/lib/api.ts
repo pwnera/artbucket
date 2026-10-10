@@ -7,7 +7,8 @@ import { OAuthError } from "@/lib/core/oauth";
 import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
 import { formFields } from "@/lib/oauth";
-import { can, needs, type Action } from "@/lib/permissions";
+import { ACTIONS, can, needs, type Action } from "@/lib/permissions";
+import { brandTarget } from "@/lib/core/brands";
 import { refusedValue } from "@/lib/refused";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
@@ -87,7 +88,15 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
   if (!(await hasUsers())) {
     return fail(403, "setup_required", `Nobody has an account yet. Make the first one at ${env.APP_URL}/login`);
   }
-  if (can(caller, need)) return caller;
+  if (can(caller, need)) {
+    // About one brand: the action on that brand, which a grant on it or its being private changes (lib/access.ts).
+    if (ACTIONS[need].on !== "brand") return caller;
+    const brand = await brandTarget(caller.workspace.id, new URL(req.url));
+    if (!brand || can(caller, need, brand)) return caller;
+    // A private brand they can't read isn't there, for them.
+    if (!can(caller, "brand.read", brand)) return fail(404, "not_found", "Not found");
+    return fail(403, "forbidden", `You need ${needs(need)} on this brand`);
+  }
   if (caller.readOnly) return fail(403, "read_only", "This organization is read-only");
   if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
   if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.workspace.name}`);
