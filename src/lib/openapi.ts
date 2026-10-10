@@ -115,6 +115,22 @@ const stale = {
 /** The server docs/openapi.json names: a self-hosted install, where the docs' playground can reach one. */
 export const DOCS_SERVER = "http://localhost:3000";
 
+/** A site's deployment (lib/core/sites.ts), as the deployments endpoints give it. */
+const Deployment = z.object({
+  id: z.uuid(),
+  path: z.string().describe("Where it is mounted"),
+  kind: z.enum(["guidelines", "landing", "docs", "storybook"]),
+  state: z.enum(["checking", "live", "failed", "replaced"]),
+  files: z.number().int(),
+  bytes: z.number().int(),
+  commit: z.string().nullable(),
+  ref: z.string().nullable(),
+  error: z.string().nullable().describe("Why it failed"),
+  manifest: z.record(z.string(), z.unknown()).nullable().describe("artbucket.site.json, when the zip held one"),
+  createdBy: z.string(),
+  createdAt: z.string(),
+});
+
 export function openapi(serverUrl: string) {
   return {
     openapi: "3.1.0",
@@ -1474,6 +1490,35 @@ export function openapi(serverUrl: string) {
       "/api/v1/sites/{id}/requests": {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),
+      },
+      "/api/v1/sites/{id}/deployments": {
+        parameters: [path("id", "Site id")],
+        get: op({
+          summary: "A site's deployments",
+          scope: "write",
+          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.",
+          ok: [200, "Deployments", data(z.array(Deployment))],
+        }),
+        post: {
+          ...op({
+            summary: "Deploy to a site",
+            scope: "write",
+            description:
+              "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in " +
+              "the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as " +
+              "replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip " +
+              "holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails " +
+              "with the reasons. Served on the site's own address only.",
+            query: {
+              path: { schema: str, description: "Where it is mounted: / (the default) or a path such as /docs" },
+              kind: { schema: { type: "string", enum: ["guidelines", "landing", "docs", "storybook"] }, description: "What it is; the site's own kind when left out" },
+              commit: { schema: str, description: "The commit it was built from, when a build says" },
+              ref: { schema: str, description: "The branch or tag of that commit" },
+            },
+            ok: [201, "The deployment", data(Deployment)],
+          }),
+          requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
+        },
       },
       "/api/v1/sites/{id}/views": {
         parameters: [path("id", "Portal id")],

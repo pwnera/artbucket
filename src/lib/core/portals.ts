@@ -1230,3 +1230,4 @@ export async function deleteRequest(caller: Caller, portalId: string, requestId:
   if (gone.length) await recordAudit(caller, "portal.request_removed", gone[0].email, { portal: p.name });
   return gone.length > 0;
 }
+export { open as enterPortal };

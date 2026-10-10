@@ -46844,6 +46844,379 @@
       }
     }
   },
+  "/api/v1/sites/{id}/deployments": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Site id",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A site's deployments",
+      "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "200": {
+          "description": "Deployments",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "Where it is mounted"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "checking",
+                            "live",
+                            "failed",
+                            "replaced"
+                          ]
+                        },
+                        "files": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "commit": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ref": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "error": {
+                          "description": "Why it failed",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "manifest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "artbucket.site.json, when the zip held one"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "path",
+                        "kind",
+                        "state",
+                        "files",
+                        "bytes",
+                        "commit",
+                        "ref",
+                        "error",
+                        "manifest",
+                        "createdBy",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "post": {
+      "summary": "Deploy to a site",
+      "description": "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails with the reasons. Served on the site's own address only.\n\nScope: `write`.",
+      "x-scope": "write",
+      "parameters": [
+        {
+          "name": "path",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Where it is mounted: / (the default) or a path such as /docs"
+        },
+        {
+          "name": "kind",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "guidelines",
+              "landing",
+              "docs",
+              "storybook"
+            ]
+          },
+          "description": "What it is; the site's own kind when left out"
+        },
+        {
+          "name": "commit",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The commit it was built from, when a build says"
+        },
+        {
+          "name": "ref",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The branch or tag of that commit"
+        }
+      ],
+      "responses": {
+        "201": {
+          "description": "The deployment",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "Where it is mounted"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "guidelines",
+                          "landing",
+                          "docs",
+                          "storybook"
+                        ]
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "checking",
+                          "live",
+                          "failed",
+                          "replaced"
+                        ]
+                      },
+                      "files": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "commit": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ref": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "error": {
+                        "description": "Why it failed",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "manifest": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "artbucket.site.json, when the zip held one"
+                      },
+                      "createdBy": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "path",
+                      "kind",
+                      "state",
+                      "files",
+                      "bytes",
+                      "commit",
+                      "ref",
+                      "error",
+                      "manifest",
+                      "createdBy",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/zip": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/sites/{id}/views": {
     "parameters": [
       {

@@ -44,6 +44,7 @@ export type AuditAction =
   | "portal.request_approved"
   | "portal.request_denied"
   | "portal.request_removed"
+  | "site.deployed"
   | "brand.published"
   | "brand.public"
   | "brand.private"

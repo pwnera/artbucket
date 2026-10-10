@@ -122,7 +122,9 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   if (where) return new NextResponse(null, { status: 308, headers: { Location: `${where}${rest}${search}` } });
   if (!asked) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/p/${asked}${rest}`;
+  // A path a live build holds is its files (lib/core/sites.ts); a site that is all build, every path. Only here, on the site's own host.
+  const built = home && (home.kind !== "portal" || home.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`))));
+  url.pathname = built ? `/sitefiles/${asked}${rest || "/"}` : `/p/${asked}${rest}`;
   return NextResponse.rewrite(url, init);
 }
 
@@ -187,6 +189,8 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // A NUL names nothing here, and Postgres refuses it in text: every route, page and query alike, before any asks.
   if (/%00/.test(pathname + req.nextUrl.search)) return NextResponse.json({ error: { code: "not_found", message: "Not found" } }, { status: 404 });
+  // A build's files are reached only by the rewrite on its site's own host (portalRoute), never asked for by path: customer JavaScript never runs on the app's host.
+  if (pathname.startsWith("/sitefiles/") || pathname === "/sitefiles") return new NextResponse("Not found", { status: 404 });
   const onHub = !!hubHost && req.headers.get("host") === hubHost;
   // The hub's pages are its API too (brand.json, tokens, llms.txt), so they count as /api does.
   if (RATE > 0 && (pathname.startsWith("/api/") || onHub)) {
