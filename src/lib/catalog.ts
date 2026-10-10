@@ -41,10 +41,10 @@ export const STATUS_LABEL: Record<CatalogStatus, string> = {
 export const EDGE_LABEL = {
   replaced_by: "replaced by",
   derived: "made into",
-  rule: "named by a rule of",
+  rule: "a rule",
   member: "in",
-  offered: "offered by",
-  fork: "forked into",
+  offered: "offered",
+  fork: "forked",
 } as const;
 export type EdgeKind = keyof typeof EDGE_LABEL;
 

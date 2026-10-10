@@ -23,6 +23,7 @@ import {
   IconLock,
   IconPencil,
   IconPhoto,
+  IconSitemap,
   IconPlus,
   IconRobot,
   IconSearch,
@@ -134,6 +135,7 @@ export function AppSidebar({
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
   const at = {
+    catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
     portals: pathname === "/portals",
     insights: pathname.startsWith("/insights"),
@@ -205,6 +207,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {/* The places, in the prototype's order. Team lives in Settings; each brand opens on its tabs from Brands. */}
+              <Place href="/catalog" label="Catalog" icon={<IconSitemap />} active={at.catalog} />
               <Place href="/" label="Explore" icon={<IconPhoto />} active={at.library} />
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
