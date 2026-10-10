@@ -190,7 +190,7 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
                   onClick={() => save(st.patch)}
                   className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 grid min-w-0 content-start gap-2 rounded-lg border p-2 text-start outline-none transition-colors focus-visible:ring-3"
                 >
-                  <LookSketch look={st.patch} theme={theme} />
+                  <LookSketch look={st.patch} />
                   <span className="grid gap-0.5 px-0.5">
                     <span className="text-sm font-medium">{st.name}</span>
                     <span className="text-muted-foreground line-clamp-2 text-xs">{st.about}</span>
@@ -574,16 +574,17 @@ function LinksEditor({ links, onSave }: { links: Link[]; onSave: (links: Link[])
 }
 
 /**
- * A look drawn as a small page in the brand's own colors: where its
+ * A look drawn as a small page, gray like a loading skeleton: where its
  * navigation sits, how its header opens, how big its titles are, how dense
  * its text, its corners, grounds and contents. What picking it gives.
  */
-function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; theme: Theme }) {
-  const accent = theme.accent ?? "#6366f1";
-  const page = theme.surface ?? "#ffffff";
-  const panel = theme.panel ?? "#f4f4f5";
-  const ink = theme.ink ?? "#18181b";
-  const muted = theme.muted ?? "#a1a1aa";
+function LookSketch({ look }: { look: (typeof LOOKS)[string]["patch"] }) {
+  const gray = (n: number) => `color-mix(in oklab, var(--foreground) ${n}%, transparent)`;
+  const page = "var(--background)";
+  const panel = gray(5);
+  const accent = gray(22);
+  const ink = gray(28);
+  const muted = gray(12);
   const r = Math.min((look.radius ?? 8) / 3, 6);
   const gap = { compact: 2, normal: 3, airy: 5 }[look.density ?? "normal"];
   const title = { medium: 4, large: 6, huge: 9 }[look.titles ?? "large"];
@@ -596,7 +597,7 @@ function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; th
   );
   const heading = (light = false) => (
     <span className="flex items-center gap-1">
-      {look.numbering && <span className="text-[6px] leading-none font-semibold" style={{ color: light ? page : accent }}>01</span>}
+      {look.numbering && <span className="block size-1.5 shrink-0 rounded-[1px]" style={{ backgroundColor: light ? page : accent }} />}
       {line("55%", light ? page : ink, title)}
     </span>
   );
@@ -607,16 +608,16 @@ function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; th
         gap,
         padding: `${gap * 2}px ${inset}px`,
         backgroundColor: alt && look.grounds === "alternate" ? panel : "transparent",
-        borderTop: look.separation === "hairline" ? `1px solid ${muted}55` : undefined,
+        borderTop: look.separation === "hairline" ? `1px solid ${muted}` : undefined,
       }}
     >
       {heading()}
       {text(look.density === "airy" ? 2 : 3)}
-      {alt && <span className="block h-4" style={{ borderRadius: r, backgroundColor: `${accent}33` }} />}
+      {alt && <span className="block h-4" style={{ borderRadius: r, backgroundColor: muted }} />}
     </span>
   );
   return (
-    <span aria-hidden className="flex aspect-[4/3] w-full overflow-hidden rounded-md ring-1 ring-black/10 dark:ring-white/10" style={{ backgroundColor: page }}>
+    <span aria-hidden className="flex aspect-[4/3] w-full overflow-hidden rounded-md border" style={{ backgroundColor: page }}>
       {look.nav === "sidebar" && (
         <span className="grid w-1/5 shrink-0 content-start gap-1.5 p-1.5" style={{ backgroundColor: panel }}>
           {line("70%", accent, 3)}
@@ -625,7 +626,7 @@ function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; th
       )}
       <span className="flex min-w-0 flex-1 flex-col">
         {look.nav !== "sidebar" && (
-          <span className="flex items-center justify-between px-1.5 py-1" style={{ borderBottom: look.nav === "top" ? `1px solid ${muted}55` : undefined }}>
+          <span className="flex items-center justify-between px-1.5 py-1" style={{ borderBottom: look.nav === "top" ? `1px solid ${muted}` : undefined }}>
             {line("18%", accent, 3)}
             {look.nav === "top" ? <span className="flex w-2/5 gap-1">{[0, 1, 2].map((i) => line("100%", muted, 2, i))}</span> : <span className="grid gap-0.5">{[0, 1, 2].map((i) => line("6px", ink, 1, i))}</span>}
           </span>
@@ -633,7 +634,7 @@ function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; th
         {look.header === "band" ? (
           <span className="grid gap-1" style={{ backgroundColor: accent, padding: `${gap * 3}px ${inset}px` }}>
             {heading(true)}
-            {line("40%", `${page}aa`)}
+            {line("40%", page)}
           </span>
         ) : look.header === "split" ? (
           <span className="flex items-center gap-2" style={{ padding: `${gap * 3}px ${inset}px` }}>
