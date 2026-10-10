@@ -400,6 +400,13 @@
       "when": 1791311417542,
       "tag": "0056_oauth_token_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791643362997,
+      "tag": "0057_catalog",
+      "breakpoints": true
     }
   ]
 }
