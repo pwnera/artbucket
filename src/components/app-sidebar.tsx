@@ -7,6 +7,7 @@ import {
   IconBook,
   IconBookmark,
   IconChartBar,
+  IconCirclePlus,
   IconCompass,
   IconFileText,
   IconFolder,
@@ -115,11 +116,8 @@ export function AppSidebar({
           <SidebarMenuItem>
             <ProjectSwitcher me={me} />
           </SidebarMenuItem>
-          <SidebarMenuItem className="my-2 group-data-[collapsible=icon]:my-0">
-            <NewMenu me={me} />
-          </SidebarMenuItem>
           <SidebarMenuItem>
-            {/* Jump, Notion style: a quiet row under New, and ⌘K opens it from anywhere. The page's own field filters it. */}
+            {/* Jump, Notion style: a quiet row, and ⌘K opens it from anywhere. The page's own field filters it. */}
             <SidebarMenuButton
               onClick={openSearch}
               aria-keyshortcuts="Meta+K Control+K"
@@ -136,6 +134,9 @@ export function AppSidebar({
               <IconSearch /> <span>Jump to…</span>
               <Kbd keys={["mod", "K"]} className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <NewMenu me={me} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -328,21 +329,15 @@ export function NewMenuContent({ side, align = "start" }: { side?: "right" | "bo
   );
 }
 
-/** The sidebar's New: the one call to action at its top, as Drive's is. */
+/** The sidebar's New, under Jump to. */
 function NewMenu({ me }: { me: Me }) {
   if (!me.user) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* Databricks' New: a raised white button, its plus in a disc of the brand color; folded to the rail, the disc alone. */}
-        <SidebarMenuButton
-          tooltip="New"
-          className="bg-background hover:bg-background data-[state=open]:bg-background h-10 gap-2.5 rounded-lg border px-2 font-medium shadow-xs transition-shadow hover:shadow-sm data-[state=open]:shadow-sm group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:shadow-none"
-        >
-          <span className="bg-primary text-primary-foreground flex size-6 shrink-0 items-center justify-center rounded-full [&>svg]:size-4">
-            <IconPlus stroke={2.5} />
-          </span>
-          <span>New</span>
+        {/* A row like the places under it, after Jump to. */}
+        <SidebarMenuButton tooltip="New">
+          <IconCirclePlus /> <span>New</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <NewMenuContent side="right" />
