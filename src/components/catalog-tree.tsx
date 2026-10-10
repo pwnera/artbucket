@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
  * type, then objects, and a brand's rules and guideline pages inside it.
  * Assets fold once more, by their type (images, videos, fonts...).
  * Every level folds; the path to the object open stays unfolded, and a
- * filter unfolds whatever matches. Arrow keys move, Right and Left fold,
- * Enter opens.
+ * filter unfolds whatever matches. A row opens its page; only its chevron
+ * folds it. Arrow keys move, Right and Left fold, Enter opens.
  */
 
 export type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
@@ -193,7 +193,7 @@ export function CatalogTree({
               aria-selected={selected}
               tabIndex={(focus ?? current ?? visible[0]?.key) === n.key ? 0 : -1}
               onFocus={() => setFocus(n.key)}
-              onClick={() => (n.item ? onOpen(n.item.id) : (toggle(n.key, true), onOpenFolder(n.key)))}
+              onClick={() => (n.item ? onOpen(n.item.id) : onOpenFolder(n.key))}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") move(i + 1);
                 else if (e.key === "ArrowUp") move(i - 1);
@@ -228,7 +228,7 @@ export function CatalogTree({
                   e.stopPropagation();
                   toggle(n.key);
                 }}
-                className={cn("text-muted-foreground flex size-4 shrink-0 items-center justify-center", !expandable && "invisible")}
+                className={cn("text-muted-foreground hover:text-foreground hover:bg-background -ms-1 flex size-6 shrink-0 items-center justify-center rounded", !expandable && "invisible")}
               >
                 <IconChevronRight className={cn("size-3.5 transition-transform duration-150", isOpen(n) && "rotate-90")} />
               </span>
