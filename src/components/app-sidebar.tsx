@@ -42,10 +42,10 @@ import { LinkIcon } from "@/components/link-pending";
 export type SavedSearch = { id: string; name: string; query: string };
 
 /**
- * The app's one sidebar, the same on every page: the places, BrandHub set
- * apart from them (it opens in a new tab), the library's
- * collections and saved searches, the brands, and whatever the current page
- * adds. Every item is a link, and every view it links to is a URL.
+ * The app's one sidebar, the same on every page: the places (Explore,
+ * Catalog, Review, Insights), and at the foot Connections, Settings and
+ * BrandHub, which opens in a new tab. Every item is a link, and every view
+ * it links to is a URL.
  *
  * Library links move within the page (history.pushState) when you are
  * already on it: the library draws its own view from the URL, so there is no
@@ -132,18 +132,6 @@ export function AppSidebar({
               />
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
             </SidebarMenu>
-            {/* Out of the app, so set apart from the places: BrandHub, where the project's brands show, private ones too. */}
-            {me.hubUrl && (
-              <SidebarMenu className="mt-3">
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="BrandHub">
-                    <ExternalLink href={me.hubUrl}>
-                      <IconCompass /> <span>BrandHub</span>
-                    </ExternalLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -163,6 +151,16 @@ export function AppSidebar({
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {/* Out of the app (it opens in a new tab), so last: BrandHub, where the project's brands show, private ones too. */}
+          {me.hubUrl && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="BrandHub">
+                <ExternalLink href={me.hubUrl}>
+                  <IconCompass /> <span>BrandHub</span>
+                </ExternalLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
         <SidebarSeparator />
         <SidebarMenu>
