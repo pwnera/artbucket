@@ -1244,6 +1244,7 @@ export const Me = z.object({
       .describe("The operator's terms and privacy policy (TERMS_URL, PRIVACY_URL), which making an account agrees to; null when neither is set"),
   }),
   assistant: z.string().url().nullable().describe("Where the server's assistant answers questions about the library (ASSISTANT_URL), for a person; null without one"),
+  brandImport: z.string().url().nullable().describe("Where the server turns a brand book (a PDF) into a draft brand (BRAND_IMPORT_URL), for a person; null without one"),
 });
 
 export const Grant = z.object({

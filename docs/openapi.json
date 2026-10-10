@@ -38688,6 +38688,18 @@
                             }
                           ],
                           "description": "Where the server's assistant answers questions about the library (ASSISTANT_URL), for a person; null without one"
+                        },
+                        "brandImport": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Where the server turns a brand book (a PDF) into a draft brand (BRAND_IMPORT_URL), for a person; null without one"
                         }
                       },
                       "required": [
@@ -38713,7 +38725,8 @@
                         "feedback",
                         "joinable",
                         "auth",
-                        "assistant"
+                        "assistant",
+                        "brandImport"
                       ],
                       "additionalProperties": false
                     }

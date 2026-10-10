@@ -303,6 +303,8 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     // The server's assistant, for a person in the app: a key has its own tools.
     assistant: env.ASSISTANT_URL && caller.user ? env.ASSISTANT_URL : null,
+    // The server's brand book importer, for a person: it makes the brand as them, so it asks for write itself.
+    brandImport: env.BRAND_IMPORT_URL && caller.user ? env.BRAND_IMPORT_URL : null,
     // Help's "Send feedback" writes to the operator's reply address, with the version in the mail to say what ran.
     feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,
     auth: {

@@ -70,6 +70,13 @@ const schema = z.object({
    */
   ASSISTANT_URL: z.string().url().optional(),
   /**
+   * A brand book importer this server offers: a page that turns a brand's
+   * guidelines (a PDF) into a draft brand, through the API as the person.
+   * New brand offers it as a fourth way to start, and leaves for it.
+   * Unset: no such choice.
+   */
+  BRAND_IMPORT_URL: z.string().url().optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.

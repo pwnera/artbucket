@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
+import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFileTypePdf, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
 import type { BrandInfo } from "@/components/brand-switcher";
@@ -49,12 +49,16 @@ const brief = (name: string, site: string) =>
  * server has a Git integration (me.git, GIT_CONNECT_URL), brought in from
  * files already there or made here and kept there as it grows; elsewhere,
  * made here and pushed from the repository with the CLI (artbucket brand push).
+ * Where the server offers a brand book importer (me.brandImport,
+ * BRAND_IMPORT_URL), a fourth: from the brand's guidelines as a PDF, on its page.
  */
 export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (b: BrandInfo) => void }) {
   const id = useId();
-  const git = useMe()?.git ?? null;
+  const me = useMe();
+  const git = me?.git ?? null;
+  const bookImport = me?.brandImport ?? null;
   const [step, setStep] = useState<Step>("how");
-  const [how, setHow] = useState<"builder" | "agent" | "git">("builder");
+  const [how, setHow] = useState<"builder" | "agent" | "git" | "book">("builder");
   // Made here, then kept in a repository: the integration takes over once it exists.
   const [keep, setKeep] = useState(false);
   const [name, setName] = useState("");
@@ -122,7 +126,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <DialogTitle>New brand</DialogTitle>
                 <DialogDescription>A draft until you release it.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="How to set it up">
+              <div className={cn("grid gap-3", bookImport ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")} role="radiogroup" aria-label="How to set it up">
                 <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, blank or from a template.">
                   <BuilderArt />
                 </Choice>
@@ -132,12 +136,17 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
                   <FilesArt />
                 </Choice>
+                {bookImport && (
+                  <Choice selected={how === "book"} onSelect={() => setHow("book")} title="From a brand book" text="Your guidelines PDF, read into a draft to review.">
+                    <BookArt />
+                  </Choice>
+                )}
               </div>
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button type="button" onClick={() => setStep(how)}>
+                <Button type="button" onClick={() => (how === "book" ? bookImport && window.location.assign(bookImport) : setStep(how))}>
                   Continue
                 </Button>
               </DialogFooter>
@@ -488,6 +497,24 @@ function AgentArt() {
           <IconArrowUp className="size-3.5" />
         </span>
       </div>
+    </div>
+  );
+}
+
+/** A brand book's spread: a PDF's pages, the palette and the type on them. */
+function BookArt() {
+  return (
+    <div className="bg-background grid w-full max-w-60 gap-2 rounded-t-md border border-b-0 p-3 shadow-sm">
+      <span className="flex items-center gap-1.5 text-xs font-medium">
+        <IconFileTypePdf className="text-primary size-4" /> brand.pdf
+      </span>
+      <div className="flex gap-1">
+        {["bg-foreground/85", "bg-primary/70", "bg-muted", "bg-foreground/30"].map((c) => (
+          <span key={c} className={cn("h-5 flex-1 rounded-sm", c)} />
+        ))}
+      </div>
+      <span className="font-display text-lg leading-none">Aa</span>
+      <span className="bg-muted h-1.5 w-2/3 rounded-full" />
     </div>
   );
 }

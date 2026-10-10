@@ -76,6 +76,8 @@ export type Me = {
   git: string | null;
   /** Where the server's assistant answers questions about the library (ASSISTANT_URL); null without one. */
   assistant: string | null;
+  /** Where the server turns a brand book (a PDF) into a draft brand (BRAND_IMPORT_URL); null without one. */
+  brandImport: string | null;
   /** This server runs BrandHub (HUB_URL). */
   hub: boolean;
   /** Where BrandHub shows the project's brands, private ones too (lib/hub.ts hubHome); null without HUB_URL. */
