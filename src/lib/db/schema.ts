@@ -33,6 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
+import type { BuildKind, DeploymentState, SiteKind } from "@/lib/sites";
 
 export type AssetStatus = Status;
 
@@ -1048,6 +1049,8 @@ export const portals = pgTable(
     theme: jsonb("theme").$type<PortalTheme>().notNull().default({ logo: null, accent: null, background: null }),
     /** The site around its pages: footer, quick grab, terms, and whether search engines may list it (lib/portal.ts PortalSite). */
     site: jsonb("site").$type<PortalSite>().notNull().default({}),
+    /** What it is (lib/sites.ts): `portal`, managed by Artbucket, or a kind of build served from its deployments. */
+    kind: text("kind").$type<SiteKind>().notNull().default("portal"),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1056,6 +1059,45 @@ export const portals = pgTable(
     index("portals_project_idx").on(t.projectId),
     check("portals_access_check", sql`${t.access} in ('public', 'password', 'members')`),
     check("portals_password_check", sql`${t.access} <> 'password' or ${t.passwordHash} is not null`),
+    check("portals_kind_check", sql`${t.kind} in ('portal', 'guidelines', 'landing', 'docs', 'storybook')`),
+  ],
+);
+
+/**
+ * A site's deployment (lib/sites.ts): static files uploaded for one mount
+ * path, checked, then live. One live deployment per site and path; the ones
+ * before it stay `replaced`, to be restored. The files sit in storage under
+ * `prefix`; `manifest` is what the build read (its release, rules, assets).
+ */
+export const siteDeployments = pgTable(
+  "site_deployments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    /** Where it is mounted: `/`, or a path such as `/docs`. */
+    path: text("path").notNull().default("/"),
+    kind: text("kind").$type<BuildKind>().notNull(),
+    state: text("state").$type<DeploymentState>().notNull().default("checking"),
+    /** Storage prefix of its files. */
+    prefix: text("prefix").notNull(),
+    files: integer("files").notNull().default(0),
+    bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
+    manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    /** Where it came from, when a build says: a commit and its ref. */
+    commit: text("commit"),
+    ref: text("ref"),
+    /** Why the check failed, in words. */
+    error: text("error"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
+    uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
+    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced')`),
+    check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
 );
 
