@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   IconAlertTriangle,
-  IconBackground,
+  IconAdjustmentsHorizontal,
   IconBook,
   IconBookmark,
   IconBookmarkPlus,
@@ -56,6 +56,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AssetMenu, type ActionContext } from "@/components/asset-menu";
@@ -1210,7 +1211,7 @@ export function Gallery({
       </AppHeader>
 
       <div
-        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", selecting && "pb-24 md:pb-24")}
+        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", !startScreen && "pt-4 md:pt-6", selecting && "pb-24 md:pb-24")}
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
         {startScreen ? (
@@ -1285,8 +1286,9 @@ export function Gallery({
           )}
         </PageHeader>
 
-        {/* Explore searches everything: what else matches, beside the assets. */}
+        {/* Explore searches everything: what else matches, as folders above the files. */}
         {searched && <CatalogMatches q={searched} />}
+        {searched && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
 
         {/* Heard once a search settles, not per keystroke. */}
         <span className="sr-only" aria-live="polite">
@@ -1363,18 +1365,34 @@ export function Gallery({
             <span className="ml-auto" />
             {/* Only a search or filter is worth naming; a collection or Review is already in the sidebar. */}
             {narrowed && !activeSearch && can("search.save") && <SaveSearch onSave={saveSearch} />}
+            {/* How the tiles look, in one menu beside the layout: their size (also - and =) and what is behind the art. */}
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon-sm" aria-label="Tile backdrop">
-                      <IconBackground />
+                    <Button variant="outline" size="icon-sm" aria-label="View options">
+                      <IconAdjustmentsHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Tile backdrop</TooltipContent>
+                <TooltipContent>View options</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-60">
+                {layout === "grid" && (
+                  <>
+                    <DropdownMenuLabel>Tile size</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={density} onValueChange={(v) => transition(() => setDensity(v as Density))}>
+                      {DENSITIES.map((d, i) => (
+                        <DropdownMenuRadioItem key={d} value={d}>
+                          {["Small", "Medium", "Large"][i]}
+                          {i === 0 && <Kbd keys={["-"]} className="ml-auto" />}
+                          {i === 2 && <Kbd keys={["="]} className="ml-auto" />}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuLabel>Behind the art</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={well} onValueChange={(v) => transition(() => setWell(v as Well))}>
                   <DropdownMenuRadioItem value="auto">
@@ -1386,32 +1404,6 @@ export function Gallery({
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            {layout === "grid" && (
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                value={density}
-                onValueChange={(v) => v && transition(() => setDensity(v as Density))}
-                aria-label="Tile size"
-                className="hidden sm:flex"
-              >
-                {DENSITIES.map((d, i) => (
-                  <Tooltip key={d}>
-                    <TooltipTrigger asChild>
-                      <ToggleGroupItem value={d} aria-label={["Small tiles", "Medium tiles", "Large tiles"][i]}>
-                        <span aria-hidden className="bg-current rounded-[2px]" style={{ width: 6 + i * 3, height: 6 + i * 3 }} />
-                      </ToggleGroupItem>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {["Small tiles", "Medium tiles", "Large tiles"][i]}
-                      <Kbd keys={["-"]} className="ml-2" />
-                      <Kbd keys={["="]} className="ml-1" />
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </ToggleGroup>
-            )}
             <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={(v) => v && transition(() => setLayout(v as Layout))} aria-label="Layout">
               <Tooltip>
                 <TooltipTrigger asChild>

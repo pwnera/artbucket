@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
-import { TYPE_LABEL, type CatalogType } from "@/lib/catalog";
-import type { CatalogResults, CatalogItem } from "@/lib/core/catalog";
+import { TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
+import type { CatalogResults } from "@/lib/core/catalog";
 
 /**
  * What else a search in Explore finds, beside the assets below it
  * (GET /api/v1/catalog): brands, collections, portals, and brands' rules and
- * guideline pages, grouped by type. Each opens in the catalog.
+ * guideline pages, as Drive shows folders above files. Each opens in the catalog.
  */
 
-const OTHERS: CatalogType[] = ["brand", "rule", "page", "collection", "portal"];
+const OTHERS: CatalogType[] = ["brand", "collection", "portal", "rule", "page"];
+const SHOWN = 8;
 
 export function CatalogMatches({ q }: { q: string }) {
   const [found, setFound] = useState<{ q: string; r: CatalogResults } | null>(null);
@@ -33,60 +34,87 @@ export function CatalogMatches({ q }: { q: string }) {
   }, [q]);
   const r = found?.q === q ? found.r : null;
   if (!r?.items.length) return null;
+  const items = OTHERS.flatMap((t) => r.items.filter((i) => i.type === t));
+  const total = OTHERS.reduce((n, t) => n + (r.counts[t] ?? 0), 0);
   return (
-    <section aria-label="Also in the catalog" className="space-y-2">
-      <div className="flex flex-wrap gap-x-6 gap-y-3">
-        {OTHERS.map((t) => {
-          const list = r.items.filter((i) => i.type === t);
-          if (!list.length) return null;
-          return (
-            <TypeBlock
-              key={t}
-              type={t}
-              count={r.counts[t]}
-              more={list.length > 4 ? (r.counts[t] ?? list.length) - 4 : 0}
-              rows={list.slice(0, 4).map((i) => ({ key: i.id, href: `/catalog?o=${i.id}`, name: i.name, sub: i.parent ? `In ${i.parent.name}` : i.project.name, status: i.status }))}
-            />
-          );
-        })}
+    <Section title="Brands, collections and more" count={total}>
+      <CardGrid>
+        {items.slice(0, SHOWN).map((i) => (
+          <ObjectCard
+            key={i.id}
+            type={i.type}
+            href={`/catalog?o=${i.id}`}
+            name={i.name}
+            sub={`${TYPE_LABEL[i.type].one} · ${i.parent ? i.parent.name : i.project.name}`}
+            status={i.status}
+          />
+        ))}
+      </CardGrid>
+      {total > SHOWN && <p className="text-muted-foreground text-xs">and {total - SHOWN} more: narrow the search to see them</p>}
+    </Section>
+  );
+}
+
+/** A titled part of Explore: Drive's "Suggested folders", "Files". */
+export function Section({ title, count, aside, children }: { title: string; count?: number; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-medium">{title}</h2>
+        {count != null && <span className="text-muted-foreground text-xs tabular-nums">{count.toLocaleString()}</span>}
+        {aside && <span className="ms-auto">{aside}</span>}
       </div>
+      {children}
     </section>
   );
 }
 
-/** A type's block: its name and count over a few rows, each a link. Explore's recents use it too. */
-export function TypeBlock({
+export const CardGrid = ({ children }: { children: React.ReactNode }) => <ul className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">{children}</ul>;
+
+const CARD =
+  "bg-card hover:bg-accent focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-start transition-colors outline-none focus-visible:ring-2";
+
+/** A brand, collection, portal or saved search as Drive draws a folder: its icon, its name, what it is and where. */
+export function ObjectCard({
   type,
-  count,
-  more = 0,
-  rows,
+  icon,
+  href,
+  onClick,
+  name,
+  sub,
+  status,
 }: {
-  type: CatalogType;
-  count?: number;
-  more?: number;
-  rows: { key: string; href: string; name: string; sub?: string; status?: CatalogItem["status"] }[];
+  type?: CatalogType;
+  icon?: React.ReactNode;
+  href?: string;
+  onClick?: () => void;
+  name: string;
+  sub?: string;
+  status?: CatalogStatus;
 }) {
+  const body = (
+    <>
+      <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg [&_svg]:size-[18px]">
+        {icon ?? (type && <TypeIcon type={type} />)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{name}</span>
+        {sub && <span className="text-muted-foreground block truncate text-xs">{sub}</span>}
+      </span>
+      {status && status !== "current" && <StatusBadge status={status} />}
+    </>
+  );
   return (
-    <div className="min-w-56 flex-1 space-y-1">
-      <h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-        <TypeIcon type={type} className="size-3.5" />
-        {TYPE_LABEL[type].many}
-        {count != null && <span className="tabular-nums">{count}</span>}
-      </h2>
-      <ul className="bg-card divide-y rounded-lg border">
-        {rows.map((i) => (
-          <li key={i.key}>
-            <Link href={i.href} className="hover:bg-accent flex items-center gap-2 px-3 py-2 text-sm">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{i.name}</span>
-                {i.sub && <span className="text-muted-foreground block truncate text-xs">{i.sub}</span>}
-              </span>
-              {i.status && i.status !== "current" && <StatusBadge status={i.status} />}
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {more > 0 && <p className="text-muted-foreground px-1 text-xs">and {more} more</p>}
-    </div>
+    <li>
+      {href ? (
+        <Link href={href} className={CARD}>
+          {body}
+        </Link>
+      ) : (
+        <button type="button" onClick={onClick} className={CARD}>
+          {body}
+        </button>
+      )}
+    </li>
   );
 }
