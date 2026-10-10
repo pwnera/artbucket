@@ -594,7 +594,14 @@ export function openapi(serverUrl: string) {
             "Lineage",
             z.object({
               root: z.uuid(),
-              nodes: z.array(CatalogItem.extend({ up: z.number().int(), down: z.number().int() })),
+              nodes: z.array(
+                CatalogItem.extend({
+                  up: z.number().int(),
+                  down: z.number().int(),
+                  license: z.string().nullable().optional().describe("An asset's license (rights.license); absent on other types"),
+                  versions: z.number().int().optional().describe("How many versions an asset's stack holds; `release` is which one this is"),
+                }),
+              ),
               edges: z.array(z.object({ from: z.uuid(), to: z.uuid(), kind: z.string(), via: z.string().nullable() })),
               unseen: z.number().int(),
               impact: z.object({ things: z.number().int(), projects: z.number().int(), line: z.string() }),

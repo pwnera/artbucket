@@ -14356,6 +14356,19 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "license": {
+                            "description": "An asset's license (rights.license); absent on other types",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "versions": {
+                            "description": "How many versions an asset's stack holds; `release` is which one this is",
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [

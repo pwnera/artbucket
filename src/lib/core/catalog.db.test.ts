@@ -98,6 +98,11 @@ test("lineage shows one hop each way, with how far each node goes on, and the im
   const acme = l.nodes.find((n) => n.name === "Acme")!;
   assert.equal(acme.down, 1, "Acme goes on to the portal");
   assert.equal(l.edges.find((e) => e.to === acme.id)?.via, "logo.primary");
+  // An asset says what it may be used under: its license (none set here) and its stack's versions.
+  const own = l.nodes.find((n) => n.id === logo.id)!;
+  assert.equal(own.license, null);
+  assert.equal(own.versions, 1);
+  assert.equal(acme.license, undefined);
   assert.match(l.impact.line, /Changing logo-primary\.svg\.png reaches 3 things downstream, in 1 project\./);
 });
 

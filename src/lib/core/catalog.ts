@@ -338,7 +338,13 @@ async function retiredWhy(r: Row): Promise<string> {
   return `${name} matches too, but its last day of use (${r.expires}) has passed.`;
 }
 
-export type LineageNode = CatalogItem & { up: number; down: number };
+export type LineageNode = CatalogItem & {
+  up: number;
+  down: number;
+  /** An asset's license (rights.license), and how many versions its stack holds. */
+  license?: string | null;
+  versions?: number;
+};
 export type LineageEdge = { from: string; to: string; kind: EdgeKind; via: string | null };
 
 /**
@@ -389,7 +395,29 @@ export async function lineage(caller: Caller, ref: string, { depth = 3, directio
       .groupBy(sql`n.id`),
   ]);
   const deg = new Map(degrees.map((d) => [d.id, d]));
-  const nodes: LineageNode[] = (await items(found as Row[])).map((n) => ({ ...n, up: deg.get(n.id)?.up ?? 0, down: deg.get(n.id)?.down ?? 0 }));
+  // An asset says its license and how many versions its stack holds, so a card reads "v2 of 3, CC BY".
+  const assetIds = (found as Row[]).filter((r) => r.type === "asset").map((r) => r.id);
+  const facts = new Map(
+    assetIds.length
+      ? (
+          await db
+            .select({
+              id: assets.id,
+              license: sql<string | null>`${assets.rights} ->> 'license'`,
+              // Spelled out: drizzle leaves a lone table's columns unqualified, which inside the subquery would mean s's.
+              versions: sql<number>`(select count(*)::int from assets s where coalesce(s.stack_id, s.id) = coalesce(assets.stack_id, assets.id) and s.deleted_at is null)`,
+            })
+            .from(assets)
+            .where(inArray(assets.id, assetIds))
+        ).map((f) => [f.id, f])
+      : [],
+  );
+  const nodes: LineageNode[] = (await items(found as Row[])).map((n) => ({
+    ...n,
+    up: deg.get(n.id)?.up ?? 0,
+    down: deg.get(n.id)?.down ?? 0,
+    ...(facts.has(n.id) && { license: facts.get(n.id)!.license, versions: facts.get(n.id)!.versions }),
+  }));
   return { root: root.id, nodes, edges: [...edges.values()], unseen: unseen.size, impact: await impact(root) };
 }
 

@@ -53,9 +53,9 @@ type Graph = {
 };
 
 const W = 264;
-const H = 84;
+const H = 104;
 const COL = 344;
-const ROW = 96;
+const ROW = 120;
 const keyOf = (e: LineageEdge) => `${e.from}>${e.to}>${e.kind}`;
 
 /** Each type its own color, as Unity Catalog marks tables, views and models apart. */
@@ -153,13 +153,20 @@ const ObjectNode = memo(function ObjectNode({ data }: NodeProps<Node<Data>>) {
             <span className="block truncate text-sm font-semibold">{item.name}</span>
             <span className="text-muted-foreground block truncate text-xs">
               {TYPE_LABEL[item.type].one}
-              {item.release ? ` · @${item.release}` : ""}
+              {version(item) && ` · ${version(item)}`} · {item.project.name}
             </span>
           </span>
         </div>
-        <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 border-t px-3 py-1.5 text-xs">
-          <span className="truncate">{item.project.name}</span>
-          {item.status !== "current" ? <StatusBadge status={item.status} className="ms-auto" /> : root && <span className="text-primary-ink ms-auto font-medium">This object</span>}
+        {/* Whether it may be used: current or not, its license, its last day. */}
+        <div className="bg-muted/40 flex items-center gap-1.5 border-t px-3 py-2 text-xs">
+          <StatusBadge status={item.status} />
+          {item.expiring && <Badge variant="warning">Expires {item.expires}</Badge>}
+          {item.type === "asset" && (
+            <span title={item.license ?? "No license recorded"} className={cn("min-w-0 truncate", item.license ? "text-foreground" : "text-muted-foreground italic")}>
+              {item.license ?? "No license"}
+            </span>
+          )}
+          {root && <span className="text-primary-ink ms-auto shrink-0 font-medium">This object</span>}
         </div>
       </div>
       <Side dir="up" data={data} />
@@ -170,6 +177,10 @@ const ObjectNode = memo(function ObjectNode({ data }: NodeProps<Node<Data>>) {
 });
 
 const nodeTypes = { object: ObjectNode };
+
+/** "v2 of 3" for an asset in a stack, "@4" for a released brand. */
+const version = (n: LineageNode) =>
+  n.type === "asset" ? (n.release ? `v${n.release}${(n.versions ?? 1) > 1 ? ` of ${n.versions}` : ""}` : null) : n.release ? `@${n.release}` : null;
 
 /** Fold a side: what it brought in goes, and whatever was unfolded from that, all the way down. */
 function fold(g: Graph, key: string): Graph {
@@ -374,6 +385,30 @@ export function LineageGraph({ id, onOpen }: { id: string; onOpen: (id: string) 
                 <code className="text-muted-foreground truncate font-mono text-xs">{chosen.address}</code>
                 <CopyButton text={chosen.address} label="Copy address" what="Address" />
               </div>
+              <dl className="grid grid-cols-[6rem_1fr] gap-y-1.5 text-xs">
+                <dt className="text-muted-foreground">Status</dt>
+                <dd>
+                  <StatusBadge status={chosen.status} />
+                </dd>
+                {version(chosen) && (
+                  <>
+                    <dt className="text-muted-foreground">Version</dt>
+                    <dd>{version(chosen)}</dd>
+                  </>
+                )}
+                {chosen.type === "asset" && (
+                  <>
+                    <dt className="text-muted-foreground">License</dt>
+                    <dd className="break-words">{chosen.license ?? "None recorded"}</dd>
+                  </>
+                )}
+                {chosen.expires && (
+                  <>
+                    <dt className="text-muted-foreground">Usable until</dt>
+                    <dd>{chosen.expires}</dd>
+                  </>
+                )}
+              </dl>
               <dl className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-muted/50 rounded-md p-2">
                   <dt className="text-muted-foreground">Upstream</dt>
