@@ -28,12 +28,12 @@ export const NEW: Partial<Record<CatalogType, { href: string; label: string }>> 
   brand: { href: "/brands?new=brand", label: "New brand" },
   collection: { href: "/collections?new", label: "New collection" },
   asset: { href: "/?browse", label: "Upload assets in Explore" },
-  site: { href: "/portals?new=portal", label: "New site" },
+  site: { href: "/sites?new=portal", label: "New site" },
 };
 export const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
   asset: { href: "/?browse", label: "Browse the assets in Explore" },
-  site: { href: "/portals", label: "Manage sites" },
+  site: { href: "/sites", label: "Manage sites" },
 };
 const PARTS: CatalogType[] = ["rule", "page"];
 const KIND_LABEL: Record<AssetType, string> = { image: "Images", video: "Videos", audio: "Audio", font: "Fonts", document: "Documents", other: "Other" };

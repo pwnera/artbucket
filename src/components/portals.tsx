@@ -50,12 +50,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
+import { SITE_KIND_LABEL, type SiteKind } from "@/lib/sites";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 import { collapse, flash, useKept } from "@/lib/motion";
 
 export type Portal = {
   id: string;
+  /** portal: managed by Artbucket; the others serve what is deployed to them (lib/sites.ts). */
+  kind: SiteKind;
   slug: string;
   name: string;
   intro: string | null;
@@ -174,21 +177,21 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
 
   return (
     <>
-      <AppHeader trail={[{ label: "Portals" }]} />
+      <AppHeader trail={[{ label: "Sites" }]} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconWorld />}
-          title="Portals"
-          description="Branded pages for press, partners and retailers."
+          title="Sites"
+          description="Brand portals Artbucket renders for press, partners and retailers, and the sites you build and deploy."
         >
           <Button size="sm" onClick={() => setEditing("new")} disabled={!any}>
-            <IconPlus /> New portal
+            <IconPlus /> New site
           </Button>
         </PageHeader>
         {only && (
           <p className="text-muted-foreground -mt-2 text-sm">
-            The portals showing {only.name}.{" "}
-            <Link href="/portals" className="text-foreground underline underline-offset-2">
+            The sites showing {only.name}.{" "}
+            <Link href="/sites" className="text-foreground underline underline-offset-2">
               Show all
             </Link>
           </p>
@@ -199,7 +202,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
               <EmptyMedia variant="icon">
                 <IconWorld />
               </EmptyMedia>
-              <EmptyTitle>No portals yet</EmptyTitle>
+              <EmptyTitle>No sites yet</EmptyTitle>
               <EmptyDescription>
                 {any
                   ? "A press kit or partner hub at its own address."
@@ -209,7 +212,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             <EmptyContent>
               {any ? (
                 <Button onClick={() => setEditing("new")}>
-                  <IconPlus /> New portal
+                  <IconPlus /> New site
                 </Button>
               ) : (
                 <Button onClick={() => openCollection("new")}>
@@ -220,7 +223,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </Empty>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
+            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No site shows {only.name} yet.</li>}
             {shown.map((p) => (
               <li key={p.id} data-portal={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
@@ -236,6 +239,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
                     {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5 shrink-0" aria-label="Members" />}
+                    {p.kind !== "portal" && <Badge variant="secondary">{SITE_KIND_LABEL[p.kind]}</Badge>}
                     {p.expired && <Badge variant="outline">Offline</Badge>}
                     {p.domain && !p.domain.verified && <Badge variant="warning">Domain not verified</Badge>}
                     <Unpublished brands={p.brands} />
@@ -281,7 +285,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onClose={() => {
             setEditing(null);
             // Off the address, or a reload would open it again.
-            if (fresh) router.replace("/portals", { scroll: false });
+            if (fresh) router.replace("/sites", { scroll: false });
           }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
@@ -298,7 +302,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onClose={(changed) => {
             setRequests(null);
             // Off the address, or the next render would open it again.
-            if (opened) router.replace("/portals", { scroll: false });
+            if (opened) router.replace("/sites", { scroll: false });
             if (changed) router.refresh();
           }}
         />

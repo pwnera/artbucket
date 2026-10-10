@@ -405,8 +405,8 @@ export function CommandPalette({
             </CommandItem>
           )}
           {can("portal.manage") && (
-            <CommandItem value="New portal create press kit" onSelect={() => go("/portals?new=portal")}>
-              <IconPlus /> New portal
+            <CommandItem value="New site portal create press kit" onSelect={() => go("/sites?new=portal")}>
+              <IconPlus /> New site
             </CommandItem>
           )}
           <CommandItem value="Connect an agent key mcp claude cursor" onSelect={() => go("/connections")}>
@@ -477,8 +477,8 @@ export function CommandPalette({
             </CommandItem>
           )}
           {can("portal.manage") && (
-            <CommandItem value="Portals brand portal press kit partner hub retailer" onSelect={() => go("/portals")}>
-              <IconWorld /> Portals
+            <CommandItem value="Sites portals brand portal press kit partner hub retailer" onSelect={() => go("/sites")}>
+              <IconWorld /> Sites
             </CommandItem>
           )}
           {can("share.manage") && (

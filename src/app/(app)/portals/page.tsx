@@ -1,17 +1,7 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Portals, type Portal } from "@/components/portals";
-import { env } from "@/lib/env";
-import { can } from "@/lib/permissions";
-import { get, whoami } from "@/lib/sidebar";
 
-export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Portals" };
-
-/** The project's brand portals, from /api/v1/sites like any client's. */
-export default async function PortalsPage() {
-  // Together: the API checks access itself, and a redirect drops what came back.
-  const [me, portals] = await Promise.all([whoami(), get("sites", (b: { data: Portal[] }) => b.data, [])]);
-  if (!can(me, "portal.manage")) redirect("/");
-  return <Portals portals={portals} portalDomain={env.PORTAL_DOMAIN} />;
+/** /portals: portals are sites now, at /sites, with the same query. */
+export default async function PortalsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  const q = new URLSearchParams(await searchParams).toString();
+  redirect(q ? `/sites?${q}` : "/sites");
 }

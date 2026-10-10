@@ -144,7 +144,7 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
               href: b ? `${brandPath(b.slug)}/settings` : "/brands",
               win: true,
             }
-          : { id: "portal", label: "Open a public portal", why: "A press kit anyone can read, on its own address.", done: !!b?.portal, href: "/portals", win: true },
+          : { id: "portal", label: "Open a public portal", why: "A press kit anyone can read, on its own address.", done: !!b?.portal, href: "/sites", win: true },
       ];
     case "product":
       return [

@@ -374,7 +374,7 @@ function Row({
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href={`/portals?${new URLSearchParams({ new: b.slug })}`}>New portal for it</Link>
+                  <Link href={`/sites?${new URLSearchParams({ new: b.slug })}`}>New portal for it</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
