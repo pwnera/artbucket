@@ -62,12 +62,12 @@ agents then get that exact URL.
 
 ## Brand pages
 
-A brand with no pages opens on its setup: the main color (and a second and a
-dark one), a heading face and a text face from Google Fonts, the logo and a
-sentence of voice, with the cover beside them as it will look. They become the
-rules `color.primary`, `color.secondary`, `color.dark`, `type.heading`,
-`type.body`, `logo.primary` and `tone.voice`, and the pages are laid out from
-them; a blank page or a topic's six pages are the other starts. In the builder,
+**Edit** always opens the builder. A brand with no pages gets them laid out
+from its rules as it opens (`generate_pages`, or `POST
+/api/v1/brands/{slug}/pages`): `color.primary`, `color.secondary`,
+`color.dark`, `type.heading`, `type.body`, `logo.primary` and `tone.voice`
+make the cover and the pages after it, and a brand with none of them starts
+from a cover. Set them in **Rules**, in the builder, like any other. In the builder,
 the page list sits beside the canvas, and the bar names what an editor reaches
 for: Add, Rules and Theme, then the Brand Agent Score, Preview and Release.
 The score, of 100, weighs the brand's steps to being worth sharing (colors,

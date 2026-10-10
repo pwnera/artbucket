@@ -42,9 +42,12 @@ the file was made.
 /api/v1/assets?status=draft&status=archived    other lifecycle states
 ```
 
-In the app, the library's address is its view: `/library?q=winter` (or
-`/?q=winter`) opens that search, and `/assets/{id}` opens one asset over it,
-with where it is used and "Can I use this?" first.
+In the app, Explore's address is its view: `/?q=winter` opens that search
+(with the brands, collections and rules it finds above the assets), `/?browse`
+every asset, and `/assets/{id}` one asset over it, with where it is used and
+"Can I use this?" first. What a search or a filter finds can be kept as a
+collection: **Save as collection** beside the view options makes one of what
+it finds now (later uploads don't join it on their own).
 
 `q` covers filenames, tags, text field values and embedded metadata. Every
 response carries facet counts over the same filter. A page is 100 assets
