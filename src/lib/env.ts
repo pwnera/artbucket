@@ -85,6 +85,16 @@ const schema = z.object({
     .transform((v) => v.replace(/\/+$/, ""))
     .optional(),
   /**
+   * The start of the session cookie's name (better-auth's cookiePrefix). Set
+   * it when another install shares a parent domain whose cookie reaches this
+   * one (staging.example.com beside app.example.com with a hub): two cookies
+   * of one name, and the other's would win. Unset: better-auth.
+   */
+  COOKIE_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
+  /**
    * What a request without an API key or a session may do, once the first
    * account exists (before, nothing works). Unset: nothing. See lib/scopes.ts.
    */
