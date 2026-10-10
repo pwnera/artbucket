@@ -30,13 +30,13 @@ const logo = await upload("logo-primary.svg.png", { collections: [logos.id] });
 const old = await upload("logo-primary.png");
 await db.update(assets).set({ supersededBy: logo.id }).where(eq(assets.id, old.id));
 await createBrand(ada.caller, { name: "Acme", slug: "acme" });
-await createRule(ada.caller, "acme", { key: "logo.primary", type: "text", value: "The primary logo", assets: [{ id: logo.id }] });
+await createRule(ada.caller, "acme", { key: "logo.primary", type: "text", value: "The primary logo", assets: [{ id: logo.id, rendition: null }] });
 await publishBrand(ada.caller, "acme", { note: "First" });
 await createPortal(ada.caller, { name: "Press", slug: `press-${Date.now().toString(36)}`, access: "public", collections: [logos.id], brands: ["acme"] });
 // Private: a collection only its grants reach, and an asset in it.
 const secret = await createCollection(ada.caller, { name: "Board", private: true });
 const deck = await upload("board-logo-deck.png", { collections: [secret.id] });
-await createRule(ada.caller, "acme", { key: "logo.board", type: "text", value: "Board", assets: [{ id: deck.id }] });
+await createRule(ada.caller, "acme", { key: "logo.board", type: "text", value: "Board", assets: [{ id: deck.id, rendition: null }] });
 
 // A second project, and a person who can read Corporate only.
 const q4 = await createWorkspace(ada.caller, { name: "Q4 Campaign" });

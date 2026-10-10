@@ -3,6 +3,7 @@ import * as S from "./schemas.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { FONT_CATEGORIES } from "./font.ts";
 import { ICON_GROUP_NAMES } from "./icons.ts";
+import { CATALOG_TYPES, STATUSES as CATALOG_STATUSES } from "./catalog.ts";
 import { STATES } from "./lifecycle.ts";
 import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
@@ -23,6 +24,27 @@ const schema = (s: z.ZodType, io: "input" | "output" = "output") => {
 
 const json = (s: z.ZodType, io?: "input" | "output") => ({ "application/json": { schema: schema(s, io) } });
 const data = (s: z.ZodType) => z.object({ data: s });
+
+/** The catalog's shapes (lib/core/catalog.ts). */
+const CatalogItem = z.object({
+  id: z.uuid(),
+  type: z.enum(CATALOG_TYPES),
+  slug: z.string(),
+  name: z.string(),
+  address: z.string().describe("{org}/{project}/{type}/{slug}[@release]; a part after its object"),
+  description: z.string().nullable(),
+  status: z.enum(CATALOG_STATUSES),
+  release: z.number().int().nullable(),
+  expires: z.string().nullable(),
+  expiring: z.boolean(),
+  private: z.boolean(),
+  tags: z.array(z.string()),
+  project: z.object({ id: z.uuid(), slug: z.string(), name: z.string() }),
+  parent: z.object({ id: z.uuid(), type: z.enum(CATALOG_TYPES), slug: z.string(), name: z.string() }).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+const catalogRef = { name: "ref", in: "path", required: true, schema: { type: "string" }, description: "An id, or an address" } as const;
 
 type Op = {
   summary: string;
@@ -483,6 +505,118 @@ export function openapi(serverUrl: string) {
             limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 50 }, description: "Page size" },
           },
           ok: [200, "Activity", S.Activity],
+        }),
+      },
+      "/api/v1/catalog": {
+        get: op({
+          summary: "Search the catalog",
+          scope: "read",
+          description:
+            "Every type at once, in every project of the organization you reach: assets, collections, brands, portals, " +
+            "and brands' rules and pages. `q` takes free words and the filters inline (`logo status:current type:asset`); " +
+            "each filter is also a parameter. Counts per type and project; replaced, archived and expired matches are " +
+            "counted in `hidden` unless `status` asks for them.",
+          query: {
+            q: { schema: str, description: "Free words and inline filters" },
+            type: { schema: { type: "string", enum: [...CATALOG_TYPES] }, description: "Repeat for several" },
+            project: { schema: str, description: "A project's slug" },
+            status: { schema: { type: "string", enum: [...CATALOG_STATUSES] }, description: "Repeat for several" },
+            tag: { schema: str, description: "Carrying this tag" },
+            uses: { schema: str, description: "Only what is downstream of this address or id" },
+            usedby: { schema: str, description: "Only what is upstream of this address or id" },
+            admin: { schema: str, description: "`me`: what you hold Admin on directly" },
+            limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 30 }, description: "Page size" },
+            cursor: { schema: { type: "integer", minimum: 0 }, description: "The previous page's `next`" },
+          },
+          ok: [
+            200,
+            "Results",
+            z.object({
+              query: z.string(),
+              total: z.number().int(),
+              counts: z.record(z.string(), z.number().int()),
+              projects: z.array(z.object({ slug: z.string(), name: z.string(), count: z.number().int() })),
+              items: z.array(CatalogItem),
+              hidden: z.object({ count: z.number().int(), example: z.string().nullable() }),
+              next: z.number().int().nullable(),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/tree": {
+        get: op({
+          summary: "The catalog's tree",
+          scope: "read",
+          description: "Every project you reach and its objects, parts and replaced versions aside: what the explorer lists.",
+          ok: [200, "Projects", z.object({ projects: z.array(z.object({ id: z.uuid(), slug: z.string(), name: z.string(), role: z.string().nullable(), objects: z.array(CatalogItem) })) })],
+        }),
+      },
+      "/api/v1/catalog/{ref}": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "Describe a catalog object",
+          scope: "read",
+          ok: [
+            200,
+            "The object",
+            CatalogItem.extend({
+              usedBy: z.array(CatalogItem),
+              usedByCount: z.number().int(),
+              lineage: z.object({ up: z.number().int(), down: z.number().int() }),
+              open: z.string().describe("Where the app shows it"),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/lineage": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "What it comes from and what uses it",
+          scope: "read",
+          description:
+            "Hop by hop, through what you can reach only: `unseen` counts what you can't. Each node says how many edges " +
+            "it has each way (`up`, `down`), so a client can expand it. `impact` is what changing it reaches.",
+          query: {
+            direction: { schema: str, description: "up, down, or up,down (the default)" },
+            depth: { schema: { type: "integer", minimum: 1, maximum: 6, default: 3 }, description: "Hops each way" },
+          },
+          ok: [
+            200,
+            "Lineage",
+            z.object({
+              root: z.uuid(),
+              nodes: z.array(CatalogItem.extend({ up: z.number().int(), down: z.number().int() })),
+              edges: z.array(z.object({ from: z.uuid(), to: z.uuid(), kind: z.string(), via: z.string().nullable() })),
+              unseen: z.number().int(),
+              impact: z.object({ things: z.number().int(), projects: z.number().int(), line: z.string() }),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/access": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "Who can reach it, and why",
+          scope: "read",
+          query: { who: { schema: str, description: "One person, by id or email" } },
+          ok: [
+            200,
+            "Holders",
+            z.object({
+              id: z.uuid(),
+              name: z.string(),
+              private: z.boolean(),
+              holders: z.array(z.object({ kind: z.string(), who: z.string(), role: z.string(), scope: z.string().nullable(), via: z.string(), off: z.array(z.string()) })),
+            }),
+          ],
+        }),
+      },
+      "/api/v1/catalog/{ref}/activity": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "What happened to it",
+          scope: "read",
+          ok: [200, "Activity", data(z.array(z.object({ at: z.string(), who: z.string(), what: z.string(), agent: z.boolean() })))],
         }),
       },
       "/api/v1/searches": {

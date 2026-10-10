@@ -3021,6 +3021,10 @@
         "maxLength": 60,
         "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
         "description": "Its slug, e.g. logo (list_pages)"
+      },
+      "revision": {
+        "description": "From get_page",
+        "type": "string"
       }
     },
     "required": [
@@ -4067,6 +4071,10 @@
           ]
         },
         "description": "Applied in order; all or none"
+      },
+      "revision": {
+        "description": "From get_page",
+        "type": "string"
       }
     },
     "required": [
@@ -5365,6 +5373,131 @@
       "request"
     ],
     "additionalProperties": false
+  },
+  "search_catalog": {
+    "type": "object",
+    "properties": {
+      "q": {
+        "description": "Free words, and filters inline: \"logo type:asset status:current uses:acme/corporate/brand/acme\"",
+        "type": "string",
+        "maxLength": 512
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "brand",
+            "collection",
+            "asset",
+            "portal",
+            "rule",
+            "page"
+          ]
+        }
+      },
+      "project": {
+        "description": "Projects' slugs",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "status": {
+        "description": "Current, draft and in review when left out: replaced, archived and expired are counted aside",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "in_review",
+            "current",
+            "replaced",
+            "archived"
+          ]
+        }
+      },
+      "uses": {
+        "description": "Only what is downstream of this address or id",
+        "type": "string",
+        "maxLength": 300
+      },
+      "usedby": {
+        "description": "Only what is upstream of this address or id",
+        "type": "string",
+        "maxLength": 300
+      },
+      "limit": {
+        "default": 20,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    }
+  },
+  "describe_object": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address, as search_catalog gives them"
+      }
+    },
+    "required": [
+      "object"
+    ]
+  },
+  "lineage": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address"
+      },
+      "direction": {
+        "default": "both",
+        "description": "up: what it comes from; down: what uses it",
+        "type": "string",
+        "enum": [
+          "up",
+          "down",
+          "both"
+        ]
+      },
+      "depth": {
+        "default": 3,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 6
+      }
+    },
+    "required": [
+      "object"
+    ]
+  },
+  "who_can": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address"
+      },
+      "who": {
+        "description": "One person, by email: the grant behind their role",
+        "type": "string",
+        "maxLength": 320
+      }
+    },
+    "required": [
+      "object"
+    ]
   },
   "propose_fields": {
     "type": "object",

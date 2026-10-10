@@ -12730,6 +12730,1673 @@
       }
     }
   },
+  "/api/v1/catalog": {
+    "get": {
+      "summary": "Search the catalog",
+      "description": "Every type at once, in every project of the organization you reach: assets, collections, brands, portals, and brands' rules and pages. `q` takes free words and the filters inline (`logo status:current type:asset`); each filter is also a parameter. Counts per type and project; replaced, archived and expired matches are counted in `hidden` unless `status` asks for them.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Free words and inline filters"
+        },
+        {
+          "name": "type",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "brand",
+              "collection",
+              "asset",
+              "portal",
+              "rule",
+              "page"
+            ]
+          },
+          "description": "Repeat for several"
+        },
+        {
+          "name": "project",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A project's slug"
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_review",
+              "current",
+              "replaced",
+              "archived"
+            ]
+          },
+          "description": "Repeat for several"
+        },
+        {
+          "name": "tag",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Carrying this tag"
+        },
+        {
+          "name": "uses",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Only what is downstream of this address or id"
+        },
+        {
+          "name": "usedby",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Only what is upstream of this address or id"
+        },
+        {
+          "name": "admin",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "`me`: what you hold Admin on directly"
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          },
+          "description": "Page size"
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "The previous page's `next`"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Results",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "total": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "counts": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "slug",
+                        "name",
+                        "count"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "brand",
+                            "collection",
+                            "asset",
+                            "portal",
+                            "rule",
+                            "page"
+                          ]
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": "{org}/{project}/{type}/{slug}[@release]; a part after its object"
+                        },
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "in_review",
+                            "current",
+                            "replaced",
+                            "archived"
+                          ]
+                        },
+                        "release": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expires": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "expiring": {
+                          "type": "boolean"
+                        },
+                        "private": {
+                          "type": "boolean"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "project": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "brand",
+                                    "collection",
+                                    "asset",
+                                    "portal",
+                                    "rule",
+                                    "page"
+                                  ]
+                                },
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "type",
+                                "slug",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "slug",
+                        "name",
+                        "address",
+                        "description",
+                        "status",
+                        "release",
+                        "expires",
+                        "expiring",
+                        "private",
+                        "tags",
+                        "project",
+                        "parent",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "hidden": {
+                    "type": "object",
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "example": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "count",
+                      "example"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "next": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "query",
+                  "total",
+                  "counts",
+                  "projects",
+                  "items",
+                  "hidden",
+                  "next"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/catalog/tree": {
+    "get": {
+      "summary": "The catalog's tree",
+      "description": "Every project you reach and its objects, parts and replaced versions aside: what the explorer lists.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "Projects",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "objects": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "brand",
+                                  "collection",
+                                  "asset",
+                                  "portal",
+                                  "rule",
+                                  "page"
+                                ]
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "address": {
+                                "type": "string",
+                                "description": "{org}/{project}/{type}/{slug}[@release]; a part after its object"
+                              },
+                              "description": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "in_review",
+                                  "current",
+                                  "replaced",
+                                  "archived"
+                                ]
+                              },
+                              "release": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "expires": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "expiring": {
+                                "type": "boolean"
+                              },
+                              "private": {
+                                "type": "boolean"
+                              },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "project": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "slug",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "parent": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "brand",
+                                          "collection",
+                                          "asset",
+                                          "portal",
+                                          "rule",
+                                          "page"
+                                        ]
+                                      },
+                                      "slug": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "type",
+                                      "slug",
+                                      "name"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "type",
+                              "slug",
+                              "name",
+                              "address",
+                              "description",
+                              "status",
+                              "release",
+                              "expires",
+                              "expiring",
+                              "private",
+                              "tags",
+                              "project",
+                              "parent",
+                              "createdAt",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "slug",
+                        "name",
+                        "role",
+                        "objects"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "projects"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/catalog/{ref}": {
+    "parameters": [
+      {
+        "name": "ref",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "An id, or an address"
+      }
+    ],
+    "get": {
+      "summary": "Describe a catalog object",
+      "description": "Scope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The object",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "brand",
+                      "collection",
+                      "asset",
+                      "portal",
+                      "rule",
+                      "page"
+                    ]
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "{org}/{project}/{type}/{slug}[@release]; a part after its object"
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "in_review",
+                      "current",
+                      "replaced",
+                      "archived"
+                    ]
+                  },
+                  "release": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expires": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "expiring": {
+                    "type": "boolean"
+                  },
+                  "private": {
+                    "type": "boolean"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "project": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "slug",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "parent": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "brand",
+                              "collection",
+                              "asset",
+                              "portal",
+                              "rule",
+                              "page"
+                            ]
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type",
+                          "slug",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "usedBy": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "brand",
+                            "collection",
+                            "asset",
+                            "portal",
+                            "rule",
+                            "page"
+                          ]
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": "{org}/{project}/{type}/{slug}[@release]; a part after its object"
+                        },
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "in_review",
+                            "current",
+                            "replaced",
+                            "archived"
+                          ]
+                        },
+                        "release": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expires": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "expiring": {
+                          "type": "boolean"
+                        },
+                        "private": {
+                          "type": "boolean"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "project": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "brand",
+                                    "collection",
+                                    "asset",
+                                    "portal",
+                                    "rule",
+                                    "page"
+                                  ]
+                                },
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "type",
+                                "slug",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "slug",
+                        "name",
+                        "address",
+                        "description",
+                        "status",
+                        "release",
+                        "expires",
+                        "expiring",
+                        "private",
+                        "tags",
+                        "project",
+                        "parent",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "usedByCount": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "lineage": {
+                    "type": "object",
+                    "properties": {
+                      "up": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "down": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "up",
+                      "down"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "open": {
+                    "type": "string",
+                    "description": "Where the app shows it"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "slug",
+                  "name",
+                  "address",
+                  "description",
+                  "status",
+                  "release",
+                  "expires",
+                  "expiring",
+                  "private",
+                  "tags",
+                  "project",
+                  "parent",
+                  "createdAt",
+                  "updatedAt",
+                  "usedBy",
+                  "usedByCount",
+                  "lineage",
+                  "open"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/catalog/{ref}/lineage": {
+    "parameters": [
+      {
+        "name": "ref",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "An id, or an address"
+      }
+    ],
+    "get": {
+      "summary": "What it comes from and what uses it",
+      "description": "Hop by hop, through what you can reach only: `unseen` counts what you can't. Each node says how many edges it has each way (`up`, `down`), so a client can expand it. `impact` is what changing it reaches.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "direction",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "up, down, or up,down (the default)"
+        },
+        {
+          "name": "depth",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 3
+          },
+          "description": "Hops each way"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Lineage",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "root": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "brand",
+                            "collection",
+                            "asset",
+                            "portal",
+                            "rule",
+                            "page"
+                          ]
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": "{org}/{project}/{type}/{slug}[@release]; a part after its object"
+                        },
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "in_review",
+                            "current",
+                            "replaced",
+                            "archived"
+                          ]
+                        },
+                        "release": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expires": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "expiring": {
+                          "type": "boolean"
+                        },
+                        "private": {
+                          "type": "boolean"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "project": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "brand",
+                                    "collection",
+                                    "asset",
+                                    "portal",
+                                    "rule",
+                                    "page"
+                                  ]
+                                },
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "type",
+                                "slug",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "up": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "down": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "slug",
+                        "name",
+                        "address",
+                        "description",
+                        "status",
+                        "release",
+                        "expires",
+                        "expiring",
+                        "private",
+                        "tags",
+                        "project",
+                        "parent",
+                        "createdAt",
+                        "updatedAt",
+                        "up",
+                        "down"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "edges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "via": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to",
+                        "kind",
+                        "via"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "unseen": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "impact": {
+                    "type": "object",
+                    "properties": {
+                      "things": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "projects": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "line": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "things",
+                      "projects",
+                      "line"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "root",
+                  "nodes",
+                  "edges",
+                  "unseen",
+                  "impact"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/catalog/{ref}/access": {
+    "parameters": [
+      {
+        "name": "ref",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "An id, or an address"
+      }
+    ],
+    "get": {
+      "summary": "Who can reach it, and why",
+      "description": "Scope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "who",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "One person, by id or email"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Holders",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "private": {
+                    "type": "boolean"
+                  },
+                  "holders": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "who": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "via": {
+                          "type": "string"
+                        },
+                        "off": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "who",
+                        "role",
+                        "scope",
+                        "via",
+                        "off"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "private",
+                  "holders"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/catalog/{ref}/activity": {
+    "parameters": [
+      {
+        "name": "ref",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "An id, or an address"
+      }
+    ],
+    "get": {
+      "summary": "What happened to it",
+      "description": "Scope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "Activity",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "type": "string"
+                        },
+                        "who": {
+                          "type": "string"
+                        },
+                        "what": {
+                          "type": "string"
+                        },
+                        "agent": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "who",
+                        "what",
+                        "agent"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/searches": {
     "get": {
       "summary": "Saved searches",
@@ -19655,6 +21322,10 @@
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                           "description": "The last change to what it says"
                         },
+                        "revision": {
+                          "type": "string",
+                          "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                        },
                         "sections": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -19684,6 +21355,7 @@
                         "aliases",
                         "layout",
                         "updatedAt",
+                        "revision",
                         "sections",
                         "keys"
                       ],
@@ -20008,6 +21680,10 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "description": "The last change to what it says"
                           },
+                          "revision": {
+                            "type": "string",
+                            "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                          },
                           "translations": {
                             "description": "Its title, eyebrow and lede by language tag",
                             "anyOf": [
@@ -20290,6 +21966,7 @@
                           "aliases",
                           "layout",
                           "updatedAt",
+                          "revision",
                           "sections"
                         ],
                         "additionalProperties": false
@@ -20575,6 +22252,16 @@
       "summary": "Save a page whole",
       "description": "Makes the page, or replaces its title and every section, top to bottom. A page field left out keeps its value; null clears it. Sections keep their ids; new ones get one. Each section is checked against its own template (GET /api/v1/brand/templates), its keys against the rules and its assets against the library: a 422 lists every problem with its path, e.g. `sections[1].props.chanel: Unrecognized key`. A slug that isn't one is a 422 too. A draft until the brand is published.\n\nScope: `write`.",
       "x-scope": "write",
+      "parameters": [
+        {
+          "name": "If-Match",
+          "in": "header",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The page's `revision` (also its ETag) the change was made from. When the page says something else now, nothing is written: a 409 `conflict` with the revision it has in `detail.revision`. Left out, the write applies to the page as it is."
+        }
+      ],
       "requestBody": {
         "required": true,
         "content": {
@@ -21612,6 +23299,10 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "description": "The last change to what it says"
                           },
+                          "revision": {
+                            "type": "string",
+                            "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                          },
                           "translations": {
                             "description": "Its title, eyebrow and lede by language tag",
                             "anyOf": [
@@ -21894,6 +23585,7 @@
                           "aliases",
                           "layout",
                           "updatedAt",
+                          "revision",
                           "sections"
                         ],
                         "additionalProperties": false
@@ -22034,6 +23726,10 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "description": "The last change to what it says"
                           },
+                          "revision": {
+                            "type": "string",
+                            "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                          },
                           "translations": {
                             "description": "Its title, eyebrow and lede by language tag",
                             "anyOf": [
@@ -22316,6 +24012,7 @@
                           "aliases",
                           "layout",
                           "updatedAt",
+                          "revision",
                           "sections"
                         ],
                         "additionalProperties": false
@@ -22345,6 +24042,39 @@
                 },
                 "required": [
                   "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "409": {
+          "description": "The page changed since the If-Match revision: read it again, redo the change on what it says now",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
                 ],
                 "additionalProperties": false
               }
@@ -22390,6 +24120,16 @@
       "summary": "Edit a page an operation at a time",
       "description": "`ops` apply in order: `add`, `update`, `move` and `remove` sections, and `page` for its own fields. `page` with `slug` renames it: the old slug becomes an alias that still finds it, and the pages under it follow. All or none: a 422 lists every problem with its path, e.g. `ops[0].section.props.chanel: Unrecognized key`.\n\nScope: `write`.",
       "x-scope": "write",
+      "parameters": [
+        {
+          "name": "If-Match",
+          "in": "header",
+          "schema": {
+            "type": "string"
+          },
+          "description": "The page's `revision` (also its ETag) the change was made from. When the page says something else now, nothing is written: a 409 `conflict` with the revision it has in `detail.revision`. Left out, the write applies to the page as it is."
+        }
+      ],
       "requestBody": {
         "required": true,
         "content": {
@@ -23541,6 +25281,10 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "description": "The last change to what it says"
                           },
+                          "revision": {
+                            "type": "string",
+                            "description": "What it says, as a hash: send it back in If-Match (edit_page and save_page: revision) to refuse a write over a change you haven't seen"
+                          },
                           "translations": {
                             "description": "Its title, eyebrow and lede by language tag",
                             "anyOf": [
@@ -23823,6 +25567,7 @@
                           "aliases",
                           "layout",
                           "updatedAt",
+                          "revision",
                           "sections"
                         ],
                         "additionalProperties": false
@@ -23851,6 +25596,39 @@
                 },
                 "required": [
                   "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "409": {
+          "description": "The page changed since the If-Match revision: read it again, redo the change on what it says now",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
                 ],
                 "additionalProperties": false
               }
@@ -24422,7 +26200,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -24477,7 +26255,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -24532,7 +26310,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   },
@@ -25724,7 +27502,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -25779,7 +27557,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -25834,7 +27612,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   },
@@ -26417,7 +28195,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -26472,7 +28250,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   }
@@ -26527,7 +28305,7 @@
                                     "type": "string"
                                   },
                                   "google": {
-                                    "description": "From Google Fonts, with no files: its CSS is imported",
+                                    "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                     "type": "boolean",
                                     "const": true
                                   },
@@ -32194,7 +33972,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -32249,7 +34027,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -32304,7 +34082,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       },
@@ -38953,7 +40731,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -39008,7 +40786,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -39063,7 +40841,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       },
@@ -44627,7 +46405,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -44682,7 +46460,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       }
@@ -44737,7 +46515,7 @@
                                         "type": "string"
                                       },
                                       "google": {
-                                        "description": "From Google Fonts, with no files: its CSS is imported",
+                                        "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                         "type": "boolean",
                                         "const": true
                                       },
@@ -46520,7 +48298,7 @@
                                             "type": "string"
                                           },
                                           "google": {
-                                            "description": "From Google Fonts, with no files: its CSS is imported",
+                                            "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                             "type": "boolean",
                                             "const": true
                                           }
@@ -46575,7 +48353,7 @@
                                             "type": "string"
                                           },
                                           "google": {
-                                            "description": "From Google Fonts, with no files: its CSS is imported",
+                                            "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                             "type": "boolean",
                                             "const": true
                                           }
@@ -46630,7 +48408,7 @@
                                             "type": "string"
                                           },
                                           "google": {
-                                            "description": "From Google Fonts, with no files: its CSS is imported",
+                                            "description": "From Google Fonts, with no files here yet: set in its fallback until they are imported",
                                             "type": "boolean",
                                             "const": true
                                           },
@@ -56502,7 +58280,7 @@
   "/api/v1/mcp": {
     "post": {
       "summary": "MCP (Streamable HTTP, stateless)",
-      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, search_catalog, describe_object, lineage, who_can, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
       "x-scope": "read",
       "requestBody": {
         "required": true,

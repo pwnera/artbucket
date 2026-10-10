@@ -30,6 +30,8 @@ import { createComment, deleteComment, listComments, updateComment } from "@/lib
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
+import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
+import { parseQuery } from "@/lib/catalog";
 import { record, who } from "@/lib/core/events";
 import { deleteBrand, listBrands, resolveBrand, setHub, slugify, updateBrand } from "@/lib/core/brands";
 import { brandStatus } from "@/lib/core/brand-status";
@@ -66,7 +68,7 @@ import { guidelinesPath } from "@/lib/site";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format, pinned to that version. On a site, in docs or anywhere it should follow the asset, use /c/{id}/w_800,f_webp instead: it redirects to the current version, so a new logo reaches every page without touching it. Asset URLs are private: they work with your key, and for people who can see the asset. When your own fetch can't send the key (a web fetch, a sandbox), open fetchUrl from describe_asset or rendition_url: signed for a few minutes, for you, not to hand on. For anyone else, ask rendition_url with expiresIn: it answers when the asset is public, shown on a public portal, or your key may share; otherwise it says what the person can do, so tell them. With a propose key (Suggest), what you ingest or import is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a write key (Edit) it goes straight into the library, so never tell a person it waits for review; describe_asset's status says which it is. Tags and field values you suggest wait for a person either way. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so, and never what you proposed yourself. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets still open with your key, for the team, but never for anyone else: a URL you hand on answers 410, so check_use first.
+const INSTRUCTIONS = `artbucket is a brand's asset library. Search it, describe an asset before using it, and hand out rendition URLs rather than downloading bytes: /a/{id}/w_800,f_webp is a stable, cacheable URL for exactly that size and format, pinned to that version. On a site, in docs or anywhere it should follow the asset, use /c/{id}/w_800,f_webp instead: it redirects to the current version, so a new logo reaches every page without touching it. Asset URLs are private: they work with your key, and for people who can see the asset. When your own fetch can't send the key (a web fetch, a sandbox), open fetchUrl from describe_asset or rendition_url: signed for a few minutes, for you, not to hand on. For anyone else, ask rendition_url with expiresIn: it answers when the asset is public, shown on a public portal, or your key may share; otherwise it says what the person can do, so tell them. With a propose key (Suggest), what you ingest or import is proposed, not final: a person reviews it, and my_proposals tells you what they decided and why. With a write key (Edit) it goes straight into the library, so never tell a person it waits for review; describe_asset's status says which it is. Tags and field values you suggest wait for a person either way. With a key that may approve, review_asset approves or rejects what waits (search_assets with review: true lists it), and applies or drops suggested tags and field values: only on a person's say-so, and never what you proposed yourself. Before making anything on-brand (colors, logo use, type, tone), read the brand rules with brand_rules, for the context you are working in. Before publishing or handing out an asset, ask check_use with where, when and in what context it will run: it refuses replaced logos, expired licenses and the wrong variant, and names what to use instead. When you ingest something a model made, say so (origin, generator, prompt). search_catalog finds anything at once (assets, collections, brands, portals, rules, guideline pages) by address; before replacing, archiving or deleting something, ask lineage what uses it. A new version of an existing asset (the logo, redrawn) is ingested with versionOf, so it replaces the old one once approved instead of standing beside it. Expired and archived assets still open with your key, for the team, but never for anyone else: a URL you hand on answers 410, so check_use first.
 
 Custom fields (list_fields) are defined with create_field and update_field. Collections group assets: list_collections names them with their ids (ingest_asset, import_icons and create_portal take those), create_collection makes one, and update_collection_assets files assets in it.
 
@@ -234,6 +236,79 @@ const TOOLS: Record<ToolName, Tool> = {
       // The REST query parser, so a filter the API rejects is rejected here too.
       const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params), "mcp");
       return { results: data.map(summary), total, facets };
+    },
+  }),
+
+  search_catalog: tool({
+    description:
+      "Search everything at once: assets, collections, brands, portals, and brands' rules and guideline pages. Results are grouped " +
+      "by type with counts, each with an address (org/project/type/slug) that every catalog tool takes. Replaced, archived and " +
+      "expired matches are counted aside in `hidden`, not shown, unless `status` asks for them. Next: describe_object, lineage.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.search_catalog,
+    run: async ({ q, type, project, status, uses, usedby, limit }, caller) => {
+      const query = parseQuery(q ?? "");
+      query.types.push(...(type ?? []));
+      query.projects.push(...(project ?? []));
+      query.statuses.push(...(status ?? []));
+      if (uses) query.uses.push(uses);
+      if (usedby) query.usedBy.push(usedby);
+      const { items, counts, total, hidden, projects } = await searchCatalog(caller, query, { limit });
+      return {
+        results: items.map(({ id, type, name, address, status, release, expiring, project, parent }) => ({ id, type, name, address, status, release, expiring, project: project.slug, partOf: parent?.name ?? null })),
+        counts,
+        total,
+        projects,
+        hidden,
+      };
+    },
+  }),
+
+  describe_object: tool({
+    description:
+      "One catalog object, by id or address: its type, project, status, release, tags, what it is part of, the first five things " +
+      "that use it and how many there are, and how far its lineage goes each way. For an asset, describe_asset says more.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.describe_object,
+    run: async ({ object }, caller) => {
+      const d = await describeObject(caller, object);
+      if (!d) throw new AssetError("not_found", `Nothing at "${object}" you can reach: search_catalog finds addresses`);
+      return { ...d, open: `${env.APP_URL}${d.open}` };
+    },
+  }),
+
+  lineage: tool({
+    description:
+      "What an object comes from (up) and what uses it (down), hop by hop: an asset to the brands whose rules name it, the " +
+      "collections it is in, the portals offering those, what replaced it and what was made from it. `impact` says what changing " +
+      "it reaches. Only what you can reach is shown; `unseen` counts the rest. Ask before replacing, archiving or deleting.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.lineage,
+    run: async ({ object, direction, depth }, caller) => {
+      const l = await lineage(caller, object, { depth, direction: direction === "both" ? ["up", "down"] : [direction] });
+      if (!l) throw new AssetError("not_found", `Nothing at "${object}" you can reach: search_catalog finds addresses`);
+      return {
+        ...l,
+        nodes: l.nodes.map(({ id, type, name, address, status, project, up, down }) => ({ id, type, name, address, status, project: project.slug, up, down })),
+      };
+    },
+  }),
+
+  who_can: tool({
+    description:
+      "Who reaches an object and why: each person's role and the grant it comes through (organization, project, the object, a " +
+      "collection an asset is in), agent keys capped at their person, and who receives it without a grant (a public asset, a " +
+      "portal, a view link). With `who`, one person's role and the path behind it.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.who_can,
+    run: async ({ object, who }, caller) => {
+      const w = await whoCan(caller, object, who);
+      if (!w) throw new AssetError("not_found", `Nothing at "${object}" you can reach: search_catalog finds addresses`);
+      return w;
     },
   }),
 

@@ -31,6 +31,8 @@ export const ACTIONS = {
   // The library, to look at
   "library.read": { scope: "read", on: "anywhere" },
   "activity.read": { scope: "read", on: "workspace" },
+  /** The catalog: every project of the organization the caller reaches, each by its own grants (lib/core/catalog.ts). */
+  "catalog.read": { scope: "read", on: "anywhere" },
   // Assets
   "asset.read": { scope: "read", on: "asset" },
   "asset.upload": { scope: "propose", on: "collection" },

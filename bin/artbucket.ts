@@ -39,6 +39,16 @@ const HELP = `artbucket <command>
   reject <id> [--reason text]
                           turn down a proposed asset (kept, with the reason,
                           for whoever proposed it), or dismiss its suggested tags
+  catalog search [words] [--type t,t] [--project p] [--status s]...
+                          search every type at once; words take filters too
+                          (logo status:current uses:acme/corporate/brand/acme)
+  catalog show <address-or-id>
+                          one object: what it is, where, and what uses it
+  catalog lineage <address-or-id> [--direction up|down] [--depth n]
+                          what it comes from and what uses it, and what
+                          changing it reaches
+  catalog access <address-or-id>
+                          who reaches it, and the grant behind each role
   brands                  list brands; the default is starred
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
@@ -123,6 +133,9 @@ const { values: opt, positionals } = parseArgs({
     collection: { type: "string" },
     review: { type: "boolean" },
     limit: { type: "string" },
+    project: { type: "string" },
+    direction: { type: "string" },
+    depth: { type: "string" },
     width: { type: "string" },
     height: { type: "string" },
     fit: { type: "string" },
@@ -624,6 +637,54 @@ async function main() {
       }
       const r = await api("PATCH", `/api/v1/assets/${a.id}`, { proposedTags: [] });
       return out(r, () => `dismissed ${a.proposedTags.join(", ") || "nothing"} on ${a.filename}`);
+    }
+    case "catalog": {
+      const [sub, ...rest] = args;
+      const ref = () => encodeURIComponent(need(rest[0], "an address or id"));
+      if (sub === "search") {
+        const p = new URLSearchParams();
+        if (rest.length) p.set("q", rest.join(" "));
+        if (opt.type) p.set("type", opt.type);
+        if (opt.project) p.set("project", opt.project);
+        for (const st of opt.status ?? []) p.append("status", st);
+        if (opt.limit) p.set("limit", opt.limit);
+        const r = await api("GET", `/api/v1/catalog?${p}`);
+        return out(r, () =>
+          [
+            ...r.items.map((i: { type: string; status: string; address: string }) => `${i.type.padEnd(11)} ${i.status.padEnd(10)} ${i.address}`),
+            ...(r.hidden.count ? [`(${r.hidden.example}${r.hidden.count > 1 ? ` ${r.hidden.count - 1} more left out.` : ""})`] : []),
+          ].join("\n") || "Nothing found.",
+        );
+      }
+      if (sub === "show") {
+        const r = await api("GET", `/api/v1/catalog/${ref()}`);
+        return out(r, () =>
+          [
+            `${r.name}  (${r.type}, ${r.status}${r.release ? ` @${r.release}` : ""})`,
+            `  ${r.address}`,
+            `  in ${r.project.name}${r.parent ? `, part of ${r.parent.name}` : ""}`,
+            `  used by ${r.usedByCount}${r.usedBy.length ? `: ${r.usedBy.map((u: { name: string }) => u.name).join(", ")}${r.usedByCount > r.usedBy.length ? ", ..." : ""}` : ""}`,
+          ].join("\n"),
+        );
+      }
+      if (sub === "lineage") {
+        const p = new URLSearchParams({ direction: opt.direction ?? "up,down", depth: opt.depth ?? "3" });
+        const r = await api("GET", `/api/v1/catalog/${ref()}/lineage?${p}`);
+        type N = { id: string; name: string; type: string; address: string };
+        return out(r, () => {
+          const name = new Map<string, N>(r.nodes.map((n: N) => [n.id, n]));
+          return [
+            ...r.edges.map((e: { from: string; to: string; kind: string; via: string | null }) => `${name.get(e.from)?.address}  -${e.kind}${e.via ? ` (${e.via})` : ""}->  ${name.get(e.to)?.address}`),
+            ...(r.unseen ? [`and ${r.unseen} you can't see`] : []),
+            r.impact.line,
+          ].join("\n");
+        });
+      }
+      if (sub === "access") {
+        const r = await api("GET", `/api/v1/catalog/${ref()}/access`);
+        return out(r, () => r.holders.map((h: { who: string; role: string; via: string }) => `${h.role.padEnd(12)} ${h.who.padEnd(28)} ${h.via}`).join("\n"));
+      }
+      throw new Error("artbucket catalog search|show|lineage|access");
     }
     case "brands": {
       const r = await api("GET", "/api/v1/brands");
