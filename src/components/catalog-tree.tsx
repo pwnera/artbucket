@@ -21,16 +21,16 @@ import { cn } from "@/lib/utils";
  * Enter opens.
  */
 
-type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
+export type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
 
 const ORDER: CatalogType[] = ["brand", "collection", "asset", "portal"];
-const NEW: Partial<Record<CatalogType, { href: string; label: string }>> = {
+export const NEW: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands?new=brand", label: "New brand" },
   collection: { href: "/collections?new", label: "New collection" },
   asset: { href: "/?browse", label: "Upload assets in Explore" },
   portal: { href: "/portals?new=portal", label: "New portal" },
 };
-const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
+export const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
   asset: { href: "/?browse", label: "Browse the assets in Explore" },
   portal: { href: "/portals", label: "Manage portals" },
@@ -38,7 +38,7 @@ const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
 const PARTS: CatalogType[] = ["rule", "page"];
 const KIND_LABEL: Record<AssetType, string> = { image: "Images", video: "Videos", audio: "Audio", font: "Fonts", document: "Documents", other: "Other" };
 
-function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Node[] {
+export function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Node[] {
   return projects.map((p) => {
     const parts = p.objects.filter((o) => o.parent);
     const objects = p.objects.filter((o) => !o.parent);
@@ -79,6 +79,33 @@ function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Nod
   });
 }
 
+/** A type's folder offers New (in the project open) and where its things are managed. */
+const folderActions = (n: Node) => n.kind === "group" && n.depth === 2 && !!n.type && (!!NEW[n.type] || !!LIST[n.type]);
+
+function RowLink({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+      title={label}
+      className="text-muted-foreground hover:text-foreground hover:bg-background flex size-6 items-center justify-center rounded"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** A folder (a project, a type, an asset type, a brand's rules or pages) by its key, the catalog's `?f=`. */
+export function findNode(nodes: Node[], key: string): { node: Node; trail: Node[] } | null {
+  for (const n of nodes) {
+    if (n.key === key) return { node: n, trail: [] };
+    const found = findNode(n.children, key);
+    if (found) return { node: found.node, trail: [n, ...found.trail] };
+  }
+  return null;
+}
+
 /** Keys from the root down to the object open, so its path shows unfolded. */
 function pathTo(nodes: Node[], id: string | null, trail: string[] = []): string[] | null {
   if (!id) return null;
@@ -90,7 +117,20 @@ function pathTo(nodes: Node[], id: string | null, trail: string[] = []): string[
   return null;
 }
 
-export function CatalogTree({ projects, current, onOpen, onHide }: { projects: TreeProject[]; current: string | null; onOpen: (id: string) => void; onHide: () => void }) {
+export function CatalogTree({
+  projects,
+  current,
+  onOpen,
+  onOpenFolder,
+  onHide,
+}: {
+  projects: TreeProject[];
+  /** The object's id or the folder's key open. */
+  current: string | null;
+  onOpen: (id: string) => void;
+  onOpenFolder: (key: string) => void;
+  onHide: () => void;
+}) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   // The project open: new things are made there, so only its folders offer New.
@@ -142,7 +182,7 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
       <div ref={rowsRef} role="tree" aria-label="Projects and objects" className="min-h-0 flex-1 overflow-y-auto py-1.5">
         {visible.map((n, i) => {
           const expandable = n.children.length > 0;
-          const selected = n.item?.id === current;
+          const selected = n.item ? n.item.id === current : n.key === current;
           return (
             <div
               key={n.key}
@@ -153,7 +193,7 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
               aria-selected={selected}
               tabIndex={(focus ?? current ?? visible[0]?.key) === n.key ? 0 : -1}
               onFocus={() => setFocus(n.key)}
-              onClick={() => (n.item ? onOpen(n.item.id) : toggle(n.key))}
+              onClick={() => (n.item ? onOpen(n.item.id) : (toggle(n.key, true), onOpenFolder(n.key)))}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") move(i + 1);
                 else if (e.key === "ArrowUp") move(i - 1);
@@ -168,14 +208,14 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
                   }
                 } else if (e.key === "Enter" || e.key === " ") {
                   if (n.item) onOpen(n.item.id);
-                  else toggle(n.key);
+                  else onOpenFolder(n.key);
                 }
                 else return;
                 e.preventDefault();
               }}
               style={{ paddingInlineStart: `${(n.depth - 1) * 14 + 6}px` }}
               className={cn(
-                "group/row mx-1.5 flex h-7 cursor-pointer items-center gap-1.5 rounded-md pe-2 text-sm outline-none select-none",
+                "group/row relative mx-1.5 flex h-7 cursor-pointer items-center gap-1.5 rounded-md pe-2 text-sm outline-none select-none",
                 "focus-visible:ring-ring/50 focus-visible:ring-2",
                 selected ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-accent",
                 n.kind === "project" && "font-medium",
@@ -212,32 +252,23 @@ export function CatalogTree({ projects, current, onOpen, onHide }: { projects: T
                   <IconShare aria-hidden className="size-3" /> Shared
                 </span>
               )}
-              <span className="text-muted-foreground ms-auto ps-2 text-xs tabular-nums">
+              {/* One column of counts at the row's end; a folder's actions take its place on hover, so nothing shifts. */}
+              <span className={cn("text-muted-foreground ms-auto ps-2 text-xs tabular-nums", folderActions(n) && "group-hover/row:invisible group-focus-within/row:invisible")}>
                 {n.count ?? (n.item?.release ? `@${n.item.release}` : n.item?.status === "draft" ? "draft" : "")}
               </span>
-              {/* New, in the project open: a type's folder makes one there. */}
-              {n.kind === "group" && n.depth === 2 && n.type && NEW[n.type] && n.key.startsWith(`${here}:`) && (
-                <Link
-                  href={NEW[n.type]!.href}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label={NEW[n.type]!.label}
-                  title={NEW[n.type]!.label}
-                  className="text-muted-foreground hover:text-foreground flex size-5 items-center justify-center rounded opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-                >
-                  <IconPlus className="size-3.5" />
-                </Link>
-              )}
-              {/* A type's folder leads to where its things are made and managed. */}
-              {n.kind === "group" && n.depth === 2 && n.type && LIST[n.type] && (
-                <Link
-                  href={LIST[n.type]!.href}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label={LIST[n.type]!.label}
-                  title={LIST[n.type]!.label}
-                  className="text-muted-foreground hover:text-foreground -me-1 flex size-5 items-center justify-center rounded opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-                >
-                  <IconArrowUpRight className="size-3.5" />
-                </Link>
+              {folderActions(n) && (
+                <span className="absolute inset-y-0 end-1 hidden items-center gap-0.5 group-hover/row:flex group-focus-within/row:flex">
+                  {n.type && NEW[n.type] && n.key.startsWith(`${here}:`) && (
+                    <RowLink href={NEW[n.type]!.href} label={NEW[n.type]!.label}>
+                      <IconPlus className="size-3.5" />
+                    </RowLink>
+                  )}
+                  {n.type && LIST[n.type] && (
+                    <RowLink href={LIST[n.type]!.href} label={LIST[n.type]!.label}>
+                      <IconArrowUpRight className="size-3.5" />
+                    </RowLink>
+                  )}
+                </span>
               )}
             </div>
           );

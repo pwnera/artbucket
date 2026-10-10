@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,7 @@ import {
   IconWorld,
   IconFolder,
   IconLink,
+  IconPlus,
   IconLayoutSidebarLeftExpand,
   IconShare,
   IconX,
@@ -29,7 +30,7 @@ import { useCan, useMe } from "@/components/can";
 import { Combobox } from "@/components/combobox";
 import { ROLES, roleName, type Scope } from "@/lib/scopes";
 import { undoable } from "@/lib/undo";
-import { CatalogTree } from "@/components/catalog-tree";
+import { build, CatalogTree, findNode, LIST, NEW, type Node } from "@/components/catalog-tree";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
 import { PinButton } from "@/components/pin-button";
@@ -95,10 +96,11 @@ export type Tab = (typeof TABS)[number];
 
 const day = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
-export function CatalogExplorer({ projects, object, tab }: { projects: TreeProject[]; object: Described | null; tab: Tab }) {
+export function CatalogExplorer({ projects, object, folder, tab }: { projects: TreeProject[]; object: Described | null; folder: string | null; tab: Tab }) {
   const router = useRouter();
   const [hidden, setHidden] = useState(false);
   const go = useCallback((id: string, t: Tab = tab) => router.push(`/catalog?o=${id}${t === "overview" ? "" : `&tab=${t}`}`, { scroll: false }), [router, tab]);
+  const openFolder = useCallback((key: string) => router.push(`/catalog?f=${encodeURIComponent(key)}`, { scroll: false }), [router]);
   return (
     <>
       <AppHeader trail={[{ label: "Catalog" }]}>
@@ -117,12 +119,14 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
           </div>
         ) : (
           <div className="h-80 shrink-0 border-b md:sticky md:top-14 md:h-[calc(100svh-3.5rem)] md:w-80 md:border-e md:border-b-0">
-            <CatalogTree projects={projects} current={object?.id ?? null} onOpen={(id) => go(id)} onHide={() => setHidden(true)} />
+            <CatalogTree projects={projects} current={folder ?? object?.id ?? null} onOpen={(id) => go(id)} onOpenFolder={openFolder} onHide={() => setHidden(true)} />
           </div>
         )}
         <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
-          {object ? (
-            <ObjectView object={object} tab={tab} go={go} projects={projects} />
+          {folder ? (
+            <FolderView key={folder} projects={projects} folder={folder} go={go} openFolder={openFolder} />
+          ) : object ? (
+            <ObjectView object={object} tab={tab} go={go} openFolder={openFolder} projects={projects} />
           ) : (
             <p className="text-muted-foreground text-sm">Nothing in the catalog you can reach yet. Upload an asset or make a brand, and it shows here.</p>
           )}
@@ -132,13 +136,36 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
   );
 }
 
-function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: Tab; go: (id: string, t?: Tab) => void; projects: TreeProject[] }) {
+/** The tabs an object has: lineage where something links to it or from it, activity where it is recorded (an asset's versions, a brand's releases). */
+const tabsOf = (o: Described): Tab[] => TABS.filter((t) => (t === "lineage" ? o.lineage.up + o.lineage.down > 0 : t === "activity" ? o.type === "asset" || o.type === "brand" : true));
+
+function ObjectView({
+  object: o,
+  tab: asked,
+  go,
+  openFolder,
+  projects,
+}: {
+  object: Described;
+  tab: Tab;
+  go: (id: string, t?: Tab) => void;
+  openFolder: (key: string) => void;
+  projects: TreeProject[];
+}) {
   const counts: Partial<Record<Tab, number>> = { lineage: o.lineage.up + o.lineage.down };
+  const tabs = tabsOf(o);
+  const tab = tabs.includes(asked) ? asked : "overview";
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-3">
         <nav aria-label="Where it is" className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
-          <span>{o.project.name}</span>/<span>{TYPE_LABEL[o.parent?.type ?? o.type].many}</span>
+          <button type="button" className="hover:text-foreground" onClick={() => openFolder(o.project.id)}>
+            {o.project.name}
+          </button>
+          /
+          <button type="button" className="hover:text-foreground" onClick={() => openFolder(`${o.project.id}:${o.parent?.type ?? o.type}`)}>
+            {TYPE_LABEL[o.parent?.type ?? o.type].many}
+          </button>
           {o.parent && (
             <>
               /
@@ -180,7 +207,7 @@ function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: 
         </div>
       </div>
       <nav aria-label="Object" className="flex gap-5 overflow-x-auto border-b">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t}
             type="button"
@@ -200,6 +227,153 @@ function ObjectView({ object: o, tab, go, projects }: { object: Described; tab: 
       {tab === "lineage" && <LineageGraph key={o.id} id={o.id} onOpen={(id) => go(id, "lineage")} />}
       {tab === "access" && <Access key={o.id} o={o} />}
       {tab === "activity" && <Activity key={o.id} id={o.id} />}
+    </div>
+  );
+}
+
+/**
+ * A folder's page, Drive's way: a project, a type's folder (Brands, Assets),
+ * an asset type's (Images) or a brand's rules or pages. Where it sits, what
+ * can be made in it, its folders as cards, then what it holds as a list: a
+ * project's lately updated, a folder's all of it.
+ */
+function FolderView({ projects, folder, go, openFolder }: { projects: TreeProject[]; folder: string; go: (id: string) => void; openFolder: (key: string) => void }) {
+  const here = useMe()?.project.id;
+  const tree = useMemo(() => build(projects, () => true), [projects]);
+  const [shown, setShown] = useState(100);
+  const found = findNode(tree, folder);
+  if (!found) return <p className="text-muted-foreground text-sm">This folder is empty or gone. Pick another in the tree.</p>;
+  const { node, trail } = found;
+  const project = node.kind === "project" ? node : trail[0];
+  const folders = node.children.filter((c) => c.kind === "group");
+  const leaves: CatalogItem[] = [];
+  // What it holds, in every folder below: an object's own parts (a brand's rules and pages) stay the object's.
+  const walk = (n: Node) => n.children.forEach((c) => (c.kind === "object" ? leaves.push(c.item!) : walk(c)));
+  walk(node);
+  const items = node.kind === "project" ? [...leaves].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)).slice(0, 12) : leaves;
+  const make = node.depth === 2 && node.type && NEW[node.type] && node.key.startsWith(`${here}:`) ? NEW[node.type] : undefined;
+  const list = node.depth === 2 && node.type ? LIST[node.type] : undefined;
+  return (
+    <div className="mx-auto max-w-5xl space-y-8">
+      <div className="space-y-3">
+        {trail.length > 0 && (
+          <nav aria-label="Where it is" className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
+            {trail.map((t, i) => (
+              <span key={t.key} className="flex items-center gap-1.5">
+                {i > 0 && <span aria-hidden>/</span>}
+                <button type="button" className="hover:text-foreground" onClick={() => openFolder(t.key)}>
+                  {t.label}
+                </button>
+              </span>
+            ))}
+          </nav>
+        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <span className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg">
+            {node.kind === "project" ? (
+              <span className="text-primary-ink font-display text-lg font-semibold">{node.label.charAt(0).toUpperCase()}</span>
+            ) : node.type && node.depth === 2 ? (
+              <TypeIcon type={node.type} className="size-5" />
+            ) : (
+              <IconFolder aria-hidden className="size-5" />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display truncate text-xl font-semibold tracking-tight">{node.label}</h2>
+            <p className="text-muted-foreground text-sm">
+              {node.kind === "project" ? `Project · You are ${roleName((projects.find((p) => p.id === node.key)?.role ?? "read") as Scope)}` : `In ${project.label}`} · {leaves.length.toLocaleString()}{" "}
+              {leaves.length === 1 ? "item" : "items"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {list && (
+              <Button asChild variant="outline">
+                <Link href={list.href}>{list.label}</Link>
+              </Button>
+            )}
+            {make && (
+              <Button asChild>
+                <Link href={make.href}>
+                  <IconPlus /> {make.label}
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {folders.length > 0 && (
+        <section aria-label="Folders" className="space-y-3">
+          <h3 className="text-sm font-medium">Folders</h3>
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
+            {folders.map((f) => (
+              <li key={f.key}>
+                <button
+                  type="button"
+                  onClick={() => openFolder(f.key)}
+                  className="bg-card hover:bg-accent focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors outline-none focus-visible:ring-2"
+                >
+                  {f.type && f.depth === 2 ? <TypeIcon type={f.type} className="text-muted-foreground size-5 shrink-0" /> : <IconFolder aria-hidden className="text-muted-foreground size-5 shrink-0" />}
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{f.label}</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">{f.count}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {items.length > 0 && (
+        <section aria-label={node.kind === "project" ? "Updated lately" : "Items"} className="space-y-3">
+          <h3 className="text-sm font-medium">{node.kind === "project" ? "Updated lately" : "Items"}</h3>
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground text-left text-xs">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Name</th>
+                  {node.kind === "project" && <th className="px-4 py-2.5 font-medium max-sm:hidden">Type</th>}
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-end font-medium max-sm:hidden">Updated</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {items.slice(0, shown).map((i) => (
+                  <tr
+                    key={`${i.id}:${i.sharedFrom?.id ?? ""}`}
+                    tabIndex={0}
+                    onClick={() => go(i.id)}
+                    onKeyDown={(e) => e.key === "Enter" && go(i.id)}
+                    className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
+                  >
+                    <td className="w-full max-w-0 px-4 py-2.5">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <TypeIcon type={i.type} className="text-muted-foreground size-4 shrink-0" />
+                        <span className="truncate font-medium">{i.name}</span>
+                        {i.private && <IconLock aria-label="Private" className="text-muted-foreground size-3.5 shrink-0" />}
+                        {i.sharedFrom && <Badge variant="secondary">Shared</Badge>}
+                      </span>
+                    </td>
+                    {node.kind === "project" && <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap max-sm:hidden">{TYPE_LABEL[i.type].one}</td>}
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <span className="flex items-center gap-1.5">
+                        <StatusBadge status={i.status} />
+                        {i.release && <span className="text-muted-foreground text-xs tabular-nums">@{i.release}</span>}
+                      </span>
+                    </td>
+                    <td className="text-muted-foreground px-4 py-2.5 text-end whitespace-nowrap tabular-nums max-sm:hidden">{day(i.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {items.length > shown && (
+            <Button variant="outline" onClick={() => setShown((n) => n + 200)}>
+              Show {Math.min(200, items.length - shown).toLocaleString()} more
+            </Button>
+          )}
+        </section>
+      )}
+      {!items.length && !folders.length && <p className="text-muted-foreground text-sm">Nothing here yet.</p>}
     </div>
   );
 }

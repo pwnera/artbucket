@@ -7,11 +7,15 @@ export const metadata: Metadata = { title: "Catalog" };
 
 const TABS: Tab[] = ["overview", "lineage", "access", "activity"];
 
-/** The catalog explorer: the tree from /api/v1/catalog/tree, and the object `?o=` names (the first one without). */
-export default async function Catalog({ searchParams }: { searchParams: Promise<{ o?: string; tab?: string }> }) {
-  const [, { o, tab }] = await Promise.all([whoami(), searchParams]);
+/**
+ * The catalog explorer: the tree from /api/v1/catalog/tree, and the object
+ * `?o=` names or the folder `?f=` does (a tree key: a project, a type's
+ * folder...). Neither: the project open, as a folder.
+ */
+export default async function Catalog({ searchParams }: { searchParams: Promise<{ o?: string; f?: string; tab?: string }> }) {
+  const [me, { o, f, tab }] = await Promise.all([whoami(), searchParams]);
   const projects = await get("catalog/tree", (b: { projects: TreeProject[] }) => b.projects, [] as TreeProject[]);
-  const ref = o ?? projects.flatMap((p) => p.objects)[0]?.id;
-  const object = ref ? await get(`catalog/${encodeURIComponent(ref)}`, (b: Described) => b, null) : null;
-  return <CatalogExplorer projects={projects} object={object} tab={TABS.includes(tab as Tab) ? (tab as Tab) : "overview"} />;
+  const folder = o ? null : (f ?? (projects.find((p) => p.id === me?.project.id) ?? projects[0])?.id ?? null);
+  const object = o ? await get(`catalog/${encodeURIComponent(o)}`, (b: Described) => b, null) : null;
+  return <CatalogExplorer projects={projects} object={object} folder={folder} tab={TABS.includes(tab as Tab) ? (tab as Tab) : "overview"} />;
 }
