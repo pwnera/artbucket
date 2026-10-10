@@ -154,7 +154,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   // Arriving from a brand (publish, the launch checklist): a new portal showing it, named for it, open at once.
   const fresh = params.get("new");
   const freshBrand = fresh ? brands.find((b) => b.slug === fresh) : undefined;
-  const [editing, setEditing] = useState<Portal | "new" | null>(() => (freshBrand ? "new" : null));
+  // Arriving from the catalog (Open portal): that portal's editor, open at once.
+  const asked = params.get("edit");
+  const [editing, setEditing] = useState<Portal | "new" | null>(() => (freshBrand ? "new" : (asked && portals.find((x) => x.id === asked)) || null));
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
