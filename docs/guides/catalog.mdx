@@ -8,6 +8,19 @@ project: brands (with their rules and guideline pages), collections, assets
 and portals. **Catalog** in the sidebar shows it as a tree; **Explore**
 searches all of it at once.
 
+## The tree and its pages
+
+Projects, then a folder per type (Brands, Collections, Assets, Portals), then
+the objects; assets fold once more by their type (Images, Videos, Fonts,
+Documents...), and a brand holds its rules and guideline pages. A row opens
+its page; only its chevron folds it. A project's page shows its types and what
+was updated lately, a type's page every object of it, with **New** where it is
+made and a link to where it is managed. An object's page has its **Overview**,
+**Lineage** where something links to it or from it, **Access**, and
+**Activity** where it is recorded (an asset's versions, a brand's releases).
+Every collection, asset, brand and portal in the app has a button back to its
+page here.
+
 ## Addresses
 
 Every object has one address, accepted anywhere an id is:
@@ -45,7 +58,10 @@ What an object comes from and what uses it, from links already stored: an
 asset to what replaced it and what was made from it, to the brands whose rules
 name it and the collections it is in; a collection or a brand to the portals
 that offer it; a brand to its forks. The **Lineage** tab draws one hop each
-way; a **+** on a card's outward side brings the next hop in. The impact line
+way; a **+** on a card's outward side brings the next hop in, and a card can be
+dragged where it reads best. Each card says whether it may be used: its status
+(Current, Replaced, Draft...), its version (`v2 of 3` for an asset, `@4` for a
+brand), an asset's license, and a warning when it expires soon. The impact line
 says what changing the object reaches, in how many projects. Only what you can
 reach is drawn: the rest is counted.
 
@@ -59,6 +75,12 @@ wins; a private brand, collection or asset turns away roles from above, admins
 excepted; an agent's key is held to its person's role. Reading a brand or a
 portal takes a role on its project or a grant on it. The **Access** tab names
 the grant behind every role.
+
+Its admins grant from there too: on a brand, a collection or an asset (a rule
+or a page is granted on its brand), add a person or a group with a role,
+change it in place, or take it back. **Manage access** links what is set
+elsewhere: a portal's own access, the project's members, the organization's
+groups, and the project to grant in when the object is another project's.
 
 ### Sharing into another project
 
@@ -76,7 +98,7 @@ it back.
 | `GET /api/v1/catalog/tree` | Every project you reach and its objects |
 | `GET /api/v1/catalog/{ref}` | One object, by id or URL-encoded address |
 | `GET /api/v1/catalog/{ref}/lineage` | What it comes from and what uses it |
-| `GET /api/v1/catalog/{ref}/access` | Who reaches it, and why |
+| `GET /api/v1/catalog/{ref}/access` | Who reaches it, and why; what takes a grant (`on`) and the grants made there (`granted`) |
 | `POST /api/v1/grants` | A grant, for a `user`, a `group` or a `project` (a share) |
 | `/api/v1/groups` | The organization's groups and their members |
 
