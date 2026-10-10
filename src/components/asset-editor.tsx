@@ -1030,7 +1030,8 @@ export function AssetEditor({
             </div>
           </div>
 
-          <div className="grid min-h-0 flex-1 content-start gap-4 px-6 py-4 md:overflow-y-auto">
+          {/* One column as wide as the panel (minmax(0, 1fr)): a long value inside never widens it. */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 px-6 py-4 md:overflow-y-auto">
             <AgentWorking asset={asset} onChanged={onReviewed} />
             <Can do="asset.review" on={asset}>
               <Review
@@ -2072,7 +2073,7 @@ function Review({
     });
 
   return (
-    <div className="border-primary/30 bg-primary/5 grid gap-3 rounded-lg border p-3">
+    <div className="border-primary/30 bg-primary/5 grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3">
       {asset.status === "proposed" && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -2184,10 +2185,12 @@ function Review({
               const label = d?.label ?? k;
               const shown = formatFieldValue(d, v);
               return (
-                <li key={k} className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground shrink-0">{d ? label : `${k} (removed field)`}</span>
-                  <span className="min-w-0 flex-1 truncate font-medium" title={shown}>
-                    {shown}
+                <li key={k} className="flex items-start gap-2 text-sm">
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="text-muted-foreground text-xs">{d ? label : `${k} (removed field)`}</span>
+                    <span className="line-clamp-3 font-medium break-words" title={shown}>
+                      {shown}
+                    </span>
                   </span>
                   {d && (
                     <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} onClick={() => one(k, () => (defOf(k) ? flush({ fields: { [k]: v }, proposedFields: keep([k]) }) : Promise.resolve(false)))}>
