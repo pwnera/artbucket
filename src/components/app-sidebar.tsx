@@ -345,7 +345,7 @@ function NewMenu({ me }: { me: Me }) {
   );
 }
 
-const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, portal: IconWorld, rule: IconListCheck, page: IconFileText } as const;
+const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, site: IconWorld, rule: IconListCheck, page: IconFileText } as const;
 
 /** What this person starred, from the catalog or a brand's page: the one list the sidebar keeps, because they chose it. */
 function Pinned({ current }: { current: string }) {
@@ -357,7 +357,8 @@ function Pinned({ current }: { current: string }) {
       <SidebarGroupContent>
         <SidebarMenu>
           {pins.map((p) => {
-            const Icon = PIN_ICON[p.type];
+            // A pin kept from before sites were named so reads as one.
+            const Icon = PIN_ICON[p.type] ?? IconWorld;
             return (
               <SidebarMenuItem key={p.id}>
                 <SidebarMenuButton asChild isActive={current === p.href} tooltip={p.label}>

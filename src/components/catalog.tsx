@@ -54,7 +54,7 @@ const ICON: Record<CatalogType, React.ComponentType<{ className?: string }>> = {
   brand: IconPalette,
   collection: IconStack2,
   asset: IconPhoto,
-  portal: IconWorld,
+  site: IconWorld,
   rule: IconListCheck,
   page: IconFileText,
 };
@@ -632,7 +632,7 @@ const membersOf = (project: string) => `/settings/project/members?project=${proj
 function ManageElsewhere({ o, grantable, manage }: { o: Described; grantable: boolean; manage: boolean }) {
   const can = useCan();
   const links = [
-    o.type === "portal" && { href: o.open, label: "Set who sees this portal", hint: "public, password, members or by request, on the portal" },
+    o.type === "site" && { href: o.open, label: "Set who sees this site", hint: "public, password, members or by request, on the site" },
     grantable && !manage && { href: `/catalog?o=${o.id}&tab=access&project=${o.project.id}`, label: `Grant access in ${o.project.name}`, hint: "grants are made by its admins, in it" },
     { href: membersOf(o.project.id), label: `Members of ${o.project.name}`, hint: "their project roles reach everything in it" },
     can("organization.manage") && { href: "/settings/organization/groups", label: "Groups", hint: "grant many people at once" },

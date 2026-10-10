@@ -64,3 +64,5 @@ PATCH /api/v1/keys/{id} body.projects: newly required
 PATCH /api/v1/keys/{id} 200.data.workspaces: removed
 POST /api/v1/oauth/device/{code} body: no longer accepts object
 POST /api/v1/oauth/authorize body: no longer accepts object
+GET /api/v1/catalog query type: no longer takes "portal"
+tool search_catalog.type[]: no longer takes "portal"

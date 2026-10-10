@@ -63,7 +63,7 @@ const TINT: Record<CatalogType, string> = {
   brand: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   collection: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   asset: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  portal: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  site: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   rule: "bg-muted text-muted-foreground",
   page: "bg-muted text-muted-foreground",
 };

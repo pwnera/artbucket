@@ -80,7 +80,7 @@ test("a private collection's assets are out of a reader's search and counts", as
 
 test("uses: finds what is downstream of an address", async () => {
   const r = await searchCatalog(ada.caller, parseQuery(`uses:${org}/${corporate.slug}/collection/logos`));
-  assert.deepEqual(r.items.map((i) => i.type), ["portal"]);
+  assert.deepEqual(r.items.map((i) => i.type), ["site"]);
 });
 
 test("an address resolves to its object, and describe names what uses it", async () => {

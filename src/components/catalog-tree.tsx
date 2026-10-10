@@ -23,17 +23,17 @@ import { cn } from "@/lib/utils";
 
 export type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
 
-const ORDER: CatalogType[] = ["brand", "collection", "asset", "portal"];
+const ORDER: CatalogType[] = ["brand", "collection", "asset", "site"];
 export const NEW: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands?new=brand", label: "New brand" },
   collection: { href: "/collections?new", label: "New collection" },
   asset: { href: "/?browse", label: "Upload assets in Explore" },
-  portal: { href: "/portals?new=portal", label: "New portal" },
+  site: { href: "/portals?new=portal", label: "New site" },
 };
 export const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
   asset: { href: "/?browse", label: "Browse the assets in Explore" },
-  portal: { href: "/portals", label: "Manage portals" },
+  site: { href: "/portals", label: "Manage sites" },
 };
 const PARTS: CatalogType[] = ["rule", "page"];
 const KIND_LABEL: Record<AssetType, string> = { image: "Images", video: "Videos", audio: "Audio", font: "Fonts", document: "Documents", other: "Other" };

@@ -1547,7 +1547,7 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
  */
 export const catalogObjects = pgView("catalog_objects", {
   id: uuid("id").notNull(),
-  type: text("type").$type<"asset" | "collection" | "brand" | "portal" | "rule" | "page">().notNull(),
+  type: text("type").$type<"asset" | "collection" | "brand" | "site" | "rule" | "page">().notNull(),
   projectId: uuid("project_id").notNull(),
   /** A part's object: a rule's or a page's brand. */
   parentId: uuid("parent_id"),
@@ -1593,7 +1593,7 @@ export const catalogObjects = pgView("catalog_objects", {
     left join lateral (select max(v.number) as number from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null) r on true
     left join lateral (select max(v.updated_at) as at from ${brandVersions} v where v.brand_id = b.id) u on true
     union all
-    select p.id, 'portal', p.project_id, null, p.slug, p.name, p.intro,
+    select p.id, 'site', p.project_id, null, p.slug, p.name, p.intro,
       case when p.expires_at < now() then 'archived' else 'current' end, null, null, false, '{}'::uuid[], '[]'::jsonb,
       p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))
     from ${portals} p

@@ -12753,7 +12753,7 @@
               "brand",
               "collection",
               "asset",
-              "portal",
+              "site",
               "rule",
               "page"
             ]
@@ -12904,7 +12904,7 @@
                             "brand",
                             "collection",
                             "asset",
-                            "portal",
+                            "site",
                             "rule",
                             "page"
                           ]
@@ -13003,7 +13003,7 @@
                                     "brand",
                                     "collection",
                                     "asset",
-                                    "portal",
+                                    "site",
                                     "rule",
                                     "page"
                                   ]
@@ -13191,7 +13191,7 @@
                                   "brand",
                                   "collection",
                                   "asset",
-                                  "portal",
+                                  "site",
                                   "rule",
                                   "page"
                                 ]
@@ -13290,7 +13290,7 @@
                                           "brand",
                                           "collection",
                                           "asset",
-                                          "portal",
+                                          "site",
                                           "rule",
                                           "page"
                                         ]
@@ -13428,7 +13428,7 @@
                             "brand",
                             "collection",
                             "asset",
-                            "portal",
+                            "site",
                             "rule",
                             "page"
                           ]
@@ -13527,7 +13527,7 @@
                                     "brand",
                                     "collection",
                                     "asset",
-                                    "portal",
+                                    "site",
                                     "rule",
                                     "page"
                                   ]
@@ -13679,7 +13679,7 @@
                       "brand",
                       "collection",
                       "asset",
-                      "portal",
+                      "site",
                       "rule",
                       "page"
                     ]
@@ -13778,7 +13778,7 @@
                               "brand",
                               "collection",
                               "asset",
-                              "portal",
+                              "site",
                               "rule",
                               "page"
                             ]
@@ -13825,7 +13825,7 @@
                             "brand",
                             "collection",
                             "asset",
-                            "portal",
+                            "site",
                             "rule",
                             "page"
                           ]
@@ -13924,7 +13924,7 @@
                                     "brand",
                                     "collection",
                                     "asset",
-                                    "portal",
+                                    "site",
                                     "rule",
                                     "page"
                                   ]
@@ -14181,7 +14181,7 @@
                             "brand",
                             "collection",
                             "asset",
-                            "portal",
+                            "site",
                             "rule",
                             "page"
                           ]
@@ -14280,7 +14280,7 @@
                                     "brand",
                                     "collection",
                                     "asset",
-                                    "portal",
+                                    "site",
                                     "rule",
                                     "page"
                                   ]

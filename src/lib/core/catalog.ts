@@ -601,7 +601,7 @@ async function delivery(type: CatalogType, id: string): Promise<Holder[]> {
     const [a] = await db.select({ public: assets.public }).from(assets).where(eq(assets.id, id));
     if (a?.public) pub("Anyone with the link", "Public asset: approved, current, unexpired only");
   }
-  if (type === "portal") {
+  if (type === "site") {
     const [p] = await db.select({ access: portals.access }).from(portals).where(eq(portals.id, id));
     if (p) pub(p.access === "public" ? "Anyone" : p.access === "password" ? "Anyone with the password" : "Members and approved requests", `Portal access: ${p.access}`);
   }

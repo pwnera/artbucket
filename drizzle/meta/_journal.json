@@ -449,6 +449,13 @@
       "when": 1791661739631,
       "tag": "0063_sites",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1791662136041,
+      "tag": "0064_sites_in_catalog",
+      "breakpoints": true
     }
   ]
 }

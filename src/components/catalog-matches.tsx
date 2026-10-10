@@ -12,7 +12,7 @@ import type { CatalogResults } from "@/lib/core/catalog";
  * guideline pages, as cards above the assets. Each opens in the catalog.
  */
 
-const OTHERS: CatalogType[] = ["brand", "collection", "portal", "rule", "page"];
+const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page"];
 const SHOWN = 8;
 
 export function CatalogMatches({ q }: { q: string }) {

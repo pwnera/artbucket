@@ -7,7 +7,7 @@
  */
 
 /** Objects: what a grant can be on and the explorer lists. */
-export const OBJECT_TYPES = ["brand", "collection", "asset", "portal"] as const;
+export const OBJECT_TYPES = ["brand", "collection", "asset", "site"] as const;
 /** Parts: addressed inside their object, found by search, governed by it. */
 export const PART_TYPES = ["rule", "page"] as const;
 export const CATALOG_TYPES = [...OBJECT_TYPES, ...PART_TYPES] as const;
@@ -18,12 +18,15 @@ export const TYPE_LABEL: Record<CatalogType, { one: string; many: string }> = {
   brand: { one: "Brand", many: "Brands" },
   collection: { one: "Collection", many: "Collections" },
   asset: { one: "Asset", many: "Assets" },
-  portal: { one: "Portal", many: "Portals" },
+  site: { one: "Site", many: "Sites" },
   rule: { one: "Rule", many: "Rules" },
   page: { one: "Guideline page", many: "Guideline pages" },
 };
 
 export const isPart = (t: CatalogType) => (PART_TYPES as readonly string[]).includes(t);
+
+/** A type by an older name, as addresses and saved queries may still say it: a portal is a site. */
+const renamed = (t: string) => (t === "portal" ? "site" : t);
 
 /** One lifecycle for every type. Expiring is a flag on current objects, not a status. */
 export const STATUSES = ["draft", "in_review", "current", "replaced", "archived"] as const;
@@ -67,7 +70,8 @@ export type Address = { org: string; project: string; type: CatalogType; slug: s
 export function parseAddress(raw: string): Address | null {
   const segs = raw.trim().replace(/^\/+|\/+$/g, "").split("/");
   if (segs.length !== 4 && segs.length !== 6) return null;
-  const [org, project, type, last, partType, partSlug] = segs;
+  const [org, project, said, last, partType, partSlug] = segs;
+  const type = renamed(said);
   if (!(OBJECT_TYPES as readonly string[]).includes(type)) return null;
   const at = last.match(/^(.+?)(?:@(\d+))?$/);
   if (!org || !project || !at) return null;
@@ -112,7 +116,7 @@ export function parseQuery(q: string): CatalogQuery {
       words.push(token);
       continue;
     }
-    const values = m[2].split(",").filter(Boolean);
+    const values = m[2].split(",").filter(Boolean).map((v) => (key === "types" ? renamed(v) : v));
     if (key === "types" && !values.every((v) => (CATALOG_TYPES as readonly string[]).includes(v))) words.push(token);
     else if (key === "statuses" && !values.every((v) => (STATUSES as readonly string[]).includes(v))) words.push(token);
     else (out[key] as string[]).push(...values);
@@ -162,7 +166,7 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
       return `/?collection=${item.id}&${w}`;
     case "brand":
       return `/brands/${item.slug}?${w}`;
-    case "portal":
+    case "site":
       return `/portals?edit=${item.id}&${w}`;
     case "rule":
       return `/brands/${brand}/rules?${w}`;
