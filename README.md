@@ -25,7 +25,7 @@ the CLI and Git.
 [Try Artbucket Cloud][Artbucket Cloud] · [Live brand page] · [Docs] · [Run it yourself](#run-it-yourself)
 
 <p align="center">
-  <img src="docs/images/library.webp" alt="The Artbucket library: the Big Buck Bunny collection in a grid, with recents and collections in the sidebar" width="1000">
+  <img src="docs/images/library.webp" alt="Artbucket's Explore: the Big Buck Bunny collection in a grid, with New, Explore, Catalog, Review, Insights and the Content group in the sidebar" width="1000">
 </p>
 
 ----
@@ -102,6 +102,13 @@ storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
 
 ## What Artbucket manages
 
+- **Catalog: the governance and context layer.** Every brand, rule, guideline
+  page, collection, asset and portal of an organization in one catalog, each
+  with an address (`acme/corporate/asset/logo-primary@4`), one search across
+  all of it, lineage (what it comes from, what uses it, what a change
+  reaches), who can reach it and through which grant, and what happened to
+  it. People govern it in the app; agents and code read the same context over
+  MCP, the API and the CLI ([catalog]).
 - **Assets: what exists.** The library: search in milliseconds at 100,000
   assets, and any size or format from one original as a URL,
   `/a/{id}/w_1200,f_webp`, with no export and no duplicate.
@@ -165,6 +172,7 @@ reserved for commercial code. See [decision 0013].
 [Artbucket Cloud]: https://artbucket.io
 [check]: https://docs.artbucket.io/guides/check
 [brand as code]: https://docs.artbucket.io/guides/brand-as-code
+[catalog]: https://docs.artbucket.io/guides/catalog
 [CLI]: https://docs.artbucket.io/developers/cli
 [CONTRIBUTING.md]: CONTRIBUTING.md
 [Coolify]: https://docs.artbucket.io/installation/coolify
