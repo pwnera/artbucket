@@ -101,9 +101,9 @@ export function AppSidebar({
     brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
     portals: pathname === "/portals",
-    review: inLibrary && view.review,
+    review: pathname === "/review",
     // A collection or saved search is its own item, so none of these is lit for one.
-    library: (inLibrary && !view.review && !view.collection && !onSearch) || pathname === "/activity",
+    library: inLibrary && !view.collection && !onSearch,
   };
 
   return (
@@ -147,7 +147,7 @@ export function AppSidebar({
               <Place href="/" label="Explore" icon={<IconSearch />} active={at.library} />
               <Place href="/catalog" label="Catalog" icon={<IconSitemap />} active={at.catalog} />
               <Place
-                href="/?review"
+                href="/review"
                 label="Review"
                 icon={<IconInbox />}
                 active={at.review}

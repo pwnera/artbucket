@@ -451,16 +451,16 @@ export function CommandPalette({
               <GoKeys to="/brand" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Review suggested approve" onSelect={() => go("/?review")}>
+          <CommandItem value="Review suggested approve" onSelect={() => go("/review")}>
             <IconInbox /> Review
             <CommandShortcut className="tracking-normal">
-              <GoKeys to="/?review" />
+              <GoKeys to="/review" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Activity history" onSelect={() => go("/activity")}>
+          <CommandItem value="Activity history" onSelect={() => go("/insights/activity")}>
             <IconActivity /> Activity
             <CommandShortcut className="tracking-normal">
-              <GoKeys to="/activity" />
+              <GoKeys to="/insights/activity" />
             </CommandShortcut>
           </CommandItem>
           {team && (

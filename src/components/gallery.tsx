@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   IconAlertTriangle,
@@ -36,7 +36,7 @@ import { AssetViewer } from "@/components/asset-viewer";
 import { useBrand } from "@/components/brand";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
-import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
+import { AppHeader, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
 import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -172,16 +172,26 @@ const describe = (k: string, v: string) => {
   return `${key} ${op === "gte" ? "≥" : op === "lte" ? "≤" : "="} ${v}`;
 };
 
+/** Review is a page of its own (/review): the same library, always showing what waits. */
+const REVIEW = "/review";
+const onReview = () => window.location.pathname === REVIEW;
+
 /** The URL's view, whatever the page's closure last saw. */
-const currentView = () => parseView(new URLSearchParams(window.location.search));
+const currentView = () => {
+  const v = parseView(new URLSearchParams(window.location.search));
+  return onReview() ? { ...v, review: true } : v;
+};
 
 /**
  * Move to another view. Push for a place you would go Back from (a
  * collection, an open asset); replace for tweaking the one you're in.
  */
 function go(patch: Partial<View>, push = false) {
-  const qs = viewQuery({ ...currentView(), ...patch });
-  window.history[push ? "pushState" : "replaceState"](null, "", qs ? `/?${qs}` : "/");
+  const next = { ...currentView(), ...patch };
+  // On Review, review is the page, not a parameter.
+  const base = onReview() && next.review ? REVIEW : "/";
+  const qs = viewQuery(base === REVIEW ? { ...next, review: false } : next);
+  window.history[push ? "pushState" : "replaceState"](null, "", qs ? `${base}?${qs}` : base);
 }
 
 // Back and Forward restore their own scroll; any other move to a new place starts at the top.
@@ -354,7 +364,11 @@ export function Gallery({
 }) {
   // A string, so the view derived from it is a value the compiler can trust.
   const search = useSearchParams().toString();
-  const view = useMemo(() => parseView(new URLSearchParams(search)), [search]);
+  const reviewPage = usePathname() === REVIEW;
+  const view = useMemo(() => {
+    const v = parseView(new URLSearchParams(search));
+    return reviewPage ? { ...v, review: true } : v;
+  }, [search, reviewPage]);
   const apiQuery = useMemo(() => viewQuery(view, false), [view]);
   const can = useCan();
   const brand = useBrand();
@@ -1086,7 +1100,7 @@ export function Gallery({
 
   return (
     <>
-      <AppHeader trail={where ? [{ label: "Explore", href: "/" }, { label: where }] : [{ label: "Explore" }]}>
+      <AppHeader trail={reviewPage ? [{ label: "Review" }] : where ? [{ label: "Explore", href: "/" }, { label: where }] : [{ label: "Explore" }]}>
         {/* The start screen's own box is the search there: one, not two. */}
         <div className={cn("relative w-36 min-w-20 shrink! sm:w-64", startScreen && "hidden")}>
           {searching ? (
@@ -1222,7 +1236,6 @@ export function Gallery({
         className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", selecting && "pb-24 md:pb-24")}
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
-        <LibraryTabs at={view.review ? "review" : "assets"} />
         {startScreen ? (
           <ExploreStart latest={assets} collections={collections} searches={searches} />
         ) : (

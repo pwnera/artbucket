@@ -801,7 +801,7 @@ function KeyList({
               </span>
             )}
             {k.waiting > 0 && (
-              <Link href="/?review" className="text-primary-ink text-xs hover:underline">
+              <Link href="/review" className="text-primary-ink text-xs hover:underline">
                 {k.waiting} waiting in Review
               </Link>
             )}

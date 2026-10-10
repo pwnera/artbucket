@@ -23,7 +23,6 @@ import { toast } from "sonner";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { brandHref } from "@/components/brand-switcher";
 import { useCan, useMe } from "@/components/can";
-import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -33,7 +32,6 @@ import { ruleLabel } from "@/lib/rules";
 import { send } from "@/lib/send";
 import { ago, day, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { InfoTip } from "@/components/info-tip";
 import { flash } from "@/lib/motion";
 
 type Item = {
@@ -218,22 +216,17 @@ export function ActivityFeed({ first }: { first: Page }) {
 
   return (
     <>
-      <AppHeader trail={[{ label: "Assets", href: "/" }, { label: "Activity" }]}>
-        <ForAgents
-          about="The same feed for a script or an agent: who did what, newest first, one page at a time."
-          reads={(origin) => [
-            { label: "REST", text: curl(`${origin}/api/v1/activity`) },
-            { label: "An agent's own suggestions, and your decisions", text: call("my_proposals") },
-          ]}
-        />
-      </AppHeader>
-      <div className="flex flex-1 flex-col gap-4 px-4 pb-10 md:px-6">
-        <LibraryTabs at="activity" />
-        <PageHeader
-          icon={<IconActivity />}
-          title="Activity"
-          aside={<InfoTip>Who did what, newest first. People go by their name, agents by the name of their key.</InfoTip>}
-        >
+      {/* Under Insights' frame (its header and tabs): who did what, and the same feed for a script or an agent. */}
+      <div className="flex flex-1 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-muted-foreground flex-1 text-sm">Who did what, newest first. People go by their name, agents by the name of their key.</p>
+          <ForAgents
+            about="The same feed for a script or an agent: who did what, newest first, one page at a time."
+            reads={(origin) => [
+              { label: "REST", text: curl(`${origin}/api/v1/activity`) },
+              { label: "An agent's own suggestions, and your decisions", text: call("my_proposals") },
+            ]}
+          />
           <ToggleGroup type="single" variant="outline" size="sm" value={who} onValueChange={(v) => v && filter(v as Who)} aria-label="Show">
             <ToggleGroupItem value="all" className="px-3">
               All
@@ -245,7 +238,7 @@ export function ActivityFeed({ first }: { first: Page }) {
               People
             </ToggleGroupItem>
           </ToggleGroup>
-        </PageHeader>
+        </div>
 
         {items.length === 0 ? (
           <Empty className="border">
