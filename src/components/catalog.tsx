@@ -109,8 +109,8 @@ export function CatalogExplorer({ projects, object, tab }: { projects: TreeProje
     <>
       <AppHeader trail={[{ label: "Catalog" }]}>
         <Button asChild variant="outline" size="sm" className="text-muted-foreground w-56 justify-start font-normal max-sm:hidden">
-          <Link href="/catalog/search">
-            <IconSearch /> Search the catalog
+          <Link href="/">
+            <IconSearch /> Search everything in Explore
           </Link>
         </Button>
       </AppHeader>

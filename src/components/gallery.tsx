@@ -37,6 +37,7 @@ import { useBrand } from "@/components/brand";
 import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
 import { AppHeader, LibraryTabs, PageHeader } from "@/components/page";
+import { CatalogMatches } from "@/components/catalog-matches";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionIcon, send, type Collection } from "@/components/collections";
 import { CopyButton } from "@/components/copy-button";
@@ -1089,8 +1090,8 @@ export function Gallery({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && !text && e.currentTarget.blur()}
-            placeholder="Filter this view"
-            aria-label="Filter this view"
+            placeholder={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
+            aria-label={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
             className="h-8 pl-8 sm:pr-8"
           />
           {!text && <Kbd keys={["/"]} className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex" />}
@@ -1275,6 +1276,9 @@ export function Gallery({
         </PageHeader>
 
         {!view.review && !activeSearch && !inCollection && <SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
+
+        {/* Explore searches everything: what else matches, beside the assets. */}
+        {searched && <CatalogMatches q={searched} />}
 
         {/* Heard once a search settles, not per keystroke. */}
         <span className="sr-only" aria-live="polite">
