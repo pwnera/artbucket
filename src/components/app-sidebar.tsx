@@ -205,7 +205,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {/* The places, in the prototype's order. Team lives in Settings; each brand opens on its tabs from Brands. */}
-              <Place href="/" label="Library" icon={<IconPhoto />} active={at.library} />
+              <Place href="/" label="Explore" icon={<IconPhoto />} active={at.library} />
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}

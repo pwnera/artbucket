@@ -95,7 +95,7 @@ export function LibraryTabs({ at: given }: { at?: "assets" | "review" | "activit
     { id: "activity", href: "/activity", label: "Activity", icon: IconActivity },
   ] as const;
   return (
-    <nav aria-label="Library" className="-mx-4 flex gap-5 border-b px-4 md:-mx-6 md:px-6">
+    <nav aria-label="Explore" className="-mx-4 flex gap-5 border-b px-4 md:-mx-6 md:px-6">
       {tabs.map((t) => (
         <NavLink
           key={t.id}

@@ -428,8 +428,8 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading="Go to">
-          <CommandItem value="Assets library all" onSelect={() => go("/")}>
-            <IconPhoto /> Assets
+          <CommandItem value="Explore assets library all" onSelect={() => go("/")}>
+            <IconPhoto /> Explore
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/" />
             </CommandShortcut>
@@ -546,7 +546,7 @@ export function CommandPalette({
         {term && (
           <CommandGroup>
             <CommandItem value={LIBRARY} onSelect={() => go(`/?q=${encodeURIComponent(term)}`)}>
-              <IconFileSearch /> <span className="truncate">Search the library for &ldquo;{term}&rdquo;</span>
+              <IconFileSearch /> <span className="truncate">Explore for &ldquo;{term}&rdquo;</span>
             </CommandItem>
           </CommandGroup>
         )}

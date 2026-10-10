@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Loading() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <AppHeader trail={[{ label: "Library" }]} />
+      <AppHeader trail={[{ label: "Explore" }]} />
       <div className="flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6">
         <LibraryTabs />
         <div role="status" aria-label="Loading library" className={`flex flex-col gap-4 ${LATE}`}>

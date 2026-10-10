@@ -12,7 +12,7 @@ type Shortcut = {
   keys: string[];
   sequence?: boolean;
   label: string;
-  group: "General" | "Go to" | "Library" | "Guidelines";
+  group: "General" | "Go to" | "Explore" | "Guidelines";
   href?: string;
 };
 
@@ -36,8 +36,8 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["G", "Y"], sequence: true, label: "Activity", group: "Go to", href: "/activity" },
   { keys: ["G", "T"], sequence: true, label: "Team", group: "Go to", href: "/team" },
   { keys: ["G", "S"], sequence: true, label: "Settings", group: "Go to", href: "/settings" },
-  { keys: ["mod", "A"], label: "Select every asset", group: "Library" },
-  { keys: ["Esc"], label: "Clear the selection", group: "Library" },
+  { keys: ["mod", "A"], label: "Select every asset", group: "Explore" },
+  { keys: ["Esc"], label: "Clear the selection", group: "Explore" },
   // Bound by the builder (components/builder/builder.tsx); J, K, [ and ] by the reader too (site/site-view.tsx).
   { keys: ["mod", "Z"], label: "Undo", group: "Guidelines" },
   { keys: ["mod", "⇧", "Z"], label: "Redo", group: "Guidelines" },
