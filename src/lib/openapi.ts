@@ -1395,10 +1395,10 @@ export function openapi(serverUrl: string) {
           ok: [201, "Received", data(z.object({ received: z.literal(true), deduped: z.boolean() }))],
         }),
       },
-      "/api/v1/portals": {
-        get: op({ summary: "Brand portals", scope: "write", description: "The project's portals.", ok: [200, "Portals", data(z.array(S.Portal))] }),
+      "/api/v1/sites": {
+        get: op({ summary: "Sites", scope: "write", description: "The project's sites: brand portals Artbucket renders, and sites of static files deployed to them.", ok: [200, "Sites", data(z.array(S.Portal))] }),
         post: op({
-          summary: "Make a brand portal",
+          summary: "Make a site",
           scope: "write",
           description:
             "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or " +
@@ -1407,22 +1407,22 @@ export function openapi(serverUrl: string) {
             "(people with access to the project); the last two take access requests. Needs sharing rights on each " +
             "collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.",
           body: S.PortalInput,
-          ok: [201, "The portal", data(S.Portal)],
+          ok: [201, "The site", data(S.Portal)],
         }),
       },
-      "/api/v1/portals/{id}": {
-        parameters: [path("id", "Portal id")],
-        get: op({ summary: "A brand portal", scope: "write", ok: [200, "The portal", data(S.Portal)] }),
+      "/api/v1/sites/{id}": {
+        parameters: [path("id", "Site id")],
+        get: op({ summary: "A site", scope: "write", ok: [200, "The site", data(S.Portal)] }),
         patch: op({
-          summary: "Change a brand portal",
+          summary: "Change a site",
           scope: "write",
           description: "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands: the last five. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.",
           body: S.PortalPatch,
           ok: [200, "The portal", data(S.Portal)],
         }),
-        delete: op({ summary: "Delete a brand portal", scope: "write", description: "Its address and domain stop answering at once.", ok: [200, "Deleted", S.Deleted] }),
+        delete: op({ summary: "Delete a site", scope: "write", description: "Its address and domain stop answering at once.", ok: [200, "Deleted", S.Deleted] }),
       },
-      "/api/v1/portals/address": {
+      "/api/v1/sites/address": {
         get: op({
           summary: "Is a portal address free?",
           scope: "write",
@@ -1435,7 +1435,7 @@ export function openapi(serverUrl: string) {
           ok: [200, "The address", data(S.PortalAddress)],
         }),
       },
-      "/api/v1/portals/look": {
+      "/api/v1/sites/look": {
         get: op({
           summary: "The look a portal borrows from its brand",
           scope: "write",
@@ -1445,7 +1445,7 @@ export function openapi(serverUrl: string) {
           ok: [200, "The look", data(S.PortalLook)],
         }),
       },
-      "/api/v1/portals/domains": {
+      "/api/v1/sites/domains": {
         get: op({
           summary: "Domains a portal can be served at",
           scope: "write",
@@ -1453,7 +1453,7 @@ export function openapi(serverUrl: string) {
           ok: [200, "Domains", data(z.array(S.PortalDomain))],
         }),
       },
-      "/api/v1/portals/{id}/close": {
+      "/api/v1/sites/{id}/close": {
         parameters: [path("id", "Portal id")],
         post: op({
           summary: "Take a portal offline now",
@@ -1462,7 +1462,7 @@ export function openapi(serverUrl: string) {
           ok: [200, "The portal", data(S.Portal)],
         }),
       },
-      "/api/v1/portals/{id}/domain": {
+      "/api/v1/sites/{id}/domain": {
         parameters: [path("id", "Portal id")],
         post: op({
           summary: "Verify a portal's domain",
@@ -1471,11 +1471,11 @@ export function openapi(serverUrl: string) {
           ok: [200, "The portal", data(S.Portal)],
         }),
       },
-      "/api/v1/portals/{id}/requests": {
+      "/api/v1/sites/{id}/requests": {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),
       },
-      "/api/v1/portals/{id}/views": {
+      "/api/v1/sites/{id}/views": {
         parameters: [path("id", "Portal id")],
         get: op({
           summary: "Page views",
@@ -1484,7 +1484,7 @@ export function openapi(serverUrl: string) {
           ok: [200, "Views", data(S.PortalViews)],
         }),
       },
-      "/api/v1/portals/{id}/requests/{request}": {
+      "/api/v1/sites/{id}/requests/{request}": {
         parameters: [path("id", "Portal id"), path("request", "Request id")],
         patch: op({
           summary: "Answer a request",

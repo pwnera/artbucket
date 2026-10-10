@@ -2,7 +2,7 @@ import { ok, route } from "@/lib/api";
 import { portalAddress } from "@/lib/core/portals";
 
 /**
- * GET /api/v1/portals/address?slug={slug}&portal={id} - whether a portal may
+ * GET /api/v1/sites/address?slug={slug}&portal={id} - whether a portal may
  * take this address (`portal`: the one being renamed; `subdomain=0`: it won't
  * answer at {slug}.PORTAL_DOMAIN), why not, and its URL.
  */

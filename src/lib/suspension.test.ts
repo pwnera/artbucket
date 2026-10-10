@@ -19,7 +19,7 @@ test("what a path names that a suspension takes down", () => {
   assert.equal(suspendable("/", true), null);
   assert.equal(suspendable("/llms.txt", true), null);
   assert.equal(suspendable("/a/123", true), null, "files answer for themselves (app/a)");
-  for (const other of ["/", "/library", "/a/1/w_800", "/c/1", "/api/v1/assets", "/api/v1/portals/1", "/p/", "/p/a%2Fb", "/s/a.b"]) {
+  for (const other of ["/", "/library", "/a/1/w_800", "/c/1", "/api/v1/assets", "/api/v1/sites/1", "/p/", "/p/a%2Fb", "/s/a.b"]) {
     assert.equal(suspendable(other), null, other);
   }
 });

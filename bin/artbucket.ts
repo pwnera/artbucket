@@ -50,6 +50,7 @@ const HELP = `artbucket <command>
   catalog access <address-or-id>
                           who reaches it, and the grant behind each role
   brands                  list brands; the default is starred
+  sites                   list the project's sites: their kind, address and URL
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
   rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
@@ -71,7 +72,7 @@ const HELP = `artbucket <command>
   theme [--brand b]       how the brand's pages look; theme set <file.json> merges
                           settings into it, and null clears one
   publish [--brand b] [--note text]
-                          put the brand's pages, rules and theme in front of portal visitors
+                          put the brand's pages, rules and theme in front of site visitors
   brand pull [dir] [--brand b] [--assets] [--force]
                           the brand as files in dir (brand/ by default): brand.yaml,
                           rules/, pages/; a file that says the same is left as it is.
@@ -689,6 +690,10 @@ async function main() {
         return out(r, () => r.holders.map((h: { who: string; role: string; via: string }) => `${h.role.padEnd(12)} ${h.who.padEnd(28)} ${h.via}`).join("\n"));
       }
       throw new Error("artbucket catalog search|show|lineage|access");
+    }
+    case "sites": {
+      const r = await api("GET", "/api/v1/sites");
+      return out(r, () => r.data.map((x: { kind: string; slug: string; url: string }) => `${x.kind.padEnd(11)} ${x.slug.padEnd(24)} ${x.url}`).join("\n"));
     }
     case "brands": {
       const r = await api("GET", "/api/v1/brands");

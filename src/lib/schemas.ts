@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SITE_KINDS } from "./sites.ts";
 import { RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { SURFACES } from "./insights.ts";
@@ -387,7 +388,14 @@ const portal = {
     .optional()
     .describe("One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none"),
 };
-export const PortalInput = z.strictObject({ ...portal, access: portal.access.default("public") });
+export const PortalInput = z.strictObject({
+  ...portal,
+  access: portal.access.default("public"),
+  kind: z
+    .enum(SITE_KINDS)
+    .default("portal")
+    .describe("portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once"),
+});
 export const PortalPatch = z.strictObject(portal).partial();
 export const PortalRequestInput = z.strictObject({
   email: z.email().max(320),
@@ -1345,6 +1353,7 @@ const domainState = z.object({
 });
 export const Portal = z.object({
   id: uuid,
+  kind: z.enum(SITE_KINDS).describe("portal: managed by Artbucket; the others are static files deployed to it"),
   slug: z.string(),
   name: z.string(),
   intro: z.string().nullable(),

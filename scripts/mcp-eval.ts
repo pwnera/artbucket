@@ -404,7 +404,7 @@ try {
     ],
   });
   await call("set_theme", { brand, languages: [{ code: "en", label: "English" }, { code: "ar", label: "العربية", dir: "rtl" }] });
-  portalId = (await http<{ data: { id: string } }>("POST", "/api/v1/portals", { name: "Blender (eval)", slug: portalSlug, brands: [brand] })).data.id;
+  portalId = (await http<{ data: { id: string } }>("POST", "/api/v1/sites", { name: "Blender (eval)", slug: portalSlug, brands: [brand] })).data.id;
   const news = "Partners, and the voice page in Arabic.";
   const { data: pub } = await http<{ data: { number: number; portals: { slug: string }[] } }>("POST", `/api/v1/brands/${brand}/publish`, { note: news });
   assert.deepEqual(pub.portals.map((p) => p.slug), [portalSlug]);
@@ -479,7 +479,7 @@ try {
 } finally {
   // Each on its own: one failing cleanup never keeps the others from running.
   const warn = (what: string) => (err: unknown) => console.error(`Cleanup: couldn't ${what}: ${(err as Error).message}`);
-  if (portalId) await http("DELETE", `/api/v1/portals/${portalId}`).catch(warn(`delete portal ${portalSlug}`));
+  if (portalId) await http("DELETE", `/api/v1/sites/${portalId}`).catch(warn(`delete portal ${portalSlug}`));
   // SQL, not DELETE /brands: that refuses the default, which this brand is in an empty project.
   await sql`delete from brands where project_id = ${ws.id} and slug = ${brand}`.catch(warn(`delete brand ${brand}`));
   for (const a of ingested) await http("DELETE", `/api/v1/assets/${a}`).catch(warn(`trash asset ${a}`));

@@ -360,7 +360,7 @@ export function recordPageView(portalSlug: string, brandSlug: string, page: stri
 
 const DAYS = 30;
 
-/** GET /api/v1/portals/{id}/views: its pages' reads over the last 30 days, per brand and page, most read first. Null: no such portal here. */
+/** GET /api/v1/sites/{id}/views: its pages' reads over the last 30 days, per brand and page, most read first. Null: no such portal here. */
 export async function portalViews(caller: Caller, portalId: string) {
   if (!can(caller, "portal.manage")) throw new AssetError("forbidden", `Portals take ${needs("portal.manage")}`);
   const [p] = await db

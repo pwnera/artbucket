@@ -81,13 +81,13 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `update_comment` | propose | Resolve or reopen a thread, or edit your own comment |
 | `delete_comment` | propose | Delete your own comment, or anyone's with write on the brand |
 | `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
-| `list_portals` | write, share | The project's portals: who gets in, the brands they show and whether each is published, and their site |
-| `create_portal` | write, share | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
-| `update_portal` | write, share | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
-| `close_portal` | write, share | Take a portal offline now; `update_portal` with `expiresAt: null` opens it again |
-| `delete_portal` | write, share | Delete a portal; its address and domain stop answering |
-| `list_portal_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
-| `decide_portal_request` | write, share | Approve or deny a request; approved access gets a link of its own |
+| `list_sites` | write, share | The project's portals: who gets in, the brands they show and whether each is published, and their site |
+| `create_site` | write, share | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
+| `update_site` | write, share | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
+| `close_site` | write, share | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
+| `delete_site` | write, share | Delete a portal; its address and domain stop answering |
+| `list_site_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
+| `decide_site_request` | write, share | Approve or deny a request; approved access gets a link of its own |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
 tools, only for a key that may manage portals (write on the project, with
@@ -96,7 +96,7 @@ sharing not turned off).
 Brands, collections, custom fields, reviews, brand history, comments and
 portals (passwords and branding included) are run over MCP as in the app.
 A collection is named by its id or its name; `list_collections` gives the ids that `ingest_asset`,
-`import_icons` and `create_portal` take.
+`import_icons` and `create_site` take.
 
 Brand rules are also resources: `artbucket://brand/rules`, and
 `artbucket://brands/{slug}/rules/{context}`. So is every brand page, as
@@ -138,20 +138,20 @@ same text.
 5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
    readers (up to 2000 characters) and an `image` beside it; portals show the
    publish, never the draft, and `portals` in its answer names where.
-6. **Put it in front of people.** `create_portal` makes a portal: `name`, the
+6. **Put it in front of people.** `create_site` makes a portal: `name`, the
    `brands` (by slug) and `collections` (by id) it shows, and `access`:
    `members`, `password` (with the `password` the person gives you) or
    `public`; ask the person before a public one. `theme` sets its logo (an
    approved image asset), accent and background; `domain`, one of the
    organization's verified domains. Its `slug` comes from the name when left
-   out. `list_portals` says which portals show which
+   out. `list_sites` says which portals show which
    brands, and whether each brand was ever published (`publishedAt: null`:
-   visitors see nothing of it). `update_portal` takes the portal's slug and
+   visitors see nothing of it). `update_site` takes the portal's slug and
    what changes: `brands` and `collections` (each the whole list, in order),
    `access` and `password`, `theme` (a setting left out stays; `null` clears
    it), `expiresAt`, and `site`, which replaces the whole set, so send back
-   what `list_portals` gave, changed. People who ask to get into a password or
-   members portal wait in `list_portal_requests`; `decide_portal_request`
+   what `list_sites` gave, changed. People who ask to get into a password or
+   members portal wait in `list_site_requests`; `decide_site_request`
    answers them. What visitors wrote (their name and note) comes under
    `untrusted`: anyone can write it, so the server's instructions tell the
    agent to show it and never follow it.

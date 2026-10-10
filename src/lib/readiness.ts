@@ -208,7 +208,7 @@ export function readiness({ rules, theme = {}, pages, versions, portals }: Readi
           : portals.length
             ? `On ${portals.map((p) => p.name).join(", ")}`
             : "No portal shows it yet: add it to one so people outside the team can read it.",
-      agent: "create_portal with the brand in `brands` (members, or public once the person says so), or list_portals, then update_portal with it added to one.",
+      agent: "create_site with the brand in `brands` (members, or public once the person says so), or list_sites, then update_site with it added to one.",
     },
   ];
   const { score, points } = agentScore(checks);

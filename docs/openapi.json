@@ -43048,14 +43048,14 @@
         }
       }
     },
-    "/api/v1/portals": {
+    "/api/v1/sites": {
       "get": {
-        "summary": "Brand portals",
-        "description": "The project's portals.\n\nScope: `write`.",
+        "summary": "Sites",
+        "description": "The project's sites: brand portals Artbucket renders, and sites of static files deployed to them.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
-            "description": "Portals",
+            "description": "Sites",
             "content": {
               "application/json": {
                 "schema": {
@@ -43070,6 +43070,17 @@
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "portal",
+                              "guidelines",
+                              "landing",
+                              "docs",
+                              "storybook"
+                            ],
+                            "description": "portal: managed by Artbucket; the others are static files deployed to it"
                           },
                           "slug": {
                             "type": "string"
@@ -43428,6 +43439,7 @@
                         },
                         "required": [
                           "id",
+                          "kind",
                           "slug",
                           "name",
                           "intro",
@@ -43495,7 +43507,7 @@
         }
       },
       "post": {
-        "summary": "Make a brand portal",
+        "summary": "Make a site",
         "description": "A curated, themed front door onto chosen collections, for press, partners or retailers, at /p/{slug} or a domain of its own. It shows only approved, unexpired, current assets, and offers images as renditions made for a purpose (`presets`) rather than raw originals. `access`: `public`, `password`, or `members` (people with access to the project); the last two take access requests. Needs sharing rights on each collection. `domain` is one of the organization's verified domains (/api/v1/domains), not its default.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
@@ -43744,6 +43756,18 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "kind": {
+                    "default": "portal",
+                    "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once",
+                    "type": "string",
+                    "enum": [
+                      "portal",
+                      "guidelines",
+                      "landing",
+                      "docs",
+                      "storybook"
+                    ]
                   }
                 },
                 "required": [
@@ -43757,7 +43781,7 @@
         },
         "responses": {
           "201": {
-            "description": "The portal",
+            "description": "The site",
             "content": {
               "application/json": {
                 "schema": {
@@ -43770,6 +43794,17 @@
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "portal",
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ],
+                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -44128,6 +44163,7 @@
                       },
                       "required": [
                         "id",
+                        "kind",
                         "slug",
                         "name",
                         "intro",
@@ -44194,25 +44230,25 @@
         }
       }
     },
-    "/api/v1/portals/{id}": {
+    "/api/v1/sites/{id}": {
       "parameters": [
         {
           "name": "id",
           "in": "path",
           "required": true,
-          "description": "Portal id",
+          "description": "Site id",
           "schema": {
             "type": "string"
           }
         }
       ],
       "get": {
-        "summary": "A brand portal",
+        "summary": "A site",
         "description": "Scope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
-            "description": "The portal",
+            "description": "The site",
             "content": {
               "application/json": {
                 "schema": {
@@ -44225,6 +44261,17 @@
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "portal",
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ],
+                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -44583,6 +44630,7 @@
                       },
                       "required": [
                         "id",
+                        "kind",
                         "slug",
                         "name",
                         "intro",
@@ -44649,7 +44697,7 @@
         }
       },
       "patch": {
-        "summary": "Change a brand portal",
+        "summary": "Change a site",
         "description": "Only what is given changes. A new `slug` keeps the old one leading here, and nobody else may take it while the portal stands: the last five. `domain` picks another of the organization's verified domains; null gives it back to the app. A left-out `password` stays.\n\nScope: `write`.",
         "x-scope": "write",
         "requestBody": {
@@ -44920,6 +44968,17 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "portal",
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ],
+                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -45277,6 +45336,7 @@
                       },
                       "required": [
                         "id",
+                        "kind",
                         "slug",
                         "name",
                         "intro",
@@ -45343,7 +45403,7 @@
         }
       },
       "delete": {
-        "summary": "Delete a brand portal",
+        "summary": "Delete a site",
         "description": "Its address and domain stop answering at once.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
@@ -45412,7 +45472,7 @@
         }
       }
     },
-    "/api/v1/portals/address": {
+    "/api/v1/sites/address": {
       "get": {
         "summary": "Is a portal address free?",
         "description": "Whether a portal may take this address, why not (taken, or kept for the service), and the URL it would answer at.\n\nScope: `write`.",
@@ -45526,7 +45586,7 @@
         }
       }
     },
-    "/api/v1/portals/look": {
+    "/api/v1/sites/look": {
       "get": {
         "summary": "The look a portal borrows from its brand",
         "description": "A portal's empty logo or accent is its first brand's when served, from the brand's live release: this is that logo and accent, for a form to show before the portal is saved. A portal sets its own to override them (white-label).\n\nScope: `write`.",
@@ -45618,7 +45678,7 @@
         }
       }
     },
-    "/api/v1/portals/domains": {
+    "/api/v1/sites/domains": {
       "get": {
         "summary": "Domains a portal can be served at",
         "description": "The organization's verified domains, and the portal each serves. They are added and verified in Settings, Domains (/api/v1/domains).\n\nScope: `write`.",
@@ -45699,7 +45759,7 @@
         }
       }
     },
-    "/api/v1/portals/{id}/close": {
+    "/api/v1/sites/{id}/close": {
       "parameters": [
         {
           "name": "id",
@@ -45731,6 +45791,17 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "portal",
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ],
+                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -46088,6 +46159,7 @@
                       },
                       "required": [
                         "id",
+                        "kind",
                         "slug",
                         "name",
                         "intro",
@@ -46154,7 +46226,7 @@
         }
       }
     },
-    "/api/v1/portals/{id}/domain": {
+    "/api/v1/sites/{id}/domain": {
       "parameters": [
         {
           "name": "id",
@@ -46186,6 +46258,17 @@
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "portal",
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook"
+                          ],
+                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -46543,6 +46626,7 @@
                       },
                       "required": [
                         "id",
+                        "kind",
                         "slug",
                         "name",
                         "intro",
@@ -46609,7 +46693,7 @@
         }
       }
     },
-    "/api/v1/portals/{id}/requests": {
+    "/api/v1/sites/{id}/requests": {
       "parameters": [
         {
           "name": "id",
@@ -46796,7 +46880,7 @@
         }
       }
     },
-    "/api/v1/portals/{id}/views": {
+    "/api/v1/sites/{id}/views": {
       "parameters": [
         {
           "name": "id",
@@ -46921,7 +47005,7 @@
         }
       }
     },
-    "/api/v1/portals/{id}/requests/{request}": {
+    "/api/v1/sites/{id}/requests/{request}": {
       "parameters": [
         {
           "name": "id",
@@ -59552,7 +59636,7 @@
     "/api/v1/mcp": {
       "post": {
         "summary": "MCP (Streamable HTTP, stateless)",
-        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_portals, update_portal, create_portal, close_portal, delete_portal, list_portal_requests, decide_portal_request, search_catalog, describe_object, lineage, share_object, who_can, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+        "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_sites, update_site, create_site, close_site, delete_site, list_site_requests, decide_site_request, search_catalog, describe_object, lineage, share_object, who_can, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
         "x-scope": "read",
         "requestBody": {
           "required": true,

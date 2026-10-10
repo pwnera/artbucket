@@ -84,7 +84,7 @@ first, and ask again after each change until every step is done or only the pers
 A new brand (a sub-brand, a product line) is `create_brand({"name": "Acme Kids"})`, empty, or with
 `from` a copy of another brand's rules, pages and theme; `update_brand` renames one or makes it the default.
 Group assets with `create_collection` and `update_collection_assets`; `list_collections` gives the ids that
-`ingest_asset` and `create_portal` take.
+`ingest_asset` and `create_site` take.
 
 1. **Rules are the content.** `set_rules` makes or changes many at once: `{ key, type, value, usage }`,
    with keys like `color.primary`, `type.heading`, `logo.minSize`, `tone.avoid`. Name do and don't lists
@@ -117,12 +117,12 @@ Group assets with `create_collection` and `update_collection_assets`; `list_coll
    are drafts. Publish only when the person asks, with a `note` saying what changed for readers (and an
    `image` beside it if one helps). Every change is in the brand's history, and a person can restore any version.
 9. **Portals show the publish, never the draft.** `publish` answers with the portals now showing the brand.
-   With a key that manages portals, `create_portal` makes one for the brand (`access` members, password with the
+   With a key that manages portals, `create_site` makes one for the brand (`access` members, password with the
    password the person gives you, or public once the person says so; `theme` for its logo and colors), and
-   `list_portals` says which brands each shows (`publishedAt: null`: never published, so visitors see nothing),
-   and `update_portal` changes anything about it: brands, access and password, theme, closing date and site
-   (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_portals` gave.
-   Requests to get in wait in `list_portal_requests` for `decide_portal_request`.
+   `list_sites` says which brands each shows (`publishedAt: null`: never published, so visitors see nothing),
+   and `update_site` changes anything about it: brands, access and password, theme, closing date and site
+   (footer, quick grab, terms, listed); `site` replaces the whole set, so send back what `list_sites` gave.
+   Requests to get in wait in `list_site_requests` for `decide_site_request`.
 10. **Comments and history.** Before publishing, `list_comments` for open threads; answer with `add_comment`
    and resolve with `update_comment`. `list_versions` shows the history; `restore_version` undoes a bad change
    as a new version, never losing anything.

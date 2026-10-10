@@ -6,9 +6,9 @@ description: A branded front door onto chosen collections and brand guidelines, 
 A portal is a press kit, a partner hub or a retailer page: the brand pages and
 collections you pick, under your logo and colors, at `/p/{address}` or a domain
 of its own. Make one from **Portals** in the sidebar, with
-`POST /api/v1/portals`, or have an agent make one with `create_portal` (open to
+`POST /api/v1/sites`, or have an agent make one with `create_site` (open to
 the project's members, to whoever has its password, or to anyone, with its
-logo and colors) and change one with `update_portal`. It
+logo and colors) and change one with `update_site`. It
 takes write on the project, and sharing rights on each collection. A portal
 shows at least one collection or one brand.
 
@@ -68,7 +68,7 @@ portal also links to a new one with the brand already picked.
 
 A portal's menu on the Portals page takes it offline at once (its address
 says it is closed, and nothing about it is lost), brings it back, or deletes
-it. Over the API, `POST /api/v1/portals/{id}/close` takes it offline and
+it. Over the API, `POST /api/v1/sites/{id}/close` takes it offline and
 `PATCH` with `expiresAt: null` reopens it.
 
 ## Who reads what
@@ -404,7 +404,7 @@ Renaming a portal keeps its old address, `/p/` and subdomain alike, leading
 to the new one, and nobody else may take it while the portal stands. It keeps
 its last five; an older one, and every one when the portal is deleted, is
 free again. While you type an address, the form says whether it is
-free (`GET /api/v1/portals/address?slug=...`). Some addresses are kept
+free (`GET /api/v1/sites/address?slug=...`). Some addresses are kept
 for the service, like `www`, `api` or `mail`, and so is any with dashes as its
 third and fourth characters (`xn--`, the shape of a look-alike name).
 

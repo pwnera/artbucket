@@ -137,7 +137,7 @@ const upsert = (rows: Portal[], p: Portal) =>
 /**
  * Brand portals: a front door for people outside the team onto chosen
  * collections and brand guidelines, themed, with downloads made for a
- * purpose. Each from /api/v1/portals like any client's; `?open={id}` opens
+ * purpose. Each from /api/v1/sites like any client's; `?open={id}` opens
  * one's requests. `portalDomain`: the server's PORTAL_DOMAIN, where each
  * portal answers at {slug}.{portalDomain} too.
  */
@@ -326,8 +326,8 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
     // The row shows it at once (its Offline badge), and goes back if the server says no.
     onChanged({ ...p, expired: !p.expired });
     const saved: Portal | null = p.expired
-      ? await send("PATCH", `/api/v1/portals/${p.id}`, { expiresAt: null })
-      : await send("POST", `/api/v1/portals/${p.id}/close`);
+      ? await send("PATCH", `/api/v1/sites/${p.id}`, { expiresAt: null })
+      : await send("POST", `/api/v1/sites/${p.id}/close`);
     if (!saved) return onChanged(p);
     onChanged(saved);
     toast.success(saved.expired ? `${saved.name} is offline` : `${saved.name} is back online`, {
@@ -362,7 +362,7 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
         says="Its address stops working at once, for everyone who has it. To pause it instead, take it offline."
         action="Delete"
         run={async () => {
-          const r = await send("DELETE", `/api/v1/portals/${p.id}`);
+          const r = await send("DELETE", `/api/v1/sites/${p.id}`);
           if (!r) return null;
           toast.success(`${p.name} is gone`);
           onDeleted();
@@ -526,7 +526,7 @@ function siteSummary(site: PortalSite) {
 /**
  * Make or change a portal: what it shows, how it looks, who gets in, where
  * it lives. The Portals page and a brand's Sharing tab open it. An empty
- * logo or accent is the first brand's when served (GET /api/v1/portals/look),
+ * logo or accent is the first brand's when served (GET /api/v1/sites/look),
  * shown here as "From {brand}".
  */
 export function PortalDialog({
@@ -573,14 +573,14 @@ export function PortalDialog({
   useEffect(() => {
     if (!first) return;
     const ask = new AbortController();
-    fetch(`/api/v1/portals/look?${new URLSearchParams({ brand: first })}`, { signal: ask.signal })
+    fetch(`/api/v1/sites/look?${new URLSearchParams({ brand: first })}`, { signal: ask.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => b && setLook({ brand: first, ...b.data }), () => {});
     return () => ask.abort();
   }, [first]);
   const from = first && look?.brand === first ? { ...look, name: brands.find((b) => b.slug === first)?.name ?? first } : null;
   useEffect(() => {
-    fetch("/api/v1/portals/domains")
+    fetch("/api/v1/sites/domains")
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((b) => setHosts(b.data), () => setHosts([]));
   }, []);
@@ -608,7 +608,7 @@ export function PortalDialog({
     if (!PORTAL_SLUG.test(f.slug) || f.slug === current?.slug) return;
     const ask = new AbortController();
     const t = setTimeout(() => {
-      fetch(`/api/v1/portals/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }), ...(!subdomain && { subdomain: "0" }) })}`, { signal: ask.signal })
+      fetch(`/api/v1/sites/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }), ...(!subdomain && { subdomain: "0" }) })}`, { signal: ask.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((b) => b && setCheck({ slug: b.data.slug, subdomain, reason: b.data.reason }), () => {});
     }, 300);
@@ -639,7 +639,7 @@ export function PortalDialog({
       site: siteOut(f.site, f.access),
     };
     setBusy(true);
-    const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
+    const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/sites/${current.id}` : "/api/v1/sites", payload);
     setBusy(false);
     if (!saved) return;
     onSaved(saved, current ? "saved" : "made");
@@ -649,7 +649,7 @@ export function PortalDialog({
   async function verify() {
     if (!current) return;
     setChecking(true);
-    const p: Portal | null = await send("POST", `/api/v1/portals/${current.id}/domain`);
+    const p: Portal | null = await send("POST", `/api/v1/sites/${current.id}/domain`);
     setChecking(false);
     if (!p || !p.domain) return;
     setCurrent(p);
@@ -1018,7 +1018,7 @@ export function PortalDialog({
               says="Its address stops working at once, for everyone who has it."
               action="Delete"
               run={async () => {
-                const r = await send("DELETE", `/api/v1/portals/${current.id}`);
+                const r = await send("DELETE", `/api/v1/sites/${current.id}`);
                 if (!r) return null;
                 toast.success(`${current.name} is gone`);
                 onDeleted(current.id);
@@ -1368,7 +1368,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   const changed = useRef(false);
   useEffect(() => {
     let live = true;
-    fetch(`/api/v1/portals/${portal.id}/requests`, { cache: "no-store" })
+    fetch(`/api/v1/sites/${portal.id}/requests`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
         const b = await r.json();
@@ -1383,7 +1383,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   async function decide(r: Request, status: "approved" | "denied") {
     setBusy(`${r.id}:${status}`);
     try {
-      const res = await fetch(`/api/v1/portals/${portal.id}/requests/${r.id}`, {
+      const res = await fetch(`/api/v1/sites/${portal.id}/requests/${r.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -1418,7 +1418,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   async function remove(r: Request) {
     if (busy) return;
     setBusy(`${r.id}:delete`);
-    const ok = await send("DELETE", `/api/v1/portals/${portal.id}/requests/${r.id}`);
+    const ok = await send("DELETE", `/api/v1/sites/${portal.id}/requests/${r.id}`);
     setBusy(null);
     if (!ok) return;
     changed.current = true;

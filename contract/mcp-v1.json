@@ -4808,11 +4808,11 @@
       }
     }
   },
-  "list_portals": {
+  "list_sites": {
     "type": "object",
     "properties": {}
   },
-  "update_portal": {
+  "update_site": {
     "type": "object",
     "properties": {
       "name": {
@@ -5050,19 +5050,19 @@
           }
         ]
       },
-      "portal": {
+      "address": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "description": "Its address (slug), as list_portals names it"
+        "description": "The site's address (slug), as list_sites names it"
       }
     },
     "required": [
-      "portal"
+      "address"
     ],
     "additionalProperties": false
   },
-  "create_portal": {
+  "create_site": {
     "type": "object",
     "properties": {
       "name": {
@@ -5299,6 +5299,18 @@
             "type": "null"
           }
         ]
+      },
+      "kind": {
+        "default": "portal",
+        "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once",
+        "type": "string",
+        "enum": [
+          "portal",
+          "guidelines",
+          "landing",
+          "docs",
+          "storybook"
+        ]
       }
     },
     "required": [
@@ -5307,49 +5319,49 @@
     ],
     "additionalProperties": false
   },
-  "close_portal": {
+  "close_site": {
     "type": "object",
     "properties": {
-      "portal": {
+      "address": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "description": "Its address (slug), as list_portals names it"
+        "description": "The site's address (slug), as list_sites names it"
       }
     },
     "required": [
-      "portal"
+      "address"
     ]
   },
-  "delete_portal": {
+  "delete_site": {
     "type": "object",
     "properties": {
-      "portal": {
+      "address": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "description": "Its address (slug), as list_portals names it"
+        "description": "The site's address (slug), as list_sites names it"
       }
     },
     "required": [
-      "portal"
+      "address"
     ]
   },
-  "list_portal_requests": {
+  "list_site_requests": {
     "type": "object",
     "properties": {
-      "portal": {
+      "address": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "description": "Its address (slug), as list_portals names it"
+        "description": "The site's address (slug), as list_sites names it"
       }
     },
     "required": [
-      "portal"
+      "address"
     ]
   },
-  "decide_portal_request": {
+  "decide_site_request": {
     "type": "object",
     "properties": {
       "status": {
@@ -5359,21 +5371,21 @@
           "denied"
         ]
       },
-      "portal": {
+      "address": {
         "type": "string",
         "minLength": 1,
         "maxLength": 64,
-        "description": "Its address (slug), as list_portals names it"
+        "description": "The site's address (slug), as list_sites names it"
       },
       "request": {
         "type": "string",
         "format": "uuid",
-        "description": "The request's id, from list_portal_requests"
+        "description": "The request's id, from list_site_requests"
       }
     },
     "required": [
       "status",
-      "portal",
+      "address",
       "request"
     ],
     "additionalProperties": false

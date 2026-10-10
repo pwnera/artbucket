@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { SiteKind } from "@/lib/sites";
 import { and, asc, count, desc, eq, inArray, max, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -123,6 +124,7 @@ async function present(p: Row) {
   ]);
   return {
     id: p.id,
+    kind: p.kind,
     slug: p.slug,
     name: p.name,
     intro: p.intro,
@@ -233,7 +235,7 @@ async function slugFree(slug: string, except?: string, subdomain = true) {
   if (named && named.p.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);
 }
 
-/** GET /api/v1/portals/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
+/** GET /api/v1/sites/address: whether a portal (`except`, when renaming one) may take this address, why not, and where it would answer. */
 export async function portalAddress(caller: Caller, slug: string, except?: string, subdomain = true) {
   mayManage(caller);
   if (!PORTAL_SLUG.test(slug)) throw new AssetError("invalid", "An address is lowercase letters, digits and dashes, e.g. press-kit");
@@ -277,7 +279,7 @@ function expiry(raw: string | null | undefined) {
   return d;
 }
 
-export async function createPortal(caller: Caller, input: Input & { name: string; slug: string }) {
+export async function createPortal(caller: Caller, input: Input & { name: string; slug: string; kind?: SiteKind }) {
   mayManage(caller);
   await checkLimit(caller.project.organizationId, "shares");
   const access = input.access ?? "public";
@@ -285,7 +287,9 @@ export async function createPortal(caller: Caller, input: Input & { name: string
   await slugFree(input.slug, undefined, !input.domain && access !== "members");
   const ids = await checkCollections(caller, input.collections ?? []);
   const brandIds = await checkBrands(caller, input.brands ?? []);
-  showsSomething(ids, brandIds);
+  const kind = input.kind ?? "portal";
+  // A brand portal shows brands or collections; a site of another kind serves what is deployed to it.
+  if (kind === "portal") showsSomething(ids, brandIds);
   const theme = await checkTheme(caller, input.theme ?? {}, { logo: null, accent: null, background: null });
   const site = checkSite(input.site ?? {}, access);
   // Refused before anything is made, so a wrong domain leaves no half-made portal.
@@ -303,6 +307,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
       presets: input.presets ?? DEFAULT_PRESETS,
       theme,
       site,
+      kind,
       createdBy: caller.actor,
     })
     .returning();
@@ -440,7 +445,7 @@ const logoUrl = async (ws: string, id: string | null) => {
 /**
  * The logo and accent a portal showing this brand wears where it sets none
  * (lib/portal.ts brandLook): from the release its visitors read, and only
- * files that may be shown. GET /api/v1/portals/look shows it in the form.
+ * files that may be shown. GET /api/v1/sites/look shows it in the form.
  */
 export async function brandLookOf(ws: string, slug: string) {
   const { rules, logo } = await shownRules(ws, slug);

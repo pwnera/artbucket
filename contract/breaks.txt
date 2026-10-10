@@ -66,3 +66,24 @@ POST /api/v1/oauth/device/{code} body: no longer accepts object
 POST /api/v1/oauth/authorize body: no longer accepts object
 GET /api/v1/catalog query type: no longer takes "portal"
 tool search_catalog.type[]: no longer takes "portal"
+GET /api/v1/portals: removed
+POST /api/v1/portals: removed
+GET /api/v1/portals/{id}: removed
+PATCH /api/v1/portals/{id}: removed
+DELETE /api/v1/portals/{id}: removed
+GET /api/v1/portals/address: removed
+GET /api/v1/portals/look: removed
+GET /api/v1/portals/domains: removed
+POST /api/v1/portals/{id}/close: removed
+POST /api/v1/portals/{id}/domain: removed
+GET /api/v1/portals/{id}/requests: removed
+GET /api/v1/portals/{id}/views: removed
+PATCH /api/v1/portals/{id}/requests/{request}: removed
+DELETE /api/v1/portals/{id}/requests/{request}: removed
+tool list_portals: removed
+tool update_portal: removed
+tool create_portal: removed
+tool close_portal: removed
+tool delete_portal: removed
+tool list_portal_requests: removed
+tool decide_portal_request: removed

@@ -261,7 +261,7 @@ try {
   const { tools: listed } = await rpc<{ tools: McpTool[] }>("tools/list", {});
   // What a person's agent has, less what the bench forbids: it never publishes or opens a door.
   const tools: Anthropic.Tool[] = listed
-    .filter((t) => !["publish", "create_portal", "update_portal", "delete_brand", "delete_portal"].includes(t.name))
+    .filter((t) => !["publish", "create_site", "update_site", "delete_brand", "delete_site"].includes(t.name))
     .map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema }));
 
   for (const file of briefs) {
