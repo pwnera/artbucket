@@ -178,22 +178,27 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
   return (
     <div className="grid min-w-0 grid-cols-1 content-start gap-6">
       <Group title="Style">
-        <div className="grid grid-cols-1 gap-1.5">
-          {Object.entries(LOOKS).map(([id, st]) => {
-            const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
-            return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => save(st.patch)}
-                className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 flex min-w-0 items-baseline gap-2 rounded-lg border px-3 py-2 text-start outline-none transition-colors focus-visible:ring-3"
-              >
-                <span className="text-sm font-medium">{st.name}</span>
-                <span className="text-muted-foreground min-w-0 truncate text-xs">{st.about}</span>
-              </button>
-            );
-          })}
+        <div className="@container">
+          <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
+            {Object.entries(LOOKS).map(([id, st]) => {
+              const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => save(st.patch)}
+                  className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 grid min-w-0 content-start gap-2 rounded-lg border p-2 text-start outline-none transition-colors focus-visible:ring-3"
+                >
+                  <LookSketch look={st.patch} theme={theme} />
+                  <span className="grid gap-0.5 px-0.5">
+                    <span className="text-sm font-medium">{st.name}</span>
+                    <span className="text-muted-foreground line-clamp-2 text-xs">{st.about}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </Group>
 
@@ -565,5 +570,98 @@ function LinksEditor({ links, onSave }: { links: Link[]; onSave: (links: Link[])
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * A look drawn as a small page in the brand's own colors: where its
+ * navigation sits, how its header opens, how big its titles are, how dense
+ * its text, its corners, grounds and contents. What picking it gives.
+ */
+function LookSketch({ look, theme }: { look: (typeof LOOKS)[string]["patch"]; theme: Theme }) {
+  const accent = theme.accent ?? "#6366f1";
+  const page = theme.surface ?? "#ffffff";
+  const panel = theme.panel ?? "#f4f4f5";
+  const ink = theme.ink ?? "#18181b";
+  const muted = theme.muted ?? "#a1a1aa";
+  const r = Math.min((look.radius ?? 8) / 3, 6);
+  const gap = { compact: 2, normal: 3, airy: 5 }[look.density ?? "normal"];
+  const title = { medium: 4, large: 6, huge: 9 }[look.titles ?? "large"];
+  const inset = { narrow: 18, normal: 10, wide: 6 }[look.width ?? "normal"];
+  const line = (w: string, color = muted, h = 2, key?: number) => <span key={key} className="block rounded-full" style={{ width: w, height: h, backgroundColor: color }} />;
+  const text = (n: number) => (
+    <span className="grid" style={{ gap }}>
+      {Array.from({ length: n }, (_, i) => line(i === n - 1 ? "60%" : "100%", muted, 2, i))}
+    </span>
+  );
+  const heading = (light = false) => (
+    <span className="flex items-center gap-1">
+      {look.numbering && <span className="text-[6px] leading-none font-semibold" style={{ color: light ? page : accent }}>01</span>}
+      {line("55%", light ? page : ink, title)}
+    </span>
+  );
+  const section = (alt: boolean) => (
+    <span
+      className="grid"
+      style={{
+        gap,
+        padding: `${gap * 2}px ${inset}px`,
+        backgroundColor: alt && look.grounds === "alternate" ? panel : "transparent",
+        borderTop: look.separation === "hairline" ? `1px solid ${muted}55` : undefined,
+      }}
+    >
+      {heading()}
+      {text(look.density === "airy" ? 2 : 3)}
+      {alt && <span className="block h-4" style={{ borderRadius: r, backgroundColor: `${accent}33` }} />}
+    </span>
+  );
+  return (
+    <span aria-hidden className="flex aspect-[4/3] w-full overflow-hidden rounded-md ring-1 ring-black/10 dark:ring-white/10" style={{ backgroundColor: page }}>
+      {look.nav === "sidebar" && (
+        <span className="grid w-1/5 shrink-0 content-start gap-1.5 p-1.5" style={{ backgroundColor: panel }}>
+          {line("70%", accent, 3)}
+          {[80, 60, 70, 50].map((w, i) => line(`${w}%`, muted, 2, i))}
+        </span>
+      )}
+      <span className="flex min-w-0 flex-1 flex-col">
+        {look.nav !== "sidebar" && (
+          <span className="flex items-center justify-between px-1.5 py-1" style={{ borderBottom: look.nav === "top" ? `1px solid ${muted}55` : undefined }}>
+            {line("18%", accent, 3)}
+            {look.nav === "top" ? <span className="flex w-2/5 gap-1">{[0, 1, 2].map((i) => line("100%", muted, 2, i))}</span> : <span className="grid gap-0.5">{[0, 1, 2].map((i) => line("6px", ink, 1, i))}</span>}
+          </span>
+        )}
+        {look.header === "band" ? (
+          <span className="grid gap-1" style={{ backgroundColor: accent, padding: `${gap * 3}px ${inset}px` }}>
+            {heading(true)}
+            {line("40%", `${page}aa`)}
+          </span>
+        ) : look.header === "split" ? (
+          <span className="flex items-center gap-2" style={{ padding: `${gap * 3}px ${inset}px` }}>
+            <span className="grid flex-1 gap-1">
+              {heading()}
+              {line("70%")}
+            </span>
+            <span className="block h-7 w-2/5" style={{ borderRadius: r, backgroundColor: accent }} />
+          </span>
+        ) : (
+          <span className="grid gap-1" style={{ padding: `${gap * 3}px ${inset}px ${gap}px` }}>
+            {heading()}
+            {line("45%")}
+          </span>
+        )}
+        <span className="flex min-h-0 flex-1">
+          <span className="flex min-w-0 flex-1 flex-col">
+            {look.toc === "inline" && (
+              <span className="mx-auto grid w-full gap-0.5" style={{ padding: `0 ${inset}px ${gap}px` }}>
+                {[40, 30, 35].map((w, i) => line(`${w}%`, accent, 1, i))}
+              </span>
+            )}
+            {section(false)}
+            {section(true)}
+          </span>
+          {look.toc === "side" && <span className="grid w-1/6 shrink-0 content-start gap-1 pt-2 pe-1.5">{[90, 70, 80].map((w, i) => line(`${w}%`, muted, 1, i))}</span>}
+        </span>
+      </span>
+    </span>
   );
 }
