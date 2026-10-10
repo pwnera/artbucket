@@ -7,7 +7,7 @@ import { TabNav } from "@/components/hub";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { brandPath, guidelinesPath } from "@/lib/site";
 
-export type BrandTab = "overview" | "guidelines" | "rules" | "assets" | "releases" | "sharing" | "insights" | "settings";
+export type BrandTab = "overview" | "guidelines" | "rules" | "theme" | "assets" | "releases" | "sharing" | "insights" | "settings";
 
 /**
  * A brand's tabs (PRD section 13, "In the app"), as a repository's are. The
@@ -21,6 +21,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
     { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
     { id: "rules", label: "Tokens and rules", href: brandPath(brand.slug, "/rules") },
+    ...(can("brand.edit") ? [{ id: "theme" as const, label: "Theme", href: brandPath(brand.slug, "/theme") }] : []),
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     { id: "sharing", label: "Sharing", href: brandPath(brand.slug, "/sharing") },
