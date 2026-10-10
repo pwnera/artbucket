@@ -5,7 +5,7 @@ import { assets, savedSearches } from "@/lib/db/schema";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
 import { assetWhere, deliverableSql, notSuperseded, parseAssetQuery } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
-import { NO_OFF, NONE } from "@/lib/access";
+import { NONE } from "@/lib/access";
 import { collectionQuery, issues, type TEMPLATE_PROPS } from "@/lib/pages";
 import { downloadsFor, type PortalPreset } from "@/lib/portal";
 import { hasPreview } from "@/lib/preview";
@@ -69,7 +69,6 @@ export async function readerCaller(ws: string, collection?: string): Promise<Cal
     workspace,
     scope: "read",
     narrow: collection ? { ...NONE, collections: { [collection]: "read" } } : NONE,
-    off: NO_OFF,
     hidden,
     orgScope: null,
     actor: "reader",

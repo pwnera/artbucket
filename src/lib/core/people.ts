@@ -11,7 +11,7 @@ import { AssetError } from "@/lib/core/errors";
 import { checkLimit, checkOrganizations } from "@/lib/core/usage";
 import { defaultWorkspace, placed, type Caller } from "@/lib/core/access";
 import { onlyOrganization } from "@/lib/core/branding";
-import { highest, type Ability, type Resource } from "@/lib/access";
+import { highest, type Resource } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can, needs, type Action } from "@/lib/permissions";
 import { seal, unseal } from "@/lib/settings";
@@ -394,7 +394,6 @@ export async function listMembers(caller: Caller, { here = false } = {}) {
       resourceId: i.resourceId,
       label: label(i.resourceId),
       scope: i.scope,
-      limits: i.limits,
       invitedBy: i.invitedBy,
       expiresAt: i.expiresAt,
       createdAt: i.createdAt,
@@ -410,7 +409,6 @@ const presentGrant = (g: typeof grants.$inferSelect, label: string | null) => ({
   workspaceId: g.workspaceId,
   label,
   scope: g.scope,
-  limits: g.limits,
   createdAt: g.createdAt,
 });
 
@@ -427,7 +425,7 @@ async function keepsAnAdmin(tx: Tx, organizationId: string, losing: string) {
  * Give a member a scope on something, or change it. Only for people already
  * in the organization: anyone else gets an invitation.
  */
-export async function setGrant(caller: Caller, input: { user: string; resource: Resource; resourceId: string; scope: Scope; limits?: Ability[] }) {
+export async function setGrant(caller: Caller, input: { user: string; resource: Resource; resourceId: string; scope: Scope }) {
   const t = await target(caller, input.resource, input.resourceId);
   const [member] = await db
     .select({ id: users.id, email: users.email })
@@ -437,8 +435,6 @@ export async function setGrant(caller: Caller, input: { user: string; resource: 
     .limit(1);
   if (!member) throw new AssetError("not_found", "No such member; invite them instead");
   if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { user: member.id });
-  // Left out, a change of scope keeps what was off.
-  const limits = input.limits ?? (await limitsOf(member.id, t.resource, t.resourceId));
   const row = await db.transaction(async (tx) => {
     if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors", { user: member.id, tx });
     const [current] = await tx
@@ -448,21 +444,13 @@ export async function setGrant(caller: Caller, input: { user: string; resource: 
     if (current?.resource === "organization" && current.scope === "admin" && input.scope !== "admin") await keepsAnAdmin(tx, t.organizationId, current.id);
     const [row] = await tx
       .insert(grants)
-      .values({ userId: member.id, organizationId: t.organizationId, workspaceId: t.workspaceId, resource: t.resource, resourceId: t.resourceId, scope: input.scope, limits })
-      .onConflictDoUpdate({ target: [grants.userId, grants.resource, grants.resourceId], set: { scope: input.scope, limits } })
+      .values({ userId: member.id, organizationId: t.organizationId, workspaceId: t.workspaceId, resource: t.resource, resourceId: t.resourceId, scope: input.scope })
+      .onConflictDoUpdate({ target: [grants.userId, grants.resource, grants.resourceId], set: { scope: input.scope } })
       .returning();
     return row;
   });
-  await recordAudit(caller, "grant.set", member.email, { resource: t.resource, on: t.label, scope: input.scope, ...(limits.length ? { off: limits } : {}) }, { workspaceId: t.workspaceId });
+  await recordAudit(caller, "grant.set", member.email, { resource: t.resource, on: t.label, scope: input.scope }, { workspaceId: t.workspaceId });
   return presentGrant(row, t.label);
-}
-
-async function limitsOf(userId: string, resource: Resource, resourceId: string): Promise<Ability[]> {
-  const [g] = await db
-    .select({ limits: grants.limits })
-    .from(grants)
-    .where(and(eq(grants.userId, userId), eq(grants.resource, resource), eq(grants.resourceId, resourceId)));
-  return g?.limits ?? [];
 }
 
 export async function removeGrant(caller: Caller, id: string) {
@@ -480,7 +468,7 @@ export async function removeGrant(caller: Caller, id: string) {
 
 /**
  * Making something private keeps it in reach of whoever did it: a grant on
- * it at their workspace scope, with what they have off there. An admin
+ * it at their workspace scope. An admin
  * reaches it anyway; a key has nobody to give it to.
  */
 export async function keepReach(caller: Caller, resource: "collection" | "asset", id: string, tx: Tx | typeof db = db) {
@@ -494,7 +482,6 @@ export async function keepReach(caller: Caller, resource: "collection" | "asset"
       resource,
       resourceId: id,
       scope: caller.scope,
-      limits: caller.off.workspace,
     })
     .onConflictDoNothing();
 }
@@ -520,7 +507,7 @@ const linkOf = (base: string, sealed: string | null) => {
  * An invitation: the link is in this response only, like an API key's
  * secret, and in an email to them when the organization can send one.
  */
-export async function createInvitation(caller: Caller, input: { email: string; resource: Resource; resourceId: string; scope: Scope; limits?: Ability[] }) {
+export async function createInvitation(caller: Caller, input: { email: string; resource: Resource; resourceId: string; scope: Scope }) {
   const t = await target(caller, input.resource, input.resourceId);
   if (EDITS.includes(input.scope)) await checkLimit(t.organizationId, "editors");
   const [{ pending }] = await db
@@ -540,7 +527,6 @@ export async function createInvitation(caller: Caller, input: { email: string; r
         resource: t.resource,
         resourceId: t.resourceId,
         scope: input.scope,
-        limits: input.limits ?? [],
         tokenHash: tokenHash(token),
         tokenSealed: seal(token, env.BETTER_AUTH_SECRET),
         invitedBy: caller.actor,
@@ -561,7 +547,6 @@ export async function createInvitation(caller: Caller, input: { email: string; r
     resourceId: row.resourceId,
     label: t.label,
     scope: row.scope,
-    limits: row.limits,
     invitedBy: row.invitedBy,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
@@ -601,7 +586,6 @@ export async function resendInvitation(caller: Caller, id: string) {
     resourceId: row.resourceId,
     label: t.label,
     scope: row.scope,
-    limits: row.limits,
     invitedBy: row.invitedBy,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
@@ -634,7 +618,6 @@ export async function describeInvitation(token: string) {
     resource: inv.resource,
     label: label(inv.resourceId),
     scope: inv.scope,
-    limits: inv.limits,
     invitedBy: inv.invitedBy,
     expiresAt: inv.expiresAt,
     signUp: !(await db.select({ id: users.id }).from(users).where(eq(users.email, inv.email)))[0],
@@ -658,9 +641,8 @@ export async function acceptInvitation(token: string, user: { id: string; name: 
       .select()
       .from(grants)
       .where(and(eq(grants.userId, user.id), eq(grants.resource, inv.resource), eq(grants.resourceId, inv.resourceId)));
-    // Whichever gives more wins whole: its scope with its limits.
-    const keep = current && (highest(current.scope, inv.scope) !== inv.scope || (current.scope === inv.scope && current.limits.length <= inv.limits.length));
-    const set = keep ? { scope: current.scope, limits: current.limits } : { scope: inv.scope, limits: inv.limits };
+    // Whichever gives more wins.
+    const set = { scope: highest(current?.scope, inv.scope)! };
     await tx
       .insert(grants)
       .values({ userId: user.id, organizationId: inv.organizationId, workspaceId: inv.workspaceId, resource: inv.resource, resourceId: inv.resourceId, ...set })

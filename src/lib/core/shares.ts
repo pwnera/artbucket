@@ -14,7 +14,7 @@ import { pagePath, pageSig } from "@/lib/core/signing";
 import { publishedSource, viewLook } from "@/lib/core/page-view";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
-import { NO_OFF, NONE } from "@/lib/access";
+import { NONE } from "@/lib/access";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import { limiter } from "@/lib/rate";
@@ -276,7 +276,6 @@ async function guest(link: Link, ip: string | null): Promise<Caller> {
     workspace,
     scope: "propose",
     narrow: link.collectionId ? { ...NONE, collections: { [link.collectionId]: "propose" } } : NONE,
-    off: NO_OFF,
     hidden: await hiddenIn(link.workspaceId),
     orgScope: null,
     actor: `${link.name ?? "Upload link"} (guest)`,

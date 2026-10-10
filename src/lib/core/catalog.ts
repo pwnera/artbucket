@@ -447,8 +447,6 @@ export type Holder = {
   scope: Scope | null;
   /** The grant the role comes through, in words: "Project Corporate", "Directly on this asset". */
   via: string;
-  /** Abilities switched off on that grant. */
-  off: string[];
 };
 
 /**
@@ -474,7 +472,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     cols.length ? and(eq(grants.resource, "collection"), inArray(grants.resourceId, cols)) : undefined,
   );
   const found = await db
-    .select({ userId: grants.userId, name: users.name, email: users.email, resource: grants.resource, resourceId: grants.resourceId, scope: grants.scope, limits: grants.limits })
+    .select({ userId: grants.userId, name: users.name, email: users.email, resource: grants.resource, resourceId: grants.resourceId, scope: grants.scope })
     .from(grants)
     .innerJoin(users, eq(users.id, grants.userId))
     .where(and(path, who ? or(eq(users.id, who), eq(users.email, who.toLowerCase())) : undefined));
@@ -494,7 +492,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
     if (obj.private && (g.resource === "organization" || g.resource === "workspace") && g.scope !== "admin") continue;
     const had = best.get(g.userId);
     if (had && highest(had.scope, g.scope) === had.scope) continue;
-    best.set(g.userId, { kind: "person", who: g.name || g.email, role: roleName(g.scope), scope: g.scope, via: via(g), off: g.limits });
+    best.set(g.userId, { kind: "person", who: g.name || g.email, role: roleName(g.scope), scope: g.scope, via: via(g) });
   }
   const holders = [...best.values()];
   if (!who) {
@@ -510,7 +508,6 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
         role: roleName(k.scope),
         scope: k.scope,
         via: k.userId ? `Agent key on ${item.project.name}, capped at ${k.person}` : `Agent key on ${item.project.name}`,
-        off: [],
       });
     holders.push(...(await delivery(objectType, objectId)));
   }
@@ -520,7 +517,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
 /** The other door: who receives it without a grant. */
 async function delivery(type: CatalogType, id: string): Promise<Holder[]> {
   const out: Holder[] = [];
-  const pub = (who: string, via: string, kind: Holder["kind"] = "public") => out.push({ kind, who, role: "Viewer", scope: null, via, off: [] });
+  const pub = (who: string, via: string, kind: Holder["kind"] = "public") => out.push({ kind, who, role: "Viewer", scope: null, via });
   if (type === "asset") {
     const [a] = await db.select({ public: assets.public }).from(assets).where(eq(assets.id, id));
     if (a?.public) pub("Anyone with the link", "Public asset: approved, current, unexpired only");

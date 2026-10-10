@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import {
-  IconAdjustmentsHorizontal,
   IconBuilding,
   IconFolder,
   IconFolderUp,
@@ -34,24 +33,15 @@ import { IconButton } from "@/components/icon-button";
 import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ABILITIES, type Ability } from "@/lib/access";
 import type { AuditAction } from "@/lib/core/audit";
 import { can } from "@/lib/permissions";
-import { allows, roleName, ROLES, SCOPES, type Scope } from "@/lib/scopes";
+import { roleName, ROLES, SCOPES, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
@@ -61,7 +51,7 @@ import { SavedMark } from "@/components/settings/panels";
 import { useKept } from "@/lib/motion";
 
 type Resource = "organization" | "workspace" | "collection" | "asset";
-type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope; limits: Ability[] };
+type Grant = { id: string; resource: Resource; resourceId: string; workspaceId: string | null; label: string | null; scope: Scope };
 type Invitation = {
   id: string;
   email: string;
@@ -69,7 +59,6 @@ type Invitation = {
   resourceId: string;
   label: string | null;
   scope: Scope;
-  limits: Ability[];
   invitedBy: string;
   expiresAt: string;
   /** Its link, to copy again; null when it can't be opened any more. */
@@ -80,17 +69,6 @@ export type Members = { data: Member[]; invitations: Invitation[] };
 type AuditEntry = { id: string; at: string; actor: string; action: AuditAction; target: string | null; detail: Record<string, unknown> | null; ip: string | null };
 export type AuditPage = { data: AuditEntry[]; next: string | null };
 
-/** What an editor's or admin's grant can have off (lib/access.ts). */
-const ABILITY: Record<Ability, string> = {
-  approve: "Approve uploads and tags",
-  delete: "Delete assets and collections",
-  share: "Share links and upload requests",
-  setup: "Manage fields and brand",
-};
-/** "Editor, no delete or share": the role with what it has off. */
-const NOT: Record<Ability, string> = { approve: "approving", delete: "deleting", share: "sharing", setup: "setup" };
-const role = (scope: Scope, limits: Ability[] = []) =>
-  limits.length && allows(scope, "write") ? `${roleName(scope)}, no ${ABILITIES.filter((a) => limits.includes(a)).map((a) => NOT[a]).join(" or ")}` : roleName(scope);
 const ICON: Record<Resource, typeof IconFolder> = { organization: IconBuilding, workspace: IconLayoutGrid, collection: IconFolder, asset: IconPhoto };
 
 /** A role in a picker: its name, and what it may do under it, so the choice is made knowing. The trigger shows the name only. */
@@ -156,8 +134,8 @@ export function People({
   }
 
   /** True when it took: the row says Saved beside the role itself. */
-  async function change(g: Grant, userId: string, scope: Scope, limits?: Ability[]) {
-    if (!(await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope, limits }))) return false;
+  async function change(g: Grant, userId: string, scope: Scope) {
+    if (!(await send("POST", "/api/v1/grants", { user: userId, resource: g.resource, resourceId: g.resourceId, scope }))) return false;
     refresh();
     return true;
   }
@@ -168,7 +146,7 @@ export function People({
     if (m.id !== me.user?.id || g.scope !== "admin") {
       undoable(`Removed ${m.name}'s access to ${g.label}`, {
         undo: async () => {
-          const back = await send("POST", "/api/v1/grants", { user: m.id, resource: g.resource, resourceId: g.resourceId, scope: g.scope, limits: g.limits });
+          const back = await send("POST", "/api/v1/grants", { user: m.id, resource: g.resource, resourceId: g.resourceId, scope: g.scope });
           // send() said why it failed; nothing more to say.
           if (!back) return false;
           refresh();
@@ -234,7 +212,6 @@ export function People({
                         editable={manages(g)}
                         mine={m.id === me.user?.id}
                         onScope={(s) => change(g, m.id, s)}
-                        onLimits={(l) => change(g, m.id, g.scope, l)}
                         onRemove={() => remove(g, m)}
                       />
                     ))}
@@ -264,7 +241,7 @@ export function People({
                     <p className="truncate font-medium">{i.email}</p>
                     <p className="text-muted-foreground truncate text-xs">
                       <I className="mr-1 inline size-3.5" />
-                      {role(i.scope, i.limits)} on {i.label} · by {i.invitedBy} · expires {ago(i.expiresAt)}
+                      {roleName(i.scope)} on {i.label} · by {i.invitedBy} · expires {ago(i.expiresAt)}
                     </p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
@@ -381,7 +358,6 @@ function GrantRow({
   editable,
   mine,
   onScope,
-  onLimits,
   onRemove,
 }: {
   grant: Grant;
@@ -390,21 +366,16 @@ function GrantRow({
   editable: boolean;
   mine: boolean;
   onScope: (s: Scope) => Promise<unknown>;
-  onLimits: (l: Ability[]) => Promise<unknown>;
   onRemove: () => Promise<boolean>;
 }) {
-  const [shown, setShown] = useOptimistic({ scope: g.scope, limits: g.limits });
+  const [shown, setShown] = useOptimistic({ scope: g.scope });
   const [, start] = useTransition();
   const [asking, setAsking] = useState<{ scope: Scope } | "remove" | null>(null);
   const [savedAt, setSavedAt] = useState(0);
   // The request runs inside the transition, and router.refresh() with it, so the new value holds until the new props land.
   const scope = (s: Scope) => start(async () => {
-    setShown({ scope: s, limits: shown.limits });
+    setShown({ scope: s });
     if (await onScope(s)) setSavedAt(Date.now());
-  });
-  const limits = (l: Ability[]) => start(async () => {
-    setShown({ scope: shown.scope, limits: l });
-    if (await onLimits(l)) setSavedAt(Date.now());
   });
   const ownAdmin = mine && g.scope === "admin";
 
@@ -419,7 +390,7 @@ function GrantRow({
     return (
       <div className="flex items-center gap-1.5" title="Changed by the organization's admins">
         {where}
-        <Badge variant="outline">{role(g.scope, g.limits)}</Badge>
+        <Badge variant="outline">{roleName(g.scope)}</Badge>
       </div>
     );
   }
@@ -438,34 +409,6 @@ function GrantRow({
           ))}
         </SelectContent>
       </Select>
-      {allows(shown.scope, "write") && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              variant="ghost"
-              size="icon-xs"
-              label={shown.limits.length ? `${who}: ${role(shown.scope, shown.limits)}` : `What ${who} may do on ${g.label}`}
-              className={shown.limits.length ? "text-primary-ink" : undefined}
-            >
-              <IconAdjustmentsHorizontal />
-            </IconButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>As {roleName(shown.scope).toLowerCase()}, may</DropdownMenuLabel>
-            {ABILITIES.map((a) => (
-              <DropdownMenuCheckboxItem
-                key={a}
-                checked={!shown.limits.includes(a)}
-                // Stays open: switching off two abilities is one visit.
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(on) => limits(on ? shown.limits.filter((l) => l !== a) : [...shown.limits, a])}
-              >
-                {ABILITY[a]}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
       <IconButton
         variant="ghost"
         size="icon-xs"
@@ -511,19 +454,16 @@ function GrantDialog({
   const id = useId();
   const [where, setWhere] = useState(`${places.find((p) => p.resource === "workspace")!.resource}:${places.find((p) => p.resource === "workspace")!.resourceId}`);
   const [scope, setScope] = useState<Scope>("read");
-  const [limits, setLimits] = useState<Ability[]>([]);
   const [link, setLink] = useState<{ url: string; emailed: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [resource, resourceId] = where.split(":") as [Resource, string];
-  // Only an editor's or admin's grant has abilities to switch off.
-  const off = allows(scope, "write") ? limits : [];
 
   async function submit(form: FormData) {
     setBusy(true);
     const made =
       dialog.kind === "invite"
-        ? await send("POST", "/api/v1/invitations", { email: String(form.get("email") ?? "").trim(), resource, resourceId, scope, limits: off })
-        : await send("POST", "/api/v1/grants", { user: dialog.user.id, resource, resourceId, scope, limits: off });
+        ? await send("POST", "/api/v1/invitations", { email: String(form.get("email") ?? "").trim(), resource, resourceId, scope })
+        : await send("POST", "/api/v1/grants", { user: dialog.user.id, resource, resourceId, scope });
     setBusy(false);
     if (!made) return;
     onDone();
@@ -593,20 +533,6 @@ function GrantDialog({
                 </SelectContent>
               </Select>
             </div>
-            {allows(scope, "write") && (
-              <fieldset className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150">
-                <legend className="mb-2 text-sm font-medium">May</legend>
-                {ABILITIES.map((a) => (
-                  <Label key={a} className="font-normal">
-                    <Checkbox
-                      checked={!limits.includes(a)}
-                      onCheckedChange={(on) => setLimits((l) => (on ? l.filter((x) => x !== a) : [...l, a]))}
-                    />
-                    {ABILITY[a]}
-                  </Label>
-                ))}
-              </fieldset>
-            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel

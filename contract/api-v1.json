@@ -14234,12 +14234,6 @@
                         },
                         "via": {
                           "type": "string"
-                        },
-                        "off": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
                         }
                       },
                       "required": [
@@ -14247,8 +14241,7 @@
                         "who",
                         "role",
                         "scope",
-                        "via",
-                        "off"
+                        "via"
                       ],
                       "additionalProperties": false
                     }
@@ -36098,70 +36091,6 @@
                         "additionalProperties": false,
                         "description": "Grants on single collections and assets here, by id: what reaches past the workspace scope"
                       },
-                      "off": {
-                        "type": "object",
-                        "properties": {
-                          "workspace": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "enum": [
-                                "delete",
-                                "share",
-                                "approve",
-                                "setup"
-                              ]
-                            }
-                          },
-                          "collections": {
-                            "type": "object",
-                            "propertyNames": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "additionalProperties": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": [
-                                  "delete",
-                                  "share",
-                                  "approve",
-                                  "setup"
-                                ]
-                              }
-                            }
-                          },
-                          "assets": {
-                            "type": "object",
-                            "propertyNames": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "additionalProperties": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": [
-                                  "delete",
-                                  "share",
-                                  "approve",
-                                  "setup"
-                                ]
-                              }
-                            }
-                          }
-                        },
-                        "required": [
-                          "workspace",
-                          "collections",
-                          "assets"
-                        ],
-                        "additionalProperties": false,
-                        "description": "Abilities your grants have switched off, on the workspace and on single collections and assets"
-                      },
                       "hidden": {
                         "type": "array",
                         "items": {
@@ -36539,7 +36468,6 @@
                       "narrowed",
                       "email",
                       "narrow",
-                      "off",
                       "hidden",
                       "workspaces",
                       "features",
@@ -38674,19 +38602,6 @@
                                   "admin"
                                 ]
                               },
-                              "limits": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string",
-                                  "enum": [
-                                    "delete",
-                                    "share",
-                                    "approve",
-                                    "setup"
-                                  ]
-                                },
-                                "description": "What the scope would allow but this grant doesn't"
-                              },
                               "createdAt": {
                                 "type": "string",
                                 "format": "date-time",
@@ -38700,7 +38615,6 @@
                               "workspaceId",
                               "label",
                               "scope",
-                              "limits",
                               "createdAt"
                             ],
                             "additionalProperties": false
@@ -38758,18 +38672,6 @@
                             "admin"
                           ]
                         },
-                        "limits": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "enum": [
-                              "delete",
-                              "share",
-                              "approve",
-                              "setup"
-                            ]
-                          }
-                        },
                         "invitedBy": {
                           "type": "string"
                         },
@@ -38803,7 +38705,6 @@
                         "resourceId",
                         "label",
                         "scope",
-                        "limits",
                         "invitedBy",
                         "expiresAt",
                         "createdAt",
@@ -38900,20 +38801,6 @@
                     "write",
                     "admin"
                   ]
-                },
-                "limits": {
-                  "description": "What the scope would allow but this grant doesn't: delete, share (links and upload requests), approve (review), setup (fields and brand)",
-                  "maxItems": 4,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "enum": [
-                      "delete",
-                      "share",
-                      "approve",
-                      "setup"
-                    ]
-                  }
                 }
               },
               "required": [
@@ -38985,19 +38872,6 @@
                           "admin"
                         ]
                       },
-                      "limits": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "enum": [
-                            "delete",
-                            "share",
-                            "approve",
-                            "setup"
-                          ]
-                        },
-                        "description": "What the scope would allow but this grant doesn't"
-                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time",
@@ -39011,7 +38885,6 @@
                       "workspaceId",
                       "label",
                       "scope",
-                      "limits",
                       "createdAt"
                     ],
                     "additionalProperties": false
@@ -39183,20 +39056,6 @@
                     "write",
                     "admin"
                   ]
-                },
-                "limits": {
-                  "description": "What the scope would allow but this grant doesn't: delete, share (links and upload requests), approve (review), setup (fields and brand)",
-                  "maxItems": 4,
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "enum": [
-                      "delete",
-                      "share",
-                      "approve",
-                      "setup"
-                    ]
-                  }
                 }
               },
               "required": [
@@ -39258,18 +39117,6 @@
                           "admin"
                         ]
                       },
-                      "limits": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "enum": [
-                            "delete",
-                            "share",
-                            "approve",
-                            "setup"
-                          ]
-                        }
-                      },
                       "invitedBy": {
                         "type": "string"
                       },
@@ -39299,7 +39146,6 @@
                       "resourceId",
                       "label",
                       "scope",
-                      "limits",
                       "invitedBy",
                       "expiresAt",
                       "createdAt",
@@ -39416,18 +39262,6 @@
                           "admin"
                         ]
                       },
-                      "limits": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "enum": [
-                            "delete",
-                            "share",
-                            "approve",
-                            "setup"
-                          ]
-                        }
-                      },
                       "invitedBy": {
                         "type": "string"
                       },
@@ -39457,7 +39291,6 @@
                       "resourceId",
                       "label",
                       "scope",
-                      "limits",
                       "invitedBy",
                       "expiresAt",
                       "createdAt",

@@ -46,7 +46,6 @@ import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { can } from "@/lib/permissions";
 import { roleName, type Scope } from "@/lib/scopes";
-import type { Off } from "@/lib/access";
 import { useKept } from "@/lib/motion";
 import { DOCS_URL, PROJECT_URL } from "@/lib/branding";
 
@@ -65,7 +64,6 @@ export type Me = {
   /** The organization can send email now. */
   email: boolean;
   narrow: { collections: Record<string, Scope>; assets: Record<string, Scope> };
-  off: Off;
   hidden: string[];
   workspaces: WorkspaceRef[];
   /** What the organization may use, of what its limits can switch off; null is everything. */

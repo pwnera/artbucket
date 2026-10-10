@@ -11,7 +11,7 @@ import { hasUsers } from "@/lib/core/people";
 import { ssoOffered } from "@/lib/core/sso";
 import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
-import { accessIn, capAt, highest, isNarrowed, NO_OFF, NONE, type Access } from "@/lib/access";
+import { accessIn, capAt, highest, isNarrowed, NONE, type Access } from "@/lib/access";
 import { env } from "@/lib/env";
 import { ipOf } from "@/lib/client-ip";
 import { hubHome } from "@/lib/hub";
@@ -180,7 +180,7 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
       key.userId ? db.select().from(grants).where(eq(grants.userId, key.userId)) : null,
     ]);
     // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
-    const access = theirs ? capAt(accessIn(theirs, workspace, hidden), key.scope) : { scope: key.scope, narrow: NONE, off: NO_OFF, hidden };
+    const access = theirs ? capAt(accessIn(theirs, workspace, hidden), key.scope) : { scope: key.scope, narrow: NONE, hidden };
     return { workspace, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
   }
 
@@ -205,7 +205,7 @@ async function resolve(req: Request, workspaceId?: string): Promise<Caller | und
   const pick = workspaceId ?? (scope ? wanted : undefined);
   const [picked] = pick && z.uuid().safeParse(pick).success ? await workspacesWhere(eq(workspaces.id, pick)) : [undefined];
   const workspace = picked ?? (await defaultWorkspace());
-  return { workspace, scope, narrow: NONE, off: NO_OFF, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
+  return { workspace, scope, narrow: NONE, hidden: await hiddenIn(workspace.id), orgScope: scope, actor: "web", user: null, key: null, ip };
 }
 
 export async function workspaceById(id: string): Promise<Workspace | null> {
@@ -261,7 +261,6 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     narrowed: isNarrowed(caller),
     email,
     narrow: caller.narrow,
-    off: caller.off,
     hidden: here === NOWHERE ? [] : caller.hidden,
     workspaces,
     features: limits.value.features,

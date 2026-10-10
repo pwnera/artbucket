@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ABILITIES, RESOURCES } from "./access.ts";
+import { RESOURCES } from "./access.ts";
 import { COLLECTION_ICONS } from "./collection-icons.ts";
 import { SURFACES } from "./insights.ts";
 import { FEATURES } from "./limits.ts";
@@ -329,15 +329,10 @@ export const OrganizationPatch = named;
 export const CreateWorkspace = named;
 export const WorkspacePatch = named;
 
-const abilities = z.array(z.enum(ABILITIES));
 const on = {
   resource: z.enum(RESOURCES).describe("What the grant is on; it reaches everything inside it"),
   resourceId: uuid.describe("The organization's, workspace's, collection's or asset's id"),
   scope: z.enum(SCOPES),
-  limits: abilities
-    .max(ABILITIES.length)
-    .optional()
-    .describe("What the scope would allow but this grant doesn't: delete, share (links and upload requests), approve (review), setup (fields and brand)"),
 };
 export const GrantInput = z.strictObject({ user: z.string().min(1).max(64).describe("A member's user id, from /api/v1/members"), ...on });
 export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
@@ -1165,9 +1160,6 @@ export const Me = z.object({
   narrow: z
     .object({ collections: z.record(uuid, z.enum(SCOPES)), assets: z.record(uuid, z.enum(SCOPES)) })
     .describe("Grants on single collections and assets here, by id: what reaches past the workspace scope"),
-  off: z
-    .object({ workspace: abilities, collections: z.record(uuid, abilities), assets: z.record(uuid, abilities) })
-    .describe("Abilities your grants have switched off, on the workspace and on single collections and assets"),
   hidden: z.array(uuid).describe("The workspace's private collections: only a grant on one, or admin, reaches it"),
   workspaces: z.array(WorkspaceRef).describe("Every workspace you can switch to"),
   features: z
@@ -1233,7 +1225,6 @@ export const Grant = z.object({
   workspaceId: uuid.nullable(),
   label: z.string().nullable().describe("The name of what it is on"),
   scope: z.enum(SCOPES),
-  limits: abilities.describe("What the scope would allow but this grant doesn't"),
   createdAt: date,
 });
 export const Invitation = z.object({
@@ -1243,7 +1234,6 @@ export const Invitation = z.object({
   resourceId: uuid,
   label: z.string().nullable(),
   scope: z.enum(SCOPES),
-  limits: abilities,
   invitedBy: z.string(),
   expiresAt: date,
   createdAt: date,

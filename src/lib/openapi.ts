@@ -606,7 +606,7 @@ export function openapi(serverUrl: string) {
               id: z.uuid(),
               name: z.string(),
               private: z.boolean(),
-              holders: z.array(z.object({ kind: z.string(), who: z.string(), role: z.string(), scope: z.string().nullable(), via: z.string(), off: z.array(z.string()) })),
+              holders: z.array(z.object({ kind: z.string(), who: z.string(), role: z.string(), scope: z.string().nullable(), via: z.string() })),
             }),
           ],
         }),

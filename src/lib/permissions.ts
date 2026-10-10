@@ -1,4 +1,4 @@
-import { allLevels, allowsOn, assetLevels, collectionLevels, type Ability, type Access } from "./access.ts";
+import { allLevels, allowsOn, assetLevels, collectionLevels, type Access } from "./access.ts";
 import { allows, type Scope } from "./scopes.ts";
 
 /**
@@ -18,9 +18,6 @@ import { allows, type Scope } from "./scopes.ts";
  *
  * Asked without a target, a collection or asset action means "on some of
  * them", which is how a route lets a caller in before core checks the thing.
- *
- * `ability`: what a grant can switch off to keep this action from someone
- * whose scope would allow it (lib/access.ts).
  *
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
@@ -43,27 +40,27 @@ export const ACTIONS = {
   /** A new version of it: approved with write on it, a proposal with propose. */
   "asset.version": { scope: "propose", on: "asset" },
   "asset.edit": { scope: "write", on: "asset" },
-  "asset.review": { scope: "write", on: "asset", ability: "approve" },
-  "asset.delete": { scope: "write", on: "asset", ability: "delete" },
-  "asset.share": { scope: "write", on: "asset", ability: "share" },
+  "asset.review": { scope: "write", on: "asset" },
+  "asset.delete": { scope: "write", on: "asset" },
+  "asset.share": { scope: "write", on: "asset" },
   // Collections
   "collection.read": { scope: "read", on: "collection" },
   "collection.create": { scope: "write", on: "workspace" },
   "collection.edit": { scope: "write", on: "collection" },
-  "collection.delete": { scope: "write", on: "workspace", ability: "delete" },
-  "collection.share": { scope: "write", on: "collection", ability: "share" },
-  "collection.collect": { scope: "write", on: "collection", ability: "share" },
+  "collection.delete": { scope: "write", on: "workspace" },
+  "collection.share": { scope: "write", on: "collection" },
+  "collection.collect": { scope: "write", on: "collection" },
   // The workspace's schema and saved things
   "field.read": { scope: "read", on: "anywhere" },
-  "field.manage": { scope: "write", on: "workspace", ability: "setup" },
+  "field.manage": { scope: "write", on: "workspace" },
   "search.read": { scope: "read", on: "anywhere" },
   "search.save": { scope: "write", on: "workspace" },
   "search.delete": { scope: "write", on: "workspace" },
   // The brand
   "brand.read": { scope: "read", on: "anywhere" },
-  "brand.edit": { scope: "write", on: "workspace", ability: "setup" },
+  "brand.edit": { scope: "write", on: "workspace" },
   /** With brand.edit: its rules, pages and history go, so deleting must be on too. */
-  "brand.delete": { scope: "write", on: "workspace", ability: "delete" },
+  "brand.delete": { scope: "write", on: "workspace" },
   /**
    * Comment on its pages, reply, resolve and reopen a thread, and edit or
    * delete one's own comment; deleting someone else's takes brand.edit.
@@ -71,11 +68,11 @@ export const ACTIONS = {
    */
   "brand.comment": { scope: "propose", on: "workspace" },
   /** Put the brand's pages and rules, as they stand, in front of portal visitors. */
-  "brand.publish": { scope: "write", on: "workspace", ability: "share" },
+  "brand.publish": { scope: "write", on: "workspace" },
   // Sharing, keys, people, settings
-  "share.manage": { scope: "write", on: "anywhere", ability: "share" },
-  "share.collect_workspace": { scope: "write", on: "workspace", ability: "share" },
-  "portal.manage": { scope: "write", on: "workspace", ability: "share" },
+  "share.manage": { scope: "write", on: "anywhere" },
+  "share.collect_workspace": { scope: "write", on: "workspace" },
+  "portal.manage": { scope: "write", on: "workspace" },
   "key.manage": { scope: "admin", on: "workspace" },
   "member.manage": { scope: "admin", on: "workspace" },
   "audit.read": { scope: "admin", on: "workspace" },
@@ -83,7 +80,7 @@ export const ACTIONS = {
   "insights.read": { scope: "write", on: "workspace" },
   "workspace.manage": { scope: "admin", on: "workspace" },
   "organization.manage": { scope: "admin", on: "organization" },
-} as const satisfies Record<string, { scope: Scope; on: On; ability?: Ability }>;
+} as const satisfies Record<string, { scope: Scope; on: On }>;
 
 export type Action = keyof typeof ACTIONS;
 
@@ -95,19 +92,18 @@ export type Target = { id: string; collections?: string[]; private?: boolean };
 
 /** Whether `who` may do `action`, to `target` when the action is about one thing. */
 export function can(who: Who, action: Action, target?: Target | null): boolean {
-  const def: { scope: Scope; on: On; ability?: Ability } = ACTIONS[action];
-  const { scope, on, ability } = def;
+  const { scope, on }: { scope: Scope; on: On } = ACTIONS[action];
   switch (on) {
     case "organization":
       return allows(who.orgScope, scope);
     case "workspace":
-      return allowsOn([{ scope: who.scope, off: who.off.workspace }], scope, ability);
+      return allows(who.scope, scope);
     case "anywhere":
-      return allowsOn(allLevels(who), scope, ability);
+      return allowsOn(allLevels(who), scope);
     case "collection":
-      return allowsOn(target ? collectionLevels(who, target.id) : allLevels(who), scope, ability);
+      return allowsOn(target ? collectionLevels(who, target.id) : allLevels(who), scope);
     case "asset":
-      return allowsOn(target ? assetLevels(who, { ...target, collections: target.collections ?? [] }) : allLevels(who), scope, ability);
+      return allowsOn(target ? assetLevels(who, { ...target, collections: target.collections ?? [] }) : allLevels(who), scope);
   }
 }
 

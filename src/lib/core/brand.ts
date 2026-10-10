@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { assets, brandRuleAssets, brandRules, brands, brandSources, brandVersions, portalBrands } from "@/lib/db/schema";
 import { hiddenIn, workspaceById, type Caller } from "@/lib/core/access";
-import { NO_OFF, NONE } from "@/lib/access";
+import { NONE } from "@/lib/access";
 import { hubOf, present, resolveBrand, slugify } from "@/lib/core/brands";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -607,7 +607,7 @@ export async function hostFontsBackfill(limit = FONT_BATCH) {
 async function backfillBrand(brandId: string, ws: string, git: boolean) {
   const [workspace, hidden] = await Promise.all([workspaceById(ws), hiddenIn(ws)]);
   if (!workspace) return false;
-  const caller: Caller = { workspace, scope: "write", narrow: NONE, off: NO_OFF, hidden, orgScope: null, actor: SYSTEM, user: null, key: null, ip: null };
+  const caller: Caller = { workspace, scope: "write", narrow: NONE, hidden, orgScope: null, actor: SYSTEM, user: null, key: null, ip: null };
   // Read twice: once to know what to import (outside a transaction, it fetches), then under the brand's lock to write.
   const read = async (tx: Db) => {
     const rules = git ? [] : await tx.select().from(brandRules).where(and(eq(brandRules.brandId, brandId), eq(brandRules.type, "font")));

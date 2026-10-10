@@ -407,6 +407,13 @@
       "when": 1791643362997,
       "tag": "0057_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1791644408258,
+      "tag": "0058_grant_roles_only",
+      "breakpoints": true
     }
   ]
 }

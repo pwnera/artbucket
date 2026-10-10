@@ -2,6 +2,7 @@
  * The frozen v1 contract (lib/contract.ts), kept in contract/.
  *
  *   pnpm contract:freeze          # take in what was added; refuses a break
+ *   pnpm contract:freeze --break  # take in a break too: only while decision 0017 sets the freeze aside
  *   pnpm contract:check [dir]     # the current API against a frozen copy, e.g. the base branch's
  */
 
@@ -11,7 +12,9 @@ import { apiBreaks, toolBreaks } from "../src/lib/contract.ts";
 import { toolSchemas } from "../src/lib/mcp-tools.ts";
 import { DOCS_SERVER, openapi } from "../src/lib/openapi.ts";
 
-const [cmd = "check", dir = join(import.meta.dirname, "..", "contract")] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const allowBreak = args.includes("--break");
+const [cmd = "check", dir = join(import.meta.dirname, "..", "contract")] = args.filter((a) => a !== "--break");
 const files = { api: join(dir, "api-v1.json"), mcp: join(dir, "mcp-v1.json") };
 const current = {
   api: JSON.parse(JSON.stringify(openapi(DOCS_SERVER).paths)),
@@ -24,7 +27,7 @@ const breaks = [
   ...(frozen.api ? apiBreaks(frozen.api, current.api) : []),
   ...(frozen.mcp ? toolBreaks(frozen.mcp, current.mcp) : []),
 ];
-if (breaks.length) {
+if (breaks.length && !(cmd === "freeze" && allowBreak)) {
   console.error(`Breaks the v1 contract in ${dir}:\n${breaks.map((b) => `  - ${b}`).join("\n")}\nA break waits for v2: add alongside instead, and deprecate.`);
   process.exit(1);
 }

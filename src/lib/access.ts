@@ -12,8 +12,8 @@ import { allows, SCOPES, type Scope } from "./scopes.ts";
  * else. Core narrows searches and checks writes with these.
  *
  * Private collections and assets turn the workspace scope away (admins
- * excepted): only grants on them reach them. And a grant can have abilities
- * off (`limits`), so an editor may edit without deleting or sharing.
+ * excepted): only grants on them reach them. Roles are one ladder: nothing
+ * is switched off per grant.
  *
  * Relative imports: `pnpm test` runs this under plain Node.
  */
@@ -21,26 +21,15 @@ import { allows, SCOPES, type Scope } from "./scopes.ts";
 export const RESOURCES = ["organization", "workspace", "collection", "asset"] as const;
 export type Resource = (typeof RESOURCES)[number];
 
-/**
- * What a grant can have switched off: an editor who may edit but not delete.
- * Each is a few actions (lib/permissions.ts), all of them write or more, so
- * only a grant of write or admin has anything to switch off.
- */
-export const ABILITIES = ["delete", "share", "approve", "setup"] as const;
-export type Ability = (typeof ABILITIES)[number];
-
 export type Narrow = { collections: Record<string, Scope>; assets: Record<string, Scope> };
-/** Abilities off at each level: off where every grant there that could use it has it off. */
-export type Off = { workspace: Ability[]; collections: Record<string, Ability[]>; assets: Record<string, Ability[]> };
 /**
  * `hidden`: the workspace's private collections. The workspace scope doesn't
  * reach into those, nor into private assets, unless it is admin: only a
  * grant on the thing (or a collection it is in) does.
  */
-export type Access = { scope: Scope | null; narrow: Narrow; off: Off; hidden: string[] };
+export type Access = { scope: Scope | null; narrow: Narrow; hidden: string[] };
 
 export const NONE: Narrow = { collections: {}, assets: {} };
-export const NO_OFF: Off = { workspace: [], collections: {}, assets: {} };
 
 export function highest(...scopes: (Scope | null | undefined)[]): Scope | null {
   let best = -1;
@@ -48,37 +37,36 @@ export function highest(...scopes: (Scope | null | undefined)[]): Scope | null {
   return best < 0 ? null : SCOPES[best];
 }
 
-/** One step on the way down to a thing: a scope there and what it has off. */
-export type Level = { scope: Scope | null; off: Ability[] };
+/** One step on the way down to a thing: a scope there. */
+export type Level = { scope: Scope | null };
 
 /** Private: the asset's own flag, or every collection it is in is private. */
 export const isPrivate = (a: Access, asset: { collections: string[]; private?: boolean }) =>
   !!asset.private || (asset.collections.length > 0 && asset.collections.every((c) => a.hidden.includes(c)));
 
 /** The workspace's level, as it reaches something: only an admin's reaches something private. */
-const top = (a: Access, hidden: boolean): Level => ({ scope: hidden && a.scope !== "admin" ? null : a.scope, off: a.off.workspace });
+const top = (a: Access, hidden: boolean): Level => ({ scope: hidden && a.scope !== "admin" ? null : a.scope });
 
 export const collectionLevels = (a: Access, id: string): Level[] => [
   top(a, a.hidden.includes(id)),
-  { scope: a.narrow.collections[id] ?? null, off: a.off.collections[id] ?? [] },
+  { scope: a.narrow.collections[id] ?? null },
 ];
 
 export const assetLevels = (a: Access, asset: { id: string; collections: string[]; private?: boolean }): Level[] => [
   top(a, isPrivate(a, asset)),
-  { scope: a.narrow.assets[asset.id] ?? null, off: a.off.assets[asset.id] ?? [] },
-  ...asset.collections.map((c) => ({ scope: a.narrow.collections[c] ?? null, off: a.off.collections[c] ?? [] })),
+  { scope: a.narrow.assets[asset.id] ?? null },
+  ...asset.collections.map((c) => ({ scope: a.narrow.collections[c] ?? null })),
 ];
 
 /** Every level: somewhere in the workspace. */
 export const allLevels = (a: Access): Level[] => [
-  { scope: a.scope, off: a.off.workspace },
-  ...Object.entries(a.narrow.collections).map(([id, scope]) => ({ scope, off: a.off.collections[id] ?? [] })),
-  ...Object.entries(a.narrow.assets).map(([id, scope]) => ({ scope, off: a.off.assets[id] ?? [] })),
+  { scope: a.scope },
+  ...Object.values(a.narrow.collections).map((scope) => ({ scope })),
+  ...Object.values(a.narrow.assets).map((scope) => ({ scope })),
 ];
 
-/** Whether some level allows `need`, with `ability` on there when the action is one. */
-export const allowsOn = (levels: Level[], need: Scope, ability?: Ability) =>
-  levels.some((l) => allows(l.scope, need) && !(ability && l.off.includes(ability)));
+/** Whether some level allows `need`. */
+export const allowsOn = (levels: Level[], need: Scope) => levels.some((l) => allows(l.scope, need));
 
 /** An asset's scope for this caller: the workspace's, raised by grants on the asset or a collection it is in. */
 export const assetScope = (a: Access, asset: { id: string; collections: string[]; private?: boolean }) =>
@@ -99,7 +87,7 @@ export function reach(a: Access, need: Scope) {
   return { collections: pick(a.narrow.collections), assets: pick(a.narrow.assets) };
 }
 
-type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | null; scope: Scope; limits?: Ability[] };
+type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | null; scope: Scope };
 
 /**
  * A user's scope on a workspace and their narrower grants in it, from all of
@@ -109,33 +97,15 @@ type GrantRow = { resource: Resource; resourceId: string; workspaceId: string | 
 export function accessIn(grants: GrantRow[], workspace: { id: string; organizationId: string }, hidden: string[] = []): Access {
   const narrow: Narrow = { collections: {}, assets: {} };
   let scope: Scope | null = null;
-  // Per level, the limits of each grant there that could use an ability.
-  const ws: Ability[][] = [];
-  const cols: Record<string, Ability[][]> = {};
-  const as: Record<string, Ability[][]> = {};
-  const note = (into: Ability[][], g: GrantRow) => allows(g.scope, "write") && into.push(g.limits ?? []);
   for (const g of grants) {
     if (g.resource === "organization") {
-      if (g.resourceId !== workspace.organizationId) continue;
-      scope = highest(scope, g.scope);
-      note(ws, g);
+      if (g.resourceId === workspace.organizationId) scope = highest(scope, g.scope);
     } else if (g.workspaceId !== workspace.id) continue;
-    else if (g.resource === "workspace") {
-      scope = highest(scope, g.scope);
-      note(ws, g);
-    } else if (g.resource === "collection") {
-      narrow.collections[g.resourceId] = highest(narrow.collections[g.resourceId], g.scope)!;
-      note((cols[g.resourceId] ??= []), g);
-    } else if (g.resource === "asset") {
-      narrow.assets[g.resourceId] = highest(narrow.assets[g.resourceId], g.scope)!;
-      note((as[g.resourceId] ??= []), g);
-    }
+    else if (g.resource === "workspace") scope = highest(scope, g.scope);
+    else if (g.resource === "collection") narrow.collections[g.resourceId] = highest(narrow.collections[g.resourceId], g.scope)!;
+    else if (g.resource === "asset") narrow.assets[g.resourceId] = highest(narrow.assets[g.resourceId], g.scope)!;
   }
-  // Off only where every grant has it off: grants add up, so any one that has it on gives it.
-  const offOf = (lists: Ability[][]) => ABILITIES.filter((ab) => lists.length > 0 && lists.every((l) => l.includes(ab)));
-  const map = (m: Record<string, Ability[][]>) =>
-    Object.fromEntries(Object.entries(m).flatMap(([id, lists]) => (offOf(lists).length ? [[id, offOf(lists)]] : [])));
-  return { scope, narrow, off: { workspace: offOf(ws), collections: map(cols), assets: map(as) }, hidden };
+  return { scope, narrow, hidden };
 }
 
 /** The lower of two scopes: what an agent may do is what it was granted and its person still can. */
