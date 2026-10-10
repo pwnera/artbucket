@@ -19,6 +19,7 @@ import {
   IconFolder,
   IconLink,
   IconPlus,
+  IconArrowUpRight,
   IconLayoutSidebarLeftExpand,
   IconShare,
   IconX,
@@ -198,7 +199,7 @@ function ObjectView({
             </div>
           </div>
           <div className="flex gap-2">
-            <PinButton pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&]+/, "").replace(/\?$/, "") }} />
+            <PinButton size="icon" pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&]+/, "").replace(/\?$/, "") }} />
             {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
             <Button asChild>
               <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
@@ -290,9 +291,11 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
           </div>
           <div className="flex gap-2">
             {list && (
-              <Button asChild variant="outline">
-                <Link href={list.href}>{list.label}</Link>
-              </Button>
+              <IconButton asChild size="icon" label={list.label}>
+                <Link href={list.href}>
+                  <IconArrowUpRight />
+                </Link>
+              </IconButton>
             )}
             {make && (
               <Button asChild>
@@ -491,9 +494,9 @@ function ShareToProject({ o, projects }: { o: Described; projects: TreeProject[]
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <IconShare /> Share to project
-        </Button>
+        <IconButton size="icon" label="Share to another project">
+          <IconShare />
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

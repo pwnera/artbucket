@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconArrowRight, IconBookmark, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@tabler/icons-react";
 import { useNavigate, type SavedSearch } from "@/components/app-sidebar";
-import { useCan, useMe } from "@/components/can";
+import { useMe } from "@/components/can";
 import { CardGrid, ObjectCard, Section } from "@/components/catalog-matches";
 import type { Collection } from "@/components/collections";
-import { useShell } from "@/components/shell";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
 import { Kbd } from "@/components/ui/kbd";
 import { ago, day, short } from "@/lib/time";
-import { canonical } from "@/lib/view";
 
 /**
  * Explore before anything is asked, laid out like Drive's home: one box
- * that searches everything (its recent and saved searches drop down under
+ * that searches everything (its recent searches drop down under
  * it), the filters people reach for, a new admin's setup, then brands and
  * collections (opened lately, then the rest) and assets (opened lately,
  * then added lately), each with why. Later, the same box takes questions.
@@ -63,7 +61,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 pt-8 pb-16 md:pt-12">
       <div className="flex flex-col items-center gap-5">
         <h1 className="font-display text-center text-2xl font-semibold tracking-tight md:text-3xl">{project ? `Welcome to ${project}` : "Explore"}</h1>
-        <SearchBox searches={searches} />
+        <SearchBox />
         <div className="flex flex-wrap justify-center gap-2">
           {CHIPS.map((c) => (
             <button
@@ -137,25 +135,14 @@ const ViewAll = ({ href, children }: { href: string; children: React.ReactNode }
   </Link>
 );
 
-/** The box, and under it, while it is empty and focused, what was searched lately and what was saved, Drive's way. */
-function SearchBox({ searches }: { searches: SavedSearch[] }) {
+/** The box, and under it, while it is empty and focused, what was searched lately, Drive's way. */
+function SearchBox() {
   const navigate = useNavigate();
-  const can = useCan();
-  const { forgetSearch } = useShell();
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [queries, setQueries] = useRecentQueries();
   const go = (q: string) => q.trim() && navigate(`/?q=${encodeURIComponent(q.trim())}`);
-  const rows = [
-    ...queries.slice(0, 6).map((q) => ({ key: `q:${q}`, icon: <IconClock />, label: q, run: () => go(q), forget: () => setQueries(queries.filter((x) => x !== q)) })),
-    ...searches.slice(0, 6).map((s) => ({
-      key: `s:${s.id}`,
-      icon: <IconBookmark />,
-      label: s.name,
-      run: () => navigate(`/?${canonical(s.query)}`),
-      forget: can("search.delete") ? () => forgetSearch(s.id) : undefined,
-    })),
-  ];
+  const rows = queries.slice(0, 8).map((q) => ({ key: q, label: q, run: () => go(q), forget: () => setQueries(queries.filter((x) => x !== q)) }));
   return (
     <form
       role="search"
@@ -186,19 +173,17 @@ function SearchBox({ searches }: { searches: SavedSearch[] }) {
           {rows.map((r) => (
             <li key={r.key} className="group/row flex items-center">
               <button type="button" onClick={r.run} className="hover:bg-accent focus-visible:bg-accent flex min-w-0 flex-1 items-center gap-3 px-4 py-2 text-start text-sm outline-none">
-                <span className="text-muted-foreground [&_svg]:size-4">{r.icon}</span>
+                <IconClock className="text-muted-foreground size-4" />
                 <span className="truncate">{r.label}</span>
               </button>
-              {r.forget && (
-                <button
-                  type="button"
-                  aria-label={`Forget ${r.label}`}
-                  onClick={r.forget}
-                  className="text-muted-foreground hover:text-foreground me-2 rounded p-1 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-                >
-                  <IconX className="size-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label={`Forget ${r.label}`}
+                onClick={r.forget}
+                className="text-muted-foreground hover:text-foreground me-2 rounded p-1 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+              >
+                <IconX className="size-3.5" />
+              </button>
             </li>
           ))}
         </ul>

@@ -9,7 +9,7 @@ import {
   IconAdjustmentsHorizontal,
   IconBook,
   IconBookmark,
-  IconBookmarkPlus,
+  IconFolderPlus,
   IconCloudUpload,
   IconFolderUp,
   IconInbox,
@@ -44,7 +44,6 @@ import { FontThumb, GoogleFontImport } from "@/components/font-preview";
 import { IconGlyph } from "@/components/icon-glyph";
 import { IconPackImport } from "@/components/icon-packs";
 import { LinkImport, Lottie } from "@/components/media";
-import type { SavedSearch } from "@/components/app-sidebar";
 import { deciding, SelectionBar, useBulk, type Patch } from "@/components/selection-bar";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { useCan } from "@/components/can";
@@ -375,7 +374,7 @@ export function Gallery({
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
-  const { collections, setCollections, setReviewCount, searches, setSearches, openCollection, setAdd, collectionEdits } =
+  const { collections, setCollections, setReviewCount, searches, openCollection, setAdd, collectionEdits } =
     useShell();
   // The field schema can change under an open page (here or elsewhere), so it
   // refreshes with everything else. A stale copy sends values for deleted fields.
@@ -644,11 +643,22 @@ export function Gallery({
     if (!view.asset) pushedViewer = false;
   }, [view.asset]);
 
-  async function saveSearch(name: string) {
-    const saved: SavedSearch | null = await send("POST", "/api/v1/searches", { name, query: apiQuery });
-    if (!saved) return false;
-    setSearches((ss) => [...ss, saved].sort((a, b) => a.name.localeCompare(b.name)));
-    toast.success(`Saved "${name}"`);
+  /** Every asset this view finds, page by page, put in a new collection; then the collection opens. */
+  async function saveAsCollection(name: string) {
+    const ids: string[] = [];
+    for (let offset = 0; offset < total; offset += 200) {
+      const page = await fetch(`/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`).then((r) => (r.ok ? r.json() : null));
+      if (!page?.data?.length) break;
+      ids.push(...page.data.map((a: { id: string }) => a.id));
+    }
+    const made: Collection | null = await send("POST", "/api/v1/collections", { name });
+    if (!made) return false;
+    for (let i = 0; i < ids.length; i += 1000) {
+      if (!(await send("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(i, i + 1000) }))) return false;
+    }
+    setCollections((cs) => [...cs, made].sort((a, b) => a.name.localeCompare(b.name)));
+    toast.success(`Saved ${ids.length.toLocaleString()} ${ids.length === 1 ? "asset" : "assets"} as "${name}"`);
+    go({ collection: made.id, q: "", tags: [], types: [], status: [], filters: {}, extra: [] }, true);
     return true;
   }
 
@@ -1363,8 +1373,10 @@ export function Gallery({
               </Button>
             )}
             <span className="ml-auto" />
-            {/* Only a search or filter is worth naming; a collection or Review is already in the sidebar. */}
-            {narrowed && !activeSearch && can("search.save") && <SaveSearch onSave={saveSearch} />}
+            {/* What a search or filter finds can be kept as a collection; a collection or Review already is one. */}
+            {narrowed && total > 0 && !inCollection && !view.review && can("collection.create") && (
+              <SaveAsCollection suggested={searched ?? activeSearch?.name ?? ""} total={total} onSave={saveAsCollection} />
+            )}
             {/* How the tiles look, in one menu beside the layout: their size (also - and =) and what is behind the art. */}
             <DropdownMenu>
               <Tooltip>
@@ -2052,16 +2064,26 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
 }
 
 /** Name the current view and keep it in the sidebar. */
-function SaveSearch({ onSave }: { onSave: (name: string) => Promise<boolean> }) {
+/** Save what this search finds as a collection: named, by default, for the words searched. */
+function SaveAsCollection({ suggested, total, onSave }: { suggested: string; total: number; onSave: (name: string) => Promise<boolean> }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8">
-          <IconBookmarkPlus /> Save search
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon-sm" aria-label="Save as collection">
+              <IconFolderPlus />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Save as collection</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" className="w-80 space-y-2">
+        <p className="text-sm font-medium">Save as collection</p>
+        <p className="text-muted-foreground text-xs">
+          A new collection with the {total.toLocaleString()} {total === 1 ? "asset" : "assets"} this finds now. Later uploads don&apos;t join it on their own.
+        </p>
         <form
           action={async (form) => {
             const name = String(form.get("name") ?? "").trim();
@@ -2069,7 +2091,7 @@ function SaveSearch({ onSave }: { onSave: (name: string) => Promise<boolean> }) 
           }}
           className="flex gap-2"
         >
-          <Input name="name" placeholder="Name this search" required maxLength={120} autoFocus className="h-8" />
+          <Input name="name" defaultValue={suggested} placeholder="Name the collection" required maxLength={120} autoFocus className="h-8" />
           <SubmitButton size="sm">Save</SubmitButton>
         </form>
       </PopoverContent>

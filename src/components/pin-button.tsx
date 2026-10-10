@@ -5,7 +5,7 @@ import { IconButton } from "@/components/icon-button";
 import { usePins, type Pin } from "@/components/sidebar-prefs";
 
 /** Pin it to the sidebar, or take it off: kept per person, in this browser. */
-export function PinButton({ pin, size = "icon-sm" }: { pin: Pin; size?: "icon-xs" | "icon-sm" }) {
+export function PinButton({ pin, size = "icon-sm" }: { pin: Pin; size?: "icon-xs" | "icon-sm" | "icon" }) {
   const { has, toggle } = usePins();
   const on = has(pin.id);
   return (
