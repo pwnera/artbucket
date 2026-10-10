@@ -37078,7 +37078,7 @@
       },
       "post": {
         "summary": "Make an organization",
-        "description": "With a first project, Library. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "With a first project, My First Project. Needs a signed-in person, who becomes its admin.\n\nAny caller; the scope needed is checked on what it acts on.",
         "requestBody": {
           "required": true,
           "content": {

@@ -164,7 +164,8 @@ function addOrganization(userId: string, name: string) {
   return db.transaction(async (tx) => {
     const slug = await freeSlug(name, async (s) => !!(await tx.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, s)))[0]);
     const [org] = await tx.insert(organizations).values({ slug, name }).returning();
-    const ws = await addProject(tx, org.id, "Library");
+    // Named as Google Cloud names a first one: renamed or joined by others later in Settings.
+    const ws = await addProject(tx, org.id, "My First Project");
     await tx.insert(grants).values({ userId, organizationId: org.id, resource: "organization", resourceId: org.id, scope: "admin" });
     return { ...org, ws };
   }).finally(forgetPlaces);

@@ -1161,7 +1161,7 @@ export function openapi(serverUrl: string) {
         post: op({
           summary: "Make an organization",
           scope: "any",
-          description: "With a first project, Library. Needs a signed-in person, who becomes its admin.",
+          description: "With a first project, My First Project. Needs a signed-in person, who becomes its admin.",
           body: S.CreateOrganization,
           ok: [201, "Made", data(S.OrganizationCreated)],
         }),
