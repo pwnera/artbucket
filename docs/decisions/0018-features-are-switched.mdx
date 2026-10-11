@@ -33,6 +33,13 @@ needed itself, so the core didn't know it was on.
   fields the file asks for, hands the key over in that call, and revokes it
   when the feature is turned off.
 
+- **What a feature reads is held to where it is on.** A call made for a
+  feature says so (`Artbucket-Feature: intelligence`), and reaches the
+  projects where that feature is on, of those its caller may open: the
+  catalog, files, and the project a call is in. The header only ever
+  narrows, so no one gains by sending it; one naming a feature the server
+  doesn't list is ignored.
+
 ## Consequences
 
 - Off reads as it does for the public: a portal is closed, a brand leaves
@@ -45,3 +52,6 @@ needed itself, so the core didn't know it was on.
   are left out of the app where it is off (the file's `gates`).
 - Turning a feature on in every project calls its hook once per project; one
   refusal turns none of them on.
+- Intelligence's assistant, in a project where it is on, searches every
+  project of the organization where it is on, and nothing of one where it is
+  off: that content never reaches a model provider.

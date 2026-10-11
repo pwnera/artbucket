@@ -1,4 +1,5 @@
 import { fail, handle } from "@/lib/api";
+import { featureOf, featureOnIn } from "@/lib/core/features";
 import { callerFrom } from "@/lib/core/access";
 import { validUntil } from "@/lib/core/signing";
 import { suspendedIn } from "@/lib/core/suspension";
@@ -46,6 +47,9 @@ export async function GET(req: Request, { params }: Ctx) {
 
     const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
+    // Asked for a feature (the assistant's calls): nothing of a project where it is off, public or not.
+    const feature = featureOf(req);
+    if (feature && !(await featureOnIn(feature, asset.projectId))) return fail(404, "not_found", "No such asset", undefined, { "Cache-Control": "no-store" });
     const url = new URL(req.url);
     const s = url.searchParams.get("s");
     // A suspended organization's files go to its own people only, neither public nor signed (lib/suspension.ts).

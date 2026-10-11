@@ -79,8 +79,20 @@ export async function offIn(place: Place) {
     .map((f) => f.id);
 }
 
+/**
+ * The feature a request is made for, when it says so (`Artbucket-Feature:
+ * intelligence`, as the assistant's calls do) and this server has it; null
+ * otherwise. It only ever narrows: such a call reaches the projects where the
+ * feature is on, of those its caller may open (access.ts callerFrom,
+ * catalog.ts reachOf, /a/{id}). One this server doesn't list is ignored.
+ */
+export function featureOf(req: Request) {
+  const id = req.headers.get("artbucket-feature")?.trim().toLowerCase();
+  return id && featureById(id) ? id : null;
+}
+
 /** Refuse what a feature turned off there would do, saying which and who turned it off. */
-export async function requireFeature(id: BuiltinFeature, place: Place) {
+export async function requireFeature(id: BuiltinFeature | (string & {}), place: Place) {
   const def = featureById(id)!;
   const s = stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null);
   if (s.on) return;

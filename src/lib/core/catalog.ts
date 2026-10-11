@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { featureOn } from "@/lib/core/features";
 import { db } from "@/lib/db";
 import {
   activity,
@@ -56,7 +57,10 @@ type Reach = { project: Project; access: Access };
 export async function reachOf(caller: Caller): Promise<Reach[]> {
   if (!caller.user || caller.key) return widest(caller) ? [{ project: caller.project, access: caller }] : [];
   const { grants: mine, projects: open } = await projectsOf(caller.user.id);
-  const here = open.filter((w) => w.organizationId === caller.project.organizationId);
+  const theirs = open.filter((w) => w.organizationId === caller.project.organizationId);
+  // Made for a feature (the assistant's calls): only the projects where it is on.
+  const on = caller.feature ? await Promise.all(theirs.map((w) => featureOn(caller.feature!, { organizationId: w.organizationId, projectId: w.id }))) : null;
+  const here = on ? theirs.filter((_, i) => on[i]) : theirs;
   const hidden = await Promise.all(here.map((w) => (w.id === caller.project.id ? caller.hidden : hiddenIn(w.id))));
   return here
     .map((w, i) => ({ project: w, access: w.id === caller.project.id ? (caller as Access) : accessIn(mine, w, hidden[i]) }))

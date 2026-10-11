@@ -6,7 +6,7 @@ import { apiKeys, brands, collections, grants, groupMembers, organizations, proj
 import { unionAll } from "drizzle-orm/pg-core";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
-import { offIn, requireFeature } from "@/lib/core/features";
+import { featureOf, offIn, requireFeature } from "@/lib/core/features";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
@@ -61,6 +61,11 @@ export type Caller = Access & {
   ip: string | null;
   /** The organization is read-only (lib/limits.ts): whatever the grants say, the scope here is read at most. */
   readOnly?: boolean;
+  /**
+   * The feature the request is made for (Artbucket-Feature, lib/core/features.ts): the call reaches only projects where
+   * it is on, of those the caller may open.
+   */
+  feature?: string | null;
 };
 
 /** The web app's project switcher sets this; it holds a project id. */
@@ -178,7 +183,11 @@ export { ipOf };
  * it: for what belongs to one project whichever is open, like /a/{id}.
  */
 export async function callerFrom(req: Request, projectId?: string): Promise<Caller | undefined> {
-  const caller = await resolve(req, projectId);
+  const resolved = await resolve(req, projectId);
+  // Made for a feature (the assistant's calls): refused, by name, in a project where it is off.
+  const feature = featureOf(req);
+  if (resolved && feature) await requireFeature(feature, { organizationId: resolved.project.organizationId, projectId: resolved.project.id });
+  const caller = resolved && feature ? { ...resolved, feature } : resolved;
   if (!caller || !(await limitsOf(caller.project.organizationId)).readOnly) return caller;
   return { ...caller, ...capAt(caller, "read"), readOnly: true };
 }
