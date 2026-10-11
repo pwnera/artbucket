@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AssistantAnswer } from "@/components/assistant-answer";
 import { useMe } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
-import { IconArrowUp, IconArrowsMaximize, IconArrowsMinimize, IconHistory, IconPlus, IconSparkles, IconX } from "@/components/icons";
+import { IconArrowUp, IconArrowsMaximize, IconArrowsMinimize, IconChevronRight, IconHistory, IconPlus, IconSparkles, IconX } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { assistantPlace } from "@/lib/assistant-place";
 import { jsonLines, plainText } from "@/lib/assistant-answer";
@@ -147,8 +147,12 @@ type Start = { notice: Notice | null; project?: string; chats?: { id: string; ti
 /** A change the assistant asks to make. `deciding`: the person said yes or no, and it is on its way. */
 type Action = { name: string; label: string; input: unknown; state: "waiting" | "deciding" | "done" | "failed" | "declined"; error?: string };
 type Step = { tool: string } | { said: string };
-/** A question and its answer. `since`: tools run since the answer last had words, where a step's words go. */
-type Turn = { question: string; answer: string; steps: Step[]; error?: string; since: number };
+/**
+ * A question and its answer. `since`: tools run since the answer last had words, where a step's words go. `started`:
+ * when the answer being written began (Date.now()); `took`: how long it worked, in ms, once it stopped (each part of an
+ * answer that went on after a decision adds to it). Neither for a conversation read back.
+ */
+type Turn = { question: string; answer: string; steps: Step[]; error?: string; since: number; started?: number; took?: number };
 
 /**
  * The panel, rendered once by the shell: a card docked on the right (over the
@@ -356,6 +360,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
   async function stream(body: Record<string, unknown>, first: string, named: string) {
     setBusy(true);
     setStatus(first);
+    current((t) => ({ ...t, started: Date.now() }));
     stick.current = true;
     let changed = false;
     // Where the assistant takes the app: gone to once the answer ends, so the page doesn't move under the person mid-answer.
@@ -373,7 +378,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
           setStart((s) => (s ? { ...s, chats: [{ id, title: named }, ...(s.chats ?? [])] } : s));
         } else if (ev.type === "tool" && typeof ev.label === "string") {
           const label = ev.label;
-          setStatus(`${label}…`);
+          setStatus(label);
           current((t) => ({ ...t, steps: [...t.steps, { tool: label }], since: t.since + 1 }));
         } else if (ev.type === "working" && typeof ev.text === "string") {
           // What it said in a step that only read: not the answer, so it moves to the steps, before that step's tools.
@@ -410,6 +415,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
     } finally {
       setBusy(false);
       setStatus(null);
+      current((t) => (t.started ? { ...t, took: (t.took ?? 0) + Date.now() - t.started, started: undefined } : t));
       // A change made: the page beside the panel shows it, and the ones holding assets in the browser fetch them again.
       if (changed) {
         router.refresh();
@@ -568,10 +574,10 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
                 <div key={i} className="grid gap-3">
                   <p className="bg-muted max-w-[85%] justify-self-end rounded-2xl rounded-br-sm px-3.5 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{t.question}</p>
                   <div className="grid min-w-0 gap-2">
-                    <Steps steps={t.steps} />
+                    {!writing && <Steps steps={t.steps} took={t.took} />}
                     <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} />
                     {t.error && <p className="text-destructive text-sm">{t.error}</p>}
-                    {writing && status && <p className="text-muted-foreground animate-pulse text-sm">{status}</p>}
+                    {writing && <Working label={status ?? STATUS_THINKING} since={t.started ?? null} steps={t.steps} />}
                     {!writing && t.answer.trim() && (
                       <div className="flex">
                         <CopyButton text={plainText(t.answer)} label="Copy the answer" what="the answer" />
@@ -637,20 +643,72 @@ function Empty({ title, text, children }: { title: string; text: string; childre
   );
 }
 
-/** How it got there: what it read with, and what it said while it only read. Folded; opened, it stays open. */
-function Steps({ steps }: { steps: Step[] }) {
+/** How long it worked: 12s, 1m 5s. */
+const took = (ms: number) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+};
+
+/** What it read with, and what it said while it only read, as a list. */
+function StepList({ steps }: { steps: Step[] }) {
+  return (
+    <ol className="mt-1.5 ms-1.5 grid gap-1 border-s ps-3">
+      {steps.map((s, i) => (
+        <li key={i} className={"said" in s ? "italic" : undefined}>
+          {"tool" in s ? s.tool : s.said}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const SUMMARY = "flex w-max cursor-pointer list-none items-center gap-1.5 select-none [&::-webkit-details-marker]:hidden";
+const Chevron = () => <IconChevronRight className="size-3 transition-transform group-open:rotate-90" aria-hidden />;
+
+/**
+ * At work, as Claude shows it: dots taking turns, what it is doing now, and for how long; opened, the steps so far.
+ * Below the answer as it is written, so the words come in above it.
+ */
+function Working({ label, since, steps }: { label: string; since: number | null; steps: Step[] }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <details className="group text-sm" aria-live="polite">
+      <summary className={SUMMARY}>
+        <span className="assistant-dots me-1" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+        <span>{label}</span>
+        {since !== null && <span className="text-muted-foreground tabular-nums">{took(now - since)}</span>}
+        {steps.length > 0 && <Chevron />}
+      </summary>
+      {steps.length > 0 && (
+        <div className="text-muted-foreground text-xs">
+          <StepList steps={steps} />
+        </div>
+      )}
+    </details>
+  );
+}
+
+/** How it got there, once written: how long it worked and its steps, folded above the answer; opened, it stays open. */
+function Steps({ steps, took: ms }: { steps: Step[]; took?: number }) {
   if (!steps.length) return null;
   const n = steps.filter((s) => "tool" in s).length;
+  const count = n ? `${n} ${n === 1 ? "step" : "steps"}` : null;
+  const label = [ms !== undefined && `Worked for ${took(ms)}`, count].filter(Boolean).join(" · ") || "Worked";
   return (
-    <details className="text-muted-foreground text-xs">
-      <summary className="w-max cursor-pointer select-none">{n ? `${n} ${n === 1 ? "step" : "steps"}` : "Working"}</summary>
-      <ol className="mt-1.5 grid gap-1 border-s ps-3">
-        {steps.map((s, i) => (
-          <li key={i} className={"said" in s ? "italic" : undefined}>
-            {"tool" in s ? s.tool : s.said}
-          </li>
-        ))}
-      </ol>
+    <details className="group text-muted-foreground text-xs">
+      <summary className={SUMMARY}>
+        {label}
+        <Chevron />
+      </summary>
+      <StepList steps={steps} />
     </details>
   );
 }
