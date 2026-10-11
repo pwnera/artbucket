@@ -43,6 +43,8 @@ type ShellValue = {
   setCommands: (fn: (() => PageCommand[]) | null) => void;
   /** Bumped after a collection is saved or deleted here, so a page showing its assets can refetch them. */
   collectionEdits: number;
+  /** Bumped after a change made beside the page (one the assistant made, approved), so a page holding assets refetches them. */
+  libraryEdits: number;
 };
 
 /** What Explore can add, each run by the New menu (components/app-sidebar.tsx ADD). */
@@ -218,6 +220,8 @@ export function Shell({
   const [lastEditing, setLastEditing] = useState(editing);
   if (editing && editing !== lastEditing) setLastEditing(editing);
   const [collectionEdits, setCollectionEdits] = useState(0);
+  const [libraryEdits, setLibraryEdits] = useState(0);
+  const libraryEdited = useCallback(() => setLibraryEdits((n) => n + 1), []);
 
   const chord = useShortcuts({ setPalette: setSearching, setHelp });
 
@@ -331,17 +335,18 @@ export function Shell({
       setAdd,
       setCommands,
       collectionEdits,
+      libraryEdits,
     }),
     // forget reads `searches`, which is here: it is the same function for the same list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collections, searches, reviewCount, brands, add, setCommands, openCollection, collectionEdits],
+    [collections, searches, reviewCount, brands, add, setCommands, openCollection, collectionEdits, libraryEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;
 
   return (
     <ShellContext.Provider value={value}>
-      <AssistantProvider url={sidebar.me.assistant}>
+      <AssistantProvider url={sidebar.me.assistant} onChanged={libraryEdited}>
       <SidebarProvider
         defaultWidth={defaultWidth}
         open={nav && !squeeze}
@@ -358,7 +363,8 @@ export function Shell({
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
         />
-        <SidebarInset className="min-w-0">
+        {/* Room for the assistant docked on the right (components/assistant.tsx); no easing while its edge is dragged. */}
+        <SidebarInset className="min-w-0 transition-[padding] duration-200 ease-out md:pr-[var(--assistant-w,0px)] [html[data-assistant-resizing]_&]:transition-none">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
           {sidebar.me.joinable && <JoinBanner offer={sidebar.me.joinable} />}
           {children}

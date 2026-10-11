@@ -377,7 +377,7 @@ export function Gallery({
   const [linking, setLinking] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
   const [{ data: assets, total, facets }, setListing] = useState(initial);
   // The sidebar's lists live in the shell; what this page refetches goes back there.
-  const { collections, setCollections, setReviewCount, searches, openCollection, setAdd, collectionEdits } =
+  const { collections, setCollections, setReviewCount, searches, openCollection, setAdd, collectionEdits, libraryEdits } =
     useShell();
   // The field schema can change under an open page (here or elsewhere), so it
   // refreshes with everything else. A stale copy sends values for deleted fields.
@@ -641,6 +641,24 @@ export function Gallery({
       live = false;
     };
   }, [missing]);
+  // A change the assistant made beside the page (tags approved, fields set): the listing catches up, and the open
+  // asset with it; one opened past the grid is fetched again on its own.
+  const seenLibrary = useRef(libraryEdits);
+  useEffect(() => {
+    if (libraryEdits === seenLibrary.current) return;
+    seenLibrary.current = libraryEdits;
+    void refresh();
+    const id = currentView().asset;
+    if (!id || listed.current.some((a) => a.id === id)) return;
+    let live = true;
+    fetch(`/api/v1/assets/${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((b) => live && b && setKnown(b.data));
+    return () => {
+      live = false;
+    };
+  }, [libraryEdits, refresh]);
   // Closed some other way (Back): the next close has no push to undo.
   useEffect(() => {
     if (!view.asset) pushedViewer = false;

@@ -917,6 +917,17 @@ export async function updateAsset(
     set.metadata = sql`jsonb_strip_nulls(coalesce(${assets.metadata}, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb)`;
   }
   if (!Object.keys(set).length) return current;
+  // What became of the suggestions this takes away: kept (now tags, now field values) or dropped.
+  const left = proposedTags ? normalizeTags(proposedTags) : current.proposedTags;
+  const takenTags = current.proposedTags.filter((t) => !left.includes(t));
+  const nowTags = tags ? normalizeTags(tags) : current.tags;
+  const takenFields = proposedFields ? Object.keys(current.proposedFields).filter((k) => !(k in proposedFields)) : [];
+  const decided = {
+    accepted_tags: { tags: takenTags.filter((t) => nowTags.includes(t)) },
+    dismissed_tags: { tags: takenTags.filter((t) => !nowTags.includes(t)) },
+    accepted_fields: { fields: takenFields.filter((k) => custom?.[k] !== undefined) },
+    dismissed_fields: { fields: takenFields.filter((k) => custom?.[k] === undefined) },
+  } as const;
   let [asset] = await db
     .update(assets)
     .set({ ...set, updatedAt: sql`now()` })
@@ -945,6 +956,11 @@ export async function updateAsset(
               ? "unarchived"
               : null;
     if (verb) await record(caller, verb, asset, verb === "rejected" && asset.reviewNote ? { note: asset.reviewNote } : undefined);
+  }
+  // Suggestions decided are worth a line too, as their making was (suggested_tags, suggested_fields): in the app, the
+  // API or an agent, whoever decided.
+  for (const [verb, what] of Object.entries(decided) as [keyof typeof decided, { tags?: string[]; fields?: string[] }][]) {
+    if ((what.tags ?? what.fields ?? []).length) await record(caller, verb, asset, what);
   }
   return asset;
 }

@@ -7,7 +7,9 @@ import sharp from "sharp";
 import { signUp } from "@/test/db";
 import { db } from "@/lib/db";
 import { BYTES_LOCK, deleteObject, exists, originalKey } from "@/lib/storage";
-import { deleteAsset, findAsset, getAsset, ingestBytes, restoreAsset, searchAssets } from "@/lib/core/assets";
+import { deleteAsset, findAsset, getAsset, ingestBytes, proposeFields, proposeTags, restoreAsset, searchAssets, updateAsset } from "@/lib/core/assets";
+import { listActivity } from "@/lib/core/activity";
+import { createField } from "@/lib/core/fields";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, viewPortal } from "@/lib/core/portals";
 
@@ -101,4 +103,25 @@ test("an upload stores its bytes before its transaction, and puts them back if t
     release();
     await sweep;
   }
+});
+
+test("suggestions decided show in the activity: tags and values, accepted or dismissed, by whoever decided", async () => {
+  const asset = await upload("hero.png");
+  await createField(ada.caller.project.id, { key: "alt_text", label: "Alt text", type: "text", options: [], required: false, position: 0 });
+  await createField(ada.caller.project.id, { key: "season", label: "Season", type: "text", options: [], required: false, position: 1 });
+  await proposeTags(ada.caller, asset.id, ["beach", "summer", "blurry"]);
+  await proposeFields(ada.caller, asset.id, { alt_text: "A beach in summer", season: "winter" });
+  // As the app's Review buttons and the assistant's review_asset do: what's kept goes in, the rest of the suggestions stay.
+  await updateAsset(ada.caller, asset.id, { tags: ["beach", "summer"], proposedTags: [], fields: { alt_text: "A beach in summer" }, proposedFields: {} });
+  const mine = (await listActivity(ada.caller)).data.filter((i) => i.assetId === asset.id);
+  const said = (verb: string) => mine.find((i) => i.verb === verb)?.detail;
+  assert.deepEqual(said("accepted_tags"), { tags: ["beach", "summer"] });
+  assert.deepEqual(said("dismissed_tags"), { tags: ["blurry"] });
+  assert.deepEqual(said("accepted_fields"), { fields: ["alt_text"] });
+  assert.deepEqual(said("dismissed_fields"), { fields: ["season"] });
+  assert.ok(mine.filter((i) => i.verb.startsWith("accepted") || i.verb.startsWith("dismissed")).every((i) => i.actor === "Ada" && !i.agent));
+  // An edit that decides nothing says nothing.
+  const before = mine.length;
+  await updateAsset(ada.caller, asset.id, { title: "Hero" });
+  assert.equal((await listActivity(ada.caller)).data.filter((i) => i.assetId === asset.id).length, before);
 });

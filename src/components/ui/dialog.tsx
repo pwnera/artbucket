@@ -57,7 +57,8 @@ function DialogOverlay({
   )
 }
 
-const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster]")
+/** A toast (its Undo), or the assistant docked beside (components/assistant.tsx): never outside a dialog. */
+const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster], [data-assistant-panel]")
 
 /**
  * A form dialog passes `guard` so typed edits are never lost by accident:
@@ -70,6 +71,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   guard,
+  overlayClassName,
   onEscapeKeyDown,
   onPointerDownOutside,
   onInteractOutside,
@@ -77,11 +79,12 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   guard?: { dirty: boolean; onDiscard: () => void; onSave?: () => void }
+  overlayClassName?: string
 }) {
   const [asking, setAsking] = React.useState(false)
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
