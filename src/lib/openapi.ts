@@ -2011,6 +2011,33 @@ export function openapi(serverUrl: string) {
           ok: [200, "The setting, as it now applies", data(S.SettingItem)],
         }),
       },
+      "/api/v1/features": {
+        get: op({
+          summary: "Features",
+          scope: "any",
+          description:
+            "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links) and " +
+            "the server's (FEATURES_FILE). At the organization, its `rule` (on or off in every project, or each project " +
+            "decides) and in how many projects it is on; in the project, whether it is on and what decides it. Admin there.",
+          query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },
+          ok: [200, "Features", data(z.array(S.FeatureItem))],
+        }),
+      },
+      "/api/v1/features/{id}": {
+        parameters: [path("id", "e.g. agents")],
+        put: op({
+          summary: "Switch a feature",
+          scope: "any",
+          description:
+            "On or off, for every project of the organization or (`projects`) left to each; in a project, only while the " +
+            "organization lets each decide. Off means off everywhere at once: what it does is refused with `feature_off`, " +
+            "and nothing is deleted. A feature of the server's is told by its hook and may refuse being turned on, with a " +
+            "reason (403); then nothing changes. Admin there.",
+          query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },
+          body: S.FeatureSwitch,
+          ok: [200, "The feature, as it now is", data(S.FeatureItem)],
+        }),
+      },
       "/api/v1/email/test": {
         post: op({
           summary: "Send a test email",

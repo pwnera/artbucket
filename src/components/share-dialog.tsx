@@ -386,6 +386,18 @@ function Share({
     </DialogFooter>
   );
 
+  // Turned off in Settings, Features (lib/features.ts): said here, rather than a form the API would refuse.
+  const linkPart = me?.off?.includes("shares") ? (
+    <div className="grid gap-4">
+      <p className="text-muted-foreground text-sm">
+        Share and upload links are turned off in {me.project.name}. An admin can turn them back on in Settings, Features.
+      </p>
+      {done}
+    </div>
+  ) : (
+    body
+  );
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md" guard={{ dirty: dirty && !made, onDiscard: onClose }}>
@@ -422,7 +434,7 @@ function Share({
               {done}
             </TabsContent>
             <TabsContent value="link" className="grid gap-3">
-              {body}
+              {linkPart}
             </TabsContent>
             <TabsContent value="public" className="grid gap-4">
               <PublicToggle asset={target.asset} onChanged={onChanged} />
@@ -430,7 +442,7 @@ function Share({
             </TabsContent>
           </Tabs>
         ) : (
-          body
+          linkPart
         )}
       </DialogContent>
     </Dialog>

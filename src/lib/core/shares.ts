@@ -1,9 +1,10 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, collectionAssets, collections, shareLinks, type ShareKind } from "@/lib/db/schema";
+import { assets, collectionAssets, collections, projects, shareLinks, type ShareKind } from "@/lib/db/schema";
 import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
+import { featureOn, requireFeature } from "@/lib/core/features";
 import { checkLimit } from "@/lib/core/usage";
 import { suspendedIn } from "@/lib/core/suspension";
 import { brandOfProject } from "@/lib/core/branding";
@@ -92,6 +93,7 @@ export async function createShare(
   if (input.kind === "upload" && t.assetId) throw new AssetError("invalid", "An upload link fills a collection, or the project");
   if (!(await mayShare(caller, t))) throw new AssetError("forbidden", "Sharing it takes write on it");
   await checkLimit(caller.project.organizationId, "shares");
+  await requireFeature("shares", { organizationId: caller.project.organizationId, projectId: caller.project.id });
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) throw new AssetError("invalid", "expiresAt is in the past");
   const [row] = await db
@@ -179,6 +181,11 @@ async function open(token: string, password: string | null) {
   const [link] = await db.select().from(shareLinks).where(eq(shareLinks.token, token));
   if (!link) throw new AssetError("not_found", "This link doesn't exist, or was revoked");
   if (await suspendedIn(link.projectId)) throw new AssetError("suspended", "This content is unavailable");
+  // Links turned off are kept, and open again once they are back on: until then, as if revoked.
+  const [where] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, link.projectId));
+  if (where && !(await featureOn("shares", { organizationId: where.organizationId, projectId: link.projectId }))) {
+    throw new AssetError("not_found", "This link is turned off");
+  }
   const wait = password ? guesses.wait(link.id) : 0;
   if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
   const no = await refusal(link, password);

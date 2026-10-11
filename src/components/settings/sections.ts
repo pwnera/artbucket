@@ -10,6 +10,7 @@ import {
   IconWorldWww,
   IconWorld,
   IconPalette,
+  IconToggleLeft,
   IconUser,
   IconUsers,
   IconUsersGroup,
@@ -76,6 +77,14 @@ export const SECTIONS: Section[] = [
   },
   {
     context: "project",
+    id: "features",
+    label: "Features",
+    icon: IconToggleLeft,
+    description: "What this project uses, where the organization lets it decide.",
+    action: "project.manage",
+  },
+  {
+    context: "project",
     id: "fields",
     label: "Custom fields",
     icon: IconAdjustments,
@@ -104,6 +113,14 @@ export const SECTIONS: Section[] = [
     label: "Groups",
     icon: IconUsersGroup,
     description: "People who share access: give a group a role, and each of its members has it.",
+    action: "organization.manage",
+  },
+  {
+    context: "organization",
+    id: "features",
+    label: "Features",
+    icon: IconToggleLeft,
+    description: "Turn features on or off for every project, or let each project decide.",
     action: "organization.manage",
   },
   {

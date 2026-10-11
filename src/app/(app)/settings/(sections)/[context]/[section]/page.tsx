@@ -6,6 +6,7 @@ import { People, type Members } from "@/components/settings/access";
 import { GroupsPanel, type GroupRow } from "@/components/settings/groups";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
+import { FeaturesPanel, type FeatureItem } from "@/components/settings/features";
 import type { HubOffer } from "@/components/hub-offers";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
 import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
@@ -32,6 +33,8 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 /** The API path each section reads, by `{context}/{section}`. */
 const LOADS: Record<string, string> = {
   "project/fields": "fields",
+  "project/features": "features?context=project",
+  "organization/features": "features?context=organization",
   "project/members": "members?in=project",
   "organization/usage": "usage",
   "organization/projects": "projects",
@@ -104,6 +107,9 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
       return <NameForm what="project" url={`/api/v1/projects/${ws.id}`} name={ws.name} />;
     case "project/fields":
       return <FieldsPanel fields={data<FieldDef[]>()} />;
+    case "project/features":
+    case "organization/features":
+      return <FeaturesPanel features={data<FeatureItem[]>()} context={context === "organization" ? "organization" : "project"} upgrade={me.upgrade} />;
     case "organization/general":
       return (
         <div className="space-y-6">

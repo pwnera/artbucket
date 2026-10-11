@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { apiKeys, assets, users, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
+import { requireFeature } from "@/lib/core/features";
 import { checkLimit } from "@/lib/core/usage";
 import { can } from "@/lib/permissions";
 import type { Scope } from "@/lib/scopes";
@@ -30,6 +31,7 @@ const PUBLIC = {
 /** A key for the caller's project. The secret is returned once, here, and never stored. */
 export async function createKey(caller: Caller, input: { name: string; scope: Scope }) {
   await checkLimit(caller.project.organizationId, "agents");
+  await requireFeature("agents", { organizationId: caller.project.organizationId, projectId: caller.project.id });
   const secret = `ab_${randomBytes(32).toString("base64url")}`;
   const [row] = await db
     .insert(apiKeys)
@@ -56,7 +58,8 @@ const sibling = alias(apiKeys, "sibling");
  * nobody else's says where else it reaches.
  */
 export async function listKeys(caller: Caller) {
-  const keys = await keysWhere(and(eq(apiKeys.projectId, caller.project.id), mine(caller)));
+  // A feature's own key is its switch's to make and revoke (lib/core/features.ts), not an agent here.
+  const keys = await keysWhere(and(eq(apiKeys.projectId, caller.project.id), isNull(apiKeys.feature), mine(caller)));
   const theirs = caller.user
     ? await db
         .select({ id: apiKeys.id, name: projects.name })
@@ -72,7 +75,7 @@ export async function listKeys(caller: Caller) {
 export async function revokeKey(caller: Caller, id: string) {
   const [gone] = await db
     .delete(apiKeys)
-    .where(and(eq(apiKeys.id, id), eq(apiKeys.projectId, caller.project.id), mine(caller)))
+    .where(and(eq(apiKeys.id, id), eq(apiKeys.projectId, caller.project.id), isNull(apiKeys.feature), mine(caller)))
     .returning({ name: apiKeys.name, scope: apiKeys.scope });
   if (gone) await recordAudit(caller, "key.revoked", gone.name, { scope: gone.scope });
   return !!gone;

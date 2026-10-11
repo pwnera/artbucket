@@ -74,6 +74,7 @@ export type AuditAction =
   | "sso.joined"
   | "setting.changed"
   | "setting.reset"
+  | "feature.switched"
   | "email.failed";
 
 /** Who did it and where: a caller (lib/core/access.ts), or the parts a sign-in hook knows. */

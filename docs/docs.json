@@ -122,7 +122,8 @@
           "decisions/0014-agents-fetch-what-they-read",
           "decisions/0015-joining-by-email-domain",
           "decisions/0016-joining-lands-in-one-workspace",
-          "decisions/0017-the-catalog"
+          "decisions/0017-the-catalog",
+          "decisions/0018-features-are-switched"
         ]
       }
     ]

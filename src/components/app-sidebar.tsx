@@ -188,7 +188,8 @@ export function AppSidebar({
         {can("organization.manage") && <StorageLine />}
         <SidebarMenu>
           <ExpandItem />
-          <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />
+          {/* Agents and keys turned off here (Settings, Features): nothing to connect. */}
+          {!me.off.includes("agents") && <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">

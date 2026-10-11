@@ -38395,6 +38395,13 @@
                           ],
                           "description": "What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"
                         },
+                        "off": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, and the server's own"
+                        },
                         "upgrade": {
                           "anyOf": [
                             {
@@ -38720,6 +38727,7 @@
                         "hidden",
                         "projects",
                         "features",
+                        "off",
                         "upgrade",
                         "billing",
                         "git",
@@ -60349,6 +60357,531 @@
                         "source",
                         "sources",
                         "own"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/features": {
+      "get": {
+        "summary": "Features",
+        "description": "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links) and the server's (FEATURES_FILE). At the organization, its `rule` (on or off in every project, or each project decides) and in how many projects it is on; in the project, whether it is on and what decides it. Admin there.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "parameters": [
+          {
+            "name": "context",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "organization",
+                "project"
+              ],
+              "default": "organization"
+            },
+            "description": "Where"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Features",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "agents, shares, or one of the server's own (FEATURES_FILE)"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "off": {
+                            "description": "What turning it off does",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "icon": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "builtin": {
+                            "type": "boolean",
+                            "description": "The core's own, rather than the server's"
+                          },
+                          "levels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "organization",
+                                "project"
+                              ]
+                            },
+                            "description": "Where it is switched"
+                          },
+                          "default": {
+                            "type": "string",
+                            "enum": [
+                              "on",
+                              "off"
+                            ],
+                            "description": "Where nothing switched it"
+                          },
+                          "available": {
+                            "type": "boolean",
+                            "description": "The organization's plan has it: false shows the way to one that does instead of a switch"
+                          },
+                          "manage": {
+                            "description": "Its own page, while it is on",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "rule": {
+                            "type": "string",
+                            "enum": [
+                              "on",
+                              "off",
+                              "projects"
+                            ],
+                            "description": "The organization's switch: on or off in every project, or each project decides"
+                          },
+                          "projects": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "on": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "total": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "on",
+                                  "total"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "At the organization: in how many of its projects it is on"
+                          },
+                          "on": {
+                            "description": "In the project: whether it is on there; null at the organization",
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "organization",
+                                  "project",
+                                  "default"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "In the project: what decides it"
+                          },
+                          "editable": {
+                            "type": "boolean",
+                            "description": "It can be switched here: in a project, only while the organization lets each decide"
+                          },
+                          "set": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "by": {
+                                    "type": "string"
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  }
+                                },
+                                "required": [
+                                  "by",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Who switched it, and when, where that decides it"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "off",
+                          "icon",
+                          "builtin",
+                          "levels",
+                          "default",
+                          "available",
+                          "manage",
+                          "rule",
+                          "projects",
+                          "on",
+                          "from",
+                          "editable",
+                          "set"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/features/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "e.g. agents",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "summary": "Switch a feature",
+        "description": "On or off, for every project of the organization or (`projects`) left to each; in a project, only while the organization lets each decide. Off means off everywhere at once: what it does is refused with `feature_off`, and nothing is deleted. A feature of the server's is told by its hook and may refuse being turned on, with a reason (403); then nothing changes. Admin there.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "parameters": [
+          {
+            "name": "context",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "organization",
+                "project"
+              ],
+              "default": "organization"
+            },
+            "description": "Where"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "on",
+                      "off",
+                      "projects"
+                    ],
+                    "description": "On or off; at the organization, `projects` lets each project decide"
+                  }
+                },
+                "required": [
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The feature, as it now is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "agents, shares, or one of the server's own (FEATURES_FILE)"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "off": {
+                          "description": "What turning it off does",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "icon": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "builtin": {
+                          "type": "boolean",
+                          "description": "The core's own, rather than the server's"
+                        },
+                        "levels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "organization",
+                              "project"
+                            ]
+                          },
+                          "description": "Where it is switched"
+                        },
+                        "default": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off"
+                          ],
+                          "description": "Where nothing switched it"
+                        },
+                        "available": {
+                          "type": "boolean",
+                          "description": "The organization's plan has it: false shows the way to one that does instead of a switch"
+                        },
+                        "manage": {
+                          "description": "Its own page, while it is on",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "rule": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off",
+                            "projects"
+                          ],
+                          "description": "The organization's switch: on or off in every project, or each project decides"
+                        },
+                        "projects": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "on": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "on",
+                                "total"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "At the organization: in how many of its projects it is on"
+                        },
+                        "on": {
+                          "description": "In the project: whether it is on there; null at the organization",
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "from": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "organization",
+                                "project",
+                                "default"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "In the project: what decides it"
+                        },
+                        "editable": {
+                          "type": "boolean",
+                          "description": "It can be switched here: in a project, only while the organization lets each decide"
+                        },
+                        "set": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "by": {
+                                  "type": "string"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "by",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Who switched it, and when, where that decides it"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "description",
+                        "off",
+                        "icon",
+                        "builtin",
+                        "levels",
+                        "default",
+                        "available",
+                        "manage",
+                        "rule",
+                        "projects",
+                        "on",
+                        "from",
+                        "editable",
+                        "set"
                       ],
                       "additionalProperties": false
                     }

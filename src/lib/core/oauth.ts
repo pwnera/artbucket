@@ -8,6 +8,7 @@ import { isAppOrigin } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
 import { hashKey } from "@/lib/core/keys";
 import { recordAudit } from "@/lib/core/audit";
+import { requireFeature } from "@/lib/core/features";
 import { checkLimit } from "@/lib/core/usage";
 import { accessIn, lowest, widest } from "@/lib/access";
 import { env } from "@/lib/env";
@@ -164,6 +165,7 @@ async function granted(caller: Caller, input: Extract<ConsentInput, { allow: tru
     return { id, organizationId: option.organizationId, scope: cappedScope(input.scope, option.max) };
   });
   for (const org of new Set(picked.map((w) => w.organizationId))) await checkLimit(org, "agents");
+  for (const w of picked) await requireFeature("agents", { organizationId: w.organizationId, projectId: w.id });
   return { userId: caller.user!.id, userName: caller.user!.name || caller.user!.email, projects: picked.map(({ id, scope }) => ({ id, scope })) };
 }
 type Granted = Awaited<ReturnType<typeof granted>>;

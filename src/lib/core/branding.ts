@@ -56,7 +56,7 @@ export async function organizationFor(req: Request): Promise<string | null> {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
   const at = await hostTarget(host);
   if (at) return at.organizationId;
-  const caller = await callerFrom(req);
+  const caller = await callerFrom(req).catch(() => undefined);
   if (caller && (caller.user || caller.key)) return caller.project.organizationId;
   return onlyOrganization();
 }

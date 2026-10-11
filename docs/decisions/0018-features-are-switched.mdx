@@ -1,0 +1,42 @@
+---
+title: "0018: Features are switched on and off, by the organization or each project"
+description: Accepted. The core's own features and the server's, in one list an admin governs.
+---
+
+## Context
+
+What an organization could use was the plan's to say (`limits.features`), and
+nothing let an admin say what it does use: no way to keep AI agents out of
+the brand's files, or to stop share links leaving a regulated team, short of
+asking whoever runs the server. A feature the server adds (Intelligence, on
+Artbucket Cloud) was turned on at a page of its own, which made the key it
+needed itself, so the core didn't know it was on.
+
+## Decision
+
+- **One list of features, in Settings, Features.** The core's own (agents and
+  API keys, share and upload links) and the server's, read from
+  `FEATURES_FILE` (JSON or YAML), shown alike. Adding one to a server is an
+  entry in that file, never a change to the core.
+- **Switched where it says.** Each feature is switched for the organization,
+  each project, or both. On both, the organization turns it on or off in
+  every project, or lets each project decide; the projects' own choices are
+  kept while it overrides them.
+- **The plan says what may be used; a switch, what is.** A feature its plan
+  doesn't have shows the way to one that does.
+- **Off means off everywhere at once,** in the app, the API, MCP and the CLI,
+  refused with `feature_off` and who turned it off. Nothing is deleted.
+- **A server's feature is told, and may say no.** Its hook is called, signed,
+  when it is turned on or off in a project. A refusal (no plan for it) leaves
+  it off, with the reason the admin reads. The core makes the key and the
+  fields the file asks for, hands the key over in that call, and revokes it
+  when the feature is turned off.
+
+## Consequences
+
+- A feature's key belongs to its switch: Connections leaves it out, and
+  turning agents and keys off leaves it working.
+- The server's pages a feature brings (`ASSISTANT_URL`, `BRAND_IMPORT_URL`)
+  are left out of the app where it is off (the file's `gates`).
+- Turning a feature on in every project calls its hook once per project; one
+  refusal turns none of them on.

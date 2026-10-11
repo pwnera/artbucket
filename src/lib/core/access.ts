@@ -6,6 +6,7 @@ import { apiKeys, brands, collections, grants, groupMembers, organizations, proj
 import { unionAll } from "drizzle-orm/pg-core";
 import { auth, captchaAtHost, google, oidc } from "@/lib/auth";
 import { joinOffer } from "@/lib/core/email-domains";
+import { offIn, requireFeature } from "@/lib/core/features";
 import { hashKey } from "@/lib/core/keys";
 import { canEmail, canResetPasswords } from "@/lib/core/mail";
 import { hasUsers } from "@/lib/core/people";
@@ -17,6 +18,7 @@ import { env } from "@/lib/env";
 import { ipOf } from "@/lib/client-ip";
 import { hubHome } from "@/lib/hub";
 import { memo } from "@/lib/memo";
+import { catalog } from "@/lib/features";
 import { upgradeUrl } from "@/lib/limits";
 import { lockedBy, noticeOf } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
@@ -206,6 +208,8 @@ async function resolve(req: Request, projectId?: string): Promise<Caller | undef
       hiddenIn(key.projectId),
       key.userId ? db.select().from(grants).where(heldBy(key.userId)) : null,
     ]);
+    // Agents and keys turned off there are refused, by name; a feature's own key works while its feature is on.
+    if (!key.feature) await requireFeature("agents", { organizationId: project.organizationId, projectId: project.id });
     // An agent a person connected does what they can, up to what they gave it: lose the access, and so does it.
     const access = theirs ? capAt(accessIn(theirs, project, hidden), key.scope) : { scope: key.scope, narrow: NONE, hidden };
     return { project, ...access, orgScope: null, actor: key.name, user: null, key: key.id, ip };
@@ -264,7 +268,8 @@ export async function openProjects(caller: Caller): Promise<Project[]> {
 /** GET /api/v1/me: who this is, where, what they may do, and how else one could sign in, at the host asked. */
 export async function describeCaller(caller: Caller, host?: string | null) {
   const here = placed(caller) ? caller.project : NOWHERE;
-  const [email, projects, signUp, anonymous, passwordReset, sso, limits, notice, joinable, captcha] = await Promise.all([
+  const place = { organizationId: here.organizationId, projectId: here.id };
+  const [email, projects, signUp, anonymous, passwordReset, sso, limits, notice, joinable, captcha, off] = await Promise.all([
     canEmail(here.organizationId),
     openProjects(caller),
     hasUsers().then((some) => !some),
@@ -275,7 +280,10 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     effective("notice", { organizationId: here.organizationId }),
     joinOffer(caller),
     captchaAtHost(host),
+    here === NOWHERE ? ([] as string[]) : offIn(place),
   ]);
+  // The server's own pages a feature brings (FEATURES_FILE's `gates`): only where every feature bringing it is on.
+  const gated = (page: "assistant" | "brandImport") => catalog().every((f) => !f.gates.includes(page) || !off.includes(f.id));
   const admin = !!caller.user && caller.orgScope === "admin";
   return {
     user: caller.user,
@@ -291,6 +299,8 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     hidden: here === NOWHERE ? [] : caller.hidden,
     projects,
     features: limits.value.features,
+    // Features turned off in this project (lib/features.ts): the app leaves out what they bring.
+    off,
     upgrade: upgradeUrl(env.BILLING_URL, admin, limits.source),
     billing: admin ? (env.BILLING_URL ?? null) : null,
     hub: !!env.HUB_URL,
@@ -302,9 +312,9 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     // Connecting makes a key for the sync, so it takes admin on the project.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     // The server's assistant, for a person in the app: a key has its own tools.
-    assistant: env.ASSISTANT_URL && caller.user ? env.ASSISTANT_URL : null,
+    assistant: env.ASSISTANT_URL && caller.user && gated("assistant") ? env.ASSISTANT_URL : null,
     // The server's brand book importer, for a person: it makes the brand as them, so it asks for write itself.
-    brandImport: env.BRAND_IMPORT_URL && caller.user ? env.BRAND_IMPORT_URL : null,
+    brandImport: env.BRAND_IMPORT_URL && caller.user && gated("brandImport") ? env.BRAND_IMPORT_URL : null,
     // Help's "Send feedback" writes to the operator's reply address, with the version in the mail to say what ran.
     feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,
     auth: {

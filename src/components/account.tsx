@@ -68,6 +68,8 @@ export type Me = {
   projects: ProjectRef[];
   /** What the organization may use, of what its limits can switch off; null is everything. */
   features: Feature[] | null;
+  /** Features turned off in this project (Settings, Features; lib/features.ts): what they bring is left out. */
+  off: string[];
   /** Where to take a plan: an admin's, while the organization is on the server's own limits (BILLING_URL). */
   upgrade: string | null;
   /** Where an organization's admin manages its plan (BILLING_URL), on a plan or not; null for everyone else. */

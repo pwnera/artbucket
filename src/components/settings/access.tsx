@@ -707,6 +707,7 @@ const SAYS: Record<AuditAction, string> = {
   "sso.joined": "joined through single sign-on as",
   "setting.changed": "changed the setting",
   "setting.reset": "reset the setting",
+  "feature.switched": "switched the feature",
   "email.failed": "couldn't email",
 };
 
