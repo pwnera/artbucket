@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
  * it: its width is --assistant-w on <html> while it is open (0 otherwise),
  * which the shell and an open asset's dialog leave free. The person drags its
  * left edge to change it (or uses the arrow keys there), and the width is kept.
+ * The frame draws the panel's header itself (expand, its title, history, close):
+ * it asks for the whole window ({ expand: true }) and back ({ expand: false }).
  */
 
 type AssistantValue = {
@@ -43,6 +45,9 @@ type AssistantValue = {
   setNested: React.Dispatch<React.SetStateAction<number>>;
   /** The docked panel's width, in pixels. */
   width: number;
+  /** Over the whole window rather than beside the page, as the frame asked. */
+  expanded: boolean;
+  setExpanded: (expanded: boolean) => void;
   setWidth: (width: number, keep?: boolean) => void;
 };
 
@@ -108,19 +113,23 @@ export function AssistantProvider({ url, children }: { url: string | null; child
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
   }, []);
+  const [expanded, setExpanded] = useState(false);
+  // Closed, it opens beside the page again.
+  if (!open && expanded) setExpanded(false);
   const value = useMemo(
-    () => (url ? { url, open, setOpen, chat, setChat, nested, setNested, width, setWidth } : null),
-    [url, open, chat, setChat, nested, width, setWidth],
+    () => (url ? { url, open, setOpen, chat, setChat, nested, setNested, width, setWidth, expanded, setExpanded } : null),
+    [url, open, chat, setChat, nested, width, setWidth, expanded],
   );
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }
 
-/** Where the frame opens: embedded, on the conversation so far, about the asset open. */
-function frameSrc(url: string, chat: string | null, asset: string | null) {
+/** Where the frame opens: embedded, on the conversation so far, about the asset open, expanded or not. */
+function frameSrc(url: string, chat: string | null, asset: string | null, expanded: boolean) {
   const u = new URL(url, window.location.href);
   u.searchParams.set("embed", "1");
   if (chat) u.searchParams.set("chat", chat);
   if (asset) u.searchParams.set("asset", asset);
+  if (expanded) u.searchParams.set("expanded", "1");
   return u.toString();
 }
 
@@ -140,11 +149,12 @@ export function AssistantPanel({ asset }: { asset?: string }) {
   const router = useRouter();
   const onMessage = useEffectEvent((e: MessageEvent) => {
     if (!a || e.origin !== new URL(a.url, window.location.href).origin) return;
-    const data = e.data as { type?: string; chat?: unknown; close?: unknown; changed?: unknown; navigate?: unknown } | null;
+    const data = e.data as { type?: string; chat?: unknown; close?: unknown; changed?: unknown; navigate?: unknown; expand?: unknown } | null;
     if (data?.type !== "artbucket:assistant") return;
     if (typeof data.chat === "string" || data.chat === null) a.setChat(data.chat);
     // Escape pressed inside the frame, which the panel can't hear itself.
     if (data.close === true) a.setOpen(false);
+    if (typeof data.expand === "boolean") a.setExpanded(data.expand);
     if (data.changed === true) router.refresh();
     const place = assistantPlace(data.navigate, window.location.origin);
     if (place) router.push(place);
@@ -169,14 +179,19 @@ export function AssistantPanel({ asset }: { asset?: string }) {
   if (!a || !shown) return null;
   if (a.open && !opened) {
     setOpened(true);
-    setSrc(frameSrc(a.url, a.chat, asset ?? null));
+    setSrc(frameSrc(a.url, a.chat, asset ?? null, a.expanded));
   } else if (!a.open && opened) setOpened(false);
 
   return (
     <Sheet open={a.open} onOpenChange={a.setOpen} modal={false}>
       <SheetContent
         side="right"
-        className="w-full gap-0 p-0 shadow-none sm:max-w-none md:w-(--assistant-w)"
+        showCloseButton={false}
+        // A card beside the page, a little off the window's edges; expanded, over the whole window.
+        className={cn(
+          "w-full gap-0 overflow-hidden p-0 shadow-none sm:max-w-none md:inset-y-2 md:right-2 md:h-auto md:rounded-xl md:border md:shadow-sm",
+          a.expanded ? "md:left-2 md:w-auto" : "md:w-[calc(var(--assistant-w)-0.5rem)]",
+        )}
         onInteractOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -188,7 +203,7 @@ export function AssistantPanel({ asset }: { asset?: string }) {
           aria-valuemin={MIN_WIDTH}
           tabIndex={0}
           title="Drag to resize"
-          className="group/edge absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize touch-none outline-none md:block"
+          className={cn("group/edge absolute inset-y-0 left-0 z-10 hidden w-2 cursor-col-resize touch-none outline-none md:block", a.expanded && "md:hidden")}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.preventDefault();
@@ -216,16 +231,15 @@ export function AssistantPanel({ asset }: { asset?: string }) {
         >
           <span
             className={cn(
-              "bg-border absolute inset-y-0 left-1.5 w-px transition-colors group-hover/edge:bg-primary group-focus-visible/edge:bg-primary",
+              "absolute inset-y-3 left-0 w-0.5 rounded-full transition-colors group-hover/edge:bg-primary group-focus-visible/edge:bg-primary",
               dragging && "bg-primary",
             )}
           />
         </div>
-        <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="flex items-center gap-1.5 text-sm">
-            <IconSparkles className="text-primary-ink size-4" /> Ask
-          </SheetTitle>
-          <SheetDescription className="sr-only">Questions about your library, answered from what you can see; changes wait for your approval.</SheetDescription>
+        {/* The frame draws the header people see; this one names the panel for screen readers. */}
+        <SheetHeader className="sr-only">
+          <SheetTitle>Ask</SheetTitle>
+          <SheetDescription>Questions about your library, answered from what you can see; changes wait for your approval.</SheetDescription>
         </SheetHeader>
         {src && (
           <iframe key={src} src={src} title="Assistant" className={cn("min-h-0 w-full flex-1 border-0", dragging && "pointer-events-none")} allow="clipboard-write" />
