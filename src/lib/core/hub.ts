@@ -15,6 +15,7 @@ import { proofsOf, publicListing } from "@/lib/core/hub-trust";
 import { reader, readBrand } from "@/lib/core/portals";
 import { pagePath } from "@/lib/core/signing";
 import { notSuspended } from "@/lib/core/usage";
+import { notSwitchedOff } from "@/lib/core/features";
 import { env } from "@/lib/env";
 import type { SnapRule } from "@/lib/history";
 import { readablePages } from "@/lib/page-view";
@@ -81,8 +82,9 @@ const latest = (col: SQL) =>
  * project is asked.
  */
 async function listings(where: SQL | undefined, limit: number, viewer: HubViewer) {
-  // Public, unless the server's operator delisted it (brands.hub_delisted) or suspended its organization: then its own people see it as private.
-  const listed = sql`${brands.hubDelisted} is null and ${notSuspended(projects.organizationId)}`;
+  // Public, unless the server's operator delisted it (brands.hub_delisted) or suspended its organization, or the organization
+  // turned BrandHub off (Settings, Features): then its own people see it as private.
+  const listed = sql`${brands.hubDelisted} is null and ${notSuspended(projects.organizationId)} and ${notSwitchedOff("hub", projects.organizationId)}`;
   const open = and(eq(brands.visibility, "public"), listed);
   const rows = await db
     .select({
@@ -257,7 +259,7 @@ export async function followOrg(caller: Caller, org: string, on: boolean) {
         eq(organizations.slug, org),
         sql`exists (select 1 from ${brands} b join ${projects} w on w.id = b.project_id
           where w.organization_id = ${organizations.id} and b.visibility = 'public' and b.hub_delisted is null
-          and ${notSuspended(organizations.id)}
+          and ${notSuspended(organizations.id)} and ${notSwitchedOff("hub", organizations.id)}
           and exists (select 1 from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null))`,
       ),
     );
@@ -398,6 +400,7 @@ export async function wellKnownBrandJson(host: string) {
         eq(brands.visibility, "public"),
         isNull(brands.hubDelisted),
         notSuspended(organizations.id),
+        notSwitchedOff("hub", organizations.id),
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
         d.portalId ? sql`exists (select 1 from ${portalBrands} pb where pb.brand_id = ${brands.id} and pb.portal_id = ${d.portalId})` : undefined,
       ),

@@ -1205,6 +1205,9 @@ export const Me = z.object({
     .array(z.enum(FEATURES))
     .nullable()
     .describe("What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"),
+  off: z
+    .array(z.string())
+    .describe("Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, portals, hub, insights, and the server's own"),
   upgrade: z
     .string()
     .url()
@@ -1792,6 +1795,35 @@ export const SettingItem = z.object({
   sources: z.record(z.string(), z.enum(["project", "organization", "environment", "default"])).describe("Where each property comes from"),
   own: z.boolean().describe("Set here: resetting it lets what is above apply"),
 });
+export const FeatureItem = z.object({
+  id: z.string().describe("agents, shares, portals, hub, insights, or one of the server's own (FEATURES_FILE)"),
+  name: z.string(),
+  description: z.string(),
+  off: z.string().nullable().describe("What turning it off does"),
+  icon: z.string().nullable(),
+  builtin: z.boolean().describe("The core's own, rather than the server's"),
+  levels: z.array(z.enum(["organization", "project"])).describe("Where it is switched"),
+  default: z.enum(["on", "off"]).describe("Where nothing switched it"),
+  available: z.boolean().describe("The organization's plan has it: false shows the way to one that does instead of a switch"),
+  manage: z.string().nullable().describe("Its own page, while it is on"),
+  rule: z.enum(["on", "off", "projects"]).describe("The organization's switch: on or off in every project, or each project decides"),
+  projects: z.object({ on: z.number().int(), total: z.number().int() }).nullable().describe("At the organization: in how many of its projects it is on"),
+  on: z.boolean().nullable().describe("In the project: whether it is on there; null at the organization"),
+  from: z.enum(["organization", "project", "default", "plan"]).nullable().describe("In the project: what decides it; `plan`: it takes a plan the organization doesn't have"),
+  editable: z.boolean().describe("It can be switched here: in a project, only while the organization lets each decide"),
+  set: z.object({ by: z.string(), at: date }).nullable().describe("Who switched it, and when, where that decides it"),
+});
+export const FeatureImpact = z.object({
+  changes: z.number().int().describe("How many projects it turns on or off"),
+  confirm: z.boolean().describe("Whether to ask before doing it: what it does reaches outside, or overrides projects' own choice"),
+  title: z.string().describe("The question to ask, e.g. Turn off Portals and sites?"),
+  says: z.array(z.string()).describe("What will happen, a sentence each: the projects it changes, and what reaches outside, counted"),
+  action: z.string().describe("The confirming button's label"),
+});
+export const FeatureSwitch = z.strictObject({
+  state: z.enum(["on", "off", "projects"]).describe("On or off; at the organization, `projects` lets each project decide"),
+});
+
 export const SettingPatch = z.record(z.string(), z.unknown()).describe("Properties to change; a blank secret keeps it, null clears it");
 export const EmailTest = z.strictObject({ to: z.email().optional().describe("Your own address, the only one a test goes to") });
 

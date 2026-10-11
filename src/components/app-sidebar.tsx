@@ -173,7 +173,7 @@ export function AppSidebar({
             <SidebarMenu>
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
-              {can("portal.manage") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
+              {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -188,7 +188,8 @@ export function AppSidebar({
         {can("organization.manage") && <StorageLine />}
         <SidebarMenu>
           <ExpandItem />
-          <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />
+          {/* Agents and keys turned off here (Settings, Features): nothing to connect. */}
+          {!me.off.includes("agents") && <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">

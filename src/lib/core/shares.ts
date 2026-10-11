@@ -1,16 +1,18 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, collectionAssets, collections, shareLinks, type ShareKind } from "@/lib/db/schema";
+import { assets, collectionAssets, collections, projects, shareLinks, type ShareKind } from "@/lib/db/schema";
 import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
 import { createUploadTicket, deliverableSql, finalizeUpload, getAsset, notSuperseded } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
+import { featureOn, requireFeature } from "@/lib/core/features";
 import { checkLimit } from "@/lib/core/usage";
 import { suspendedIn } from "@/lib/core/suspension";
 import { brandOfProject } from "@/lib/core/branding";
 import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
-import { pagePath, pageSig } from "@/lib/core/signing";
+import { pagePath, pageSig, byLink } from "@/lib/core/signing";
+import { signerOpen } from "@/lib/core/signers";
 import { publishedSource, viewLook } from "@/lib/core/page-view";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
@@ -92,6 +94,7 @@ export async function createShare(
   if (input.kind === "upload" && t.assetId) throw new AssetError("invalid", "An upload link fills a collection, or the project");
   if (!(await mayShare(caller, t))) throw new AssetError("forbidden", "Sharing it takes write on it");
   await checkLimit(caller.project.organizationId, "shares");
+  await requireFeature("shares", { organizationId: caller.project.organizationId, projectId: caller.project.id });
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) throw new AssetError("invalid", "expiresAt is in the past");
   const [row] = await db
@@ -160,6 +163,7 @@ export async function revokeShare(caller: Caller, id: string) {
   if (!(await mayShare(caller, link))) throw new AssetError("forbidden", "Revoking it takes write on what it shares");
   const gone = await db.delete(shareLinks).where(eq(shareLinks.id, id)).returning({ id: shareLinks.id });
   if (!gone.length) return false;
+  signerOpen.forget(byLink(id));
   await recordAudit(caller, "share.revoked", (await targetLabel(link)).label ?? caller.project.name, { kind: link.kind });
   return true;
 }
@@ -179,6 +183,11 @@ async function open(token: string, password: string | null) {
   const [link] = await db.select().from(shareLinks).where(eq(shareLinks.token, token));
   if (!link) throw new AssetError("not_found", "This link doesn't exist, or was revoked");
   if (await suspendedIn(link.projectId)) throw new AssetError("suspended", "This content is unavailable");
+  // Links turned off are kept, and open again once they are back on: until then, as if revoked.
+  const [where] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, link.projectId));
+  if (where && !(await featureOn("shares", { organizationId: where.organizationId, projectId: link.projectId }))) {
+    throw new AssetError("not_found", "This link is turned off");
+  }
   const wait = password ? guesses.wait(link.id) : 0;
   if (wait) throw new AssetError("rate_limited", `Too many wrong passwords. Try again in ${Math.ceil(wait / 60)} min`);
   const no = await refusal(link, password);
@@ -195,8 +204,8 @@ async function open(token: string, password: string | null) {
 }
 
 /** Its URLs signed for the holder of the link (lib/core/signing.ts): a day at a time, never past the link. */
-const shared = (a: typeof assets.$inferSelect, until: Date | null) => {
-  const at = (rest = "") => `${env.APP_URL}${pagePath(a.id, rest, until)}`;
+const shared = (a: typeof assets.$inferSelect, link: Pick<Link, "id" | "expiresAt">) => {
+  const at = (rest = "") => `${env.APP_URL}${pagePath(a.id, rest, link.expiresAt, byLink(link.id))}`;
   const m = a.metadata ?? {};
   return {
     id: a.id,
@@ -225,7 +234,7 @@ export async function viewShare(token: string, password: string | null, { limit 
   const brand = await brandOfProject(link.projectId);
   // The project's brand site, once it has been published: the link reads as part of it. Else the organization's accent.
   const src = await publishedSource(link.projectId).catch(() => null);
-  const look = await viewLook(link.projectId, src?.version ? src : null, (id) => pageSig(id, link.expiresAt), brand.accent);
+  const look = await viewLook(link.projectId, src?.version ? src : null, (id) => pageSig(id, link.expiresAt, byLink(link.id)), brand.accent);
   const meta = {
     kind: link.kind,
     name: link.name,
@@ -263,7 +272,7 @@ export async function viewShare(token: string, password: string | null, { limit 
       .offset(Math.max(offset, 0)),
     db.select({ total: count() }).from(assets).where(where),
   ]);
-  return { share: meta, data: rows.map((a) => shared(a, link.expiresAt)), total };
+  return { share: meta, data: rows.map((a) => shared(a, link)), total };
 }
 
 /**

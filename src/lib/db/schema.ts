@@ -308,6 +308,12 @@ export const apiKeys = pgTable(
     /** Bumped on every request that presents it: "Connected agents" and "waiting for first call". */
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     calls: integer("calls").notNull().default(0),
+    /**
+     * The feature it was made for (lib/core/features.ts), turned on in its
+     * project: the switch makes it and revokes it, Connections leaves it out,
+     * and turning agents and keys off leaves it working. Null for every other.
+     */
+    feature: text("feature"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(sql`now()`),
@@ -994,6 +1000,31 @@ export const audit = pgTable(
  * Settings (lib/settings.ts): one row per key and place, an organization's or
  * a project's. Secret properties are sealed before they get here.
  */
+/**
+ * A feature turned on or off (lib/features.ts): for the whole organization
+ * (no project), or for one project where the organization lets each decide.
+ * No row: not switched there.
+ */
+export const featureSwitches = pgTable(
+  "feature_switches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Null for the organization's own. */
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    feature: text("feature").notNull(),
+    state: text("state").$type<"on" | "off">().notNull(),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("feature_switches_place_unique").on(t.organizationId, t.projectId, t.feature).nullsNotDistinct(),
+    check("feature_switches_state_check", sql`${t.state} in ('on', 'off')`),
+  ],
+);
+
 export const settings = pgTable(
   "settings",
   {

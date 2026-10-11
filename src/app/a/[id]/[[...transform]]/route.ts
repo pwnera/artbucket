@@ -1,6 +1,8 @@
 import { fail, handle } from "@/lib/api";
+import { featureOf, featureOnIn } from "@/lib/core/features";
 import { callerFrom } from "@/lib/core/access";
-import { validUntil } from "@/lib/core/signing";
+import { signatureOf } from "@/lib/core/signing";
+import { signerOpen } from "@/lib/core/signers";
 import { suspendedIn } from "@/lib/core/suspension";
 import { downloadAsset, findAsset, getAsset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
@@ -46,19 +48,25 @@ export async function GET(req: Request, { params }: Ctx) {
 
     const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
+    // Asked for a feature (the assistant's calls): nothing of a project where it is off, public or not.
+    const feature = featureOf(req);
+    if (feature && !(await featureOnIn(feature, asset.projectId))) return fail(404, "not_found", "No such asset", undefined, { "Cache-Control": "no-store" });
     const url = new URL(req.url);
     const s = url.searchParams.get("s");
     // A suspended organization's files go to its own people only, neither public nor signed (lib/suspension.ts).
     const off = await suspendedIn(asset.projectId);
     const open = deliverable(asset);
-    const until = open && !asset.public && !off ? validUntil(asset.id, s) : null;
+    const sig = open && !asset.public && !off ? signatureOf(asset.id, s) : null;
+    // Handed out by a portal or a share link: only while it is open, and its feature on (lib/core/signers.ts).
+    const until = sig && (!sig.by || (await signerOpen(sig.by))) ? sig.until : null;
     let cache: string;
     // Who it went to, for Insights (lib/core/events.ts): a kind, never a name or an address.
     let by: { surface: Surface } & ReturnType<typeof who> = { surface: "public", ...who(null) };
     if (open && asset.public && !off) cache = `public, max-age=${maxAge(asset)}`;
     // Cached with its query, so for no longer than the signature lasts.
     else if (until) {
-      cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000))}`;
+      // A portal's or a link's: ten minutes at most, so a cache stops handing it out soon after it closes.
+      cache = `public, max-age=${Math.min(maxAge(asset), Math.floor((until.getTime() - Date.now()) / 1000), sig?.by ? 600 : Infinity)}`;
       by = { surface: "link", ...who(null) };
     } else {
       // In the asset's project: someone in several sees each one's assets, whichever they have open.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assetIdsIn, signAsset, signedUntil, signUrlsIn, withSignature } from "./signed.ts";
+import { assetIdsIn, signAsset, signedUntil, signUrlsIn, withSignature, signature } from "./signed.ts";
 
 const SECRET = "x".repeat(32);
 const A = "016b937f-a66d-47e7-a81d-b6f14363d6d5";
@@ -35,4 +35,19 @@ test("URLs in rich text are signed for the assets asked, once", () => {
   assert.equal(signUrlsIn(out, () => "10.other"), out.replace(`/a/${B}"`, `/a/${B}?s=10.other"`), "never twice");
   assert.deepEqual(assetIdsIn(html), [A, B]);
   assert.equal(withSignature(`/a/${A}?download`, "1.x"), `/a/${A}?download&s=1.x`);
+});
+
+test("a signature can name what handed it out, and that name is signed too", () => {
+  const id = "3ab128bb-1a65-4bbf-bc7e-8d7284d2c8d0";
+  const portal = "p-020b9bfa-d29b-4963-bd04-3f9f7120e4c6";
+  const until = new Date(Date.now() + 3600_000);
+  const s = signAsset("secret", id, until, 0, portal);
+  assert.equal(signature("secret", id, s)?.by, portal);
+  assert.ok(signedUntil("secret", id, s), "still opens as a signature");
+  // Another portal's name on it, or none: not this signature.
+  assert.equal(signature("secret", id, s.replace(portal, "p-11111111-1111-1111-1111-111111111111")), null);
+  assert.equal(signature("secret", id, s.split(".").slice(0, 2).join(".")), null);
+  // One from before, naming nothing, opens as it did.
+  assert.equal(signature("secret", id, signAsset("secret", id, until))?.by, null);
+  assert.throws(() => signAsset("secret", id, until, 0, "x-nope"));
 });

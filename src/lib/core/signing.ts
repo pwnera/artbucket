@@ -5,7 +5,7 @@ import { AssetError } from "@/lib/core/errors";
 import { env } from "@/lib/env";
 import { deliverable } from "@/lib/lifecycle";
 import { can, needs } from "@/lib/permissions";
-import { signAsset, signedUntil, withSignature } from "@/lib/signed";
+import { signAsset, signature, signedUntil, withSignature } from "@/lib/signed";
 
 /**
  * Asset bytes are private: /a/{id} serves people who can see the asset. The
@@ -17,24 +17,33 @@ import { signAsset, signedUntil, withSignature } from "@/lib/signed";
 const HOUR = 3600;
 const DAY = 24 * HOUR;
 
-/** The `s` for an asset, for `seconds`, the same all `step`; never past `until`. */
-export function sigFor(id: string, seconds: number, { step = HOUR, until }: { step?: number; until?: Date | null } = {}) {
+/** The `s` for an asset, for `seconds`, the same all `step`; never past `until`. `by`: the portal or share link handing it out. */
+export function sigFor(id: string, seconds: number, { step = HOUR, until, by }: { step?: number; until?: Date | null; by?: string } = {}) {
   const end = new Date(Date.now() + seconds * 1000);
   // Rounding up could outlive what it is for: a link ending sooner ends the URL then.
-  if (until && until < end) return signAsset(env.BETTER_AUTH_SECRET, id, until);
-  return signAsset(env.BETTER_AUTH_SECRET, id, end, step);
+  if (until && until < end) return signAsset(env.BETTER_AUTH_SECRET, id, until, 0, by);
+  return signAsset(env.BETTER_AUTH_SECRET, id, end, step, by);
 }
 
-/** For a page someone outside sees now (a share link, a portal): a day, the same all hour. */
-export const pageSig = (id: string, until?: Date | null) => sigFor(id, DAY, { until });
+/** What signs for a portal, and for a share link: named in the signature, so /a/{id} asks it again (lib/core/signers.ts). */
+export const byPortal = (portalId: string) => `p-${portalId}`;
+export const byLink = (linkId: string) => `l-${linkId}`;
+
+/**
+ * For a page someone outside sees now (a share link, a portal): a day, the same all hour. `by` names that portal or
+ * link, so its URLs stop the moment it closes, is revoked or turned off, not a day later.
+ */
+export const pageSig = (id: string, until?: Date | null, by?: string) => sigFor(id, DAY, { until, by });
 
 /** For what outlives a page: the brand's logo on the sign-in screen, in email. */
 export const longSig = (id: string, days: number) => sigFor(id, days * DAY, { step: DAY });
 
 /** `/a/{id}` plus `rest` (a rendition, `?download`), signed for a page. */
-export const pagePath = (id: string, rest = "", until?: Date | null) => withSignature(`/a/${id}${rest}`, pageSig(id, until));
+export const pagePath = (id: string, rest = "", until?: Date | null, by?: string) => withSignature(`/a/${id}${rest}`, pageSig(id, until, by));
 
 export const validUntil = (id: string, s: string | null) => signedUntil(env.BETTER_AUTH_SECRET, id, s);
+/** A signature on this asset, not past: until when, and the portal or link that handed it out, if it says. */
+export const signatureOf = (id: string, s: string | null) => signature(env.BETTER_AUTH_SECRET, id, s);
 
 /**
  * POST /api/v1/assets/{id}/signed-url: a URL anyone can open until it

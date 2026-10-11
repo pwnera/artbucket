@@ -322,6 +322,13 @@ export function countTraffic(projectId: string, bytes: number) {
 const unwritten = new Map<string, { requests: number; bytes: number }>();
 let flushing: ReturnType<typeof setTimeout> | undefined;
 
+/** What countTraffic holds, written now: for tests, before their database goes. */
+export async function flushTraffic() {
+  if (!flushing) return;
+  clearTimeout(flushing);
+  await writeTraffic();
+}
+
 async function writeTraffic() {
   const batch = [...unwritten];
   unwritten.clear();

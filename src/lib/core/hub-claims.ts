@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
+import { notSwitchedOff } from "@/lib/core/features";
 import { db } from "@/lib/db";
 import { brands, brandVersions, domains, hubOffersRefused, hubReports, organizations, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -61,6 +62,7 @@ export async function claimOffers(caller: Caller) {
         ne(projects.organizationId, mine),
         eq(brands.visibility, "public"),
         isNull(brands.hubDelisted),
+        notSwitchedOff("hub", projects.organizationId),
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
         sql`not exists (select 1 from ${hubOffersRefused} r where r.brand_id = ${brands.id} and r.organization_id = ${mine})`,
       ),

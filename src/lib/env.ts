@@ -79,6 +79,20 @@ const schema = z.object({
    */
   BRAND_IMPORT_URL: z.string().url().optional(),
   /**
+   * The server's own features, beside the core's (lib/features.ts): a JSON or
+   * YAML file listing each with what it is, where it is switched (the
+   * organization, each project, or both), the key and fields it needs, the
+   * hook told when it is turned on or off, and its page. Admins turn them on
+   * in Settings, Features. Unset: the core's own only.
+   */
+  FEATURES_FILE: z.string().min(1).optional(),
+  /**
+   * The same, the file's text itself (JSON or YAML): for a host whose
+   * settings are variables (a fly.toml's [env], Render, Kubernetes) rather
+   * than files. One of FEATURES and FEATURES_FILE, not both.
+   */
+  FEATURES: z.string().min(1).optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.
