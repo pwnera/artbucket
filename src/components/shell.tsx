@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { toast } from "sonner";
 import { switchedElsewhere, projectChannel, type Me } from "@/components/account";
 import { AppSidebar, type SavedSearch } from "@/components/app-sidebar";
+import { AssistantPanel, AssistantProvider } from "@/components/assistant";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
@@ -340,6 +341,7 @@ export function Shell({
 
   return (
     <ShellContext.Provider value={value}>
+      <AssistantProvider url={sidebar.me.assistant}>
       <SidebarProvider
         defaultWidth={defaultWidth}
         open={nav && !squeeze}
@@ -374,6 +376,8 @@ export function Shell({
         />
         <ShortcutsDialog open={help} onOpenChange={setHelp} />
         <ChordHint on={chord} />
+        {/* The server's assistant (ASSISTANT_URL): Ask in the sidebar opens its panel beside the page. */}
+        <AssistantPanel />
         {lastEditing && (
           <CollectionDialog
             open={!!editing}
@@ -384,6 +388,7 @@ export function Shell({
           />
         )}
       </SidebarProvider>
+      </AssistantProvider>
     </ShellContext.Provider>
   );
 }

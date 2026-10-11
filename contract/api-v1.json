@@ -495,6 +495,37 @@
                           },
                           "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                         },
+                        "working": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "by": {
+                                  "type": "string",
+                                  "description": "The agent's name"
+                                },
+                                "until": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "by",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -776,6 +807,7 @@
                         "reviewNote",
                         "proposedTags",
                         "proposedFields",
+                        "working",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -1668,6 +1700,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -1949,6 +2012,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -2258,6 +2322,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -2539,6 +2634,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -3651,6 +3747,37 @@
                           },
                           "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                         },
+                        "working": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "by": {
+                                  "type": "string",
+                                  "description": "The agent's name"
+                                },
+                                "until": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "by",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -3932,6 +4059,7 @@
                         "reviewNote",
                         "proposedTags",
                         "proposedFields",
+                        "working",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -4646,6 +4774,37 @@
                           },
                           "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                         },
+                        "working": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "by": {
+                                  "type": "string",
+                                  "description": "The agent's name"
+                                },
+                                "until": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "by",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -4927,6 +5086,7 @@
                         "reviewNote",
                         "proposedTags",
                         "proposedFields",
+                        "working",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -5630,6 +5790,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -5911,6 +6102,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -6564,6 +6756,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -6845,6 +7068,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -7272,6 +7496,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -7553,6 +7808,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -7913,6 +8169,37 @@
                           },
                           "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                         },
+                        "working": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "by": {
+                                  "type": "string",
+                                  "description": "The agent's name"
+                                },
+                                "until": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "by",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -8194,6 +8481,7 @@
                         "reviewNote",
                         "proposedTags",
                         "proposedFields",
+                        "working",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -8810,6 +9098,37 @@
                           },
                           "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                         },
+                        "working": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "by": {
+                                  "type": "string",
+                                  "description": "The agent's name"
+                                },
+                                "until": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "by",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                        },
                         "rights": {
                           "anyOf": [
                             {
@@ -9091,6 +9410,7 @@
                         "reviewNote",
                         "proposedTags",
                         "proposedFields",
+                        "working",
                         "rights",
                         "origin",
                         "parentAssetId",
@@ -9476,6 +9796,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -9757,6 +10108,1364 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
+                      "rights",
+                      "origin",
+                      "parentAssetId",
+                      "generator",
+                      "prompt",
+                      "c2pa",
+                      "via",
+                      "supersededBy",
+                      "private",
+                      "public",
+                      "collections",
+                      "createdAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/assets/{id}/working": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Asset id",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "put": {
+      "summary": "Say an agent is at work on it",
+      "description": "For an agent that takes a while (suggesting tags, describing an image): the app shows `working` on the asset, after the agent's name, and looks again until it ends. Its proposals end it, so does DELETE, so does `seconds`.\n\nScope: `propose`.",
+      "x-scope": "propose",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "description": "What it is doing, as the app shows it after its name: \"suggesting tags\""
+                },
+                "seconds": {
+                  "description": "How long to show it at most; 120 by default. Proposals end it sooner",
+                  "type": "integer",
+                  "minimum": 5,
+                  "maximum": 600
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "The asset, with `working`",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "projectId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "sha256": {
+                        "type": "string"
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "mime": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "width": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "height": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "probe": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "keywords": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "creator": {
+                                "type": "string"
+                              },
+                              "copyright": {
+                                "type": "string"
+                              },
+                              "capturedAt": {
+                                "type": "string"
+                              },
+                              "camera": {
+                                "type": "string"
+                              },
+                              "lens": {
+                                "type": "string"
+                              },
+                              "gps": {
+                                "type": "object",
+                                "properties": {
+                                  "lat": {
+                                    "type": "number"
+                                  },
+                                  "lon": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "lat",
+                                  "lon"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "focus": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The point crops keep in frame, 0 to 1 from the top left"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "fields": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "The asset's own values"
+                      },
+                      "inherited": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "Values inherited from its collections; own values win"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "proposed",
+                          "active",
+                          "archived",
+                          "rejected"
+                        ],
+                        "description": "draft, proposed (in review), active (approved), archived or rejected"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "proposed",
+                          "active",
+                          "expired",
+                          "archived",
+                          "rejected",
+                          "deleted"
+                        ],
+                        "description": "The status; expired for an approved asset past its last day of use; deleted, until restored or purged"
+                      },
+                      "deletedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "When it was deleted: restorable for 30 days, then purged"
+                      },
+                      "stackId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Versions of one thing share a stack; null when it has one version"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its number in the stack"
+                      },
+                      "current": {
+                        "type": "boolean",
+                        "description": "Its stack's current approved version: the others are superseded by it"
+                      },
+                      "proposedBy": {
+                        "description": "For a proposal: who made it, a person's or an API key's name",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "reviewNote": {
+                        "description": "Why a person rejected it",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "proposedTags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "proposedFields": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                      },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
+                      "rights": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "license": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "territories": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "ISO 3166-1 alpha-2; empty: anywhere"
+                              },
+                              "channels": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "empty: any use"
+                              },
+                              "embargo": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Not before this day"
+                              },
+                              "expires": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The last day it may be used"
+                              },
+                              "modelRelease": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "released",
+                                      "missing",
+                                      "not-needed"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "license",
+                              "territories",
+                              "channels",
+                              "embargo",
+                              "expires",
+                              "modelRelease"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "origin": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "shot",
+                              "licensed",
+                              "generated"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "parentAssetId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "generator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "prompt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "c2pa": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "manifests": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "generator": {
+                                "description": "The app that signed it",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "title": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "signedBy": {
+                                "description": "The signing certificate's organization, as the file claims it; not verified",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "digitalSourceType": {
+                                "description": "IPTC: digitalCapture, trainedAlgorithmicMedia...",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "softwareAgent": {
+                                "description": "The tool the actions name, often the model",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ingredients": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "manifests",
+                              "generator",
+                              "title",
+                              "signedBy",
+                              "actions",
+                              "digitalSourceType",
+                              "softwareAgent",
+                              "ingredients"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                      },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
+                      "supersededBy": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The asset that replaces this one"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Its own flag; it is private too when every collection it is in is"
+                      },
+                      "public": {
+                        "type": "boolean",
+                        "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                      },
+                      "collections": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "projectId",
+                      "sha256",
+                      "filename",
+                      "mime",
+                      "size",
+                      "width",
+                      "height",
+                      "probe",
+                      "metadata",
+                      "tags",
+                      "fields",
+                      "inherited",
+                      "status",
+                      "state",
+                      "deletedAt",
+                      "stackId",
+                      "version",
+                      "current",
+                      "proposedBy",
+                      "reviewNote",
+                      "proposedTags",
+                      "proposedFields",
+                      "working",
+                      "rights",
+                      "origin",
+                      "parentAssetId",
+                      "generator",
+                      "prompt",
+                      "c2pa",
+                      "via",
+                      "supersededBy",
+                      "private",
+                      "public",
+                      "collections",
+                      "createdAt",
+                      "updatedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "summary": "Say the agent is done",
+      "description": "Nothing is shown at work on it any more, whoever said it was.\n\nScope: `propose`.",
+      "x-scope": "propose",
+      "responses": {
+        "200": {
+          "description": "The asset, without `working`",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "projectId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "sha256": {
+                        "type": "string"
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "mime": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "width": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "height": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "probe": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "keywords": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "creator": {
+                                "type": "string"
+                              },
+                              "copyright": {
+                                "type": "string"
+                              },
+                              "capturedAt": {
+                                "type": "string"
+                              },
+                              "camera": {
+                                "type": "string"
+                              },
+                              "lens": {
+                                "type": "string"
+                              },
+                              "gps": {
+                                "type": "object",
+                                "properties": {
+                                  "lat": {
+                                    "type": "number"
+                                  },
+                                  "lon": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "lat",
+                                  "lon"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "focus": {
+                                "type": "object",
+                                "properties": {
+                                  "x": {
+                                    "type": "number"
+                                  },
+                                  "y": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "x",
+                                  "y"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The point crops keep in frame, 0 to 1 from the top left"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "fields": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "The asset's own values"
+                      },
+                      "inherited": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "Values inherited from its collections; own values win"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "proposed",
+                          "active",
+                          "archived",
+                          "rejected"
+                        ],
+                        "description": "draft, proposed (in review), active (approved), archived or rejected"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "proposed",
+                          "active",
+                          "expired",
+                          "archived",
+                          "rejected",
+                          "deleted"
+                        ],
+                        "description": "The status; expired for an approved asset past its last day of use; deleted, until restored or purged"
+                      },
+                      "deletedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "When it was deleted: restorable for 30 days, then purged"
+                      },
+                      "stackId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Versions of one thing share a stack; null when it has one version"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its number in the stack"
+                      },
+                      "current": {
+                        "type": "boolean",
+                        "description": "Its stack's current approved version: the others are superseded by it"
+                      },
+                      "proposedBy": {
+                        "description": "For a proposal: who made it, a person's or an API key's name",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "reviewNote": {
+                        "description": "Why a person rejected it",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "proposedTags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "proposedFields": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        },
+                        "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
+                      },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
+                      "rights": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "license": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "territories": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "ISO 3166-1 alpha-2; empty: anywhere"
+                              },
+                              "channels": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "empty: any use"
+                              },
+                              "embargo": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Not before this day"
+                              },
+                              "expires": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The last day it may be used"
+                              },
+                              "modelRelease": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "released",
+                                      "missing",
+                                      "not-needed"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "downloadable": {
+                                "description": "Set by a person; null or missing follows the license (see `downloadable` on its description)",
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "license",
+                              "territories",
+                              "channels",
+                              "embargo",
+                              "expires",
+                              "modelRelease"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "origin": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "shot",
+                              "licensed",
+                              "generated"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "parentAssetId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "generator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "prompt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "c2pa": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "manifests": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "generator": {
+                                "description": "The app that signed it",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "title": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "signedBy": {
+                                "description": "The signing certificate's organization, as the file claims it; not verified",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "digitalSourceType": {
+                                "description": "IPTC: digitalCapture, trainedAlgorithmicMedia...",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "softwareAgent": {
+                                "description": "The tool the actions name, often the model",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ingredients": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "manifests",
+                              "generator",
+                              "title",
+                              "signedBy",
+                              "actions",
+                              "digitalSourceType",
+                              "softwareAgent",
+                              "ingredients"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Content Credentials read from the file; the original keeps the signed manifest"
+                      },
+                      "via": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "agent",
+                              "import"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "How it arrived when not from a person: agent, through an API key; import, brought in by the server (an icon set, Google Fonts)"
+                      },
+                      "supersededBy": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The asset that replaces this one"
+                      },
+                      "private": {
+                        "type": "boolean",
+                        "description": "Its own flag; it is private too when every collection it is in is"
+                      },
+                      "public": {
+                        "type": "boolean",
+                        "description": "Served at /a/{id} to anyone while it may be used; otherwise to people who can see it, and signed URLs"
+                      },
+                      "collections": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "projectId",
+                      "sha256",
+                      "filename",
+                      "mime",
+                      "size",
+                      "width",
+                      "height",
+                      "probe",
+                      "metadata",
+                      "tags",
+                      "fields",
+                      "inherited",
+                      "status",
+                      "state",
+                      "deletedAt",
+                      "stackId",
+                      "version",
+                      "current",
+                      "proposedBy",
+                      "reviewNote",
+                      "proposedTags",
+                      "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -10139,6 +11848,37 @@
                         },
                         "description": "Custom field values an agent suggested, waiting for a person to accept or dismiss"
                       },
+                      "working": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "by": {
+                                "type": "string",
+                                "description": "The agent's name"
+                              },
+                              "until": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "by",
+                              "until"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "An agent at work on it now (PUT /api/v1/assets/{id}/working), until its proposals land or the time ends; null otherwise"
+                      },
                       "rights": {
                         "anyOf": [
                           {
@@ -10420,6 +12160,7 @@
                       "reviewNote",
                       "proposedTags",
                       "proposedFields",
+                      "working",
                       "rights",
                       "origin",
                       "parentAssetId",
@@ -36899,6 +38640,30 @@
                           "turnstile"
                         ],
                         "additionalProperties": false
+                      },
+                      "assistant": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Where the server's assistant answers questions about the library (ASSISTANT_URL), for a person; null without one"
+                      },
+                      "brandImport": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Where the server turns a brand book (a PDF) into a draft brand (BRAND_IMPORT_URL), for a person; null without one"
                       }
                     },
                     "required": [
@@ -36923,7 +38688,9 @@
                       "notice",
                       "feedback",
                       "joinable",
-                      "auth"
+                      "auth",
+                      "assistant",
+                      "brandImport"
                     ],
                     "additionalProperties": false
                   }

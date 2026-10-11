@@ -8,6 +8,7 @@ import { AssetError } from "@/lib/core/errors";
 import { startFrom } from "@/lib/core/hub";
 import { savePage } from "@/lib/core/pages";
 import { setTheme } from "@/lib/core/theme";
+import { checkLimit } from "@/lib/core/usage";
 import type { BrandJsonFile } from "@/lib/brand-json";
 import { ThemePatch } from "@/lib/brand-theme";
 import { env } from "@/lib/env";
@@ -28,8 +29,13 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
  * gets no brand at all.
  */
 export async function makeBrand(caller: Caller, input: z.output<typeof BrandCreate>) {
-  const { publish, visibility, ...start } = input;
+  const { publish, visibility, dryRun, ...start } = input;
   if (publish && !can(caller, "brand.publish")) throw new AssetError("forbidden", `publish takes ${needs("brand.publish")}`);
+  // Only whether one could be made now: the plan's room is counted again when it is.
+  if (dryRun) {
+    await checkLimit(caller.project.organizationId, "brands");
+    return { dryRun: true as const };
+  }
   if (visibility === "public" && !env.HUB_URL) throw new AssetError("invalid", "visibility: this server has no BrandHub (HUB_URL)");
   const made = await startBrand(caller, start);
   if (!publish) return made;

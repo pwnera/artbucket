@@ -414,6 +414,24 @@ export function openapi(serverUrl: string) {
           ok: [200, "The asset, with its suggestions", data(S.Asset)],
         }),
       },
+      "/api/v1/assets/{id}/working": {
+        parameters: [path("id", "Asset id")],
+        put: op({
+          summary: "Say an agent is at work on it",
+          scope: "propose",
+          description:
+            "For an agent that takes a while (suggesting tags, describing an image): the app shows `working` on the asset, " +
+            "after the agent's name, and looks again until it ends. Its proposals end it, so does DELETE, so does `seconds`.",
+          body: S.SetWorking,
+          ok: [200, "The asset, with `working`", data(S.Asset)],
+        }),
+        delete: op({
+          summary: "Say the agent is done",
+          scope: "propose",
+          description: "Nothing is shown at work on it any more, whoever said it was.",
+          ok: [200, "The asset, without `working`", data(S.Asset)],
+        }),
+      },
       "/api/v1/assets/{id}/proposed-fields": {
         parameters: [path("id", "Asset id")],
         post: op({

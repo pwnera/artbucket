@@ -1,7 +1,8 @@
 "use client";
 
 import { CatalogButton } from "@/components/catalog-button";
-import { Fragment, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { AskButton, AssistantPanel } from "@/components/assistant";
+import { Fragment, useEffect, useEffectEvent, useId, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -824,6 +825,9 @@ export function AssetEditor({
           <Badge variant="outline">{fileTypeBadge(asset.filename, asset.mime, asset.probe)}</Badge>
           <span className="text-muted-foreground truncate text-xs tabular-nums">{facts.join(" · ")}</span>
           <span className="ml-auto" />
+          {/* The server's assistant, about this asset: its panel opens inside this dialog, so it takes focus and clicks. */}
+          <AskButton label="Ask about it" />
+          <AssistantPanel asset={asset.id} />
           {/* Its lineage, who reaches it and what happened to it: in the catalog. */}
           <CatalogButton id={asset.id} onOpen={(href) => leave(() => router.push(href))} />
           {/* One way out: who can open it is asked in the dialog. */}
@@ -1026,7 +1030,9 @@ export function AssetEditor({
             </div>
           </div>
 
-          <div className="grid min-h-0 flex-1 content-start gap-4 px-6 py-4 md:overflow-y-auto">
+          {/* One column as wide as the panel (minmax(0, 1fr)): a long value inside never widens it. */}
+          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 px-6 py-4 md:overflow-y-auto">
+            <AgentWorking asset={asset} onChanged={onReviewed} />
             <Can do="asset.review" on={asset}>
               <Review
                 asset={asset}
@@ -1941,6 +1947,41 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
 }
 
 /**
+ * An agent at work on the asset (asset.working: suggesting tags, describing
+ * it), said where its suggestions will appear. Asked again every few seconds
+ * while it lasts: once it ends, the fresh asset takes over, so what the agent
+ * suggested shows up here without a reload.
+ */
+function AgentWorking({ asset, onChanged }: { asset: Asset; onChanged: (asset: Asset) => void }) {
+  const working = asset.working;
+  const changed = useEffectEvent(onChanged);
+  useEffect(() => {
+    if (!working) return;
+    let stopped = false;
+    const look = async () => {
+      const res = await fetch(`/api/v1/assets/${asset.id}`).catch(() => null);
+      if (stopped || !res?.ok) return;
+      const fresh: Asset = (await res.json()).data;
+      if (!fresh.working) changed(fresh);
+    };
+    const timer = setInterval(() => void look(), 2000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [asset.id, working]);
+  if (!working) return null;
+  return (
+    <p role="status" aria-live="polite" className="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border p-3 text-sm">
+      <IconSparkles className="text-primary-ink size-4 shrink-0 animate-pulse motion-reduce:animate-none" />
+      <span>
+        <span className="font-medium">{working.by}</span> is {working.label}&hellip;
+      </span>
+    </p>
+  );
+}
+
+/**
  * What an agent suggested about this asset, and the buttons that decide it.
  * Each acts at once through the public PATCH, queued behind any property
  * save in flight. Accepting a tag merges with the chips on screen, not the
@@ -2032,7 +2073,7 @@ function Review({
     });
 
   return (
-    <div className="border-primary/30 bg-primary/5 grid gap-3 rounded-lg border p-3">
+    <div className="border-primary/30 bg-primary/5 grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3">
       {asset.status === "proposed" && (
         <div className="grid gap-2">
           <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -2144,10 +2185,12 @@ function Review({
               const label = d?.label ?? k;
               const shown = formatFieldValue(d, v);
               return (
-                <li key={k} className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground shrink-0">{d ? label : `${k} (removed field)`}</span>
-                  <span className="min-w-0 flex-1 truncate font-medium" title={shown}>
-                    {shown}
+                <li key={k} className="flex items-start gap-2 text-sm">
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="text-muted-foreground text-xs">{d ? label : `${k} (removed field)`}</span>
+                    <span className="line-clamp-3 font-medium break-words" title={shown}>
+                      {shown}
+                    </span>
                   </span>
                   {d && (
                     <IconButton variant="ghost" label={`Accept ${label}`} disabled={!!busy} onClick={() => one(k, () => (defOf(k) ? flush({ fields: { [k]: v }, proposedFields: keep([k]) }) : Promise.resolve(false)))}>
