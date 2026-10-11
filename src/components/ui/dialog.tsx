@@ -93,6 +93,8 @@ function DialogContent({
         )}
         onEscapeKeyDown={(e) => {
           const field = document.activeElement
+          // Escape in the assistant docked beside is the panel's: it closes the panel, not this.
+          if (field?.closest("[data-assistant-panel]")) return e.preventDefault()
           if (guard && field instanceof HTMLElement && field.matches("input, textarea, select, [contenteditable=true]")) {
             e.preventDefault()
             field.blur()

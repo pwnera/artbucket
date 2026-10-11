@@ -18,7 +18,7 @@ import { env } from "@/lib/env";
 import { ipOf } from "@/lib/client-ip";
 import { hubHome } from "@/lib/hub";
 import { memo } from "@/lib/memo";
-import { catalog } from "@/lib/features";
+import { catalog, onApp } from "@/lib/features";
 import { upgradeUrl } from "@/lib/limits";
 import { lockedBy, noticeOf } from "@/lib/settings";
 import type { Scope } from "@/lib/scopes";
@@ -321,9 +321,9 @@ export async function describeCaller(caller: Caller, host?: string | null) {
     // Connecting makes a key for the sync, so it takes admin on the project.
     git: env.GIT_CONNECT_URL && !!caller.user && caller.scope === "admin" ? env.GIT_CONNECT_URL : null,
     // The server's assistant, for a person in the app: a key has its own tools.
-    assistant: env.ASSISTANT_URL && caller.user && gated("assistant") ? env.ASSISTANT_URL : null,
+    assistant: env.ASSISTANT_URL && caller.user && gated("assistant") ? onApp(env.ASSISTANT_URL, env.APP_URL, host ?? new URL(env.APP_URL).host) : null,
     // The server's brand book importer, for a person: it makes the brand as them, so it asks for write itself.
-    brandImport: env.BRAND_IMPORT_URL && caller.user && gated("brandImport") ? env.BRAND_IMPORT_URL : null,
+    brandImport: env.BRAND_IMPORT_URL && caller.user && gated("brandImport") ? onApp(env.BRAND_IMPORT_URL, env.APP_URL, host ?? new URL(env.APP_URL).host) : null,
     // Help's "Send feedback" writes to the operator's reply address, with the version in the mail to say what ran.
     feedback: env.EMAIL_REPLY_TO && caller.user ? { email: env.EMAIL_REPLY_TO, version: pkg.version } : null,
     auth: {

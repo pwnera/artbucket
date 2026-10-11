@@ -9,7 +9,7 @@ import { createField, listFields } from "@/lib/core/fields";
 import { hashKey } from "@/lib/core/keys";
 import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
-import { catalog, decide, featureById, ruleOf, type BuiltinFeature, type FeatureDef, type From, type Level, type Rule, type State } from "@/lib/features";
+import { catalog, decide, featureById, onApp, ruleOf, type BuiltinFeature, type FeatureDef, type From, type Level, type Rule, type State } from "@/lib/features";
 import { memo } from "@/lib/memo";
 import { ago } from "@/lib/time";
 import { signerOpen } from "@/lib/core/signers";
@@ -151,7 +151,7 @@ async function describe(def: FeatureDef, caller: Caller, context: Level, rows: R
     default: def.default,
     // The plan doesn't have it (or there is no plan, for one taking any): Settings shows the way to one that does.
     available: def.paid ? planned : !def.plan || !plan || plan.includes(def.plan),
-    manage: def.manage ?? null,
+    manage: def.manage ? onApp(def.manage, process.env.APP_URL) : null,
   };
   if (context === "organization") {
     const on = spaces.filter((p) => stateIn(def, rows, p.id, planned).on).length;

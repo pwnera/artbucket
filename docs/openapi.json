@@ -60492,7 +60492,7 @@
                             "description": "The organization's plan has it: false shows the way to one that does instead of a switch"
                           },
                           "manage": {
-                            "description": "Its own page, while it is on",
+                            "description": "Where its own view is read, under Manage while it is on: a path on this origin when it is the app's",
                             "type": [
                               "string",
                               "null"
@@ -60773,7 +60773,7 @@
                           "description": "The organization's plan has it: false shows the way to one that does instead of a switch"
                         },
                         "manage": {
-                          "description": "Its own page, while it is on",
+                          "description": "Where its own view is read, under Manage while it is on: a path on this origin when it is the app's",
                           "type": [
                             "string",
                             "null"

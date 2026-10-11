@@ -1809,7 +1809,7 @@ export const FeatureItem = z.object({
   levels: z.array(z.enum(["organization", "project"])).describe("Where it is switched"),
   default: z.enum(["on", "off"]).describe("Where nothing switched it"),
   available: z.boolean().describe("The organization's plan has it: false shows the way to one that does instead of a switch"),
-  manage: z.string().nullable().describe("Its own page, while it is on"),
+  manage: z.string().nullable().describe("Where its own view is read, under Manage while it is on: a path on this origin when it is the app's"),
   rule: z.enum(["on", "off", "projects"]).describe("The organization's switch: on or off in every project, or each project decides"),
   projects: z.object({ on: z.number().int(), total: z.number().int() }).nullable().describe("At the organization: in how many of its projects it is on"),
   on: z.boolean().nullable().describe("In the project: whether it is on there; null at the organization"),

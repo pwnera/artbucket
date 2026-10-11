@@ -62,19 +62,18 @@ const schema = z.object({
    */
   GIT_CONNECT_URL: z.string().url().optional(),
   /**
-   * An assistant this server offers beside the app: a page that answers
-   * questions about the library (through the API or MCP, as the person). The
-   * app opens it in a panel by an Ask button, at ?embed=1, with &asset={id}
-   * while an asset is open. It must allow being framed by the app's origin.
-   * Unset: no button.
+   * An assistant this server offers beside the app: the address of its
+   * endpoints, on the app's origin, which answer questions about the library
+   * (through the API or MCP, as the person). The app draws it in a panel, by
+   * an Ask button (components/assistant.tsx says what it calls). Unset: no
+   * button.
    */
   ASSISTANT_URL: z.string().url().optional(),
   /**
-   * A brand book importer this server offers: a page that turns a brand's
-   * guidelines (a PDF) into a draft brand, through the API as the person.
-   * New brand offers it as a fourth way to start, framing it at ?embed=1
-   * (&theme=light|dark): it must allow being framed by the app's origin, and
-   * tells the app by postMessage when it is at work and which brand to open.
+   * A brand book importer this server offers: the address of its endpoints,
+   * on the app's origin, which turn a brand's guidelines (a PDF) into a draft
+   * brand, through the API as the person. New brand offers it as a fourth way
+   * to start, and draws it (components/brand-import.tsx says what it calls).
    * Unset: no such choice.
    */
   BRAND_IMPORT_URL: z.string().url().optional(),

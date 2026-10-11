@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
-import { IconChartBar, IconCompass, IconExternalLink, IconLink, IconRobot, IconSparkles, IconToggleLeft, IconWorld, type Icon } from "@/components/icons";
+import { FeatureManage } from "@/components/settings/feature-manage";
+import { IconChartBar, IconCompass, IconLink, IconRobot, IconSparkles, IconToggleLeft, IconWorld, type Icon } from "@/components/icons";
 import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -55,6 +56,8 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ f: FeatureItem; state: FeatureItem["rule"]; impact: Impact } | null>(null);
+  // The feature whose own view (Manage) is open.
+  const [managing, setManaging] = useState<FeatureItem | null>(null);
 
   /** Weigh it first: what reaches outside (keys, links, portals, listings), or overrides projects, is asked about. */
   async function change(f: FeatureItem, state: FeatureItem["rule"]) {
@@ -101,6 +104,9 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
         destructive={asking?.state === "off"}
         run={() => asking && apply(asking.f, asking.state)}
       />
+      {managing?.manage && (
+        <FeatureManage name={managing.name} url={managing.manage} open onOpenChange={(o) => !o && setManaging(null)} />
+      )}
     <ul className="divide-y rounded-lg border">
       {features.map((f) => {
         const I = (f.icon && ICONS[f.icon]) || IconToggleLeft;
@@ -153,10 +159,8 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
               ) : (
                 <>
                   {f.manage && f.on && (
-                    <Button asChild size="sm" variant="ghost">
-                      <a href={f.manage}>
-                        Manage <IconExternalLink />
-                      </a>
+                    <Button size="sm" variant="ghost" onClick={() => setManaging(f)}>
+                      Manage
                     </Button>
                   )}
                   <Switch

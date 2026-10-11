@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILTIN, catalog, decide, parseFeatures, ruleOf } from "./features.ts";
+import { BUILTIN, catalog, decide, onApp, parseFeatures, ruleOf } from "./features.ts";
 
 const both = { levels: ["organization", "project"] as ("organization" | "project")[], default: "off" as const };
 
@@ -90,4 +90,13 @@ test("a mistake in the file stops the server, by name", () => {
   assert.throws(() => parseFeatures(JSON.stringify({ features: [{ id: "agents", name: "x", description: "y" }] })), /already a feature/);
   assert.throws(() => parseFeatures(JSON.stringify({ features: [{ id: "Bad id", name: "x", description: "y" }] })), /FEATURES_FILE/);
   assert.throws(() => parseFeatures(JSON.stringify({ features: [{ id: "x1", name: "x", description: "y", hook: { url: "http://h", secret: "lower" } }] })));
+});
+
+test("a server's address on the app's origin is called on the page's host, or by its path; elsewhere, as it is", () => {
+  assert.equal(onApp("http://localhost:8788/assistant", "http://localhost:8788"), "/assistant");
+  assert.equal(onApp("https://app.example.com/assistant", "https://app.example.com", "brand.acme.com"), "https://brand.acme.com/assistant");
+  assert.equal(onApp("https://ai.example.com/assistant", "https://app.example.com", "brand.acme.com"), "https://ai.example.com/assistant");
+  assert.equal(onApp("https://app.example.com/intelligence?x=1", "https://app.example.com/"), "/intelligence?x=1");
+  assert.equal(onApp("https://ai.example.com/assistant", "https://app.example.com"), "https://ai.example.com/assistant");
+  assert.equal(onApp("https://ai.example.com/assistant", undefined), "https://ai.example.com/assistant");
 });

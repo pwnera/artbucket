@@ -1,0 +1,41 @@
+---
+title: "0019: The app draws what a server's feature brings"
+description: Accepted. An assistant, a brand book importer and a feature's Manage are the app's screens, fed by the server's endpoints.
+---
+
+## Context
+
+A server's feature (Intelligence, on Artbucket Cloud) brought pages of its
+own into the app: the assistant's panel, the brand book importer in New
+brand, and its Manage page in Settings, Features. The app framed them. A
+frame is a second app inside the first: its own look, kept in step by hand,
+messages back and forth to say which asset is open or which brand to open,
+reloads whenever it moved, and a focus trap and a scroll lock to work around
+beside a dialog.
+
+## Decision
+
+- **The app draws them; the server answers.** `ASSISTANT_URL`,
+  `BRAND_IMPORT_URL` and a feature's `manage` are the addresses of the
+  server's endpoints, on the app's origin, answering JSON (an answer or an
+  import as JSON lines) as the signed-in person, with the API's refusals
+  (`{ error: { message, code? } }`). What each calls is written beside the
+  screen that calls it (`components/assistant.tsx`,
+  `components/brand-import.tsx`, `components/settings/feature-manage.tsx`).
+- **What the server says is data, never markup.** An answer is a small
+  Markdown with blocks of its own (`lib/assistant-answer.ts`), read into
+  text and shapes; a Manage view is text, numbers, links and actions.
+- **Nothing is there unless the server says so.** Unset, there is no Ask, no
+  "From a brand book" and no Manage, as before; a feature that is off in a
+  project still leaves them out there (`gates`).
+
+## Consequences
+
+- The screens look and behave as the rest of the app, in its theme, and
+  stay put as the person moves around: one assistant panel, held by the
+  shell.
+- The server keeps everything that is its own: the model, its prompts and
+  tools, caps, plans, what it stores. The core holds none of it.
+- A server offering one of these serves its endpoints on the app's origin
+  (Artbucket Cloud's Worker is in front of the core), so the person's
+  session reaches them and nothing crosses origins.
