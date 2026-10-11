@@ -208,8 +208,37 @@ export async function switchFeature(caller: Caller, context: Level, id: string, 
 
 type Org = { id: string; slug: string; name: string };
 type Space = Pick<Project, "id" | "slug" | "name">;
+/** Who turned it on or off, as its hook is told: an admin, or whoever made the project. */
+type Who = { actor: string; user?: { id: string; name?: string; email?: string } | null };
 
-async function enableIn(def: FeatureDef, caller: Caller, organization: Org, project: Space) {
+/**
+ * A project just made: each of the server's features on there (the
+ * organization turned it on everywhere, or it is on by default) is set up and
+ * told, as turning it on would. One that refuses is turned off in the project
+ * where projects decide, so it never reads as on without being so; where the
+ * organization decides, the refusal is logged.
+ */
+export async function setUpProject(by: Who, organizationId: string, project: Space) {
+  const defs = catalog().filter((f) => !f.builtin);
+  if (!defs.length) return;
+  rowsOf.forget(organizationId);
+  const rows = await rowsOf(organizationId);
+  const on = defs.filter((def) => stateIn(def, rows, project.id).on);
+  if (!on.length) return;
+  const [organization] = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.id, organizationId));
+  for (const def of on) {
+    try {
+      await enableIn(def, by, organization, project);
+    } catch (err) {
+      console.error(`feature ${def.id}: not set up in new project ${project.id}`, err);
+      if (stateIn(def, rows, project.id).from === "organization" || !def.levels.includes("project")) continue;
+      await db.insert(featureSwitches).values({ organizationId, projectId: project.id, feature: def.id, state: "off", updatedBy: by.actor }).onConflictDoNothing();
+      rowsOf.forget(organizationId);
+    }
+  }
+}
+
+async function enableIn(def: FeatureDef, caller: Who, organization: Org, project: Space) {
   if (def.builtin) return;
   // Its fields, where missing: one of the same key, of any type, is left as it is.
   if (def.fields.length) {
@@ -242,7 +271,7 @@ async function enableIn(def: FeatureDef, caller: Caller, organization: Org, proj
   }
 }
 
-async function disableIn(def: FeatureDef, caller: Caller, organization: Org, project: Space) {
+async function disableIn(def: FeatureDef, caller: Who, organization: Org, project: Space) {
   if (def.builtin) return;
   // Told, but never asked: turning a feature off is the admin's to do, whatever it answers.
   if (def.hook) await callHook(def, { type: "feature.disabled", ...payload(def, caller, organization, project) }).catch((err) => console.error(`feature ${def.id}: disable hook`, err));
@@ -251,11 +280,11 @@ async function disableIn(def: FeatureDef, caller: Caller, organization: Org, pro
 
 const revokeKeys = (def: FeatureDef, projectId: string) => db.delete(apiKeys).where(and(eq(apiKeys.projectId, projectId), eq(apiKeys.feature, def.id)));
 
-const payload = (def: FeatureDef, caller: Caller, organization: Org, project: Space) => ({
+const payload = (def: FeatureDef, caller: Who, organization: Org, project: Space) => ({
   feature: def.id,
   organization,
   project: { id: project.id, slug: project.slug, name: project.name },
-  by: { actor: caller.actor, user: caller.user },
+  by: { actor: caller.actor, user: caller.user ?? null },
   at: new Date().toISOString(),
 });
 

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { setUpProject } from "@/lib/core/features";
 import { and, asc, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, brands, collections, grants, groupMembers, groups, invitations, organizations, users, projects } from "@/lib/db/schema";
@@ -98,6 +99,7 @@ export async function welcome(user: { id: string; name: string; email: string },
   // At a domain an organization opened, none either: /welcome offers to join it, or to start one of their own.
   else if (n > 1 && env.SIGNUP === "open" && !joined && !(await joinableAt(user.email))) {
     const org = await addOrganization(user.id, `${user.name || user.email.split("@")[0]}'s organization`);
+    await setUpProject({ actor: by.actor, user }, org.id, org.ws);
     await recordAudit(by, "organization.created", org.name, { signUp: true }, { organizationId: org.id, projectId: null });
   }
 }
@@ -177,6 +179,7 @@ export async function createOrganization(caller: Caller, input: { name: string }
   if (!user) throw new AssetError("forbidden", "Sign in to make an organization");
   await checkOrganizations(user.id);
   const { ws, ...org } = await addOrganization(user.id, input.name);
+  await setUpProject(caller, org.id, ws);
   await recordAudit(caller, "organization.created", org.name, undefined, { organizationId: org.id, projectId: null });
   return { id: org.id, slug: org.slug, name: org.name, project: { id: ws.id, slug: ws.slug, name: ws.name } };
 }
@@ -243,6 +246,8 @@ export async function createProject(caller: Caller, input: { name: string }) {
     await checkLimit(caller.project.organizationId, "projects", { tx });
     return addProject(tx, caller.project.organizationId, input.name);
   });
+  // What the organization has on everywhere (Settings, Features) is set up here too.
+  await setUpProject(caller, caller.project.organizationId, ws);
   await recordAudit(caller, "project.created", ws.name, undefined, { projectId: ws.id });
   return { id: ws.id, slug: ws.slug, name: ws.name, scope: caller.orgScope };
 }
