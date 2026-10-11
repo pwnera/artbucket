@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconSparkles } from "@/components/icons";
 import { assistantPlace } from "@/lib/assistant-place";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 /**
  * The server's assistant (ASSISTANT_URL, me.assistant): a page that answers
@@ -23,6 +24,11 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
  * the page beside it shows it. It can also take the person somewhere
  * ({ navigate: "/path" }): the app goes only to its own pages that show
  * things (assistantPlace), never to one that acts by being opened.
+ *
+ * On a wide screen the panel is docked on the right and the app makes room for
+ * it: its width is --assistant-w on <html> while it is open (0 otherwise),
+ * which the shell and an open asset's dialog leave free. The person drags its
+ * left edge to change it (or uses the arrow keys there), and the width is kept.
  */
 
 type AssistantValue = {
@@ -35,7 +41,16 @@ type AssistantValue = {
   /** Panels an open asset holds: while there is one, the shell's own steps aside. */
   nested: number;
   setNested: React.Dispatch<React.SetStateAction<number>>;
+  /** The docked panel's width, in pixels. */
+  width: number;
+  setWidth: (width: number, keep?: boolean) => void;
 };
+
+/** The panel's width: a usable chat at least, and room left for the app. */
+const MIN_WIDTH = 320;
+const DEFAULT_WIDTH = 420;
+const APP_ROOM = 480;
+const clampWidth = (w: number) => Math.round(Math.max(MIN_WIDTH, Math.min(w, 900, (typeof window === "undefined" ? 1440 : window.innerWidth) - APP_ROOM)));
 
 const AssistantContext = createContext<AssistantValue | null>(null);
 
@@ -60,7 +75,43 @@ export function AssistantProvider({ url, children }: { url: string | null; child
     } catch {}
   }, []);
   const [nested, setNested] = useState(0);
-  const value = useMemo(() => (url ? { url, open, setOpen, chat, setChat, nested, setNested } : null), [url, open, chat, setChat, nested]);
+  // The width the person last left it at, in this browser; a narrow window only holds it back: wider again, it comes back.
+  const [saved] = useState(() => {
+    try {
+      const w = typeof window === "undefined" ? NaN : Number(localStorage.getItem("assistant:width"));
+      return Number.isFinite(w) && w > 0 ? w : DEFAULT_WIDTH;
+    } catch {
+      return DEFAULT_WIDTH;
+    }
+  });
+  const [width, setWidthState] = useState(() => clampWidth(saved));
+  const wanted = useRef(saved);
+  const setWidth = useCallback((w: number, keep = false) => {
+    const c = clampWidth(w);
+    wanted.current = c;
+    setWidthState(c);
+    if (keep)
+      try {
+        localStorage.setItem("assistant:width", String(c));
+      } catch {}
+  }, []);
+  // The room the app leaves on the right: the panel's width while it is open.
+  const docked = !!url && open;
+  useEffect(() => {
+    const root = document.documentElement.style;
+    root.setProperty("--assistant-w", docked ? `${width}px` : "0px");
+    return () => void root.removeProperty("--assistant-w");
+  }, [docked, width]);
+  // A window made narrower keeps room for the app.
+  useEffect(() => {
+    const fit = () => setWidthState(clampWidth(wanted.current));
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+  const value = useMemo(
+    () => (url ? { url, open, setOpen, chat, setChat, nested, setNested, width, setWidth } : null),
+    [url, open, chat, setChat, nested, width, setWidth],
+  );
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }
 
@@ -106,6 +157,13 @@ export function AssistantPanel({ asset }: { asset?: string }) {
   // The frame's address is fixed when it opens: a conversation it moves to later is its own to show.
   const [src, setSrc] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
+  // While its edge is dragged: the frame lets the pointer through, and the app follows without easing.
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!dragging) return;
+    document.documentElement.dataset.assistantResizing = "";
+    return () => void delete document.documentElement.dataset.assistantResizing;
+  }, [dragging]);
   // The shell's panel, while an asset's holds the conversation.
   const shown = !!a && (asset !== undefined || a.nested === 0);
   if (!a || !shown) return null;
@@ -118,17 +176,60 @@ export function AssistantPanel({ asset }: { asset?: string }) {
     <Sheet open={a.open} onOpenChange={a.setOpen} modal={false}>
       <SheetContent
         side="right"
-        className="w-full gap-0 p-0 sm:max-w-md"
+        className="w-full gap-0 p-0 shadow-none sm:max-w-none md:w-(--assistant-w)"
         onInteractOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the assistant"
+          aria-valuenow={a.width}
+          aria-valuemin={MIN_WIDTH}
+          tabIndex={0}
+          title="Drag to resize"
+          className="group/edge absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize touch-none outline-none md:block"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+          }}
+          onPointerMove={(e) => {
+            if (dragging) a.setWidth(window.innerWidth - e.clientX);
+          }}
+          onPointerUp={(e) => {
+            if (!dragging) return;
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            setDragging(false);
+            a.setWidth(window.innerWidth - e.clientX, true);
+          }}
+          onPointerCancel={() => setDragging(false)}
+          onDoubleClick={() => a.setWidth(DEFAULT_WIDTH, true)}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 80 : 20;
+            if (e.key === "ArrowLeft") a.setWidth(a.width + step, true);
+            else if (e.key === "ArrowRight") a.setWidth(a.width - step, true);
+            else return;
+            e.preventDefault();
+          }}
+        >
+          <span
+            className={cn(
+              "bg-border absolute inset-y-0 left-1.5 w-px transition-colors group-hover/edge:bg-primary group-focus-visible/edge:bg-primary",
+              dragging && "bg-primary",
+            )}
+          />
+        </div>
         <SheetHeader className="border-b px-4 py-3">
           <SheetTitle className="flex items-center gap-1.5 text-sm">
             <IconSparkles className="text-primary-ink size-4" /> Ask
           </SheetTitle>
           <SheetDescription className="sr-only">Questions about your library, answered from what you can see; changes wait for your approval.</SheetDescription>
         </SheetHeader>
-        {src && <iframe key={src} src={src} title="Assistant" className="min-h-0 w-full flex-1 border-0" allow="clipboard-write" />}
+        {src && (
+          <iframe key={src} src={src} title="Assistant" className={cn("min-h-0 w-full flex-1 border-0", dragging && "pointer-events-none")} allow="clipboard-write" />
+        )}
       </SheetContent>
     </Sheet>
   );

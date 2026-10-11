@@ -221,7 +221,10 @@ export function AssetViewer(props: Props) {
             const f = e.dataTransfer.files[0];
             if (f && versionable) editor.current?.drop(f);
           }}
+          // Beside the assistant docked on the right (components/assistant.tsx), its panel open over this asset.
+          overlayClassName="md:right-[var(--assistant-w,0px)]"
           className={cn(
+            "md:left-[calc(50%-var(--assistant-w,0px)/2)] md:max-w-[min(64rem,calc(100vw-2rem-var(--assistant-w,0px)))]",
             "gap-0 p-0 max-md:content-start sm:max-w-5xl md:h-[min(760px,calc(100dvh-2rem))] md:grid-cols-[minmax(0,1fr)_380px] md:grid-rows-1 md:overflow-hidden max-md:inset-0 max-md:top-0 max-md:left-0 max-md:h-dvh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:data-[state=closed]:zoom-out-100 max-md:data-[state=closed]:slide-out-to-bottom-4 max-md:data-[state=open]:zoom-in-100 max-md:data-[state=open]:slide-in-from-bottom-4",
             // On a phone the whole sheet scrolls and the corner X would go with it: the sticky header has its own.
             shown && "max-md:[&>[data-slot=dialog-close]]:hidden",

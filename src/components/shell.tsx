@@ -358,7 +358,8 @@ export function Shell({
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
         />
-        <SidebarInset className="min-w-0">
+        {/* Room for the assistant docked on the right (components/assistant.tsx); no easing while its edge is dragged. */}
+        <SidebarInset className="min-w-0 transition-[padding] duration-200 ease-out md:pr-[var(--assistant-w,0px)] [html[data-assistant-resizing]_&]:transition-none">
           {sidebar.me.notice && <NoticeBanner notice={sidebar.me.notice} />}
           {sidebar.me.joinable && <JoinBanner offer={sidebar.me.joinable} />}
           {children}

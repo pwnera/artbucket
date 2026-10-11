@@ -70,6 +70,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   guard,
+  overlayClassName,
   onEscapeKeyDown,
   onPointerDownOutside,
   onInteractOutside,
@@ -77,11 +78,12 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   guard?: { dirty: boolean; onDiscard: () => void; onSave?: () => void }
+  overlayClassName?: string
 }) {
   const [asking, setAsking] = React.useState(false)
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
