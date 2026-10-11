@@ -329,10 +329,25 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
     box.current?.focus();
   }
 
+  // At the end of the conversation while it grows: words streaming in, and thumbnails and typefaces loading after them.
   useEffect(() => {
     const el = log.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [turns, actions, status]);
+    const inner = el?.firstElementChild;
+    if (!el || !inner) return;
+    const follow = () => {
+      if (stick.current) el.scrollTop = el.scrollHeight;
+    };
+    follow();
+    const seen = new ResizeObserver(follow);
+    seen.observe(inner);
+    return () => seen.disconnect();
+  }, []);
+  // An answer ended: a change waiting for the person has the focus, or else the box to ask in.
+  useEffect(() => {
+    if (busy) return;
+    const waiting = log.current?.querySelector<HTMLButtonElement>('[data-state="waiting"] button');
+    (waiting ?? box.current)?.focus({ preventScroll: true });
+  }, [busy]);
 
   /** The answer being written: the last turn, changed. */
   const current = (f: (t: Turn) => Turn) => setTurns((ts) => (ts.length ? [...ts.slice(0, -1), f(ts.at(-1)!)] : ts));
@@ -725,7 +740,7 @@ function ActionCard({ a, approved, busy, onDecide }: { a: Action | undefined; ap
       )}
       {a.state === "waiting" ? (
         <div className="flex gap-2">
-          <Button type="button" size="sm" variant={danger ? "destructive" : "default"} disabled={busy} onClick={() => onDecide(true)} autoFocus>
+          <Button type="button" size="sm" variant={danger ? "destructive" : "default"} disabled={busy} onClick={() => onDecide(true)}>
             {danger ? "Delete" : "Approve"}
           </Button>
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onDecide(false)}>
