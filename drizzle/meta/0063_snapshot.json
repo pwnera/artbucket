@@ -1,5 +1,5 @@
 {
-  "id": "d09e25aa-3656-42d4-a42c-91de8d284998",
+  "id": "9495c008-b58c-4e70-9604-840bfc69d64e",
   "prevId": "a44cf41d-b5ab-4e0e-96bf-535ef45b9dc9",
   "version": "7",
   "dialect": "postgresql",
@@ -535,6 +535,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "working": {
+          "name": "working",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "rights": {
           "name": "rights",
@@ -4736,13 +4742,6 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'portal'"
-        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -4815,10 +4814,6 @@
         "portals_password_check": {
           "name": "portals_password_check",
           "value": "\"portals\".\"access\" <> 'password' or \"portals\".\"password_hash\" is not null"
-        },
-        "portals_kind_check": {
-          "name": "portals_kind_check",
-          "value": "\"portals\".\"kind\" in ('portal', 'guidelines', 'landing', 'docs', 'storybook')"
         }
       },
       "isRLSEnabled": false
@@ -5375,182 +5370,6 @@
         "share_links_target_check": {
           "name": "share_links_target_check",
           "value": "(\"share_links\".\"kind\" = 'view' and num_nonnulls(\"share_links\".\"collection_id\", \"share_links\".\"asset_id\") = 1) or (\"share_links\".\"kind\" = 'upload' and \"share_links\".\"asset_id\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.site_deployments": {
-      "name": "site_deployments",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "site_id": {
-          "name": "site_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "path": {
-          "name": "path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'/'"
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'checking'"
-        },
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "files": {
-          "name": "files",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "bytes": {
-          "name": "bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "manifest": {
-          "name": "manifest",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "commit": {
-          "name": "commit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ref": {
-          "name": "ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "site_deployments_site_idx": {
-          "name": "site_deployments_site_idx",
-          "columns": [
-            {
-              "expression": "site_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "site_deployments_live_unique": {
-          "name": "site_deployments_live_unique",
-          "columns": [
-            {
-              "expression": "site_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"site_deployments\".\"state\" = 'live'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "site_deployments_site_id_portals_id_fk": {
-          "name": "site_deployments_site_id_portals_id_fk",
-          "tableFrom": "site_deployments",
-          "tableTo": "portals",
-          "columnsFrom": [
-            "site_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "site_deployments_state_check": {
-          "name": "site_deployments_state_check",
-          "value": "\"site_deployments\".\"state\" in ('checking', 'live', 'failed', 'replaced')"
-        },
-        "site_deployments_kind_check": {
-          "name": "site_deployments_kind_check",
-          "value": "\"site_deployments\".\"kind\" in ('guidelines', 'landing', 'docs', 'storybook')"
         }
       },
       "isRLSEnabled": false

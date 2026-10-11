@@ -516,7 +516,7 @@ const TOOLS: Record<ToolName, Tool> = {
     input: TOOL_INPUTS.create_brand,
     run: async (input, caller) => {
       const made = await makeBrand(caller, input);
-      return { ...made, url: brandUrl(made.slug) };
+      return "dryRun" in made ? made : { ...made, url: brandUrl(made.slug) };
     },
   }),
 

@@ -11,8 +11,8 @@ import {
   IconCompass,
   IconFileText,
   IconFolder,
-  IconFolders,
   IconFolderUp,
+  IconFolders,
   IconIcons,
   IconInbox,
   IconLayoutGrid,
@@ -29,11 +29,13 @@ import {
   IconSearch,
   IconSettings,
   IconSitemap,
+  IconSparkles,
   IconTypography,
   IconUpload,
   IconWorld,
 } from "@/components/icons";
 import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
+import { useAssistant } from "@/components/assistant";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
 import { usePins, type Recent } from "@/components/sidebar-prefs";
@@ -135,6 +137,7 @@ export function AppSidebar({
               <Kbd keys={["mod", "K"]} className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <AskRow />
           <SidebarMenuItem>
             <NewMenu me={me} />
           </SidebarMenuItem>
@@ -326,6 +329,19 @@ export function NewMenuContent({ side, align = "start" }: { side?: "right" | "bo
         </DropdownMenuGroup>
       ))}
     </DropdownMenuContent>
+  );
+}
+
+/** The server's assistant (ASSISTANT_URL), a row under Jump to: its panel opens beside the page. Nothing without one. */
+function AskRow() {
+  const a = useAssistant();
+  if (!a) return null;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton onClick={() => a.setOpen(!a.open)} isActive={a.open} tooltip="Ask" className="text-muted-foreground hover:text-foreground">
+        <IconSparkles /> <span>Ask</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 

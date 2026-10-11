@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { z } from "zod";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { assets, collectionAssets, type AssetStatus } from "@/lib/db/schema";
+import { assets, collectionAssets, type AssetStatus, type Working } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { record } from "@/lib/core/activity";
 import { recordAudit } from "@/lib/core/audit";
@@ -79,6 +79,8 @@ export const notSuperseded = sql`(${assets.stackId} is null or ${assets.current}
 
 export const columns = {
   ...own,
+  /** Only while it lasts: an agent that stopped without saying so leaves nothing behind. */
+  working: sql<Working | null>`(case when (${assets.working} ->> 'until')::timestamptz > now() then ${assets.working} end)`,
   state: stateSql,
   /** Ids of the collections this asset is in. */
   collections: sql<string[]>`(
@@ -967,6 +969,8 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
       )`,
       // Whoever first proposed something about it: shown in Review, and in their my_proposals.
       proposedBy: sql`coalesce(${assets.proposedBy}, ${actor})`,
+      // What it was working toward has landed.
+      working: null,
       updatedAt: sql`now()`,
     })
     .where(eq(assets.id, id))
@@ -974,6 +978,31 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
   // Only what is new, so suggesting the same tag twice is one line of activity.
   const added = fresh.filter((t) => !before.tags.includes(t) && !before.proposedTags.includes(t));
   if (asset && added.length) await record(caller, "suggested_tags", asset, { tags: added });
+  return asset ?? null;
+}
+
+/** How long an agent is shown at work when it doesn't say, and the longest it may say. */
+export const WORKING_SECONDS = { default: 120, max: 600 };
+
+/**
+ * Say an agent is at work on an asset (`label`: "suggesting tags"), for `seconds` at most: the app shows it on the
+ * asset and looks again until it ends. Anyone who may suggest tags may say it; it ends with DELETE, with their
+ * proposals, or when the time runs out. Nothing else about the asset changes, its updatedAt neither.
+ */
+export async function setWorking(caller: Caller, id: string, { label, seconds = WORKING_SECONDS.default }: { label: string; seconds?: number }): Promise<Asset | null> {
+  const before = await allowed(caller, id, "asset.propose_tags");
+  if (!before) return null;
+  if (before.deletedAt) throw new AssetError("invalid", "Deleted: restore it first");
+  const until = new Date(Date.now() + Math.min(seconds, WORKING_SECONDS.max) * 1000).toISOString();
+  const working: Working = { label, by: caller.actor, until };
+  const [asset] = await db.update(assets).set({ working }).where(eq(assets.id, id)).returning(columns);
+  return asset ?? null;
+}
+
+/** The agent is done, or gave up: nothing is shown at work on the asset any more. */
+export async function clearWorking(caller: Caller, id: string): Promise<Asset | null> {
+  if (!(await allowed(caller, id, "asset.propose_tags"))) return null;
+  const [asset] = await db.update(assets).set({ working: null }).where(eq(assets.id, id)).returning(columns);
   return asset ?? null;
 }
 
@@ -997,6 +1026,7 @@ export async function proposeFields(caller: Caller, id: string, suggested: Recor
     .set({
       proposedFields: sql`${assets.proposedFields} || ${JSON.stringify(fresh)}::jsonb`,
       proposedBy: sql`coalesce(${assets.proposedBy}, ${caller.actor})`,
+      working: null,
       updatedAt: sql`now()`,
     })
     .where(eq(assets.id, id))

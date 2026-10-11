@@ -1,6 +1,6 @@
 {
-  "id": "3e3110b5-b21c-4f99-bfb6-93c6f7707563",
-  "prevId": "3784e720-4fb8-44b8-ae46-9374640a91ef",
+  "id": "3784e720-4fb8-44b8-ae46-9374640a91ef",
+  "prevId": "d09e25aa-3656-42d4-a42c-91de8d284998",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -535,6 +535,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "working": {
+          "name": "working",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "rights": {
           "name": "rights",
@@ -5923,7 +5929,7 @@
           "notNull": false
         }
       },
-      "definition": "select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from \"assets\" a where a.superseded_by is not null\n    union all\n    select a.parent_asset_id, a.id, 'derived', null from \"assets\" a where a.parent_asset_id is not null\n    union all\n    select bra.asset_id, r.brand_id, 'rule', string_agg(distinct r.key, ', ') from \"brand_rule_assets\" bra join \"brand_rules\" r on r.id = bra.rule_id group by bra.asset_id, r.brand_id\n    union all\n    select ca.asset_id, ca.collection_id, 'member', null from \"collection_assets\" ca\n    union all\n    select pc.collection_id, pc.portal_id, 'offered', null from \"portal_collections\" pc\n    union all\n    select pb.brand_id, pb.portal_id, 'offered', null from \"portal_brands\" pb\n    union all\n    select s.id, b.id, 'fork', b.forked_from from \"brands\" b\n      join \"organizations\" o on o.slug = split_part(b.forked_from, '/', 1)\n      join \"projects\" w on w.organization_id = o.id\n      join \"brands\" s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)\n    where b.forked_from is not null\n    union all\n    select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from \"site_deployments\" d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x\n    where d.state = 'live' and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n    union all\n    select b.id, d.site_id, 'built', d.path from \"site_deployments\" d join \"portals\" p on p.id = d.site_id join \"brands\" b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'\n    where d.state = 'live'",
+      "definition": "select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from \"assets\" a where a.superseded_by is not null\n    union all\n    select a.parent_asset_id, a.id, 'derived', null from \"assets\" a where a.parent_asset_id is not null\n    union all\n    select bra.asset_id, r.brand_id, 'rule', string_agg(distinct r.key, ', ') from \"brand_rule_assets\" bra join \"brand_rules\" r on r.id = bra.rule_id group by bra.asset_id, r.brand_id\n    union all\n    select ca.asset_id, ca.collection_id, 'member', null from \"collection_assets\" ca\n    union all\n    select pc.collection_id, pc.portal_id, 'offered', null from \"portal_collections\" pc\n    union all\n    select pb.brand_id, pb.portal_id, 'offered', null from \"portal_brands\" pb\n    union all\n    select s.id, b.id, 'fork', b.forked_from from \"brands\" b\n      join \"organizations\" o on o.slug = split_part(b.forked_from, '/', 1)\n      join \"projects\" w on w.organization_id = o.id\n      join \"brands\" s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)\n    where b.forked_from is not null",
       "name": "catalog_edges",
       "schema": "public",
       "isExisting": false,
