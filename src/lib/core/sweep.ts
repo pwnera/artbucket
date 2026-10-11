@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { OWNERS_PREFIX, ownerKey, strangers } from "@/lib/bucket-owners";
 import { db, unbounded } from "@/lib/db";
-import { assets, grants, instance, invitations, portalRequests, renditions } from "@/lib/db/schema";
+import { assets, grants, instance, invitations, portalRequests, renditions, siteDeployments } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { hostFontsBackfill } from "@/lib/core/brand";
 import { rollUp } from "@/lib/core/events";
@@ -14,7 +14,8 @@ import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putOb
  * PURGE_DAYS, then its row goes; an original goes when no row, deleted or
  * not, in any project, holds it: after a purge, a project or an
  * organization deleted, or an upload that died between storage and the
- * database. Stills for previews go the same way. Staging and renditions
+ * database. Stills for previews go the same way, and a build's files once
+ * its deployment failed or is gone (lib/core/sites.ts). Staging and renditions
  * expire by the bucket's lifecycle rules (lib/storage.ts).
  *
  * Runs at boot and every few hours (instrumentation.ts). Safe to run twice
@@ -136,6 +137,16 @@ export async function sweep() {
   for await (const o of listObjects("previews/")) {
     const sha = o.key.slice("previews/".length);
     if (!sha || previews.has(sha) || o.modified.getTime() > old) continue;
+    await deleteObject(o.key);
+    removed++;
+  }
+  // A deployment's files live under sites/{site}/{deployment}/: kept while it is live, replaced or still landing.
+  const builds = new Set(
+    (await db.select({ id: siteDeployments.id }).from(siteDeployments).where(inArray(siteDeployments.state, ["checking", "live", "replaced"]))).map((d) => d.id),
+  );
+  for await (const o of listObjects("sites/")) {
+    const deployment = o.key.split("/")[2];
+    if (!deployment || builds.has(deployment) || o.modified.getTime() > old) continue;
     await deleteObject(o.key);
     removed++;
   }

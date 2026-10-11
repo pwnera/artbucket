@@ -30,3 +30,8 @@ test("the impact line", () => {
   assert.equal(impactLine("logo.svg", 1, 1), "Changing logo.svg reaches 1 thing downstream, in 1 project.");
   assert.equal(impactLine("logo.svg", 0, 0), "Nothing depends on logo.svg: it can change freely.");
 });
+
+test("portal, the older name, still finds sites", () => {
+  assert.deepEqual(parseQuery("type:portal press").types, ["site"]);
+  assert.equal(parseAddress("acme/corporate/portal/press")?.type, "site");
+});

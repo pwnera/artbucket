@@ -3,7 +3,7 @@ import { AssetError } from "@/lib/core/errors";
 import { brandLookOf } from "@/lib/core/portals";
 
 /**
- * GET /api/v1/portals/look?brand={slug} - the logo (an asset id) and accent
+ * GET /api/v1/sites/look?brand={slug} - the logo (an asset id) and accent
  * a portal showing this brand first wears where it sets none: the brand's
  * mark and color, from its live release.
  */

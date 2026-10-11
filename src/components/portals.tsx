@@ -1,5 +1,6 @@
 "use client";
 
+import { BuildSiteDialog } from "@/components/site-deployments";
 import { CatalogButton } from "@/components/catalog-button";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,6 +23,7 @@ import {
   IconUserQuestion,
   IconUsers,
   IconWorld,
+  IconUpload,
   IconX,
   } from "@/components/icons";
 import { LibraryPicker } from "@/components/asset-picker";
@@ -50,12 +52,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { builderPath } from "@/lib/site";
+import { SITE_KIND_LABEL, type SiteKind } from "@/lib/sites";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 import { collapse, flash, useKept } from "@/lib/motion";
 
 export type Portal = {
   id: string;
+  /** portal: managed by Artbucket; the others serve what is deployed to them (lib/sites.ts). */
+  kind: SiteKind;
   slug: string;
   name: string;
   intro: string | null;
@@ -137,7 +142,7 @@ const upsert = (rows: Portal[], p: Portal) =>
 /**
  * Brand portals: a front door for people outside the team onto chosen
  * collections and brand guidelines, themed, with downloads made for a
- * purpose. Each from /api/v1/portals like any client's; `?open={id}` opens
+ * purpose. Each from /api/v1/sites like any client's; `?open={id}` opens
  * one's requests. `portalDomain`: the server's PORTAL_DOMAIN, where each
  * portal answers at {slug}.{portalDomain} too.
  */
@@ -161,6 +166,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const [editing, setEditing] = useState<Portal | "new" | null>(() =>
     freshBrand || fresh === "portal" ? "new" : (asked && portals.find((x) => x.id === asked)) || null,
   );
+  // A built site, made or deployed to (components/site-deployments.tsx); ?new=site opens a new one.
+  const [building, setBuilding] = useState<Portal | "new" | null>(() => (fresh === "site" ? "new" : null));
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
@@ -174,21 +181,35 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
 
   return (
     <>
-      <AppHeader trail={[{ label: "Portals" }]} />
+      <AppHeader trail={[{ label: "Sites" }]} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconWorld />}
-          title="Portals"
-          description="Branded pages for press, partners and retailers."
+          title="Sites"
+          description="Brand portals Artbucket renders for press, partners and retailers, and the sites you build and deploy."
         >
-          <Button size="sm" onClick={() => setEditing("new")} disabled={!any}>
-            <IconPlus /> New portal
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <IconPlus /> New site
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuItem onSelect={() => setEditing("new")} disabled={!any}>
+                <IconWorld /> Brand portal
+                <span className="text-muted-foreground ms-auto ps-3 text-xs whitespace-nowrap">rendered by Artbucket</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setBuilding("new")}>
+                <IconUpload /> Built site
+                <span className="text-muted-foreground ms-auto ps-3 text-xs whitespace-nowrap">a zip of static files</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </PageHeader>
         {only && (
           <p className="text-muted-foreground -mt-2 text-sm">
-            The portals showing {only.name}.{" "}
-            <Link href="/portals" className="text-foreground underline underline-offset-2">
+            The sites showing {only.name}.{" "}
+            <Link href="/sites" className="text-foreground underline underline-offset-2">
               Show all
             </Link>
           </p>
@@ -199,7 +220,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
               <EmptyMedia variant="icon">
                 <IconWorld />
               </EmptyMedia>
-              <EmptyTitle>No portals yet</EmptyTitle>
+              <EmptyTitle>No sites yet</EmptyTitle>
               <EmptyDescription>
                 {any
                   ? "A press kit or partner hub at its own address."
@@ -208,9 +229,14 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
             </EmptyHeader>
             <EmptyContent>
               {any ? (
-                <Button onClick={() => setEditing("new")}>
-                  <IconPlus /> New portal
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => setEditing("new")}>
+                    <IconPlus /> Brand portal
+                  </Button>
+                  <Button variant="outline" onClick={() => setBuilding("new")}>
+                    <IconUpload /> Built site
+                  </Button>
+                </div>
               ) : (
                 <Button onClick={() => openCollection("new")}>
                   <IconPlus /> New collection
@@ -220,7 +246,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           </Empty>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No portal shows {only.name} yet.</li>}
+            {!shown.length && only && <li className="text-muted-foreground p-6 text-center text-sm">No site shows {only.name} yet.</li>}
             {shown.map((p) => (
               <li key={p.id} data-portal={p.id} className="hover:bg-muted/50 relative flex flex-wrap items-center gap-3 px-3 py-3 text-sm transition-colors">
                 <span
@@ -231,11 +257,12 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
                     {/* The whole row opens it: this button's box stretches over the row, under its actions. */}
-                    <button type="button" onClick={() => setEditing(p)} className="truncate text-left after:absolute after:inset-0">
+                    <button type="button" onClick={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
                     {p.access === "members" && <IconUsers className="text-muted-foreground size-3.5 shrink-0" aria-label="Members" />}
+                    {p.kind !== "portal" && <Badge variant="secondary">{SITE_KIND_LABEL[p.kind]}</Badge>}
                     {p.expired && <Badge variant="outline">Offline</Badge>}
                     {p.domain && !p.domain.verified && <Badge variant="warning">Domain not verified</Badge>}
                     <Unpublished brands={p.brands} />
@@ -260,7 +287,8 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
                   </IconButton>
                   <RowMenu
                     portal={p}
-                    onEdit={() => setEditing(p)}
+                    onEdit={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))}
+                    onBuild={() => setBuilding(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
                     onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
                   />
@@ -281,7 +309,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onClose={() => {
             setEditing(null);
             // Off the address, or a reload would open it again.
-            if (fresh) router.replace("/portals", { scroll: false });
+            if (fresh) router.replace("/sites", { scroll: false });
           }}
           onSaved={(saved, said) => {
             setRows((rs) => upsert(rs, saved));
@@ -291,6 +319,21 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onDeleted={(gone) => collapse(document.querySelector(`[data-portal="${CSS.escape(gone)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== gone)))}
         />
       )}
+      {building && (
+        <BuildSiteDialog
+          key={building === "new" ? "new" : building.id}
+          open
+          site={building === "new" ? null : building}
+          onClose={() => {
+            setBuilding(null);
+            if (fresh) router.replace("/sites", { scroll: false });
+          }}
+          onSaved={(saved) => {
+            setRows((rs) => upsert(rs, saved));
+            flash(`[data-portal="${CSS.escape(saved.id)}"]`);
+          }}
+        />
+      )}
       {shownRequests && (
         <RequestsDialog
           open={!!requests}
@@ -298,7 +341,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           onClose={(changed) => {
             setRequests(null);
             // Off the address, or the next render would open it again.
-            if (opened) router.replace("/portals", { scroll: false });
+            if (opened) router.replace("/sites", { scroll: false });
             if (changed) router.refresh();
           }}
         />
@@ -320,14 +363,27 @@ export function toastSaved(saved: Portal, said: "made" | "saved") {
  * it back (POST .../close, PATCH expiresAt: null), or delete it. Offline, its
  * address says it is closed, and everything about it stays for its return.
  */
-function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; onEdit: () => void; onChanged: (p: Portal) => void; onDeleted: () => void }) {
+function RowMenu({
+  portal: p,
+  onEdit,
+  onBuild,
+  onChanged,
+  onDeleted,
+}: {
+  portal: Portal;
+  onEdit: () => void;
+  /** Its deployments: a built site's, or builds mounted beside a brand portal. */
+  onBuild: () => void;
+  onChanged: (p: Portal) => void;
+  onDeleted: () => void;
+}) {
   const [deleting, setDeleting] = useState(false);
   const toggle = async () => {
     // The row shows it at once (its Offline badge), and goes back if the server says no.
     onChanged({ ...p, expired: !p.expired });
     const saved: Portal | null = p.expired
-      ? await send("PATCH", `/api/v1/portals/${p.id}`, { expiresAt: null })
-      : await send("POST", `/api/v1/portals/${p.id}/close`);
+      ? await send("PATCH", `/api/v1/sites/${p.id}`, { expiresAt: null })
+      : await send("POST", `/api/v1/sites/${p.id}/close`);
     if (!saved) return onChanged(p);
     onChanged(saved);
     toast.success(saved.expired ? `${saved.name} is offline` : `${saved.name} is back online`, {
@@ -346,6 +402,9 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
           <DropdownMenuItem onSelect={onEdit}>
             <IconPencil /> Edit
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onBuild}>
+            <IconUpload /> {p.kind === "portal" ? "Deploy a build at a path" : "Deployments"}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void toggle()}>
             {p.expired ? <IconPlayerPlay /> : <IconPlayerPause />} {p.expired ? "Bring back online" : "Take offline"}
           </DropdownMenuItem>
@@ -362,7 +421,7 @@ function RowMenu({ portal: p, onEdit, onChanged, onDeleted }: { portal: Portal; 
         says="Its address stops working at once, for everyone who has it. To pause it instead, take it offline."
         action="Delete"
         run={async () => {
-          const r = await send("DELETE", `/api/v1/portals/${p.id}`);
+          const r = await send("DELETE", `/api/v1/sites/${p.id}`);
           if (!r) return null;
           toast.success(`${p.name} is gone`);
           onDeleted();
@@ -526,7 +585,7 @@ function siteSummary(site: PortalSite) {
 /**
  * Make or change a portal: what it shows, how it looks, who gets in, where
  * it lives. The Portals page and a brand's Sharing tab open it. An empty
- * logo or accent is the first brand's when served (GET /api/v1/portals/look),
+ * logo or accent is the first brand's when served (GET /api/v1/sites/look),
  * shown here as "From {brand}".
  */
 export function PortalDialog({
@@ -573,14 +632,14 @@ export function PortalDialog({
   useEffect(() => {
     if (!first) return;
     const ask = new AbortController();
-    fetch(`/api/v1/portals/look?${new URLSearchParams({ brand: first })}`, { signal: ask.signal })
+    fetch(`/api/v1/sites/look?${new URLSearchParams({ brand: first })}`, { signal: ask.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => b && setLook({ brand: first, ...b.data }), () => {});
     return () => ask.abort();
   }, [first]);
   const from = first && look?.brand === first ? { ...look, name: brands.find((b) => b.slug === first)?.name ?? first } : null;
   useEffect(() => {
-    fetch("/api/v1/portals/domains")
+    fetch("/api/v1/sites/domains")
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((b) => setHosts(b.data), () => setHosts([]));
   }, []);
@@ -608,7 +667,7 @@ export function PortalDialog({
     if (!PORTAL_SLUG.test(f.slug) || f.slug === current?.slug) return;
     const ask = new AbortController();
     const t = setTimeout(() => {
-      fetch(`/api/v1/portals/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }), ...(!subdomain && { subdomain: "0" }) })}`, { signal: ask.signal })
+      fetch(`/api/v1/sites/address?${new URLSearchParams({ slug: f.slug, ...(current && { portal: current.id }), ...(!subdomain && { subdomain: "0" }) })}`, { signal: ask.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((b) => b && setCheck({ slug: b.data.slug, subdomain, reason: b.data.reason }), () => {});
     }, 300);
@@ -639,7 +698,7 @@ export function PortalDialog({
       site: siteOut(f.site, f.access),
     };
     setBusy(true);
-    const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/portals/${current.id}` : "/api/v1/portals", payload);
+    const saved: Portal | null = await send(current ? "PATCH" : "POST", current ? `/api/v1/sites/${current.id}` : "/api/v1/sites", payload);
     setBusy(false);
     if (!saved) return;
     onSaved(saved, current ? "saved" : "made");
@@ -649,7 +708,7 @@ export function PortalDialog({
   async function verify() {
     if (!current) return;
     setChecking(true);
-    const p: Portal | null = await send("POST", `/api/v1/portals/${current.id}/domain`);
+    const p: Portal | null = await send("POST", `/api/v1/sites/${current.id}/domain`);
     setChecking(false);
     if (!p || !p.domain) return;
     setCurrent(p);
@@ -1018,7 +1077,7 @@ export function PortalDialog({
               says="Its address stops working at once, for everyone who has it."
               action="Delete"
               run={async () => {
-                const r = await send("DELETE", `/api/v1/portals/${current.id}`);
+                const r = await send("DELETE", `/api/v1/sites/${current.id}`);
                 if (!r) return null;
                 toast.success(`${current.name} is gone`);
                 onDeleted(current.id);
@@ -1368,7 +1427,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   const changed = useRef(false);
   useEffect(() => {
     let live = true;
-    fetch(`/api/v1/portals/${portal.id}/requests`, { cache: "no-store" })
+    fetch(`/api/v1/sites/${portal.id}/requests`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
         const b = await r.json();
@@ -1383,7 +1442,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   async function decide(r: Request, status: "approved" | "denied") {
     setBusy(`${r.id}:${status}`);
     try {
-      const res = await fetch(`/api/v1/portals/${portal.id}/requests/${r.id}`, {
+      const res = await fetch(`/api/v1/sites/${portal.id}/requests/${r.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -1418,7 +1477,7 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
   async function remove(r: Request) {
     if (busy) return;
     setBusy(`${r.id}:delete`);
-    const ok = await send("DELETE", `/api/v1/portals/${portal.id}/requests/${r.id}`);
+    const ok = await send("DELETE", `/api/v1/sites/${portal.id}/requests/${r.id}`);
     setBusy(null);
     if (!ok) return;
     changed.current = true;

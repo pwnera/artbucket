@@ -31,14 +31,14 @@ test("a uuid and a date-time are advertised by their format alone", () => {
   const image = JSON.stringify(toolSchemas().publish);
   assert.match(image, /"format":"uuid"/);
   assert.doesNotMatch(image, /"pattern"/);
-  const closes = JSON.stringify(toolSchemas().update_portal.properties?.expiresAt);
+  const closes = JSON.stringify(toolSchemas().update_site.properties?.expiresAt);
   assert.match(closes, /"format":"date-time"/);
   assert.doesNotMatch(closes, /"pattern"/);
 });
 
-test("update_portal refuses a misspelled field, as PATCH /portals/{id} does", () => {
-  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", expiresAt: null, site: { listed: true } }).success);
-  assert.ok(!TOOL_INPUTS.update_portal.safeParse({ portal: "press", brand: ["default"] }).success);
+test("update_site refuses a misspelled field, as PATCH /sites/{id} does", () => {
+  assert.ok(TOOL_INPUTS.update_site.safeParse({ address: "press", expiresAt: null, site: { listed: true } }).success);
+  assert.ok(!TOOL_INPUTS.update_site.safeParse({ address: "press", brand: ["default"] }).success);
 });
 
 test("set_theme merges: null clears any setting, and a misspelled one is refused", () => {
@@ -55,15 +55,15 @@ test("find_icons takes nothing; import_icons wants a set and each icon once, as 
   assert.ok(!TOOL_INPUTS.import_icons.safeParse({ prefix: "tabler", icons: [] }).success);
 });
 
-test("create_portal takes what POST /portals takes, asks for access, and refuses a misspelled field", () => {
+test("create_site takes what POST /portals takes, asks for access, and refuses a misspelled field", () => {
   const ok = { name: "Press kit", access: "members", brands: ["default"] };
-  assert.ok(TOOL_INPUTS.create_portal.safeParse(ok).success);
-  assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, slug: "press-kit", access: "public" }).success);
-  assert.ok(TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "hunter22", theme: { accent: "#ff5500" } }).success);
-  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, access: "password", password: "abc" }).success, "four characters at least, as there");
-  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, theme: { accent: "orange" } }).success);
-  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ ...ok, brand: ["default"] }).success);
-  assert.ok(!TOOL_INPUTS.create_portal.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
+  assert.ok(TOOL_INPUTS.create_site.safeParse(ok).success);
+  assert.ok(TOOL_INPUTS.create_site.safeParse({ ...ok, slug: "press-kit", access: "public" }).success);
+  assert.ok(TOOL_INPUTS.create_site.safeParse({ ...ok, access: "password", password: "hunter22", theme: { accent: "#ff5500" } }).success);
+  assert.ok(!TOOL_INPUTS.create_site.safeParse({ ...ok, access: "password", password: "abc" }).success, "four characters at least, as there");
+  assert.ok(!TOOL_INPUTS.create_site.safeParse({ ...ok, theme: { accent: "orange" } }).success);
+  assert.ok(!TOOL_INPUTS.create_site.safeParse({ ...ok, brand: ["default"] }).success);
+  assert.ok(!TOOL_INPUTS.create_site.safeParse({ name: "No door", brands: ["default"] }).success, "access is asked for");
 });
 
 test("create_brand and update_brand take what POST and PATCH /brands take, and refuse a misspelled field", () => {
@@ -86,11 +86,11 @@ test("the collection tools name a collection by id or name, and take ids to file
   assert.ok(!TOOL_INPUTS.update_collection_assets.safeParse({ collection: "Spring campaign", add: ["logo.svg"] }).success);
 });
 
-test("update_portal takes a password and a theme, as PATCH /portals/{id} does", () => {
-  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", access: "password", password: "hunter22" }).success);
-  assert.ok(TOOL_INPUTS.update_portal.safeParse({ portal: "press", theme: { logo: null, background: "#101010" } }).success);
-  assert.ok(TOOL_INPUTS.decide_portal_request.safeParse({ portal: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "approved" }).success);
-  assert.ok(!TOOL_INPUTS.decide_portal_request.safeParse({ portal: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "pending" }).success);
+test("update_site takes a password and a theme, as PATCH /sites/{id} does", () => {
+  assert.ok(TOOL_INPUTS.update_site.safeParse({ address: "press", access: "password", password: "hunter22" }).success);
+  assert.ok(TOOL_INPUTS.update_site.safeParse({ address: "press", theme: { logo: null, background: "#101010" } }).success);
+  assert.ok(TOOL_INPUTS.decide_site_request.safeParse({ address: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "approved" }).success);
+  assert.ok(!TOOL_INPUTS.decide_site_request.safeParse({ address: "press", request: "4b8f7a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b", status: "pending" }).success);
 });
 
 test("the field tools take what POST and PATCH /fields take: a select has options, a key never changes", () => {

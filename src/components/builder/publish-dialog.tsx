@@ -203,7 +203,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
       // The address from the name, then with a number, should another portal have it.
       const base = slugOf(host.name);
       for (const slug of [base, `${base}-guidelines`, `${base}-2`, `${base}-3`]) {
-        const made = await transport("POST", "/api/v1/portals", { name: host.name, slug, access: door, brands: [brand] });
+        const made = await transport("POST", "/api/v1/sites", { name: host.name, slug, access: door, brands: [brand] });
         if (made.ok) {
           const p = made.data as { slug: string; name: string; url: string };
           published.portals = [...(published.portals ?? []), { slug: p.slug, name: p.name, url: p.url }];

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 /** Where a step is taken in the app. */
 const whereTo = (slug: string, id: Status["steps"][number]["id"]) =>
-  id === "portal" ? `/portals?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : builderPath(slug);
+  id === "portal" ? `/sites?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : builderPath(slug);
 
 /** A prompt for an agent connected over MCP: the fixes worth the most, each as the agent takes it (the step's `agent`). */
 function prompt(name: string, slug: string, fixes: Status["steps"]) {

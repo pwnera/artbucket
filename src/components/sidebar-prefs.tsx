@@ -95,7 +95,7 @@ export const useRecents = () => usePref<Recent[]>(recentsKey(useMe()?.project.id
 // ---- pinned ------------------------------------------------------------------
 
 /** What a person starred to keep at hand: any object of the catalog, from any project of the organization. */
-export type Pin = { id: string; type: "brand" | "collection" | "asset" | "portal" | "rule" | "page"; label: string; href: string };
+export type Pin = { id: string; type: "brand" | "collection" | "asset" | "site" | "rule" | "page"; label: string; href: string };
 const pinsKey = (org: string | undefined) => `artbucket:pinned:${org ?? "none"}`;
 
 export function usePins() {

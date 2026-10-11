@@ -149,7 +149,8 @@ export function apiBreaks(frozen: Paths, current: Paths): string[] {
 
       const [wb, ib] = [jsonOf(was.requestBody?.content), jsonOf(is.requestBody?.content)];
       if (wb && ib) out.push(...schemaBreaks(wb, ib, "input", `${name} body`));
-      else if (!wb && is.requestBody?.required) out.push(`${name}: now requires a body`);
+      // A body that isn't JSON (a zip) is compared by being required at all.
+      else if (!was.requestBody?.required && is.requestBody?.required) out.push(`${name}: now requires a body`);
 
       for (const [status, res] of Object.entries(was.responses ?? {})) {
         if (status === "default") continue;

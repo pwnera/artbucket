@@ -33,6 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
+import type { BuildKind, DeploymentState, SiteKind } from "@/lib/sites";
 
 export type AssetStatus = Status;
 
@@ -1056,6 +1057,8 @@ export const portals = pgTable(
     theme: jsonb("theme").$type<PortalTheme>().notNull().default({ logo: null, accent: null, background: null }),
     /** The site around its pages: footer, quick grab, terms, and whether search engines may list it (lib/portal.ts PortalSite). */
     site: jsonb("site").$type<PortalSite>().notNull().default({}),
+    /** What it is (lib/sites.ts): `portal`, managed by Artbucket, or a kind of build served from its deployments. */
+    kind: text("kind").$type<SiteKind>().notNull().default("portal"),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1064,6 +1067,45 @@ export const portals = pgTable(
     index("portals_project_idx").on(t.projectId),
     check("portals_access_check", sql`${t.access} in ('public', 'password', 'members')`),
     check("portals_password_check", sql`${t.access} <> 'password' or ${t.passwordHash} is not null`),
+    check("portals_kind_check", sql`${t.kind} in ('portal', 'guidelines', 'landing', 'docs', 'storybook')`),
+  ],
+);
+
+/**
+ * A site's deployment (lib/sites.ts): static files uploaded for one mount
+ * path, checked, then live. One live deployment per site and path; the ones
+ * before it stay `replaced`, to be restored. The files sit in storage under
+ * `prefix`; `manifest` is what the build read (its release, rules, assets).
+ */
+export const siteDeployments = pgTable(
+  "site_deployments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    /** Where it is mounted: `/`, or a path such as `/docs`. */
+    path: text("path").notNull().default("/"),
+    kind: text("kind").$type<BuildKind>().notNull(),
+    state: text("state").$type<DeploymentState>().notNull().default("checking"),
+    /** Storage prefix of its files. */
+    prefix: text("prefix").notNull(),
+    files: integer("files").notNull().default(0),
+    bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
+    manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    /** Where it came from, when a build says: a commit and its ref. */
+    commit: text("commit"),
+    ref: text("ref"),
+    /** Why the check failed, in words. */
+    error: text("error"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
+    uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
+    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced')`),
+    check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
 );
 
@@ -1513,7 +1555,7 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
  */
 export const catalogObjects = pgView("catalog_objects", {
   id: uuid("id").notNull(),
-  type: text("type").$type<"asset" | "collection" | "brand" | "portal" | "rule" | "page">().notNull(),
+  type: text("type").$type<"asset" | "collection" | "brand" | "site" | "rule" | "page">().notNull(),
   projectId: uuid("project_id").notNull(),
   /** A part's object: a rule's or a page's brand. */
   parentId: uuid("parent_id"),
@@ -1559,7 +1601,7 @@ export const catalogObjects = pgView("catalog_objects", {
     left join lateral (select max(v.number) as number from ${brandVersions} v where v.brand_id = b.id and v.published_at is not null) r on true
     left join lateral (select max(v.updated_at) as at from ${brandVersions} v where v.brand_id = b.id) u on true
     union all
-    select p.id, 'portal', p.project_id, null, p.slug, p.name, p.intro,
+    select p.id, 'site', p.project_id, null, p.slug, p.name, p.intro,
       case when p.expires_at < now() then 'archived' else 'current' end, null, null, false, '{}'::uuid[], '[]'::jsonb,
       p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))
     from ${portals} p
@@ -1583,7 +1625,7 @@ export const catalogObjects = pgView("catalog_objects", {
 export const catalogEdges = pgView("catalog_edges", {
   fromId: uuid("from_id").notNull(),
   toId: uuid("to_id").notNull(),
-  kind: text("kind").$type<"replaced_by" | "derived" | "rule" | "member" | "offered" | "fork">().notNull(),
+  kind: text("kind").$type<"replaced_by" | "derived" | "rule" | "member" | "offered" | "fork" | "built">().notNull(),
   via: text("via"),
 }).as(
   sql`select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from ${assets} a where a.superseded_by is not null
@@ -1602,5 +1644,11 @@ export const catalogEdges = pgView("catalog_edges", {
       join ${organizations} o on o.slug = split_part(b.forked_from, '/', 1)
       join ${projects} w on w.organization_id = o.id
       join ${brands} s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
-    where b.forked_from is not null`,
+    where b.forked_from is not null
+    union all
+    select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x
+    where d.state = 'live' and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    union all
+    select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
+    where d.state = 'live'`,
 );

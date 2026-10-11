@@ -188,14 +188,14 @@ function BrandPortals({
   const [editing, setEditing] = useState<Portal | "new" | null>(null);
   const linked = hub?.portal?.slug;
   return (
-    <Group title="Portals" info="Where people outside the team read the brand and take its files.">
+    <Group title="Sites" info="Where people outside the team read the brand and take its files.">
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => setEditing("new")}>
           <IconPlus aria-hidden /> New portal
         </Button>
         {portals.length > 0 && (
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/portals?${new URLSearchParams({ brand: brand.slug })}`}>Manage</Link>
+            <Link href={`/sites?${new URLSearchParams({ brand: brand.slug })}`}>Manage</Link>
           </Button>
         )}
       </div>
@@ -222,7 +222,7 @@ function BrandPortals({
               </Badge>
               {p.pending > 0 && (
                 <Button size="xs" asChild>
-                  <Link href={`/portals?${new URLSearchParams({ open: p.id })}`}>
+                  <Link href={`/sites?${new URLSearchParams({ open: p.id })}`}>
                     <IconUserQuestion aria-hidden /> {p.pending} waiting
                   </Link>
                 </Button>

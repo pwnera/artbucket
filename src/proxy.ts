@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { servesBuild } from "@/lib/sites";
 import { ipOf } from "@/lib/client-ip";
 import { hostTarget, portalHome } from "@/lib/core/domains";
 import { suspendedAt } from "@/lib/core/suspension";
@@ -111,6 +112,9 @@ const who = (req: NextRequest) => ipOf(req.headers) ?? "unknown";
  * current one. A members portal stays at /p/ on the host asked: its members
  * sign in there.
  */
+/** Responses that are a build's files: they keep the headers sitefiles gives them, not the app's. */
+const builds = new WeakSet<Response>();
+
 async function portalRoute(req: NextRequest, target: Target, init?: { request: { headers: Headers } }) {
   const host = req.headers.get("host") ?? "";
   const { pathname, search } = req.nextUrl;
@@ -129,8 +133,12 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   if (where) return new NextResponse(null, { status: 308, headers: { Location: `${where}${rest}${search}` } });
   if (!asked) return null;
   const url = req.nextUrl.clone();
-  url.pathname = `/p/${asked}${rest}`;
-  return NextResponse.rewrite(url, init);
+  // A path a live build holds is its files (lib/core/sites.ts); a site that is all build, every path. Only here, on the site's own host.
+  const built = !!home && servesBuild(home, rest);
+  url.pathname = built ? `/sitefiles/${asked}${rest || "/"}` : `/p/${asked}${rest}`;
+  const res = NextResponse.rewrite(url, init);
+  if (built) builds.add(res);
+  return res;
 }
 
 /**
@@ -194,6 +202,8 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // A NUL names nothing here, and Postgres refuses it in text: every route, page and query alike, before any asks.
   if (/%00/.test(pathname + req.nextUrl.search)) return NextResponse.json({ error: { code: "not_found", message: "Not found" } }, { status: 404 });
+  // A build's files are reached only by the rewrite on its site's own host (portalRoute), never asked for by path: customer JavaScript never runs on the app's host.
+  if (pathname.startsWith("/sitefiles/") || pathname === "/sitefiles") return new NextResponse("Not found", { status: 404 });
   const onHub = !!hubHost && req.headers.get("host") === hubHost;
   // The hub's pages are its API too (brand.json, tokens, llms.txt), so they count as /api does.
   if (RATE > 0 && (pathname.startsWith("/api/") || onHub)) {
@@ -226,9 +236,15 @@ export async function proxy(req: NextRequest) {
     movedGuidelines(req) ??
     (page && host === appHost ? openProject(req) : null) ??
     NextResponse.next(init);
+  // Next's own trailing-slash redirect is off (next.config.ts) so a build's folders keep theirs; everything else loses it here, as before.
+  if (!builds.has(res) && pathname.length > 1 && pathname.endsWith("/")) {
+    // Not nextUrl, which puts back the slash it was asked with.
+    return NextResponse.redirect(new URL(`${pathname.replace(/\/+$/, "") || "/"}${req.nextUrl.search}`, req.url), 308);
+  }
   if (https) res.headers.set("Strict-Transport-Security", "max-age=63072000");
-  // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's.
-  if (page) res.headers.set("Content-Security-Policy", policy);
+  // The API answers JSON and /a/ answers bytes with a policy of its own (/c/ only redirects there); pages get the app's. A build's
+  // files keep sitefiles' own: the app's nonce would stop every script the build has.
+  if (page && !builds.has(res)) res.headers.set("Content-Security-Policy", policy);
   return res;
 }
 

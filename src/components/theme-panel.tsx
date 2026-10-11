@@ -178,22 +178,27 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
   return (
     <div className="grid min-w-0 grid-cols-1 content-start gap-6">
       <Group title="Style">
-        <div className="grid grid-cols-1 gap-1.5">
-          {Object.entries(LOOKS).map(([id, st]) => {
-            const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
-            return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => save(st.patch)}
-                className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 flex min-w-0 items-baseline gap-2 rounded-lg border px-3 py-2 text-start outline-none transition-colors focus-visible:ring-3"
-              >
-                <span className="text-sm font-medium">{st.name}</span>
-                <span className="text-muted-foreground min-w-0 truncate text-xs">{st.about}</span>
-              </button>
-            );
-          })}
+        <div className="@container">
+          <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
+            {Object.entries(LOOKS).map(([id, st]) => {
+              const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => save(st.patch)}
+                  className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 grid min-w-0 content-start gap-2 rounded-lg border p-2 text-start outline-none transition-colors focus-visible:ring-3"
+                >
+                  <LookSketch look={st.patch} />
+                  <span className="grid gap-0.5 px-0.5">
+                    <span className="text-sm font-medium">{st.name}</span>
+                    <span className="text-muted-foreground line-clamp-2 text-xs">{st.about}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </Group>
 
@@ -565,5 +570,92 @@ function LinksEditor({ links, onSave }: { links: Link[]; onSave: (links: Link[])
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * A look drawn as a small page, gray like a loading skeleton: where its
+ * navigation sits, how its header opens, how wide and dense it reads, how big
+ * its titles are, its corners, grounds and contents. What picking it gives.
+ */
+function LookSketch({ look }: { look: (typeof LOOKS)[string]["patch"] }) {
+  const W = 120;
+  const H = 80;
+  const side = look.nav === "sidebar" ? 26 : 0;
+  const area = W - side;
+  const w = area * { narrow: 0.6, normal: 0.78, wide: 0.88 }[look.width ?? "normal"];
+  const x = side + (area - w) / 2;
+  const toc = look.toc === "side" ? 16 : 0;
+  const cw = w - toc;
+  const r = Math.min((look.radius ?? 8) / 4, 4);
+  const gap = { compact: 3, normal: 4, airy: 6 }[look.density ?? "normal"];
+  const th = { medium: 3, large: 4.5, huge: 6.5 }[look.titles ?? "large"];
+  const back: React.ReactNode[] = [];
+  const front: React.ReactNode[] = [];
+  const bar = (bx: number, by: number, bw: number, bh: number, cls: string, rx = Math.min(bh / 2, 1.5)) =>
+    front.push(<rect key={front.length} x={bx} y={by} width={bw} height={bh} rx={rx} className={cls} />);
+
+  // Navigation: a column, a bar along the top, or a menu button over the page.
+  if (side) {
+    back.push(<rect key="side" width={side} height={H} className="fill-foreground/[0.06]" />);
+    bar(6, 8, 10, 3, "fill-foreground/30");
+    [17, 23, 29].forEach((by, i) => bar(6, by, i === 1 ? 10 : 14, 2, "fill-foreground/15"));
+  } else {
+    bar(x, 7, 12, 3, "fill-foreground/30");
+    if (look.nav === "top") [0, 1, 2].forEach((i) => bar(x + w - 8 - i * 11, 7.5, 8, 2, "fill-foreground/15"));
+    else [7, 10].forEach((by) => bar(x + w - 6, by, 6, 1.2, "fill-foreground/30", 0.6));
+  }
+
+  // The header: plain, beside a picture, or on a band of the brand's color.
+  let y = side ? 9 : 20;
+  const top = y;
+  if (look.header === "band") {
+    back.push(<rect key="band" x={side} y={y - 3} width={area} height={th + 16} className="fill-foreground/15" />);
+    bar(x, y + 4, cw * 0.55, th, "fill-background");
+    bar(x, y + 7 + th, cw * 0.32, 2, "fill-background/60");
+    y += th + 13 + gap + 2;
+  } else if (look.header === "split") {
+    const pic = Math.max(14, th + 10);
+    bar(x, y + (pic - th - 5) / 2, w * 0.42, th, "fill-foreground/40");
+    bar(x, y + (pic + th - 1) / 2, w * 0.3, 2, "fill-foreground/15");
+    bar(x + w * 0.52, y, w * 0.48, pic, "fill-foreground/15", r);
+    y += pic + gap + 2;
+  } else {
+    bar(x, y, cw * 0.55, th, "fill-foreground/40");
+    bar(x, y + th + 3, cw * 0.35, 2, "fill-foreground/15");
+    y += th + 5 + gap + 2;
+  }
+
+  // Two sections: numbered or not, between hairlines or space, the second on its own ground.
+  for (const i of [0, 1]) {
+    if (i && look.separation === "hairline") {
+      back.push(<rect key="rule" x={x} y={y - gap / 2 - 0.25} width={w} height={0.5} className="fill-foreground/15" />);
+    }
+    if (i && look.grounds === "alternate") back.push(<rect key="ground" x={side} y={y - gap / 2} width={area} height={H} className="fill-foreground/[0.05]" />);
+    const hx = look.numbering ? x + 6 : x;
+    if (look.numbering) bar(x, y, 3.5, 3, "fill-foreground/30", 0.75);
+    bar(hx, y, cw * 0.38, 3, "fill-foreground/30");
+    y += 3 + gap * 0.8;
+    // Round looks set their second section on a card.
+    if (i && (look.radius ?? 8) >= 16) {
+      bar(x, y, cw, 12, "fill-foreground/[0.08]", r);
+      bar(x + 4, y + 3.5, cw * 0.5, 2, "fill-foreground/15");
+      bar(x + 4, y + 7, cw * 0.35, 2, "fill-foreground/15");
+      y += 12 + gap * 1.5;
+      continue;
+    }
+    bar(x, y, cw, 2, "fill-foreground/15");
+    bar(x, y + 4, cw * 0.72, 2, "fill-foreground/15");
+    y += 6 + gap * 1.5;
+  }
+
+  // Contents beside the page.
+  if (toc) [0, 4, 8].forEach((dy, i) => bar(x + w - toc + 5, top + dy, i === 1 ? 8 : 11, 1.5, "fill-foreground/15"));
+
+  return (
+    <svg aria-hidden viewBox={`0 0 ${W} ${H}`} className="bg-muted/40 block aspect-[3/2] w-full rounded-md">
+      {back}
+      {front}
+    </svg>
   );
 }

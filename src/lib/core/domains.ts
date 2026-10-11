@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname } from "node:dns/promises";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { domains, portalAliases, portals, sessions, projects } from "@/lib/db/schema";
+import { siteDeployments, domains, portalAliases, portals, sessions, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -92,8 +92,12 @@ export async function portalHome(slug: string) {
   const named = await portalNamed(slug);
   if (!named) return null;
   const { p } = named;
-  const [own] = await db.select({ host: domains.host, verifiedAt: domains.verifiedAt }).from(domains).where(eq(domains.portalId, p.id));
-  return { slug: p.slug, access: p.access, url: await portalUrl(p, own ?? null) };
+  const [[own], live] = await Promise.all([
+    db.select({ host: domains.host, verifiedAt: domains.verifiedAt }).from(domains).where(eq(domains.portalId, p.id)),
+    db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live"))),
+  ]);
+  // Where its builds answer (lib/core/sites.ts): the proxy sends those paths to their files.
+  return { slug: p.slug, access: p.access, kind: p.kind, mounts: live.map((m) => m.path), url: await portalUrl(p, own ?? null) };
 }
 
 /** The portal a verified host name serves, for the proxy; null for any other host. */

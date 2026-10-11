@@ -48,6 +48,16 @@ artbucket share {collection-id} --upload
 artbucket audit
 ```
 
+Sites, and a build deployed to one ([Sites](/guides/sites)): `push` zips the
+folder, hidden files left out, and sends it; `--path` mounts it beside a brand
+portal.
+
+```bash
+artbucket sites
+artbucket site push dist --site acme-docs
+artbucket site push storybook-static --site acme --path /storybook --kind storybook
+```
+
 A brand's pages, rules and theme, from JSON files in the shapes the API takes:
 
 ```bash

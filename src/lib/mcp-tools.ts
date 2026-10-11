@@ -44,7 +44,7 @@ const page = pageSlug.describe("Its slug, e.g. logo (list_pages)");
 const revision = z.string().optional().describe("From get_page");
 const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
 const version = z.number().int().min(1).describe("The version's number, from list_versions");
-const portal = z.string().min(1).max(64).describe("Its address (slug), as list_portals names it");
+const address = z.string().min(1).max(64).describe("The site's address (slug), as list_sites names it");
 const fieldKey = z.string().regex(FIELD_KEY).describe("The field's key, as list_fields names it");
 const comment = z.uuid().describe("The comment's id, from list_comments");
 const collection = z.string().min(1).max(120).describe("Its id, or its name in any case, as list_collections names it");
@@ -274,26 +274,26 @@ export const TOOL_INPUTS = {
     image: z.uuid().optional().describe("An asset shown beside the note, from search_assets"),
   }),
 
-  list_portals: z.object({}),
+  list_sites: z.object({}),
 
   // PATCH /portals/{id}'s own fields, so both doors take the same thing; strict, as there.
-  update_portal: PortalPatch.extend({ portal }),
+  update_site: PortalPatch.extend({ address }),
 
   // POST /portals's own fields; strict, as there. Access is asked for, never assumed public.
-  create_portal: PortalInput.extend({
+  create_site: PortalInput.extend({
     slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
     access: z
       .enum(PORTAL_ACCESS)
       .describe("members: people with access to the project; password: whoever has `password`; public: anyone with the address"),
   }),
 
-  close_portal: z.object({ portal }),
+  close_site: z.object({ address }),
 
-  delete_portal: z.object({ portal }),
+  delete_site: z.object({ address }),
 
-  list_portal_requests: z.object({ portal }),
+  list_site_requests: z.object({ address }),
 
-  decide_portal_request: PortalDecision.extend({ portal, request: z.uuid().describe("The request's id, from list_portal_requests") }),
+  decide_site_request: PortalDecision.extend({ address, request: z.uuid().describe("The request's id, from list_site_requests") }),
 
   search_catalog: z.object({
     q: z.string().max(512).optional().describe('Free words, and filters inline: "logo type:asset status:current uses:acme/corporate/brand/acme"'),

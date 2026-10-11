@@ -1,7 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, not, notExists, or, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, groupMembers, invitations, pageViews, portals, renditions, settings, traffic, projects } from "@/lib/db/schema";
+import { assets, brandPages, brandRules, brands, brandVersions, domains, grants, groupMembers, invitations, pageViews, portals, renditions, settings, siteDeployments, traffic, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
@@ -33,12 +33,15 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** Renditions the bucket still keeps (lib/storage.ts expires them). */
 const kept = gt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`);
 
+/** Deployments whose files are kept: the live one at each path and the few replaced kept to restore (lib/core/sites.ts). */
+const keptBuild = inArray(siteDeployments.state, ["live", "replaced"]);
+
 /**
- * Bytes of the organization's assets, and of the renditions made of them.
- * Deleted assets don't count: deleting frees room at once.
+ * Bytes of the organization's assets, of the renditions made of them, and of
+ * its sites' builds. Deleted assets don't count: deleting frees room at once.
  */
 async function storageOf(organizationId: string, q: Tx | typeof db = db) {
-  const [[a], [r]] = await Promise.all([
+  const [[a], [r], [b]] = await Promise.all([
     q
       .select({ bytes: sql<number>`coalesce(sum(${assets.size}), 0)::float8` })
       .from(assets)
@@ -49,8 +52,14 @@ async function storageOf(organizationId: string, q: Tx | typeof db = db) {
       .from(renditions)
       .innerJoin(projects, eq(projects.id, renditions.projectId))
       .where(and(eq(projects.organizationId, organizationId), kept)),
+    q
+      .select({ bytes: sql<number>`coalesce(sum(${siteDeployments.bytes}), 0)::float8` })
+      .from(siteDeployments)
+      .innerJoin(portals, eq(portals.id, siteDeployments.siteId))
+      .innerJoin(projects, eq(projects.id, portals.projectId))
+      .where(and(eq(projects.organizationId, organizationId), keptBuild)),
   ]);
-  return a.bytes + r.bytes;
+  return a.bytes + r.bytes + b.bytes;
 }
 
 /** Where to go about it, when the operator said (BILLING_URL). */
@@ -360,7 +369,7 @@ export function recordPageView(portalSlug: string, brandSlug: string, page: stri
 
 const DAYS = 30;
 
-/** GET /api/v1/portals/{id}/views: its pages' reads over the last 30 days, per brand and page, most read first. Null: no such portal here. */
+/** GET /api/v1/sites/{id}/views: its pages' reads over the last 30 days, per brand and page, most read first. Null: no such portal here. */
 export async function portalViews(caller: Caller, portalId: string) {
   if (!can(caller, "portal.manage")) throw new AssetError("forbidden", `Portals take ${needs("portal.manage")}`);
   const [p] = await db
@@ -397,7 +406,8 @@ export async function usageOf(caller: Caller) {
         id: projects.id,
         name: projects.name,
         storage: sql<number>`(coalesce((select sum(a.size) from ${assets} a where a.project_id = ${projects.id} and a.deleted_at is null), 0)
-          + coalesce((select sum(r.bytes) from ${renditions} r where r.project_id = ${projects.id} and r.created_at > now() - make_interval(days => ${RENDITION_DAYS})), 0))::float8`,
+          + coalesce((select sum(r.bytes) from ${renditions} r where r.project_id = ${projects.id} and r.created_at > now() - make_interval(days => ${RENDITION_DAYS})), 0)
+          + coalesce((select sum(d.bytes) from ${siteDeployments} d join ${portals} s on s.id = d.site_id where s.project_id = ${projects.id} and d.state in ('live', 'replaced')), 0))::float8`,
         requests: sql<number>`coalesce(sum(${traffic.requests}), 0)::int`,
         bytes: sql<number>`coalesce(sum(${traffic.bytes}), 0)::float8`,
       })

@@ -1,0 +1,90 @@
+---
+title: Sites
+description: Brand portals Artbucket draws, and sites you build anywhere and deploy as static files.
+---
+
+A site is one of two things, each at an address of its own:
+
+- **A brand portal**, drawn by Artbucket: the collections and brand pages you
+  pick, in the brand's theme ([Portals](/guides/portals)).
+- **A built site**: guidelines, a landing page, docs or a Storybook you build
+  with your own tools (Claude, Lovable, a static site generator), deployed as
+  a folder of static files.
+
+Both live under **Sites** in the sidebar and at `/api/v1/sites`. Agents
+manage them with `create_site`, `update_site`, `list_sites`, `close_site` and
+`delete_site`. Making or deploying a site takes write on the project.
+
+## Deploy a build
+
+A deployment is a zip of the build: `index.html` at its root, or in the one
+folder it wraps (a zip of `dist/` works as is). Hidden files and `__MACOSX`
+are left out. Drop it on the site in **Sites**, push it from a terminal, or
+send it to the API:
+
+```bash
+artbucket site push dist --site acme-docs
+```
+
+```bash
+curl -X POST "https://app.example.com/api/v1/sites/{id}/deployments?path=/" \
+  -H "Authorization: Bearer $ARTBUCKET_KEY" \
+  -H "Content-Type: application/zip" --data-binary @dist.zip
+```
+
+It is unpacked, checked and stored, then live. A deployment holds 5,000 files
+and 200 MB unpacked at most, and its files count toward the organization's
+storage, as uploads do. `commit` and `ref` in the query record what it was
+built from.
+
+Each deployment replaces the one live at its path. The last three replaced
+are kept, so **Restore** (or `POST
+/api/v1/sites/{id}/deployments/{deployment}/restore`) puts one back without
+building again; older ones, and failed ones, are deleted with their files.
+
+## How a build is served
+
+A request finds its file, then `{path}.html`, then `{path}/index.html`, then
+the build's own `404.html` with a 404. A folder asked for without its slash
+gets one (`/guide` to `/guide/`), so its page's relative links resolve under
+it, as on other static hosts.
+
+A build is served only at the site's own address: `{address}.PORTAL_DOMAIN`
+or a [domain of its own](/guides/portals#a-domain-of-its-own), never under
+`/p/` on the app's address, where its scripts would run beside a signed-in
+session. It sends its own headers, not the app's: its scripts run, and it may
+be framed by itself only. A server without `PORTAL_DOMAIN` and without a
+verified domain for the site stores deployments but can't show them.
+
+## Beside a brand portal
+
+A brand portal's pages stay Artbucket's, and a build mounts beside them at a
+path: deploy with `?path=/docs&kind=docs` (or `--path /docs`), and
+`{address}/docs/` is the build while the rest is the portal. Each path has its
+own live deployment.
+
+## Who sees it
+
+A site is public, behind a password, or for members, as a portal is. A
+password site's pages ask for the password first, then open for a week on
+that browser; a new password closes them again. A members site's builds
+aren't shown yet: members sign in at the app's address, which a build's
+address can't share.
+
+## What it uses
+
+A build that reads from Artbucket says so in `artbucket.site.json` at its
+root:
+
+```json
+{
+  "brand": "acme",
+  "assets": ["0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f"]
+}
+```
+
+Every asset it names must be the project's, approved, current and unexpired,
+or the deployment fails and says which and why: a build can't ship a replaced
+logo or a lapsed license. Once live, the site shows in the
+[catalog](/guides/catalog)'s lineage of each asset and of the brand, as
+`built`, so you see every site a logo reaches.

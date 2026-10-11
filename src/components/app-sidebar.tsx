@@ -105,7 +105,7 @@ export function AppSidebar({
     insights: pathname.startsWith("/insights"),
     brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
-    portals: pathname === "/portals",
+    sites: pathname === "/sites",
     review: pathname === "/review",
     // A collection or saved search is its own item, so none of these is lit for one.
     library: inLibrary && !view.collection && !onSearch,
@@ -173,7 +173,7 @@ export function AppSidebar({
             <SidebarMenu>
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
-              {can("portal.manage") && <Place href="/portals" label="Portals" icon={<IconWorld />} active={at.portals} />}
+              {can("portal.manage") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -309,7 +309,7 @@ export function NewMenuContent({ side, align = "start" }: { side?: "right" | "bo
     [
       can("brand.create") && { label: "Brand", icon: IconPalette, run: () => navigate("/brands?new=brand") },
       can("collection.create") && { label: "Collection", icon: IconFolders, run: () => openCollection("new") },
-      can("portal.manage") && { label: "Portal", icon: IconWorld, run: () => navigate("/portals?new=portal") },
+      can("portal.manage") && { label: "Site", icon: IconWorld, run: () => navigate("/sites?new=portal") },
       can("organization.manage") && { label: "Project", icon: IconLayoutGrid, run: () => navigate("/settings/organization/projects") },
     ],
     [addItem("fonts"), addItem("icons"), addItem("link")],
@@ -361,7 +361,7 @@ function NewMenu({ me }: { me: Me }) {
   );
 }
 
-const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, portal: IconWorld, rule: IconListCheck, page: IconFileText } as const;
+const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, site: IconWorld, rule: IconListCheck, page: IconFileText } as const;
 
 /** What this person starred, from the catalog or a brand's page: the one list the sidebar keeps, because they chose it. */
 function Pinned({ current }: { current: string }) {
@@ -373,7 +373,8 @@ function Pinned({ current }: { current: string }) {
       <SidebarGroupContent>
         <SidebarMenu>
           {pins.map((p) => {
-            const Icon = PIN_ICON[p.type];
+            // A pin kept from before sites were named so reads as one.
+            const Icon = PIN_ICON[p.type] ?? IconWorld;
             return (
               <SidebarMenuItem key={p.id}>
                 <SidebarMenuButton asChild isActive={current === p.href} tooltip={p.label}>

@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
-import { IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@/components/icons";
+import { IconSparkles, IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@/components/icons";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
@@ -97,6 +97,14 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       {!compact && <PinButton pin={{ id: brand.id, type: "brand", label: brand.name, href: brandPath(brand.slug) }} />}
       {/* Its lineage, who reaches it and what happened to it: governed in the catalog, with everything else. */}
       <CatalogButton id={brand.id} name={brand.name} />
+      {/* Pages edited by an agent from here, as the builder retires (PRD part 2): not yet, and said so. */}
+      {can("brand.edit") && (
+        <span title="Edit with AI is coming soon" className="inline-flex">
+          <Button size="sm" variant="outline" disabled aria-label="Edit with AI, coming soon">
+            <IconSparkles aria-hidden /> <span className={word}>Edit with AI</span>
+          </Button>
+        </span>
+      )}
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={builderPath(brand.slug, editing)}>
@@ -377,6 +385,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
 /** The crumb after the brand's name, by the address under /brands/{slug}; none on the Overview. */
 const CRUMBS: Record<string, string> = {
   rules: "Tokens and rules",
+  theme: "Theme",
   assets: "Assets",
   releases: "Releases",
   "releases/new": "New release",
