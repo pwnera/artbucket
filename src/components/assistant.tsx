@@ -43,6 +43,8 @@ type AssistantValue = {
   /** The conversation the frame last showed: the next frame opens on it. */
   chat: string | null;
   setChat: (chat: string | null) => void;
+  /** A change the person approved in the frame was made: pages holding what it touched fetch it again. */
+  onChanged: () => void;
   /** The asset open in the app, which "this" means in the frame. */
   asset: string | null;
   setAsset: React.Dispatch<React.SetStateAction<string | null>>;
@@ -65,7 +67,7 @@ const AssistantContext = createContext<AssistantValue | null>(null);
 /** The assistant, where the server has one; null elsewhere (and on /design). */
 export const useAssistant = () => useContext(AssistantContext);
 
-export function AssistantProvider({ url, children }: { url: string | null; children: React.ReactNode }) {
+export function AssistantProvider({ url, onChanged, children }: { url: string | null; onChanged: () => void; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   // The tab remembers the conversation across reloads, as it remembers a closed banner (components/shell.tsx).
   const [chat, setChatState] = useState<string | null>(() => {
@@ -120,8 +122,8 @@ export function AssistantProvider({ url, children }: { url: string | null; child
   // Closed, it opens beside the page again.
   if (!open && expanded) setExpanded(false);
   const value = useMemo(
-    () => (url ? { url, open, setOpen, chat, setChat, asset, setAsset, width, setWidth, expanded, setExpanded } : null),
-    [url, open, chat, setChat, asset, width, setWidth, expanded],
+    () => (url ? { url, open, setOpen, chat, setChat, onChanged, asset, setAsset, width, setWidth, expanded, setExpanded } : null),
+    [url, open, chat, setChat, onChanged, asset, width, setWidth, expanded],
   );
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }
@@ -161,7 +163,12 @@ export function AssistantPanel() {
     // Escape pressed inside the frame, which the panel can't hear itself.
     if (data.close === true) a.setOpen(false);
     if (typeof data.expand === "boolean") a.setExpanded(data.expand);
-    if (data.changed === true) router.refresh();
+    // A change made: the server's pages draw again, and the ones that hold assets in the browser (the library, an
+    // open asset) fetch them again, or they'd show it as it was until a reload.
+    if (data.changed === true) {
+      router.refresh();
+      a.onChanged();
+    }
     const place = assistantPlace(data.navigate, window.location.origin);
     if (place) router.push(place);
   });
