@@ -4,6 +4,82 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.0.0](https://github.com/pwnera/artbucket/compare/v1.11.0...v2.0.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* the workspace is the project
+* **access:** roles alone decide, nothing is switched off per grant
+
+### Features
+
+* a brand book importer the server offers, as a way to start a brand ([a7f7a85](https://github.com/pwnera/artbucket/commit/a7f7a8516947e69f1d2f81c85a68b91b12f744ac))
+* **access:** grants on a brand, and private brands ([1688968](https://github.com/pwnera/artbucket/commit/1688968dae4f76c82f9e04d035e42ecbce26607a))
+* **access:** groups, whose grants are each member's ([b9dc3ec](https://github.com/pwnera/artbucket/commit/b9dc3ec7c61ada562acde059f80d5cd407fccb22))
+* **access:** roles alone decide, nothing is switched off per grant ([177b916](https://github.com/pwnera/artbucket/commit/177b916d75d3c819ce9120a401047da805ba51c1))
+* **access:** share a brand, collection or asset into another project ([4d5a8d9](https://github.com/pwnera/artbucket/commit/4d5a8d9e047710eed03636f044da4593085dd48a))
+* an assistant beside the app and a brand book step in New brand ([a2f0576](https://github.com/pwnera/artbucket/commit/a2f0576ab0d7d00fef61fba0ba59ddf813aba501))
+* an assistant beside the app, and agents at work on an asset ([250a9cd](https://github.com/pwnera/artbucket/commit/250a9cda68f0fc0d138f578f292c66f29662fe54))
+* **assistant:** refresh the page once the assistant made a change ([f1535b5](https://github.com/pwnera/artbucket/commit/f1535b5db78ad9f483c3d33d003491d8eae1c29e))
+* **brands:** dryRun on POST /brands, whether a brand may be made ([3d765d2](https://github.com/pwnera/artbucket/commit/3d765d2ad1bbcbaa8d444b563d8b073b851588ae))
+* **brands:** the brand book importer as a step of New brand ([7eb8b6c](https://github.com/pwnera/artbucket/commit/7eb8b6c90699fbcda758e18ab1d8fb960d206459))
+* **builder:** Edit opens the editor, never a setup screen ([a5e9b8e](https://github.com/pwnera/artbucket/commit/a5e9b8e3c5e475b398a12b903ff41546599e60f7))
+* **catalog:** a page for every level of the tree ([dfaefde](https://github.com/pwnera/artbucket/commit/dfaefdeb3a59154a64d3dce07db28cda55ca4b5b))
+* **catalog:** a tree that folds at every level ([263f1b4](https://github.com/pwnera/artbucket/commit/263f1b4d1aa4e779ac0a425e2289eca58065b51e))
+* **catalog:** a way back to the catalog from everything it holds ([e9cb482](https://github.com/pwnera/artbucket/commit/e9cb482d0caa4f5bd9a2e247ad0f2afb37b88d99))
+* **catalog:** assets fold by type in the tree ([e29e9a4](https://github.com/pwnera/artbucket/commit/e29e9a490d27d3b8a45b7da24159b04b303fe2ae))
+* **catalog:** every object's page carries Lineage, Access and Activity ([483e1a2](https://github.com/pwnera/artbucket/commit/483e1a29caa86b7cad6d18012302bfcd5839cb4a))
+* **catalog:** grant access from the catalog ([5feaeca](https://github.com/pwnera/artbucket/commit/5feaeca5c5bcbeada2baca67b97d9335163297eb))
+* **catalog:** lineage drawn as Unity Catalog draws it ([3dae576](https://github.com/pwnera/artbucket/commit/3dae5761406c04f26e16c067a8b86eca51580a81))
+* **catalog:** lineage says whether each thing may be used ([b4c0194](https://github.com/pwnera/artbucket/commit/b4c01943bf46750ae92178f0d9d4a9f384401a40))
+* **catalog:** one catalog over every type, with lineage ([8476227](https://github.com/pwnera/artbucket/commit/8476227f1bd075f441dc92785ec53844057f5d9b))
+* **catalog:** reach access from every page ([83ffd34](https://github.com/pwnera/artbucket/commit/83ffd3482d9c7f002695783da85a97e6ac9c3347))
+* **catalog:** REST, MCP and CLI over the catalog ([5b21c2f](https://github.com/pwnera/artbucket/commit/5b21c2f0f31f004a4540d77d77bcad310ecaae3d))
+* **catalog:** search every type from one box ([e67466d](https://github.com/pwnera/artbucket/commit/e67466d69dd173eaecd72bb42395ac7f99412944))
+* **catalog:** the explorer, with lineage as a graph ([23b0d8a](https://github.com/pwnera/artbucket/commit/23b0d8a29667115e65ea9d970d39782b278b99a3))
+* **explore:** Drive's home and folders above files ([52facb1](https://github.com/pwnera/artbucket/commit/52facb14a86c5674eef8b53917920ee54aca8fa8))
+* **explore:** Explore searches everything ([efd7b73](https://github.com/pwnera/artbucket/commit/efd7b732de5455663a820e4b011fe3178ebd36e3))
+* **explore:** save as collection, not as a search; icon-only actions ([4a0a7c1](https://github.com/pwnera/artbucket/commit/4a0a7c1119d3336fd6b1b46ee4029b336042ae12))
+* **explore:** search first, with what you did lately ([c452515](https://github.com/pwnera/artbucket/commit/c452515bc5fa81b96fb64647423fac9bc59d3e9d))
+* **explore:** setup on the start page, recents drawn as results are ([48f0a5a](https://github.com/pwnera/artbucket/commit/48f0a5a85a396a3c369ceca0b8a1e2c77968358a))
+* Library becomes Explore ([3966146](https://github.com/pwnera/artbucket/commit/3966146bb861504d979ef2dbc2aee65ef2981725))
+* **nav:** BrandHub sits last, under Settings ([87c08d0](https://github.com/pwnera/artbucket/commit/87c08d0cb89e9cf7479096a0eb008bfa8837687c))
+* **nav:** New, Content apart, and Pinned ([a10dd99](https://github.com/pwnera/artbucket/commit/a10dd9986c4532bcc1c91e388dca15f23408f8e9))
+* **nav:** one New menu, Drive style ([1d4ce7d](https://github.com/pwnera/artbucket/commit/1d4ce7d301d1a97764ca6b28f7e02e4431d06987))
+* **nav:** Review is a page of its own, Activity is Insights' ([98994d5](https://github.com/pwnera/artbucket/commit/98994d59dd2f60127c0e39f8a979b2327fc64dd7))
+* **nav:** the catalog is the hub ([577aeeb](https://github.com/pwnera/artbucket/commit/577aeeb4b7e6626e500ff90ea157a6f9d2461d34))
+* **nav:** the sidebar is the catalog ([e0bb0a8](https://github.com/pwnera/artbucket/commit/e0bb0a871a69f8a121eba469bfc7f64820e3f1c6))
+* **projects:** a new organization's first project is My First Project ([c8a6222](https://github.com/pwnera/artbucket/commit/c8a6222cf8e6069b151ca3900e6694241c09cae1))
+* the catalog, projects and simpler access (PRD step 1) ([b3c7800](https://github.com/pwnera/artbucket/commit/b3c78002a21d8ca6dcad9277c3f0b951e68d4268))
+* **ui:** Phosphor icons ([f512874](https://github.com/pwnera/artbucket/commit/f512874d24090d1919ab95a1d51507d9cebf3bec))
+
+
+### Fixes
+
+* **assets:** suggestions fit the asset's panel ([757bf56](https://github.com/pwnera/artbucket/commit/757bf562a733dc66e186357c8e96f4f8eaf3c1c9))
+* **catalog:** a tree row opens its page, its chevron alone folds it ([45a9daf](https://github.com/pwnera/artbucket/commit/45a9dafe8f4ea09f3294849437e293af26c2790e))
+* **catalog:** lineage cards move where they are dragged ([4b6a0d8](https://github.com/pwnera/artbucket/commit/4b6a0d8b7435280b3a877e58aa5727a788e649eb))
+* **catalog:** lineage grows outward and keeps what it drew ([ece6779](https://github.com/pwnera/artbucket/commit/ece67792c208450b078e074999461558556b6e05))
+* **catalog:** Open leads to the object again ([238ac9f](https://github.com/pwnera/artbucket/commit/238ac9f3525bea657a6d3fbb4c3ee623ab4f9ff5))
+* **hub:** keep signed files and sign-in links out of search engines ([6acb301](https://github.com/pwnera/artbucket/commit/6acb301dadc10130be870b5ff94a43d1c9e5afa1))
+* **hub:** keep signed files and sign-in links out of search engines ([1a659a1](https://github.com/pwnera/artbucket/commit/1a659a15254bd39b19b384bcedea40acd90fce40))
+* keep pnpm-workspace.yaml and Google Workspace as they are named ([b117da2](https://github.com/pwnera/artbucket/commit/b117da25ea09711c1ac5869b11f45b5fcff3dce7))
+* **ui:** Artbucket's words, not folders and files ([b0ba8f1](https://github.com/pwnera/artbucket/commit/b0ba8f14206dd79c694493bd7164e494abc88e84))
+
+
+### Documentation
+
+* Explore, the catalog's pages and grants, Activity in Insights ([428e529](https://github.com/pwnera/artbucket/commit/428e529cc1f79a596dc8cc7ff5c6b1993c59e239))
+* Explore, the catalog's pages and grants, Activity in Insights ([2d01101](https://github.com/pwnera/artbucket/commit/2d01101d0ab63be85a8f000aa67e786bca657f2c))
+* **readme:** the catalog, the governance and context layer ([f207f10](https://github.com/pwnera/artbucket/commit/f207f101a9e988c0c8f1d052acd1127e19b78911))
+* the catalog, and decision 0017 ([166baeb](https://github.com/pwnera/artbucket/commit/166baebc9dc4dd51806dbf0c3d7554fb03aee51a))
+
+
+### Refactoring
+
+* the workspace is the project ([a282e28](https://github.com/pwnera/artbucket/commit/a282e28f97a28d814113aa212c2992479033fccc))
+
 ## [1.11.0](https://github.com/pwnera/artbucket/compare/v1.10.2...v1.11.0) (2026-10-06)
 
 
