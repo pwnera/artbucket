@@ -58,14 +58,17 @@ export const FeatureEntry = z.strictObject({
     )
     .default([]),
   hook: Hook.optional(),
-  /** Its own page, opened from its card while it is on: usage, settings of its own. */
+  /**
+   * Its own view, under Manage on its card while it is on (usage, actions of its own): the address the app reads it
+   * from and posts its actions to, on the app's origin (components/settings/feature-manage.tsx). The app draws it.
+   */
   manage: z.string().url().optional(),
   /**
    * Said in the app's confirmation before it is turned off (`off`: what stops) or on (`on`: what the admin agrees to, say
    * that content goes to an AI provider), beside the projects it changes.
    */
   confirm: z.strictObject({ on: z.string().max(300).optional(), off: z.string().max(300).optional() }).optional(),
-  /** The server's own pages it brings (ASSISTANT_URL, BRAND_IMPORT_URL): shown only where it is on. */
+  /** What of the server's it brings into the app (ASSISTANT_URL, BRAND_IMPORT_URL): shown only where it is on. */
   gates: z.array(z.enum(["assistant", "brandImport"])).default([]),
 });
 export type FeatureEntry = z.infer<typeof FeatureEntry>;
@@ -213,3 +216,21 @@ export function decide(
 export type Rule = State | "projects";
 export const ruleOf = (def: Pick<FeatureDef, "levels" | "default">, organization: State | null): Rule =>
   organization ?? (def.levels.includes("project") ? "projects" : def.default);
+
+/**
+ * A server's address as the app calls it (ASSISTANT_URL, BRAND_IMPORT_URL, a
+ * feature's `manage`): on the app's own origin (APP_URL), on the host the
+ * page is on instead (an organization's domain too), so the call never
+ * crosses origins; its path alone without a `host`. Elsewhere, as it is.
+ */
+export function onApp(url: string, appUrl: string | undefined, host?: string | null): string {
+  try {
+    const u = new URL(url);
+    const app = appUrl ? new URL(appUrl) : null;
+    if (!app || u.origin !== app.origin) return url;
+    const path = `${u.pathname}${u.search}`;
+    return host ? `${app.protocol}//${host}${path}` : path;
+  } catch {
+    return url;
+  }
+}

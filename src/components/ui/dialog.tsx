@@ -57,8 +57,22 @@ function DialogOverlay({
   )
 }
 
-/** A toast (its Undo), or the assistant docked beside (components/assistant.tsx): never outside a dialog. */
-const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster], [data-assistant-panel]")
+const BESIDE = "[data-sonner-toaster], [data-assistant-panel]"
+
+/**
+ * A toast (its Undo), or the assistant docked beside (components/assistant.tsx): never outside a dialog. Also by where
+ * the pointer was: a button its own click takes away (the assistant's Approve, which becomes "Approved") has left the
+ * page by the time the dialog hears of it, so its target alone no longer says where it was.
+ */
+const inToaster = (e: { target: EventTarget | null; detail?: { originalEvent?: Event } }) => {
+  if ((e.target as Element | null)?.closest?.(BESIDE)) return true
+  const p = e.detail?.originalEvent
+  if (!(p instanceof MouseEvent)) return false
+  return [...document.querySelectorAll(BESIDE)].some((el) => {
+    const r = el.getBoundingClientRect()
+    return r.width > 0 && p.clientX >= r.left && p.clientX <= r.right && p.clientY >= r.top && p.clientY <= r.bottom
+  })
+}
 
 /**
  * A form dialog passes `guard` so typed edits are never lost by accident:
@@ -93,6 +107,8 @@ function DialogContent({
         )}
         onEscapeKeyDown={(e) => {
           const field = document.activeElement
+          // Escape in the assistant docked beside is the panel's: it closes the panel, not this.
+          if (field?.closest("[data-assistant-panel]")) return e.preventDefault()
           if (guard && field instanceof HTMLElement && field.matches("input, textarea, select, [contenteditable=true]")) {
             e.preventDefault()
             field.blur()
@@ -103,11 +119,11 @@ function DialogContent({
           onEscapeKeyDown?.(e)
         }}
         onPointerDownOutside={(e) => {
-          if (guard?.dirty && !inToaster(e.target)) setAsking(true)
+          if (guard?.dirty && !inToaster(e)) setAsking(true)
           onPointerDownOutside?.(e)
         }}
         onInteractOutside={(e) => {
-          if (inToaster(e.target) || guard?.dirty) e.preventDefault()
+          if (inToaster(e) || guard?.dirty) e.preventDefault()
           onInteractOutside?.(e)
         }}
         {...props}
