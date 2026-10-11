@@ -72,6 +72,15 @@ test("a server's file: checked, with defaults filled in", () => {
   assert.equal(f.builtin, false);
 });
 
+test("from FEATURES itself, JSON or YAML, as a host's settings pass it", () => {
+  const json = JSON.stringify({ features: [{ id: "tagger", name: "Tagger", description: "Tags." }] });
+  assert.ok(catalog(undefined, json).some((f) => f.id === "tagger" && !f.builtin));
+  assert.ok(catalog(undefined, "features:\n  - { id: ocr, name: OCR, description: Text in images. }\n").some((f) => f.id === "ocr"));
+  assert.ok(!catalog(undefined, undefined).some((f) => !f.builtin), "neither: the core's own only");
+  assert.throws(() => catalog("features.json", json), /both set/);
+  assert.throws(() => catalog(undefined, '{ "features": [{ "id": "Bad" }] }'), /^Error: FEATURES:/);
+});
+
 test("and in YAML", () => {
   const [f] = parseFeatures("features:\n  - id: ocr\n    name: OCR\n    description: Text in images.\n    levels: [project]\n", "features.yaml");
   assert.deepEqual(f.levels, ["project"]);

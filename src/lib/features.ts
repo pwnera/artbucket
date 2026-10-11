@@ -150,9 +150,12 @@ export type BuiltinFeature = "agents" | "shares" | "portals" | "hub" | "insights
 /** The core's own this server offers: BrandHub only where it runs one (HUB_URL). */
 const builtins = () => BUILTIN.filter((f) => f.id !== "hub" || !!process.env.HUB_URL);
 
-/** The server's features as its file says, checked: a mistake there stops the server rather than half-working. */
-export function parseFeatures(text: string, path = "FEATURES_FILE"): FeatureDef[] {
-  const raw = /\.ya?ml$/i.test(path) ? parseYaml(text) : JSON.parse(text);
+/**
+ * The server's features as its file (or FEATURES) says, checked: a mistake there stops the server rather than
+ * half-working. YAML for a .yml or .yaml file, and for FEATURES, which takes either (YAML reads JSON too).
+ */
+export function parseFeatures(text: string, path = "FEATURES_FILE", yaml = /\.ya?ml$/i.test(path)): FeatureDef[] {
+  const raw = yaml ? parseYaml(text) : JSON.parse(text);
   const parsed = FeaturesFile.safeParse(raw ?? {});
   if (!parsed.success) throw new Error(`${path}: ${z.prettifyError(parsed.error)}`);
   // Every id of the core's, offered here or not: a server's feature never takes one.
@@ -164,12 +167,19 @@ export function parseFeatures(text: string, path = "FEATURES_FILE"): FeatureDef[
   });
 }
 
-let loaded: { path: string | undefined; hub: boolean; defs: FeatureDef[] } | null = null;
+let loaded: { key: string; defs: FeatureDef[] } | null = null;
 
-/** Every feature: the core's, then the file's (read once). */
-export function catalog(path = process.env.FEATURES_FILE): FeatureDef[] {
-  const hub = !!process.env.HUB_URL;
-  if (!loaded || loaded.path !== path || loaded.hub !== hub) loaded = { path, hub, defs: [...builtins(), ...(path ? parseFeatures(readFileSync(path, "utf8"), path) : [])] };
+/**
+ * Every feature: the core's, then the server's (read once), from FEATURES itself, the way a host's settings travel (a
+ * fly.toml's [env], a Render or Kubernetes variable), or from the file FEATURES_FILE names. One or the other.
+ */
+export function catalog(path = process.env.FEATURES_FILE, inline = process.env.FEATURES): FeatureDef[] {
+  if (path && inline) throw new Error("FEATURES and FEATURES_FILE are both set: the server's features come from one of them");
+  const key = JSON.stringify([path ?? null, inline ?? null, !!process.env.HUB_URL]);
+  if (loaded?.key !== key) {
+    const own = inline ? parseFeatures(inline, "FEATURES", true) : path ? parseFeatures(readFileSync(path, "utf8"), path) : [];
+    loaded = { key, defs: [...builtins(), ...own] };
+  }
   return loaded.defs;
 }
 

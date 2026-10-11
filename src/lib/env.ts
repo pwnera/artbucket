@@ -87,6 +87,12 @@ const schema = z.object({
    */
   FEATURES_FILE: z.string().min(1).optional(),
   /**
+   * The same, the file's text itself (JSON or YAML): for a host whose
+   * settings are variables (a fly.toml's [env], Render, Kubernetes) rather
+   * than files. One of FEATURES and FEATURES_FILE, not both.
+   */
+  FEATURES: z.string().min(1).optional(),
+  /**
    * A domain whose subdomains are portals: {slug}.PORTAL_DOMAIN serves that
    * portal, with no claim or TXT record, beside /p/{slug}. It takes a wildcard
    * DNS record and certificate. Unset: portals answer at /p/{slug} only.
