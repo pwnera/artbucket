@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Confirm } from "@/components/confirm";
 import { IconChartBar, IconCompass, IconExternalLink, IconLink, IconRobot, IconSparkles, IconToggleLeft, IconWorld, type Icon } from "@/components/icons";
 import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,9 @@ export type FeatureItem = {
   set: { by: string; at: string } | null;
 };
 
+/** What switching would do (GET /api/v1/features/{id}/impact): asked before, when it reaches outside the admin's view. */
+type Impact = { changes: number; confirm: boolean; title: string; says: string[]; action: string };
+
 /** The icons a feature may name (FEATURES_FILE's `icon`); a switch for any other. */
 const ICONS: Record<string, Icon> = { robot: IconRobot, link: IconLink, sparkles: IconSparkles, world: IconWorld, hub: IconCompass, chart: IconChartBar };
 
@@ -50,21 +54,53 @@ const When = ({ set }: { set: FeatureItem["set"] }) =>
 export function FeaturesPanel({ features, context, upgrade }: { features: FeatureItem[]; context: "organization" | "project"; upgrade: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{ f: FeatureItem; state: FeatureItem["rule"]; impact: Impact } | null>(null);
 
-  async function change(f: FeatureItem, state: "on" | "off" | "projects") {
+  /** Weigh it first: what reaches outside (keys, links, portals, listings), or overrides projects, is asked about. */
+  async function change(f: FeatureItem, state: FeatureItem["rule"]) {
     setBusy(f.id);
-    const done = await send("PUT", `/api/v1/features/${f.id}?context=${context}`, { state });
+    const impact = (await send("GET", `/api/v1/features/${f.id}/impact?context=${context}&state=${state}`)) as Impact | null;
+    if (impact?.confirm) {
+      setBusy(null);
+      return setAsking({ f, state, impact });
+    }
+    if (impact) await apply(f, state);
     setBusy(null);
-    if (!done) return;
+  }
+
+  async function apply(f: FeatureItem, state: FeatureItem["rule"]) {
+    const done = await send("PUT", `/api/v1/features/${f.id}?context=${context}`, { state });
+    if (!done) return null;
     toast.success(
       state === "projects"
         ? `Each project decides about ${f.name} now`
-        : `${f.name} ${state === "on" ? "on" : "off"}${context === "organization" ? " for every project" : ""}`,
+        : `${f.name} ${state === "on" ? "on" : "off"}${context === "organization" && f.levels.includes("project") ? " for every project" : ""}`,
     );
     router.refresh();
+    return done;
   }
 
   return (
+    <>
+      <Confirm
+        open={!!asking}
+        onOpenChange={(o) => !o && setAsking(null)}
+        title={asking?.impact.title}
+        says={
+          asking && (
+            <span className="grid gap-2">
+              {asking.impact.says.map((s) => (
+                <span key={s} className="block">
+                  {s}
+                </span>
+              ))}
+            </span>
+          )
+        }
+        action={asking?.impact.action}
+        destructive={asking?.state === "off"}
+        run={() => asking && apply(asking.f, asking.state)}
+      />
     <ul className="divide-y rounded-lg border">
       {features.map((f) => {
         const I = (f.icon && ICONS[f.icon]) || IconToggleLeft;
@@ -136,6 +172,7 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
         );
       })}
     </ul>
+    </>
   );
 }
 

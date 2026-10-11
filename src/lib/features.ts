@@ -60,6 +60,11 @@ export const FeatureEntry = z.strictObject({
   hook: Hook.optional(),
   /** Its own page, opened from its card while it is on: usage, settings of its own. */
   manage: z.string().url().optional(),
+  /**
+   * Said in the app's confirmation before it is turned off (`off`: what stops) or on (`on`: what the admin agrees to, say
+   * that content goes to an AI provider), beside the projects it changes.
+   */
+  confirm: z.strictObject({ on: z.string().max(300).optional(), off: z.string().max(300).optional() }).optional(),
   /** The server's own pages it brings (ASSISTANT_URL, BRAND_IMPORT_URL): shown only where it is on. */
   gates: z.array(z.enum(["assistant", "brandImport"])).default([]),
 });

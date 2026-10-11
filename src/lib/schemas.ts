@@ -1813,6 +1813,13 @@ export const FeatureItem = z.object({
   editable: z.boolean().describe("It can be switched here: in a project, only while the organization lets each decide"),
   set: z.object({ by: z.string(), at: date }).nullable().describe("Who switched it, and when, where that decides it"),
 });
+export const FeatureImpact = z.object({
+  changes: z.number().int().describe("How many projects it turns on or off"),
+  confirm: z.boolean().describe("Whether to ask before doing it: what it does reaches outside, or overrides projects' own choice"),
+  title: z.string().describe("The question to ask, e.g. Turn off Portals and sites?"),
+  says: z.array(z.string()).describe("What will happen, a sentence each: the projects it changes, and what reaches outside, counted"),
+  action: z.string().describe("The confirming button's label"),
+});
 export const FeatureSwitch = z.strictObject({
   state: z.enum(["on", "off", "projects"]).describe("On or off; at the organization, `projects` lets each project decide"),
 });

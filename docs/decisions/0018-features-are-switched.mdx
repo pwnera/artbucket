@@ -61,3 +61,8 @@ needed itself, so the core didn't know it was on.
 - What a portal or a share link hands out names it in the signature, so its
   files stop the moment it closes, is revoked or turned off, rather than when
   the signature runs out a day later.
+- Switching asks first when it reaches outside the admin's view: keys in use,
+  links, open portals, public listings, counting that can't be made up, a
+  server's own warning (`confirm`), or the organization overriding its
+  projects. A dry run (`GET /api/v1/features/{id}/impact`) counts what would
+  happen; nothing is asked when nothing would.

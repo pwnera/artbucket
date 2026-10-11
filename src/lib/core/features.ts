@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { and, asc, eq, isNull, sql, type SQLWrapper } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { apiKeys, featureSwitches, organizations, projects } from "@/lib/db/schema";
+import { apiKeys, brands, brandVersions, domains, featureSwitches, organizations, portals, projects, shareLinks } from "@/lib/db/schema";
 import type { Caller, Project } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
@@ -11,6 +11,7 @@ import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { catalog, decide, featureById, ruleOf, type BuiltinFeature, type FeatureDef, type From, type Level, type Rule, type State } from "@/lib/features";
 import { memo } from "@/lib/memo";
+import { ago } from "@/lib/time";
 import { signerOpen } from "@/lib/core/signers";
 import { can, needs } from "@/lib/permissions";
 
@@ -176,6 +177,42 @@ export async function listFeatures(caller: Caller, context: Level) {
  * The projects whose state changes are told, through the feature's hook.
  */
 export async function switchFeature(caller: Caller, context: Level, id: string, state: Rule) {
+  const { def, org, limits, planned, before, projectId, spaces, was } = await prepare(caller, context, id, state);
+
+  const where = and(eq(featureSwitches.organizationId, org), projectId ? eq(featureSwitches.projectId, projectId) : isNull(featureSwitches.projectId), eq(featureSwitches.feature, def.id));
+  const previous = pick(before, def.id, projectId);
+  const write = async (s: State | "projects" | null) => {
+    if (s === null || s === "projects") await db.delete(featureSwitches).where(where);
+    else
+      await db
+        .insert(featureSwitches)
+        .values({ organizationId: org, projectId, feature: def.id, state: s, updatedBy: caller.actor })
+        .onConflictDoUpdate({ target: [featureSwitches.organizationId, featureSwitches.projectId, featureSwitches.feature], set: { state: s, updatedBy: caller.actor, updatedAt: new Date() } });
+    rowsOf.forget(org);
+  };
+  await write(state);
+  const after = await rowsOf(org);
+  const changed = spaces.filter((p) => stateIn(def, after, p.id, planned).on !== was.get(p.id));
+  const on = changed.filter((p) => stateIn(def, after, p.id, planned).on);
+  const off = changed.filter((p) => !stateIn(def, after, p.id, planned).on);
+  // Turned on where it was off: each project's hook may refuse, and then nothing changes anywhere.
+  const organization = (await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.id, org)))[0];
+  const { done, failed } = await pool(on, (p) => enableIn(def, caller, organization, p));
+  if (failed) {
+    await write(previous?.state ?? null);
+    await pool(done, (p) => disableIn(def, caller, organization, p));
+    throw failed;
+  }
+  await pool(off, (p) => disableIn(def, caller, organization, p));
+
+  // What portals and links handed out asks again at once, here (lib/core/signers.ts).
+  if (def.id === "portals" || def.id === "shares") signerOpen.forget();
+  await recordAudit(caller, "feature.switched", def.name, { feature: def.id, context, state, projects: changed.length }, { projectId });
+  return describe(def, caller, context, after, limits.features, context === "organization" ? spaces : [], planned);
+}
+
+/** What a change asks, checked: the feature, where, and each project's state before it. Shared by switching and its dry run. */
+async function prepare(caller: Caller, context: Level, id: string, state: Rule) {
   mayManage(caller, context);
   const def = featureById(id);
   if (!def) throw new AssetError("not_found", `No feature "${id}". Features: ${catalog().map((f) => f.id).join(", ")}`);
@@ -198,38 +235,105 @@ export async function switchFeature(caller: Caller, context: Level, id: string, 
   }
   const spaces = context === "organization" ? await projectsIn(org) : [caller.project];
   const was = new Map(spaces.map((p) => [p.id, stateIn(def, before, p.id, planned).on]));
+  return { def, org, limits, planned, before, projectId, spaces, was };
+}
 
-  const where = and(eq(featureSwitches.organizationId, org), projectId ? eq(featureSwitches.projectId, projectId) : isNull(featureSwitches.projectId), eq(featureSwitches.feature, def.id));
-  const previous = pick(before, def.id, projectId);
-  const write = async (s: State | "projects" | null) => {
-    if (s === null || s === "projects") await db.delete(featureSwitches).where(where);
-    else
-      await db
-        .insert(featureSwitches)
-        .values({ organizationId: org, projectId, feature: def.id, state: s, updatedBy: caller.actor })
-        .onConflictDoUpdate({ target: [featureSwitches.organizationId, featureSwitches.projectId, featureSwitches.feature], set: { state: s, updatedBy: caller.actor, updatedAt: new Date() } });
-    rowsOf.forget(org);
-  };
-  await write(state);
-  const after = await rowsOf(org);
-  const changed = spaces.filter((p) => stateIn(def, after, p.id, planned).on !== was.get(p.id));
-  const on = changed.filter((p) => stateIn(def, after, p.id, planned).on);
-  const off = changed.filter((p) => !stateIn(def, after, p.id, planned).on);
+/** Their names, a few of them: "Press, Docs and 3 more". */
+const named = (list: { name: string }[], few = 3) =>
+  list.length <= few + 1 ? list.map((p) => p.name).join(", ").replace(/, ([^,]*)$/, " and $1") : `${list.slice(0, few).map((p) => p.name).join(", ")} and ${list.length - few} more`;
+const count = (k: number, one: string, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
 
-  // Turned on where it was off: each project's hook may refuse, and then nothing changes anywhere.
-  const organization = (await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.id, org)))[0];
-  const { done, failed } = await pool(on, (p) => enableIn(def, caller, organization, p));
-  if (failed) {
-    await write(previous?.state ?? null);
-    await pool(done, (p) => disableIn(def, caller, organization, p));
-    throw failed;
+/**
+ * What switching would do, without doing it: for the app's confirmation. The
+ * projects it changes, and for what reaches outside the admin's view (keys in
+ * use, links, portals, public listings, counting that can't be made up later,
+ * a server's own warning), what will happen, counted. `confirm` is whether to
+ * ask first: never when nothing changes, always when the organization
+ * overrides projects' own choice.
+ */
+export async function featureImpact(caller: Caller, context: Level, id: string, state: Rule) {
+  const { def, org, planned, before, projectId, spaces, was } = await prepare(caller, context, id, state);
+  // The switch as it would be: this place's row replaced, or gone for "projects".
+  const after = before.filter((r) => !(r.feature === def.id && r.projectId === projectId));
+  if (state !== "projects") after.push({ ...(pick(before, def.id, projectId) ?? ({} as Row)), organizationId: org, projectId, feature: def.id, state });
+  const off = spaces.filter((p) => was.get(p.id) && !stateIn(def, after, p.id, planned).on);
+  const on = spaces.filter((p) => !was.get(p.id) && stateIn(def, after, p.id, planned).on);
+  const ids = off.map((p) => p.id);
+  const says: string[] = [];
+  const now = new Date();
+
+  if (context === "organization" && def.levels.includes("project") && (on.length || off.length)) {
+    const turn = (k: number) => (k === 1 ? "turns" : "turn");
+    if (off.length) says.push(`${off.length} of ${count(spaces.length, "project")} ${turn(off.length)} off: ${named(off)}.`);
+    if (on.length) says.push(`${on.length} of ${count(spaces.length, "project")} ${turn(on.length)} on: ${named(on)}.`);
+    // Projects that chose for themselves, now overruled; their choice is kept for when each decides again.
+    const overruled = state === "projects" ? 0 : before.filter((r) => r.feature === def.id && r.projectId && r.state !== state).length;
+    if (overruled) says.push(`This overrides ${count(overruled, "project")} that chose otherwise. Their choice is kept, for when each project decides again.`);
   }
-  await pool(off, (p) => disableIn(def, caller, organization, p));
 
-  // What portals and links handed out asks again at once, here (lib/core/signers.ts).
-  if (def.id === "portals" || def.id === "shares") signerOpen.forget();
-  await recordAudit(caller, "feature.switched", def.name, { feature: def.id, context, state, projects: changed.length }, { projectId });
-  return describe(def, caller, context, after, limits.features, context === "organization" ? spaces : [], planned);
+  if (ids.length && def.id === "agents") {
+    const keys = await db
+      .select({ name: apiKeys.name, agent: apiKeys.userId, lastUsedAt: apiKeys.lastUsedAt })
+      .from(apiKeys)
+      .where(and(inArray(apiKeys.projectId, ids), isNull(apiKeys.feature), or(isNull(apiKeys.expiresAt), gt(apiKeys.expiresAt, now))))
+      .orderBy(sql`${apiKeys.lastUsedAt} desc nulls last`);
+    const agents = keys.filter((k) => k.agent).length;
+    if (keys.length) {
+      const latest = keys[0].lastUsedAt ? `, including "${keys[0].name}", last used ${ago(keys[0].lastUsedAt)}` : "";
+      const what = [keys.length - agents && count(keys.length - agents, "API key"), agents && count(agents, "connected agent")].filter(Boolean).join(" and ");
+      says.push(`${what} will be refused${latest}. Scripts and CI that use them will fail.`);
+    }
+  }
+  if (ids.length && def.id === "shares") {
+    const links = await db
+      .select({ kind: shareLinks.kind })
+      .from(shareLinks)
+      .where(and(inArray(shareLinks.projectId, ids), or(isNull(shareLinks.expiresAt), gt(shareLinks.expiresAt, now))));
+    const uploads = links.filter((l) => l.kind === "upload").length;
+    if (links.length) says.push(`${count(links.length, "link")} stop opening${uploads ? `, ${uploads} of them for uploads` : ""}. They are kept, and open again when this is back on.`);
+  }
+  if (ids.length && def.id === "portals") {
+    const open = await db
+      .select({ id: portals.id, kind: portals.kind })
+      .from(portals)
+      .where(and(inArray(portals.projectId, ids), or(isNull(portals.expiresAt), gt(portals.expiresAt, now))));
+    const hosts = open.length
+      ? await db.select({ host: domains.host }).from(domains).where(and(inArray(domains.portalId, open.map((p) => p.id)), isNotNull(domains.verifiedAt)))
+      : [];
+    const kept = open.filter((p) => p.kind === "portal").length;
+    const what = [kept && count(kept, "portal"), open.length - kept && count(open.length - kept, "site")].filter(Boolean).join(" and ");
+    if (open.length) says.push(`${what} close to visitors${hosts.length ? `, including ${named(hosts.map((h) => ({ name: h.host })))}` : ""}. They are kept as they are, and open again when this is back on.`);
+  }
+  if (off.length && def.id === "hub") {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(brands)
+      .innerJoin(projects, eq(projects.id, brands.projectId))
+      .where(
+        and(
+          eq(projects.organizationId, org),
+          eq(brands.visibility, "public"),
+          isNull(brands.hubDelisted),
+          sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
+        ),
+      );
+    if (n) says.push(`${count(n, "public brand")} leave BrandHub, and ${n === 1 ? "its" : "their"} brand.json stops being served. Your own people see ${n === 1 ? "it" : "them"} as private.`);
+  }
+  if (off.length && def.id === "insights") says.push("Nothing is counted while it is off: that time stays empty in Insights, and can't be filled in later.");
+  if (off.length && def.confirm?.off) says.push(def.confirm.off);
+  if (on.length && def.confirm?.on) says.push(def.confirm.on);
+
+  const changes = on.length + off.length;
+  // Each project's own state, said for the organization: only the outside effects, or overriding them, ask first.
+  const asks = says.some((s) => !/^\d+ of \d+ projects? turns? (on|off):/.test(s));
+  const turning = state === "projects" ? "Let each project decide about" : `Turn ${state}`;
+  return {
+    changes,
+    confirm: changes > 0 && (asks || (context === "organization" && state !== "projects")),
+    title: `${turning} ${def.name}${context === "organization" && state !== "projects" && def.levels.includes("project") ? " for every project" : ""}?`,
+    says,
+    action: state === "projects" ? "Let each decide" : `Turn ${state}`,
+  };
 }
 
 /** Hooks called at once, at most: hundreds of projects turned on together take seconds, not minutes. */

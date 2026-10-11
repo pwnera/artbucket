@@ -2039,6 +2039,22 @@ export function openapi(serverUrl: string) {
           ok: [200, "The feature, as it now is", data(S.FeatureItem)],
         }),
       },
+      "/api/v1/features/{id}/impact": {
+        parameters: [path("id", "e.g. portals")],
+        get: op({
+          summary: "What switching a feature would do",
+          scope: "any",
+          description:
+            "A dry run of PUT /api/v1/features/{id}: the projects it would turn on or off and, for what reaches outside the " +
+            "admin's view (API keys in use, share links, portals and sites, public BrandHub listings, counting that can't be " +
+            "made up later, the server's own warning), what will happen, counted. Nothing changes. Admin there.",
+          query: {
+            context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" },
+            state: { schema: { type: "string", enum: ["on", "off", "projects"] }, description: "The change to weigh (required)" },
+          },
+          ok: [200, "What it would do", data(S.FeatureImpact)],
+        }),
+      },
       "/api/v1/email/test": {
         post: op({
           summary: "Send a test email",
