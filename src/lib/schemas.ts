@@ -1809,7 +1809,7 @@ export const FeatureItem = z.object({
   rule: z.enum(["on", "off", "projects"]).describe("The organization's switch: on or off in every project, or each project decides"),
   projects: z.object({ on: z.number().int(), total: z.number().int() }).nullable().describe("At the organization: in how many of its projects it is on"),
   on: z.boolean().nullable().describe("In the project: whether it is on there; null at the organization"),
-  from: z.enum(["organization", "project", "default"]).nullable().describe("In the project: what decides it"),
+  from: z.enum(["organization", "project", "default", "plan"]).nullable().describe("In the project: what decides it; `plan`: it takes a plan the organization doesn't have"),
   editable: z.boolean().describe("It can be switched here: in a project, only while the organization lets each decide"),
   set: z.object({ by: z.string(), at: date }).nullable().describe("Who switched it, and when, where that decides it"),
 });

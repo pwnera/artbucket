@@ -43,7 +43,8 @@ import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
-import { longSig, pagePath, pageSig } from "@/lib/core/signing";
+import { longSig, pagePath, pageSig, byPortal } from "@/lib/core/signing";
+import { signerOpen } from "@/lib/core/signers";
 import { collectionItems, presentAsset } from "@/lib/core/section-assets";
 import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
@@ -369,6 +370,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
   }
   if (input.domain !== undefined) await setDomain(caller, p.id, input.domain);
   forgetHosts();
+  signerOpen.forget(byPortal(p.id));
   const changed = Object.keys(input).filter((k) => k !== "password" || input.password);
   await recordAudit(caller, "portal.updated", next.name, { changed });
   return present(next);
@@ -386,6 +388,7 @@ export async function closePortal(caller: Caller, id: string) {
   const [next] = await db.update(portals).set({ expiresAt: new Date(), updatedAt: new Date() }).where(eq(portals.id, p.id)).returning();
   if (!next) return null;
   forgetHosts();
+  signerOpen.forget(byPortal(p.id));
   await recordAudit(caller, "portal.updated", next.name, { changed: ["expiresAt"] });
   return present(next);
 }
@@ -397,6 +400,7 @@ export async function deletePortal(caller: Caller, id: string) {
   const gone = await db.delete(portals).where(eq(portals.id, p.id)).returning({ id: portals.id });
   if (!gone.length) return false;
   forgetHosts();
+  signerOpen.forget(byPortal(p.id));
   await recordAudit(caller, "portal.deleted", p.name, { slug: p.slug });
   return true;
 }
@@ -598,7 +602,7 @@ async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience
 }
 
 /** Its URLs signed for the visitor (lib/core/signing.ts): a day at a time, never past the portal's end. */
-const shown = (a: typeof assets.$inferSelect, p: Row) => presentAsset(a, { sign: (id) => pageSig(id, p.expiresAt), presets: p.presets });
+const shown = (a: typeof assets.$inferSelect, p: Row) => presentAsset(a, { sign: (id) => pageSig(id, p.expiresAt, byPortal(p.id)), presets: p.presets });
 
 /** The portal's usable assets in `ids` (some of its collections), newest first, narrowed by `q`: its Assets view, and search. */
 async function portalAssets(p: Row, { ids, q, limit = 60, offset = 0 }: { ids: string[]; q?: string | null; limit?: number; offset?: number }) {
@@ -667,7 +671,7 @@ export async function viewPortal(
   if (!offset) recordSearch(p.projectId, q, total > 0, { surface: "portal", actor: "anonymous", client: null });
   // The first brand's look, so the view reads as part of its site; with no brand, the portal's accent over the app's own.
   const src = showing.length ? await publishedSource(p.projectId, showing[0].slug) : null;
-  const look = await viewLook(p.projectId, src, (id) => pageSig(id, p.expiresAt), theme.accent);
+  const look = await viewLook(p.projectId, src, (id) => pageSig(id, p.expiresAt, byPortal(p.id)), theme.accent);
   return {
     portal: {
       slug: p.slug,
@@ -677,7 +681,7 @@ export async function viewPortal(
       access: p.access,
       expiresAt: p.expiresAt,
       theme,
-      collections: cols.map(({ covers, ...c }) => ({ ...c, covers: covers.map((id) => pagePath(id, "/w_640,f_webp", p.expiresAt)) })),
+      collections: cols.map(({ covers, ...c }) => ({ ...c, covers: covers.map((id) => pagePath(id, "/w_640,f_webp", p.expiresAt, byPortal(p.id))) })),
       brands: showing.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
       site: await siteOf(p, showing.map((b) => b.slug)),
       look,
@@ -750,7 +754,7 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
   const { p } = await open(slug, pass);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
-  return readBrand(p.projectId, brand, p.expiresAt, o);
+  return readBrand(p.projectId, brand, p.expiresAt, { ...o, by: byPortal(p.id) });
 }
 
 /**
@@ -762,7 +766,7 @@ export async function readBrand(
   projectId: string,
   brand: { id: string; slug: string; name: string },
   until: Date | null,
-  { context, version }: { context?: string | null; version?: number } = {},
+  { context, version, by }: { context?: string | null; version?: number; by?: string } = {},
 ) {
   const p = { projectId, expiresAt: until };
   if (context && !ruleContext.safeParse(context).success) {
@@ -797,7 +801,8 @@ export async function readBrand(
       : []
     ).map((a) => [a.id, a]),
   );
-  const signed = Object.fromEntries([...usable.keys()].map((id) => [id, pageSig(id, p.expiresAt)]));
+  // Named for the portal asking (`by`), so its URLs stop when it closes; BrandHub's name nothing.
+  const signed = Object.fromEntries([...usable.keys()].map((id) => [id, pageSig(id, p.expiresAt, by)]));
   const publishedAt = src.version?.publishedAt ? new Date(src.version.publishedAt) : null;
   const data = rules.map((r) => {
     const now = liveOf.get(`${r.key}\0${r.context ?? ""}`);
@@ -883,7 +888,7 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
       : [],
   );
   const quick = site.quick?.flatMap((q) => {
-    if (q.asset) return usable.has(q.asset) ? [{ ...q, href: pagePath(q.asset, "?download", p.expiresAt) }] : [];
+    if (q.asset) return usable.has(q.asset) ? [{ ...q, href: pagePath(q.asset, "?download", p.expiresAt, byPortal(p.id)) }] : [];
     return q.page && q.brand && !brandSlugs.includes(q.brand) ? [] : [q];
   });
   return { ...site, ...(quick && { quick }), listed: p.access === "public" && !!site.listed };
@@ -942,7 +947,7 @@ export async function viewPortalSite(
     lang,
     level,
     // Never `as`: collections read as the project's reader, not as whoever is signed in.
-    sign: (id) => pageSig(id, p.expiresAt),
+    sign: (id) => pageSig(id, p.expiresAt, byPortal(p.id)),
     presets: p.presets,
     find: o.find,
   });

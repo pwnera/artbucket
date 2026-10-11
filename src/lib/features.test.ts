@@ -20,6 +20,12 @@ test("a level the feature isn't switched at is ignored", () => {
   assert.deepEqual(decide({ levels: ["project"], default: "off" }, "on", null), { on: false, from: "default" });
 });
 
+test("a feature taking a plan is off without one, whatever its switches say", () => {
+  assert.deepEqual(decide({ ...both, paid: true }, "on", "on", false), { on: false, from: "plan" });
+  assert.deepEqual(decide({ ...both, paid: true }, "on", null, true), { on: true, from: "organization" });
+  assert.deepEqual(decide(both, "on", null, false), { on: true, from: "organization" }, "one that takes none ignores it");
+});
+
 test("the organization's rule: each project decides only where projects have a switch", () => {
   assert.equal(ruleOf(both, null), "projects");
   assert.equal(ruleOf(both, "off"), "off");

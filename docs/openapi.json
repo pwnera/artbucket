@@ -60545,14 +60545,15 @@
                                 "enum": [
                                   "organization",
                                   "project",
-                                  "default"
+                                  "default",
+                                  "plan"
                                 ]
                               },
                               {
                                 "type": "null"
                               }
                             ],
-                            "description": "In the project: what decides it"
+                            "description": "In the project: what decides it; `plan`: it takes a plan the organization doesn't have"
                           },
                           "editable": {
                             "type": "boolean",
@@ -60825,14 +60826,15 @@
                               "enum": [
                                 "organization",
                                 "project",
-                                "default"
+                                "default",
+                                "plan"
                               ]
                             },
                             {
                               "type": "null"
                             }
                           ],
-                          "description": "In the project: what decides it"
+                          "description": "In the project: what decides it; `plan`: it takes a plan the organization doesn't have"
                         },
                         "editable": {
                           "type": "boolean",

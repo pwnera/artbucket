@@ -55,3 +55,9 @@ needed itself, so the core didn't know it was on.
 - Intelligence's assistant, in a project where it is on, searches every
   project of the organization where it is on, and nothing of one where it is
   off: that content never reaches a model provider.
+- A server's feature may take a plan (`paid`): an organization without one
+  reads it as off everywhere, and Settings shows the way to a plan. Its
+  switches are kept, so it comes back as it was.
+- What a portal or a share link hands out names it in the signature, so its
+  files stop the moment it closes, is revoked or turned off, rather than when
+  the signature runs out a day later.

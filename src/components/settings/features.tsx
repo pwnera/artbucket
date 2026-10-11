@@ -26,7 +26,7 @@ export type FeatureItem = {
   rule: "on" | "off" | "projects";
   projects: { on: number; total: number } | null;
   on: boolean | null;
-  from: "organization" | "project" | "default" | null;
+  from: "organization" | "project" | "default" | "plan" | null;
   editable: boolean;
   set: { by: string; at: string } | null;
 };
@@ -140,6 +140,8 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
 }
 
 function Status({ f, context }: { f: FeatureItem; context: "organization" | "project" }) {
+  // Off for want of a plan: its switches are kept, and it comes back as it was with one.
+  if (!f.available) return <>Off: not part of this organization&apos;s plan</>;
   if (context === "organization") {
     if (f.rule === "projects") {
       const p = f.projects!;

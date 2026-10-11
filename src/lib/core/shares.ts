@@ -11,7 +11,8 @@ import { brandOfProject } from "@/lib/core/branding";
 import { appUrlFor } from "@/lib/core/domains";
 import { sendAs, shareEmail } from "@/lib/core/mail";
 import { getCollection } from "@/lib/core/collections";
-import { pagePath, pageSig } from "@/lib/core/signing";
+import { pagePath, pageSig, byLink } from "@/lib/core/signing";
+import { signerOpen } from "@/lib/core/signers";
 import { publishedSource, viewLook } from "@/lib/core/page-view";
 import { AssetError } from "@/lib/core/errors";
 import { hasPreview } from "@/lib/preview";
@@ -162,6 +163,7 @@ export async function revokeShare(caller: Caller, id: string) {
   if (!(await mayShare(caller, link))) throw new AssetError("forbidden", "Revoking it takes write on what it shares");
   const gone = await db.delete(shareLinks).where(eq(shareLinks.id, id)).returning({ id: shareLinks.id });
   if (!gone.length) return false;
+  signerOpen.forget(byLink(id));
   await recordAudit(caller, "share.revoked", (await targetLabel(link)).label ?? caller.project.name, { kind: link.kind });
   return true;
 }
@@ -202,8 +204,8 @@ async function open(token: string, password: string | null) {
 }
 
 /** Its URLs signed for the holder of the link (lib/core/signing.ts): a day at a time, never past the link. */
-const shared = (a: typeof assets.$inferSelect, until: Date | null) => {
-  const at = (rest = "") => `${env.APP_URL}${pagePath(a.id, rest, until)}`;
+const shared = (a: typeof assets.$inferSelect, link: Pick<Link, "id" | "expiresAt">) => {
+  const at = (rest = "") => `${env.APP_URL}${pagePath(a.id, rest, link.expiresAt, byLink(link.id))}`;
   const m = a.metadata ?? {};
   return {
     id: a.id,
@@ -232,7 +234,7 @@ export async function viewShare(token: string, password: string | null, { limit 
   const brand = await brandOfProject(link.projectId);
   // The project's brand site, once it has been published: the link reads as part of it. Else the organization's accent.
   const src = await publishedSource(link.projectId).catch(() => null);
-  const look = await viewLook(link.projectId, src?.version ? src : null, (id) => pageSig(id, link.expiresAt), brand.accent);
+  const look = await viewLook(link.projectId, src?.version ? src : null, (id) => pageSig(id, link.expiresAt, byLink(link.id)), brand.accent);
   const meta = {
     kind: link.kind,
     name: link.name,
@@ -270,7 +272,7 @@ export async function viewShare(token: string, password: string | null, { limit 
       .offset(Math.max(offset, 0)),
     db.select({ total: count() }).from(assets).where(where),
   ]);
-  return { share: meta, data: rows.map((a) => shared(a, link.expiresAt)), total };
+  return { share: meta, data: rows.map((a) => shared(a, link)), total };
 }
 
 /**

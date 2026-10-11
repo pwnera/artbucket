@@ -7,9 +7,11 @@ import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
 import { createField, listFields } from "@/lib/core/fields";
 import { hashKey } from "@/lib/core/keys";
+import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
 import { catalog, decide, featureById, ruleOf, type BuiltinFeature, type FeatureDef, type From, type Level, type Rule, type State } from "@/lib/features";
 import { memo } from "@/lib/memo";
+import { signerOpen } from "@/lib/core/signers";
 import { can, needs } from "@/lib/permissions";
 
 /**
@@ -32,13 +34,28 @@ const rowsOf = memo(60_000, (organizationId: string) => db.select().from(feature
 
 const pick = (rows: Row[], feature: string, projectId: string | null) => rows.find((r) => r.feature === feature && r.projectId === projectId) ?? null;
 
-/** Whether it is on there, where that comes from, and the switch that says so (null for the default). */
-function stateIn(def: FeatureDef, rows: Row[], projectId: string | null) {
+/**
+ * Whether it is on there, where that comes from, and the switch that says so (null for the default or the plan).
+ * `planned`: the organization has a plan, for a feature that takes one.
+ */
+function stateIn(def: FeatureDef, rows: Row[], projectId: string | null, planned = true) {
   const org = pick(rows, def.id, null);
   const own = projectId ? pick(rows, def.id, projectId) : null;
-  const d = decide(def, org?.state ?? null, own?.state ?? null);
+  const d = decide(def, org?.state ?? null, own?.state ?? null, planned);
   return { ...d, row: d.from === "organization" ? org : d.from === "project" ? own : null };
 }
+
+/**
+ * The organization is on a plan, as a feature taking one asks (FEATURES_FILE's `paid`): limits of its own (billing
+ * writes them), not read-only or suspended. A plan whose payment failed keeps its limits, and this, while that is
+ * sorted out. As limits are read: a minute late at most.
+ */
+async function plannedOf(organizationId: string) {
+  const { value, source } = await effective("limits", { organizationId });
+  return source === "organization" && !value.readOnly && !value.suspended;
+}
+/** Whether the organization's plan matters to any of these, and if so, whether it has one. */
+const plannedFor = async (defs: FeatureDef[], organizationId: string) => (defs.some((d) => d.paid) ? plannedOf(organizationId) : true);
 
 /** "Agents and API keys are", "Intelligence is". */
 const be = (def: FeatureDef) => (/ and |s$/.test(def.name) ? "are" : "is");
@@ -47,7 +64,7 @@ const be = (def: FeatureDef) => (/ and |s$/.test(def.name) ? "are" : "is");
 export async function featureOn(id: string, place: Place) {
   const def = featureById(id);
   if (!def) return false;
-  return stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null).on;
+  return stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null, await plannedFor([def], place.organizationId)).on;
 }
 
 /** A project's organization, which never changes: kept, as every file served asks whether usage is counted. */
@@ -73,9 +90,9 @@ export const notSwitchedOff = (feature: BuiltinFeature, organizationId: SQLWrapp
 
 /** The features off in a project: for /me, so the app leaves out what they bring. */
 export async function offIn(place: Place) {
-  const rows = await rowsOf(place.organizationId);
+  const [rows, planned] = await Promise.all([rowsOf(place.organizationId), plannedFor(catalog(), place.organizationId)]);
   return catalog()
-    .filter((f) => !stateIn(f, rows, place.projectId ?? null).on)
+    .filter((f) => !stateIn(f, rows, place.projectId ?? null, planned).on)
     .map((f) => f.id);
 }
 
@@ -94,8 +111,9 @@ export function featureOf(req: Request) {
 /** Refuse what a feature turned off there would do, saying which and who turned it off. */
 export async function requireFeature(id: BuiltinFeature | (string & {}), place: Place) {
   const def = featureById(id)!;
-  const s = stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null);
+  const s = stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null, await plannedFor([def], place.organizationId));
   if (s.on) return;
+  if (s.from === "plan") throw new AssetError("feature_off", `${def.name} ${be(def) === "are" ? "aren't" : "isn't"} part of this organization's plan`, { feature: id, level: "plan", by: null, at: null });
   const where = s.from === "project" ? "in this project" : "in this organization";
   const by = s.row ? ` by ${s.row.updatedBy}` : "";
   throw new AssetError("feature_off", `${def.name} ${be(def)} turned off ${where}${by}`, {
@@ -119,7 +137,7 @@ const projectsIn = (organizationId: string) =>
 const setBy = (row: Row | null) => (row ? { by: row.updatedBy, at: row.updatedAt.toISOString() } : null);
 
 /** One feature as Settings shows it, at the organization or in the caller's project. */
-async function describe(def: FeatureDef, caller: Caller, context: Level, rows: Row[], plan: string[] | null, spaces: { id: string }[]) {
+async function describe(def: FeatureDef, caller: Caller, context: Level, rows: Row[], plan: string[] | null, spaces: { id: string }[], planned: boolean) {
   const org = pick(rows, def.id, null);
   const base = {
     id: def.id,
@@ -130,15 +148,15 @@ async function describe(def: FeatureDef, caller: Caller, context: Level, rows: R
     builtin: def.builtin,
     levels: def.levels,
     default: def.default,
-    // The plan doesn't have it: Settings shows the way to one that does.
-    available: !def.plan || !plan || plan.includes(def.plan),
+    // The plan doesn't have it (or there is no plan, for one taking any): Settings shows the way to one that does.
+    available: def.paid ? planned : !def.plan || !plan || plan.includes(def.plan),
     manage: def.manage ?? null,
   };
   if (context === "organization") {
-    const on = spaces.filter((p) => stateIn(def, rows, p.id).on).length;
+    const on = spaces.filter((p) => stateIn(def, rows, p.id, planned).on).length;
     return { ...base, rule: ruleOf(def, org?.state ?? null) as Rule, projects: { on, total: spaces.length }, set: setBy(org), on: null, from: null, editable: def.levels.includes("organization") };
   }
-  const s = stateIn(def, rows, caller.project.id);
+  const s = stateIn(def, rows, caller.project.id, planned);
   return { ...base, rule: ruleOf(def, org?.state ?? null) as Rule, projects: null, set: setBy(s.row), on: s.on, from: s.from as From, editable: def.levels.includes("project") && s.from !== "organization" };
 }
 
@@ -147,8 +165,8 @@ export async function listFeatures(caller: Caller, context: Level) {
   mayManage(caller, context);
   const org = caller.project.organizationId;
   rowsOf.forget(org);
-  const [rows, limits, spaces] = await Promise.all([rowsOf(org), limitsOf(org), context === "organization" ? projectsIn(org) : []]);
-  return Promise.all(catalog().map((def) => describe(def, caller, context, rows, limits.features, spaces)));
+  const [rows, limits, spaces, planned] = await Promise.all([rowsOf(org), limitsOf(org), context === "organization" ? projectsIn(org) : [], plannedFor(catalog(), org)]);
+  return Promise.all(catalog().map((def) => describe(def, caller, context, rows, limits.features, spaces, planned)));
 }
 
 /**
@@ -167,18 +185,19 @@ export async function switchFeature(caller: Caller, context: Level, id: string, 
   }
   const org = caller.project.organizationId;
   const limits = await limitsOf(org);
-  if (state === "on" && def.plan && limits.features && !limits.features.includes(def.plan)) {
-    throw new AssetError("limit_reached", `${def.name} isn't part of this organization's plan`, { limit: def.plan });
+  const planned = await plannedFor([def], org);
+  if (state === "on" && ((def.plan && limits.features && !limits.features.includes(def.plan)) || !planned)) {
+    throw new AssetError("limit_reached", `${def.name} isn't part of this organization's plan`, { limit: def.plan ?? def.id });
   }
   rowsOf.forget(org);
   const before = await rowsOf(org);
   const projectId = context === "project" ? caller.project.id : null;
-  if (context === "project" && stateIn(def, before, projectId).from === "organization") {
+  if (context === "project" && stateIn(def, before, projectId, planned).from === "organization") {
     const row = pick(before, def.id, null)!;
     throw new AssetError("forbidden", `${def.name} ${be(def)} turned ${row.state} for the whole organization by ${row.updatedBy}`, { by: row.updatedBy, at: row.updatedAt });
   }
   const spaces = context === "organization" ? await projectsIn(org) : [caller.project];
-  const was = new Map(spaces.map((p) => [p.id, stateIn(def, before, p.id).on]));
+  const was = new Map(spaces.map((p) => [p.id, stateIn(def, before, p.id, planned).on]));
 
   const where = and(eq(featureSwitches.organizationId, org), projectId ? eq(featureSwitches.projectId, projectId) : isNull(featureSwitches.projectId), eq(featureSwitches.feature, def.id));
   const previous = pick(before, def.id, projectId);
@@ -193,27 +212,47 @@ export async function switchFeature(caller: Caller, context: Level, id: string, 
   };
   await write(state);
   const after = await rowsOf(org);
-  const changed = spaces.filter((p) => stateIn(def, after, p.id).on !== was.get(p.id));
-  const on = changed.filter((p) => stateIn(def, after, p.id).on);
-  const off = changed.filter((p) => !stateIn(def, after, p.id).on);
+  const changed = spaces.filter((p) => stateIn(def, after, p.id, planned).on !== was.get(p.id));
+  const on = changed.filter((p) => stateIn(def, after, p.id, planned).on);
+  const off = changed.filter((p) => !stateIn(def, after, p.id, planned).on);
 
   // Turned on where it was off: each project's hook may refuse, and then nothing changes anywhere.
   const organization = (await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.id, org)))[0];
-  const done: typeof on = [];
-  for (const p of on) {
-    try {
-      await enableIn(def, caller, organization, p);
-      done.push(p);
-    } catch (err) {
-      await write(previous?.state ?? null);
-      for (const q of done) await disableIn(def, caller, organization, q);
-      throw err;
-    }
+  const { done, failed } = await pool(on, (p) => enableIn(def, caller, organization, p));
+  if (failed) {
+    await write(previous?.state ?? null);
+    await pool(done, (p) => disableIn(def, caller, organization, p));
+    throw failed;
   }
-  for (const p of off) await disableIn(def, caller, organization, p);
+  await pool(off, (p) => disableIn(def, caller, organization, p));
 
+  // What portals and links handed out asks again at once, here (lib/core/signers.ts).
+  if (def.id === "portals" || def.id === "shares") signerOpen.forget();
   await recordAudit(caller, "feature.switched", def.name, { feature: def.id, context, state, projects: changed.length }, { projectId });
-  return describe(def, caller, context, after, limits.features, context === "organization" ? spaces : []);
+  return describe(def, caller, context, after, limits.features, context === "organization" ? spaces : [], planned);
+}
+
+/** Hooks called at once, at most: hundreds of projects turned on together take seconds, not minutes. */
+const AT_ONCE = 8;
+
+/** `fn` over `items`, AT_ONCE at a time; after a failure no more start. Those done, and the first failure. */
+async function pool<T>(items: T[], fn: (item: T) => Promise<void>) {
+  const done: T[] = [];
+  let failed: unknown = null;
+  let next = 0;
+  const lane = async () => {
+    while (!failed && next < items.length) {
+      const item = items[next++];
+      try {
+        await fn(item);
+        done.push(item);
+      } catch (err) {
+        failed ??= err;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(AT_ONCE, items.length) }, lane));
+  return { done, failed };
 }
 
 // ---- a server's feature, in one project -------------------------------------------
@@ -234,8 +273,8 @@ export async function setUpProject(by: Who, organizationId: string, project: Spa
   const defs = catalog().filter((f) => !f.builtin);
   if (!defs.length) return;
   rowsOf.forget(organizationId);
-  const rows = await rowsOf(organizationId);
-  const on = defs.filter((def) => stateIn(def, rows, project.id).on);
+  const [rows, planned] = await Promise.all([rowsOf(organizationId), plannedFor(defs, organizationId)]);
+  const on = defs.filter((def) => stateIn(def, rows, project.id, planned).on);
   if (!on.length) return;
   const [organization] = await db.select({ id: organizations.id, slug: organizations.slug, name: organizations.name }).from(organizations).where(eq(organizations.id, organizationId));
   for (const def of on) {
@@ -243,7 +282,7 @@ export async function setUpProject(by: Who, organizationId: string, project: Spa
       await enableIn(def, by, organization, project);
     } catch (err) {
       console.error(`feature ${def.id}: not set up in new project ${project.id}`, err);
-      if (stateIn(def, rows, project.id).from === "organization" || !def.levels.includes("project")) continue;
+      if (stateIn(def, rows, project.id, planned).from === "organization" || !def.levels.includes("project")) continue;
       await db.insert(featureSwitches).values({ organizationId, projectId: project.id, feature: def.id, state: "off", updatedBy: by.actor }).onConflictDoNothing();
       rowsOf.forget(organizationId);
     }

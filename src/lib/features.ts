@@ -38,6 +38,12 @@ export const FeatureEntry = z.strictObject({
   icon: z.string().optional(),
   levels: z.array(z.enum(LEVELS)).min(1).default(["organization", "project"]),
   default: z.enum(["on", "off"]).default("off"),
+  /**
+   * Takes a plan: an organization with one of its own (its limits row, as billing writes it), not read-only or
+   * suspended. Without one it reads as off everywhere and Settings shows the way to a plan; its switches are kept, so it
+   * comes back as it was with the plan.
+   */
+  paid: z.boolean().default(false),
   /** A key the core makes for it in each project it is on in, handed over by the hook, and revoked when it is off. */
   key: z.strictObject({ name: z.string().min(1).max(80), scope: z.enum(["read", "propose", "write"]) }).optional(),
   /** Custom fields it writes to, made in a project when it is turned on there, if missing. Never removed. */
@@ -61,8 +67,9 @@ export type FeatureEntry = z.infer<typeof FeatureEntry>;
 
 export const FeaturesFile = z.strictObject({ features: z.array(FeatureEntry).default([]) });
 
-export type FeatureDef = Omit<FeatureEntry, "default"> & {
+export type FeatureDef = Omit<FeatureEntry, "default" | "paid"> & {
   default: State;
+  paid?: boolean;
   builtin: boolean;
   /** The plan's feature it takes (lib/limits.ts): a plan without it shows the way to one instead of a switch. */
   plan?: PlanFeature;
@@ -163,15 +170,21 @@ export function catalog(path = process.env.FEATURES_FILE): FeatureDef[] {
 
 export const featureById = (id: string, path?: string) => catalog(path).find((f) => f.id === id) ?? null;
 
-/** Where whether it is on comes from: the organization's switch, the project's, or the feature's default. */
-export type From = "organization" | "project" | "default";
+/** Where whether it is on comes from: the organization's switch, the project's, the feature's default, or no plan for it. */
+export type From = "organization" | "project" | "default" | "plan";
 
 /**
  * Whether a feature is on in a project, from the organization's switch and
  * the project's (each set or not). The organization's, set, decides for
  * every project; unset, each project's does, or the default.
  */
-export function decide(def: Pick<FeatureDef, "levels" | "default">, organization: State | null, project: State | null): { on: boolean; from: From } {
+export function decide(
+  def: Pick<FeatureDef, "levels" | "default"> & { paid?: boolean },
+  organization: State | null,
+  project: State | null,
+  planned = true,
+): { on: boolean; from: From } {
+  if (def.paid && !planned) return { on: false, from: "plan" };
   if (organization && def.levels.includes("organization")) return { on: organization === "on", from: "organization" };
   if (project && def.levels.includes("project")) return { on: project === "on", from: "project" };
   return { on: def.default === "on", from: "default" };
