@@ -122,6 +122,13 @@ function Deployments({ site }: { site: Portal }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [site.id]);
 
+  const restore = async (d: Deployment) => {
+    const res = await fetch(`/api/v1/sites/${site.id}/deployments/${d.id}/restore`, { method: "POST" });
+    await load();
+    if (!res.ok) return toast.error((await res.json().catch(() => null))?.error?.message ?? "It couldn't be restored");
+    toast.success(`Restored at ${d.path}`);
+  };
+
   const deploy = async (file: File | undefined) => {
     if (!file) return;
     setSending(true);
@@ -202,6 +209,11 @@ function Deployments({ site }: { site: Portal }) {
                   <span className="text-muted-foreground ms-auto text-xs" suppressHydrationWarning>
                     {d.createdBy}, {ago(d.createdAt)}
                   </span>
+                  {d.state === "replaced" && (
+                    <Button variant="ghost" size="sm" className="-my-1 h-7" onClick={() => void restore(d)}>
+                      Restore
+                    </Button>
+                  )}
                 </span>
                 {d.error && <span className="text-destructive text-xs">{d.error}</span>}
               </li>

@@ -7,8 +7,8 @@ import { db } from "@/lib/db";
 import { assets } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
-import { createPortal } from "@/lib/core/portals";
-import { deploy, listDeployments, siteFile } from "@/lib/core/sites";
+import { createPortal, updatePortal } from "@/lib/core/portals";
+import { deploy, listDeployments, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
 
@@ -38,6 +38,21 @@ test("a new deployment replaces the live one, which stays to restore", async () 
   await deploy(ada.caller, docs.id, pack({ "index.html": "v2" }));
   const list = (await listDeployments(ada.caller, docs.id))!;
   assert.deepEqual(list.slice(0, 2).map((d) => d.state), ["live", "replaced"]);
+  // Restored, the one before is live again and the new one replaced.
+  assert.equal((await restoreDeployment(ada.caller, docs.id, list[1].id))?.state, "live");
+  assert.deepEqual((await listDeployments(ada.caller, docs.id))!.slice(0, 2).map((d) => d.state), ["replaced", "live"]);
+  await restoreDeployment(ada.caller, docs.id, list[0].id);
+});
+
+test("a password site's builds open with the door's cookie, until the password changes", async () => {
+  const shut = await createPortal(ada.caller, { name: "Shut", slug: `shut-${Date.now().toString(36)}`, kind: "docs", access: "password", password: "open sesame 1" });
+  await deploy(ada.caller, shut.id, pack({ "index.html": "secret" }));
+  await assert.rejects(siteFile(shut.slug, {}, "/"), /needs a password/);
+  const cookie = await unlockValue(shut.slug);
+  assert.equal((await siteFile(shut.slug, {}, "/", cookie))?.status, 200);
+  await assert.rejects(siteFile(shut.slug, {}, "/", "123.forged"), /needs a password/);
+  await updatePortal(ada.caller, shut.id, { password: "open sesame 2" });
+  await assert.rejects(siteFile(shut.slug, {}, "/", cookie), /needs a password/);
 });
 
 test("what can't serve is refused, and a brand portal's root stays Artbucket's", async () => {

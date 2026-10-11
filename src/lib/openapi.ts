@@ -1520,6 +1520,15 @@ export function openapi(serverUrl: string) {
           requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
         },
       },
+      "/api/v1/sites/{id}/deployments/{deployment}/restore": {
+        parameters: [path("id", "Site id"), path("deployment", "Deployment id")],
+        post: op({
+          summary: "Restore a deployment",
+          scope: "write",
+          description: "A replaced deployment live again at its path, the one live there now replaced in turn: undoing a bad deploy without building again. Not a failed one.",
+          ok: [200, "The deployment, live", data(Deployment)],
+        }),
+      },
       "/api/v1/sites/{id}/views": {
         parameters: [path("id", "Portal id")],
         get: op({

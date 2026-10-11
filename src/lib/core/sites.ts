@@ -5,7 +5,10 @@ import { assets, portals, siteDeployments } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { AssetError } from "@/lib/core/errors";
+import { portalNamed } from "@/lib/core/domains";
 import { enterPortal, type Pass } from "@/lib/core/portals";
+import { env } from "@/lib/env";
+import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
 import { BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, siteFiles, type BuildKind } from "@/lib/sites";
 import { putObject, sizeOf } from "@/lib/storage";
@@ -146,6 +149,55 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
   }
 }
 
+/**
+ * Put a deployment kept as replaced back live at its path, the one live there
+ * now replaced in turn: undoing a bad deploy without building again. Null: no
+ * such site or deployment here, or one that never went live (failed).
+ */
+export async function restoreDeployment(caller: Caller, siteId: string, deploymentId: string) {
+  mayDeploy(caller);
+  const site = await siteOf(caller, siteId);
+  if (!site) return null;
+  const [d] = await db
+    .select()
+    .from(siteDeployments)
+    .where(and(eq(siteDeployments.id, deploymentId), eq(siteDeployments.siteId, site.id), inArray(siteDeployments.state, ["live", "replaced"])));
+  if (!d) return null;
+  if (d.state === "live") return present(d);
+  const [live] = await db.transaction(async (tx) => {
+    await tx
+      .update(siteDeployments)
+      .set({ state: "replaced" })
+      .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, d.path), eq(siteDeployments.state, "live")));
+    return tx.update(siteDeployments).set({ state: "live" }).where(eq(siteDeployments.id, d.id)).returning();
+  });
+  await recordAudit(caller, "site.deployed", site.slug, { path: d.path, kind: d.kind, files: d.files, restored: d.id }, { projectId: site.projectId });
+  return present(live);
+}
+
+/**
+ * A password site's builds are pages a browser asks for, with no header to
+ * carry the password the portal's own pages send: the door (app/sitefiles)
+ * sets this cookie, on the site's own host, for a week. It names the
+ * password's hash, so a new password shuts every door opened with the old.
+ */
+export const UNLOCK_COOKIE = "ab_site";
+const UNLOCK_DAYS = 7;
+const unlockId = (p: { id: string; passwordHash: string | null }) => `site:${p.id}:${(p.passwordHash ?? "").slice(-16)}`;
+
+/** The cookie for a site whose password was just given. */
+export async function unlockValue(slug: string) {
+  const p = (await portalNamed(slug))?.p;
+  return p ? signAsset(env.BETTER_AUTH_SECRET, unlockId(p), new Date(Date.now() + UNLOCK_DAYS * 864e5)) : null;
+}
+
+/** Whether a cookie opens this password site. */
+async function unlocked(slug: string, value: string | null | undefined) {
+  if (!value) return false;
+  const p = (await portalNamed(slug))?.p;
+  return !!p && p.access === "password" && !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
+}
+
 /** The live mount paths of a site, longest first: where its builds answer. For src/proxy.ts. */
 export async function liveMounts(siteId: string) {
   const rows = await db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.state, "live")));
@@ -159,8 +211,12 @@ export const underMount = (rest: string, mount: string) => mount === "/" || rest
  * (the portal's own gate: a password or members site refuses here), or null
  * when no live build holds the path. A miss answers the build's 404.html.
  */
-export async function siteFile(slug: string, pass: Pass, rest: string) {
-  const { p } = await enterPortal(slug, pass);
+export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null) {
+  const { p } = await enterPortal(slug, pass).catch(async (err) => {
+    // Its door's cookie stands for the password. Still the portal's own checks first: closed, suspended, gone.
+    if (err instanceof AssetError && err.code === "password" && (await unlocked(slug, unlock))) return { p: (await portalNamed(slug))!.p };
+    throw err;
+  });
   const live = await db
     .select({ path: siteDeployments.path, prefix: siteDeployments.prefix })
     .from(siteDeployments)
