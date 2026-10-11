@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/core/audit";
 import { CLAIM_DAYS } from "@/lib/core/domains";
 import { AssetError } from "@/lib/core/errors";
 import { notSuspended } from "@/lib/core/usage";
+import { notSwitchedOff } from "@/lib/core/features";
 import { FetchError, fetchPublic } from "@/lib/fetch-public";
 import { GITHUB_PROOF_FILE, githubLogin, githubProof, githubProofUrl, type ReportReason } from "@/lib/hub";
 import { can, needs } from "@/lib/permissions";
@@ -149,6 +150,7 @@ export async function publicListing(org: string, slug: string) {
         eq(brands.visibility, "public"),
         isNull(brands.hubDelisted),
         notSuspended(organizations.id),
+        notSwitchedOff("hub", organizations.id),
         sql`exists (select 1 from ${brandVersions} v where v.brand_id = ${brands.id} and v.published_at is not null)`,
       ),
     );

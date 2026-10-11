@@ -34,6 +34,7 @@ import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, 
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
 import { checkLimit, limitsOf } from "@/lib/core/usage";
 import { suspended, suspendedIn } from "@/lib/core/suspension";
+import { featureOn, featureOnIn, requireFeature } from "@/lib/core/features";
 import { accessIn, highest } from "@/lib/access";
 import { env } from "@/lib/env";
 import { type Action, can } from "@/lib/permissions";
@@ -282,6 +283,7 @@ function expiry(raw: string | null | undefined) {
 export async function createPortal(caller: Caller, input: Input & { name: string; slug: string; kind?: SiteKind }) {
   mayManage(caller);
   await checkLimit(caller.project.organizationId, "shares");
+  await requireFeature("portals", { organizationId: caller.project.organizationId, projectId: caller.project.id });
   const access = input.access ?? "public";
   if (access === "password" && !input.password) throw new AssetError("invalid", "A password portal needs a password");
   await slugFree(input.slug, undefined, !input.domain && access !== "members");
@@ -553,6 +555,8 @@ async function keyValid(p: Row, key: string | null | undefined) {
 
 /** A suspended organization's portal (lib/suspension.ts): a 451 that names nobody. */
 const UNAVAILABLE = () => new AssetError("suspended", "This content is unavailable");
+/** Portals and sites turned off in its project (Settings, Features): as if there were none, until they are back on. */
+const CLOSED = () => new AssetError("not_found", "This portal is closed");
 
 /**
  * The portal a slug names, if this visitor may open it, and who they are to
@@ -567,6 +571,8 @@ async function open(slug: string, pass: Pass): Promise<{ p: Row; level: Audience
   if (!named) throw new AssetError("not_found", "There is no portal here");
   if (await suspended(named.organizationId)) throw UNAVAILABLE();
   const { p } = named;
+  // Turned off in Settings, Features: closed to visitors, kept as it is, open again once back on.
+  if (!(await featureOn("portals", { organizationId: named.organizationId, projectId: p.projectId }))) throw CLOSED();
   if (p.expiresAt && p.expiresAt <= new Date()) throw new AssetError("gone", "This portal has closed");
   if (await keyValid(p, pass.key)) return { p, level: "partners" };
   if (p.access === "public") return { p, level: "everyone" };
@@ -1109,6 +1115,7 @@ export async function requestAccess(
     [p] = await db.select().from(portals).where(eq(portals.slug, slug));
     if (!p) throw new AssetError("not_found", "There is no portal here");
     if (await suspendedIn(p.projectId)) throw UNAVAILABLE();
+    if (!(await featureOnIn("portals", p.projectId))) throw CLOSED();
     // A public portal takes asks when some page or section of what it shows is for partners or members.
     if (p.access === "public" && !(await publishes(p)).some((src) => gatedAbove(src, "everyone"))) {
       throw new AssetError("invalid", "This portal is open: no need to ask");

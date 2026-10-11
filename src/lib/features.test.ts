@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILTIN, decide, parseFeatures, ruleOf } from "./features.ts";
+import { BUILTIN, catalog, decide, parseFeatures, ruleOf } from "./features.ts";
 
 const both = { levels: ["organization", "project"] as ("organization" | "project")[], default: "off" as const };
 
@@ -28,6 +28,21 @@ test("the organization's rule: each project decides only where projects have a s
 
 test("the core's own start on, so nothing changes until an admin says so", () => {
   for (const f of BUILTIN) assert.equal(f.default, "on", f.id);
+});
+
+test("BrandHub is offered only where the server runs one", () => {
+  const had = process.env.HUB_URL;
+  delete process.env.HUB_URL;
+  assert.ok(!catalog(undefined).some((f) => f.id === "hub"));
+  process.env.HUB_URL = "https://hub.example.com";
+  assert.ok(catalog(undefined).some((f) => f.id === "hub"));
+  if (had === undefined) delete process.env.HUB_URL;
+  else process.env.HUB_URL = had;
+});
+
+test("BrandHub is the organization's alone: a project's switch says nothing", () => {
+  const hub = BUILTIN.find((f) => f.id === "hub")!;
+  assert.deepEqual(decide(hub, null, "off"), { on: true, from: "default" });
 });
 
 test("a server's file: checked, with defaults filled in", () => {

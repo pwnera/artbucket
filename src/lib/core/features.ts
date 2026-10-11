@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { apiKeys, featureSwitches, organizations, projects } from "@/lib/db/schema";
 import type { Caller, Project } from "@/lib/core/access";
@@ -49,6 +49,27 @@ export async function featureOn(id: string, place: Place) {
   if (!def) return false;
   return stateIn(def, await rowsOf(place.organizationId), place.projectId ?? null).on;
 }
+
+/** A project's organization, which never changes: kept, as every file served asks whether usage is counted. */
+const orgOf = memo(10 * 60_000, async (projectId: string) => {
+  const [p] = await db.select({ id: projects.organizationId }).from(projects).where(eq(projects.id, projectId));
+  return p?.id ?? null;
+});
+
+/** Whether a feature is on in a project, known by its id alone: for what a visitor or a file served is about. */
+export async function featureOnIn(id: string, projectId: string) {
+  const organizationId = await orgOf(projectId);
+  return !!organizationId && featureOn(id, { organizationId, projectId });
+}
+
+/**
+ * SQL: the organization `organizationId` names hasn't turned `feature` off
+ * for itself: for what the public sees of a feature switched on the
+ * organization alone (BrandHub), as notSuspended is for suspension.
+ */
+export const notSwitchedOff = (feature: BuiltinFeature, organizationId: SQLWrapper) =>
+  sql`not exists (select 1 from ${featureSwitches} fs where fs.organization_id = ${organizationId} and fs.project_id is null
+    and fs.feature = ${feature} and fs.state = 'off')`;
 
 /** The features off in a project: for /me, so the app leaves out what they bring. */
 export async function offIn(place: Place) {

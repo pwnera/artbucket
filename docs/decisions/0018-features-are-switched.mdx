@@ -15,7 +15,8 @@ needed itself, so the core didn't know it was on.
 ## Decision
 
 - **One list of features, in Settings, Features.** The core's own (agents and
-  API keys, share and upload links) and the server's, read from
+  API keys, share and upload links, portals and sites, BrandHub, usage
+  insights) and the server's, read from
   `FEATURES_FILE` (JSON or YAML), shown alike. Adding one to a server is an
   entry in that file, never a change to the core.
 - **Switched where it says.** Each feature is switched for the organization,
@@ -34,6 +35,10 @@ needed itself, so the core didn't know it was on.
 
 ## Consequences
 
+- Off reads as it does for the public: a portal is closed, a brand leaves
+  BrandHub as if private, a link is as if revoked. Usage insights off stops
+  counting; what was counted stays, and Activity (the history of changes) goes
+  on.
 - A feature's key belongs to its switch: Connections leaves it out, and
   turning agents and keys off leaves it working.
 - The server's pages a feature brings (`ASSISTANT_URL`, `BRAND_IMPORT_URL`)

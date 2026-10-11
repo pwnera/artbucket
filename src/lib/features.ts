@@ -96,14 +96,54 @@ export const BUILTIN: FeatureDef[] = [
     gates: [],
     builtin: true,
   },
+  {
+    id: "portals",
+    name: "Portals and sites",
+    description: "Brand portals, and the sites you build and deploy, at addresses of their own.",
+    off: "Portals and sites close to their visitors, and none can be made. They are kept as they are, and open again when this is back on.",
+    icon: "world",
+    levels: ["organization", "project"],
+    default: "on",
+    fields: [],
+    gates: [],
+    builtin: true,
+  },
+  {
+    id: "hub",
+    name: "BrandHub",
+    description: "Public brands listed on BrandHub, with their brand.json, for people and agents to find.",
+    off: "Public brands leave BrandHub and their brand.json stops being served: your own people see them as private. Listed again when this is back on.",
+    icon: "hub",
+    levels: ["organization"],
+    default: "on",
+    fields: [],
+    gates: [],
+    builtin: true,
+  },
+  {
+    id: "insights",
+    name: "Usage insights",
+    description: "Counting what gets used, by whom and where: files served, searches, use checks, portal page views and what agents ask.",
+    off: "Nothing more is counted. What was counted stays in Insights; Activity, the history of changes, goes on.",
+    icon: "chart",
+    levels: ["organization", "project"],
+    default: "on",
+    fields: [],
+    gates: [],
+    builtin: true,
+  },
 ];
-export type BuiltinFeature = "agents" | "shares";
+export type BuiltinFeature = "agents" | "shares" | "portals" | "hub" | "insights";
+
+/** The core's own this server offers: BrandHub only where it runs one (HUB_URL). */
+const builtins = () => BUILTIN.filter((f) => f.id !== "hub" || !!process.env.HUB_URL);
 
 /** The server's features as its file says, checked: a mistake there stops the server rather than half-working. */
 export function parseFeatures(text: string, path = "FEATURES_FILE"): FeatureDef[] {
   const raw = /\.ya?ml$/i.test(path) ? parseYaml(text) : JSON.parse(text);
   const parsed = FeaturesFile.safeParse(raw ?? {});
   if (!parsed.success) throw new Error(`${path}: ${z.prettifyError(parsed.error)}`);
+  // Every id of the core's, offered here or not: a server's feature never takes one.
   const ids = new Set(BUILTIN.map((f) => f.id));
   return parsed.data.features.map((f) => {
     if (ids.has(f.id)) throw new Error(`${path}: "${f.id}" is already a feature`);
@@ -112,11 +152,12 @@ export function parseFeatures(text: string, path = "FEATURES_FILE"): FeatureDef[
   });
 }
 
-let loaded: { path: string | undefined; defs: FeatureDef[] } | null = null;
+let loaded: { path: string | undefined; hub: boolean; defs: FeatureDef[] } | null = null;
 
 /** Every feature: the core's, then the file's (read once). */
 export function catalog(path = process.env.FEATURES_FILE): FeatureDef[] {
-  if (!loaded || loaded.path !== path) loaded = { path, defs: [...BUILTIN, ...(path ? parseFeatures(readFileSync(path, "utf8"), path) : [])] };
+  const hub = !!process.env.HUB_URL;
+  if (!loaded || loaded.path !== path || loaded.hub !== hub) loaded = { path, hub, defs: [...builtins(), ...(path ? parseFeatures(readFileSync(path, "utf8"), path) : [])] };
   return loaded.defs;
 }
 

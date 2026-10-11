@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { IconExternalLink, IconLink, IconRobot, IconSparkles, IconToggleLeft, type Icon } from "@/components/icons";
+import { IconChartBar, IconCompass, IconExternalLink, IconLink, IconRobot, IconSparkles, IconToggleLeft, IconWorld, type Icon } from "@/components/icons";
 import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -32,7 +32,7 @@ export type FeatureItem = {
 };
 
 /** The icons a feature may name (FEATURES_FILE's `icon`); a switch for any other. */
-const ICONS: Record<string, Icon> = { robot: IconRobot, link: IconLink, sparkles: IconSparkles };
+const ICONS: Record<string, Icon> = { robot: IconRobot, link: IconLink, sparkles: IconSparkles, world: IconWorld, hub: IconCompass, chart: IconChartBar };
 
 const When = ({ set }: { set: FeatureItem["set"] }) =>
   set && (

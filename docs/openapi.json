@@ -38400,7 +38400,7 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, and the server's own"
+                          "description": "Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, portals, hub, insights, and the server's own"
                         },
                         "upgrade": {
                           "anyOf": [
@@ -60408,7 +60408,7 @@
     "/api/v1/features": {
       "get": {
         "summary": "Features",
-        "description": "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links) and the server's (FEATURES_FILE). At the organization, its `rule` (on or off in every project, or each project decides) and in how many projects it is on; in the project, whether it is on and what decides it. Admin there.\n\nAny caller; the scope needed is checked on what it acts on.",
+        "description": "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links, portals and sites, BrandHub where the server runs it, usage insights) and the server's (FEATURES_FILE). At the organization, its `rule` (on or off in every project, or each project decides) and in how many projects it is on; in the project, whether it is on and what decides it. Admin there.\n\nAny caller; the scope needed is checked on what it acts on.",
         "parameters": [
           {
             "name": "context",
@@ -60439,7 +60439,7 @@
                         "properties": {
                           "id": {
                             "type": "string",
-                            "description": "agents, shares, or one of the server's own (FEATURES_FILE)"
+                            "description": "agents, shares, portals, hub, insights, or one of the server's own (FEATURES_FILE)"
                           },
                           "name": {
                             "type": "string"
@@ -60719,7 +60719,7 @@
                       "properties": {
                         "id": {
                           "type": "string",
-                          "description": "agents, shares, or one of the server's own (FEATURES_FILE)"
+                          "description": "agents, shares, portals, hub, insights, or one of the server's own (FEATURES_FILE)"
                         },
                         "name": {
                           "type": "string"

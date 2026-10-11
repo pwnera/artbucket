@@ -1,4 +1,5 @@
 import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
+import { featureOnIn } from "@/lib/core/features";
 import { db, unbounded } from "@/lib/db";
 import { eventCounts, eventDays, events } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -22,9 +23,10 @@ export type Event = typeof events.$inferInsert;
  * every few seconds if delivery traffic makes this the hot path.
  */
 export function record(e: Event) {
-  // After the response's own work, and whatever goes wrong goes wrong there, not in it.
+  // After the response's own work, and whatever goes wrong goes wrong there, not in it. Nothing is counted where usage
+  // insights are turned off (Settings, Features).
   void Promise.resolve()
-    .then(() => db.insert(events).values(e))
+    .then(async () => (await featureOnIn("insights", e.projectId)) && db.insert(events).values(e))
     .catch((err) => console.error("event not recorded", err));
 }
 

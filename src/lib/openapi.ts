@@ -2016,7 +2016,8 @@ export function openapi(serverUrl: string) {
           summary: "Features",
           scope: "any",
           description:
-            "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links) and " +
+            "Every feature that can be turned on or off: the core's own (agents and API keys, share and upload links, portals " +
+            "and sites, BrandHub where the server runs it, usage insights) and " +
             "the server's (FEATURES_FILE). At the organization, its `rule` (on or off in every project, or each project " +
             "decides) and in how many projects it is on; in the project, whether it is on and what decides it. Admin there.",
           query: { context: { schema: { type: "string", enum: ["organization", "project"], default: "organization" }, description: "Where" } },

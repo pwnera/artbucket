@@ -1207,7 +1207,7 @@ export const Me = z.object({
     .describe("What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"),
   off: z
     .array(z.string())
-    .describe("Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, and the server's own"),
+    .describe("Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, portals, hub, insights, and the server's own"),
   upgrade: z
     .string()
     .url()
@@ -1796,7 +1796,7 @@ export const SettingItem = z.object({
   own: z.boolean().describe("Set here: resetting it lets what is above apply"),
 });
 export const FeatureItem = z.object({
-  id: z.string().describe("agents, shares, or one of the server's own (FEATURES_FILE)"),
+  id: z.string().describe("agents, shares, portals, hub, insights, or one of the server's own (FEATURES_FILE)"),
   name: z.string(),
   description: z.string(),
   off: z.string().nullable().describe("What turning it off does"),
