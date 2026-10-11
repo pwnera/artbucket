@@ -57,6 +57,10 @@ const VERB: Record<Item["verb"], { icon: Icon; says: string }> = {
   restored: { icon: IconArrowBackUp, says: "restored" },
   suggested_tags: { icon: IconTag, says: "suggested tags for" },
   suggested_fields: { icon: IconTag, says: "suggested values for" },
+  accepted_tags: { icon: IconCheck, says: "accepted suggested tags on" },
+  dismissed_tags: { icon: IconX, says: "dismissed suggested tags on" },
+  accepted_fields: { icon: IconCheck, says: "accepted suggested values on" },
+  dismissed_fields: { icon: IconX, says: "dismissed suggested values on" },
   archived: { icon: IconArchive, says: "archived" },
   unarchived: { icon: IconArrowBackUp, says: "unarchived" },
   made_current: { icon: IconStack2, says: "made current" },
@@ -343,6 +347,9 @@ function Detail({ item: i }: { item: Item }) {
             </Badge>
           ))}
         </div>
+      )}
+      {i.detail?.fields && i.detail.fields.length > 0 && (
+        <p className="text-muted-foreground text-xs">{i.detail.fields.map((k) => k.replaceAll("_", " ")).join(", ")}</p>
       )}
       {i.detail?.rules && i.detail.rules.length > 0 && (
         <p className="text-muted-foreground text-xs">
