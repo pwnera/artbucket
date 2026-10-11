@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { assets, portals, siteDeployments } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
+import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
 import { portalNamed } from "@/lib/core/domains";
 import { enterPortal, type Pass } from "@/lib/core/portals";
@@ -25,6 +26,9 @@ import { unzip } from "@/lib/zip";
  */
 
 type Deployment = typeof siteDeployments.$inferSelect;
+
+/** Replaced deployments kept per path, to restore: their files count as storage until a newer one pushes them out. */
+export const KEEP_REPLACED = 3;
 
 const present = (d: Deployment) => ({
   id: d.id,
@@ -111,6 +115,10 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
   if (files.size > MAX_SITE_FILES) throw new AssetError("invalid", `A deployment holds ${MAX_SITE_FILES} files at most`);
   if (!files.has("index.html")) throw new AssetError("invalid", "No index.html at the zip's root (or in the one folder it wraps)");
   const byName = new Map(entries.map((e) => [e.name, e]));
+  // Its files count as storage, as an upload's do: the zip's size first, the files' own as it goes live.
+  const organizationId = caller.project.organizationId;
+  await checkLimit(organizationId, "storage", { adding: zip.length });
+  const limits = await limitsOf(organizationId);
 
   const id = randomUUID();
   const prefix = `sites/${site.id}/${id}/`;
@@ -134,10 +142,19 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
     const problems = manifest ? await manifestProblems(site.projectId, manifest) : [];
     if (problems.length) throw new AssetError("invalid", `It uses what may not be used: ${problems.join("; ")}`);
     const [live] = await db.transaction(async (tx) => {
+      await claimStorage(tx, organizationId, bytes, limits);
       await tx
         .update(siteDeployments)
         .set({ state: "replaced" })
         .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, path), eq(siteDeployments.state, "live")));
+      // A few replaced kept to restore; older ones go, and the sweep (lib/core/sweep.ts) takes their files.
+      const old = await tx
+        .select({ id: siteDeployments.id })
+        .from(siteDeployments)
+        .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, path), eq(siteDeployments.state, "replaced")))
+        .orderBy(desc(siteDeployments.createdAt))
+        .offset(KEEP_REPLACED);
+      if (old.length) await tx.delete(siteDeployments).where(inArray(siteDeployments.id, old.map((o) => o.id)));
       return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest }).where(eq(siteDeployments.id, id)).returning();
     });
     await recordAudit(caller, "site.deployed", site.slug, { path, kind, files: files.size }, { projectId: site.projectId });

@@ -8,7 +8,8 @@ import { assets } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, updatePortal } from "@/lib/core/portals";
-import { deploy, listDeployments, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { deploy, KEEP_REPLACED, listDeployments, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
 
@@ -89,4 +90,13 @@ test("a live build's manifest is its lineage: the assets it names and its brand 
   assert.ok(l.edges.some((e) => e.to === site.id && e.kind === "built" && e.via === "/"));
   const b = (await lineage(ada.caller, `${ada.caller.project.organization.slug}/${ada.caller.project.slug}/brand/default`, { depth: 1, direction: ["down"] }))!;
   assert.ok(b.nodes.some((n) => n.id === site.id));
+});
+
+test("builds count as storage, and only a few replaced are kept per path", async () => {
+  const site = await createPortal(ada.caller, { name: "Many", slug: `many-${Date.now().toString(36)}`, kind: "docs" });
+  const before = (await usageOf(ada.caller)).used.storage;
+  for (let i = 0; i < KEEP_REPLACED + 3; i++) await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }));
+  const list = (await listDeployments(ada.caller, site.id))!;
+  assert.deepEqual(list.map((d) => d.state), ["live", ...Array(KEEP_REPLACED).fill("replaced")]);
+  assert.equal((await usageOf(ada.caller)).used.storage - before, (KEEP_REPLACED + 1) * 1000);
 });
