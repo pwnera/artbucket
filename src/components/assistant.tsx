@@ -513,7 +513,9 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
 
       <div
         ref={log}
-        className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+        // Its own containing block: what is positioned in an answer (a button's hidden label) stays in this scroller, rather
+        // than making the panel itself scroll, which focusing something would then do.
+        className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4"
         onScroll={(e) => {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
