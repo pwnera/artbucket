@@ -57,7 +57,8 @@ function DialogOverlay({
   )
 }
 
-const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster]")
+/** A toast (its Undo), or the assistant docked beside (components/assistant.tsx): never outside a dialog. */
+const inToaster = (t: EventTarget | null) => !!(t as Element | null)?.closest?.("[data-sonner-toaster], [data-assistant-panel]")
 
 /**
  * A form dialog passes `guard` so typed edits are never lost by accident:

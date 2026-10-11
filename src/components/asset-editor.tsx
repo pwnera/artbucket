@@ -1,7 +1,7 @@
 "use client";
 
 import { CatalogButton } from "@/components/catalog-button";
-import { AskButton, AssistantPanel } from "@/components/assistant";
+import { AskButton, AssistantAsset } from "@/components/assistant";
 import { Fragment, useEffect, useEffectEvent, useId, useImperativeHandle, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -827,7 +827,7 @@ export function AssetEditor({
           <span className="ml-auto" />
           {/* The server's assistant, about this asset: its panel opens inside this dialog, so it takes focus and clicks. */}
           <AskButton label="Ask about it" />
-          <AssistantPanel asset={asset.id} />
+          <AssistantAsset id={asset.id} />
           {/* Its lineage, who reaches it and what happened to it: in the catalog. */}
           <CatalogButton id={asset.id} onOpen={(href) => leave(() => router.push(href))} />
           {/* One way out: who can open it is asked in the dialog. */}
