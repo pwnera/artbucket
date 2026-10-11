@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconSparkles } from "@/components/icons";
+import { assistantPlace } from "@/lib/assistant-place";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
@@ -19,7 +20,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
  * carries on with it. With an asset open, the frame is told its id. The frame
  * asks the panel to close ({ close: true }) on Escape, which only it hears, and
  * says when a change the person approved there was made ({ changed: true }), so
- * the page beside it shows it.
+ * the page beside it shows it. It can also take the person somewhere
+ * ({ navigate: "/path" }): the app goes only to its own pages that show
+ * things (assistantPlace), never to one that acts by being opened.
  */
 
 type AssistantValue = {
@@ -86,12 +89,14 @@ export function AssistantPanel({ asset }: { asset?: string }) {
   const router = useRouter();
   const onMessage = useEffectEvent((e: MessageEvent) => {
     if (!a || e.origin !== new URL(a.url, window.location.href).origin) return;
-    const data = e.data as { type?: string; chat?: unknown; close?: unknown; changed?: unknown } | null;
+    const data = e.data as { type?: string; chat?: unknown; close?: unknown; changed?: unknown; navigate?: unknown } | null;
     if (data?.type !== "artbucket:assistant") return;
     if (typeof data.chat === "string" || data.chat === null) a.setChat(data.chat);
     // Escape pressed inside the frame, which the panel can't hear itself.
     if (data.close === true) a.setOpen(false);
     if (data.changed === true) router.refresh();
+    const place = assistantPlace(data.navigate, window.location.origin);
+    if (place) router.push(place);
   });
   useEffect(() => {
     const listen = (e: MessageEvent) => onMessage(e);
