@@ -145,7 +145,8 @@ export function AssistantProvider({ url, onChanged, children }: { url: string | 
 type Notice = { code?: string; title: string; text: string; href?: string; label?: string };
 type Start = { notice: Notice | null; project?: string; chats?: { id: string; title: string }[]; ideas?: { library: string[]; asset: string[] } };
 /** A change the assistant asks to make. `deciding`: the person said yes or no, and it is on its way. */
-type Action = { name: string; label: string; input: unknown; state: "waiting" | "deciding" | "done" | "failed" | "declined"; error?: string };
+/** `note`: what the change takes away, said before the person decides (a delete: what uses the asset). */
+type Action = { name: string; label: string; input: unknown; state: "waiting" | "deciding" | "done" | "failed" | "declined"; error?: string; note?: string };
 type Step = { tool: string } | { said: string };
 /**
  * A question and its answer. `since`: tools run since the answer last had words, where a step's words go. `started`:
@@ -397,7 +398,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
           setStatus("Writing");
         } else if (ev.type === "approval" && typeof ev.id === "string") {
           const id = ev.id;
-          setActions((as) => ({ ...as, [id]: { name: String(ev.name ?? ""), label: String(ev.label ?? "A change"), input: ev.input, state: "waiting" } }));
+          setActions((as) => ({ ...as, [id]: { name: String(ev.name ?? ""), label: String(ev.label ?? "A change"), input: ev.input, state: "waiting", ...(typeof ev.note === "string" && { note: ev.note }) } }));
           current((t) => ({ ...t, answer: `${t.answer}\n\n[[action:${id}]]\n\n` }));
         } else if (ev.type === "action" && typeof ev.id === "string") {
           const { id, state, error } = ev as { id: string; state: Action["state"]; error?: string };
@@ -780,6 +781,7 @@ function ActionCard({ a, approved, busy, onDecide }: { a: Action | undefined; ap
         {a.label}
         {a.state === "waiting" && <small className="text-muted-foreground ms-1.5 font-normal">needs your approval</small>}
       </div>
+      {a.note && a.state === "waiting" && <p className={cn("text-sm", danger && "text-destructive")}>{a.note}</p>}
       {shown.length > 0 && (
         <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
           {shown.map((k) => (
