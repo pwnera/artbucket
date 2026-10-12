@@ -66,13 +66,18 @@ test("portals off: a site closes to visitors, none can be made, and it opens aga
 test("usage insights off: nothing more is counted there", async () => {
   const counted = async () =>
     (await db.select({ n: sql<number>`count(*)::int` }).from(events).where(and(eq(events.projectId, main.id), eq(events.subject, "switch-test"))))[0].n;
-  const settle = () => new Promise((r) => setTimeout(r, 200));
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // record() writes after the caller's work, unawaited: wait for the first to land (a loaded CI runner takes longer
+  // than a fixed pause), then give the one that must not land the same chance.
+  const landed = async (n: number) => {
+    for (let i = 0; i < 50 && (await counted()) < n; i++) await wait(100);
+    return counted();
+  };
   record({ projectId: main.id, kind: "search", surface: "app", actor: "person", subject: "switch-test", verdict: "found" });
-  await settle();
-  assert.equal(await counted(), 1);
+  assert.equal(await landed(1), 1);
   await switchFeature(ada.caller, "organization", "insights", "off");
   record({ projectId: main.id, kind: "search", surface: "app", actor: "person", subject: "switch-test", verdict: "found" });
-  await settle();
+  await wait(500);
   assert.equal(await counted(), 1);
   await switchFeature(ada.caller, "organization", "insights", "projects");
 });
