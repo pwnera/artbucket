@@ -187,6 +187,13 @@ export function openapi(serverUrl: string) {
               schema: { type: "string", enum: ["true", "false"] },
               description: "true: proposed assets and assets with suggested tags, whatever `status` says",
             },
+            uploadedSince: { schema: str, description: "Added on or after this time: a day (YYYY-MM-DD, from its start in UTC) or an ISO date-time" },
+            uploadedBefore: { schema: str, description: "Added before this time, as uploadedSince" },
+            expiresBefore: {
+              schema: { type: "string", format: "date" },
+              description: "Whose license's last day is before this one: by the end of 2026 is 2027-01-01. Expired ones only with `status=expired`",
+            },
+            untagged: { schema: { type: "string", enum: ["true", "false"] }, description: "true: only assets carrying no tags" },
             limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 100 }, description: "Page size" },
             offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
           },

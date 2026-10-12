@@ -34,7 +34,7 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 
 | Tool | Scope | |
 |---|---|---|
-| `search_assets` | read | Full text, tags, collections, field filters, lifecycle `status` |
+| `search_assets` | read | Full text, tags, collections, field filters, lifecycle `status`, upload dates, licenses running out, untagged, paged with `offset` |
 | `describe_asset` | read | What it is, its rights, what replaced it, suggestions waiting on review, the brand rules that point at it, a `fetchUrl` to open it, and whether people outside can see it (public, or the public portals showing it) |
 | `check_use` | read | May it run here, now, in this context; if not, why, and what instead |
 | `rendition_url` | read | A URL for a width, height, fit, format and quality, and a `fetchUrl` for the agent itself. With `expiresIn`, a URL for someone without access: plain for a public asset, signed about a day for one a public portal shows, signed as asked with share; anything else says what the person can do |
@@ -88,6 +88,33 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `delete_site` | write, share | Delete a portal; its address and domain stop answering |
 | `list_site_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
 | `decide_site_request` | write, share | Approve or deny a request; approved access gets a link of its own |
+| `update_asset` | write | Rename an asset, fix its caption, credit or copyright, set or change its tags, field values, rights, or what replaced it |
+| `update_assets` | write | The same tags and field values on up to 50 assets; each succeeds or fails on its own |
+| `review_assets` | write, approve | `review_asset` for up to 50 assets in one call; `"all"` takes every suggestion an asset has |
+| `delete_asset` | write | Delete an asset, restorable for 30 days; answers with what used it and the last day to restore it |
+| `restore_asset` | write | Bring back an asset deleted in the last 30 days |
+| `asset_versions` | read | Every version of an asset, newest first, and which one is current |
+| `make_version_current` | write, approve | Roll an asset back or forward to an approved version |
+| `get_activity` | read | Who did what in the project, newest first, paged with `before` |
+| `get_insights` | write | The most fetched assets, searches that found nothing, adoption and traffic |
+| `asset_insights` | write | Where one asset is used, and its fetches over 30 days |
+| `brand_insights` | write | A brand's reads, page views, answers and release adoption |
+| `brand_updates` | read | A brand's latest publishes, each with what it changed |
+| `brand_assets` | read | The files a brand uses, with the rules and pages each is in |
+| `brand_tokens` | read | A brand as design tokens: CSS variables, Tailwind, JSON and more |
+| `create_share` | write | A view or upload link for people without an account, with a password and an expiry |
+| `list_shares` | write | The project's share links |
+| `save_search` | write | Keep a search under a name, as an `/api/v1/assets` query string |
+| `list_searches` | read | The project's saved searches |
+| `list_members` | admin | The organization's and project's people, their grants, and invitations waiting (never their links) |
+| `search_catalog` | read | Everything at once (assets, collections, brands, portals, rules, pages) by address; paged with `cursor` |
+| `describe_object` | read | One catalog object: what it is part of, what uses it, its lineage's counts |
+| `lineage` | read | What an object comes from and what uses it, hop by hop, and what changing it reaches |
+| `who_can` | read | Who reaches an object, and the grant behind each role |
+| `share_object` | admin | Share a brand, collection or asset into another project of the organization |
+| `object_activity` | read | What happened to one catalog object, newest first |
+| `shared_with_us` | read | What other projects shared into this one |
+| `list_projects` | read | Every project you reach, your role there, and how much each holds |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
 tools, only for a key that may manage portals (write on the project, with

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useCan } from "@/components/can";
 import { CopyButton, copyText } from "@/components/copy-button";
-import { GRID_MAX, VERDICTS, parseAnswer, type Block, type Inline, type Verdict } from "@/lib/assistant-answer";
+import { IconFolder, IconPalette } from "@/components/icons";
+import { GRID_MAX, VERDICTS, inline, parseAnswer, type Block, type DateWord, type Inline, type Verdict } from "@/lib/assistant-answer";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,24 +12,27 @@ import { cn } from "@/lib/utils";
  * it): its Markdown, and its blocks with the app's own pieces, an asset's
  * thumbnail, a swatch, a verdict, a typeface in its face. A place in the app
  * (an asset, a brand's page) is gone to with `onGo`, beside the panel; a
- * change waiting for approval is the panel's to draw (`card`).
+ * change waiting for approval is the panel's to draw (`card`); a question to
+ * tap is asked with `onAsk`, and without it (an earlier answer) isn't drawn.
  */
 export function AssistantAnswer({
   text,
   streaming = false,
   card,
   onGo,
+  onAsk,
 }: {
   text: string;
   streaming?: boolean;
   card: (id: string) => React.ReactNode;
   onGo: (path: string) => void;
+  onAsk?: (question: string) => void;
 }) {
   const blocks = useMemo(() => parseAnswer(text, { streaming }), [text, streaming]);
   return (
     <div className="grid min-w-0 gap-2 text-sm leading-relaxed [overflow-wrap:anywhere]">
       {blocks.map((b, i) => (
-        <BlockView key={i} b={b} card={card} onGo={onGo} />
+        <BlockView key={i} b={b} card={card} onGo={onGo} onAsk={onAsk} />
       ))}
     </div>
   );
@@ -35,7 +40,13 @@ export function AssistantAnswer({
 
 type Go = { onGo: (path: string) => void };
 
-function BlockView({ b, card, onGo }: { b: Block; card: (id: string) => React.ReactNode } & Go) {
+/** A line of the answer's grammar, inline only: chips, dates, swatches, words. What an approval card's rows are written in. */
+export function AnswerLine({ text, onGo }: { text: string } & Go) {
+  const nodes = useMemo(() => inline(text), [text]);
+  return <Inlines nodes={nodes} onGo={onGo} />;
+}
+
+function BlockView({ b, card, onGo, onAsk }: { b: Block; card: (id: string) => React.ReactNode; onAsk?: (question: string) => void } & Go) {
   switch (b.t) {
     case "p":
       return (
@@ -43,9 +54,10 @@ function BlockView({ b, card, onGo }: { b: Block; card: (id: string) => React.Re
           <Inlines nodes={b.inline} onGo={onGo} />
         </p>
       );
+    // A section label, not a bigger title: it splits the parts of one answer.
     case "h":
       return (
-        <h3 className="mt-2 font-semibold">
+        <h3 className="text-muted-foreground mt-2 text-xs font-semibold tracking-wide uppercase">
           <Inlines nodes={b.inline} onGo={onGo} />
         </h3>
       );
@@ -126,6 +138,29 @@ function BlockView({ b, card, onGo }: { b: Block; card: (id: string) => React.Re
       return <FontSample family={b.family} role={b.role} asset={b.asset} />;
     case "action":
       return <>{card(b.id)}</>;
+    case "facts":
+      return (
+        <dl className="bg-card grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-lg border px-3 py-2">
+          {b.rows.map((r, i) => (
+            <div key={i} className="contents">
+              <dt className="text-muted-foreground text-xs leading-relaxed">{r.label}</dt>
+              <dd>
+                <Inlines nodes={r.value} onGo={onGo} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    case "next":
+      return onAsk ? (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {b.items.map((q) => (
+            <button key={q} type="button" onClick={() => onAsk(q)} className="bg-muted hover:bg-accent rounded-full px-3 py-1 text-start text-xs">
+              {q}
+            </button>
+          ))}
+        </div>
+      ) : null;
   }
 }
 
@@ -177,7 +212,85 @@ function InlineView({ n, onGo }: { n: Inline } & Go) {
           {n.label} <span aria-hidden>→</span>
         </a>
       );
+    case "date":
+      return <DateView iso={n.iso} word={n.word} />;
+    case "brand":
+      return (
+        <Chip path={`/brands/${n.slug}`} onGo={onGo} mark={<IconPalette className="text-muted-foreground size-3.5" />}>
+          {n.name}
+        </Chip>
+      );
+    case "collection":
+      return (
+        <Chip path={`/?collection=${n.id}`} onGo={onGo} mark={<IconFolder className="text-muted-foreground size-3.5" />}>
+          {n.name}
+        </Chip>
+      );
+    case "person":
+      return <PersonChip name={n.name} onGo={onGo} />;
   }
+}
+
+const CHIP = "bg-card mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-px align-middle text-xs no-underline";
+
+/** A brand or a collection, inline: its mark and name; a click opens it beside the panel. */
+function Chip({ path, mark, children, onGo }: { path: string; mark: React.ReactNode; children: React.ReactNode } & Go) {
+  return (
+    <a href={path} onClick={(e) => go(e, path, onGo)} className={cn(CHIP, "hover:border-primary")}>
+      {mark}
+      <span className="truncate">{children}</span>
+    </a>
+  );
+}
+
+/** A person, inline: their initials and name; Team opens for whoever may see it. */
+function PersonChip({ name, onGo }: { name: string } & Go) {
+  const can = useCan();
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  const inner = (
+    <>
+      <span className="bg-muted grid size-4 place-items-center rounded-full text-[0.55rem] font-semibold">{initials}</span>
+      <span className="truncate">{name}</span>
+    </>
+  );
+  return can("member.manage") ? (
+    <a href="/team" onClick={(e) => go(e, "/team", onGo)} className={cn(CHIP, "hover:border-primary")}>
+      {inner}
+    </a>
+  ) : (
+    <span className={CHIP}>{inner}</span>
+  );
+}
+
+const DAY = 86_400_000;
+const at = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+/** How far a day is from today, in the person's language: "in 11 weeks", "3 days ago". */
+function fromNow(iso: string, now: number) {
+  const days = Math.round((at(iso).getTime() - now) / DAY);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const a = Math.abs(days);
+  return a < 14 ? rtf.format(days, "day") : a < 60 ? rtf.format(Math.round(days / 7), "week") : a < 730 ? rtf.format(Math.round(days / 30), "month") : rtf.format(Math.round(days / 365), "year");
+}
+
+/** A day in the person's locale; how far it is on hover. An end ("until") already past is muted, one within 30 days a warning. */
+function DateView({ iso, word }: { iso: string; word: DateWord | null }) {
+  // Answers are drawn in the browser, from the stream: its clock is the person's. Read once, as the day was drawn.
+  const [now] = useState(() => Date.now());
+  const left = (at(iso).getTime() - now) / DAY;
+  const tone = word === "until" ? (left < 0 ? "text-muted-foreground line-through" : left <= 30 ? "text-warning font-medium" : "") : "";
+  return (
+    <time dateTime={iso} title={fromNow(iso, now)} className={tone} suppressHydrationWarning>
+      {word && `${word} `}
+      {new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: "UTC" }).format(at(iso))}
+    </time>
+  );
 }
 
 /** A click on a place in the app goes there beside the panel; a modified click opens it as the browser would. */
@@ -190,6 +303,8 @@ function go(e: React.MouseEvent, path: string, onGo: (path: string) => void) {
 /** An asset: its thumbnail and name, inline, or a tile in a grid. A file with no picture shows its type instead. */
 function AssetLink({ id, name, tile = false, onGo }: { id: string; name: string; tile?: boolean } & Go) {
   const [blank, setBlank] = useState(false);
+  // A tile keeps its square from the start, muted; the thumbnail fades in, so nothing jumps.
+  const [loaded, setLoaded] = useState(false);
   const ext = (name.match(/\.(\w{1,5})$/)?.[1] ?? "file").toUpperCase();
   const path = `/?asset=${id}`;
   const thumb = blank ? (
@@ -203,7 +318,8 @@ function AssetLink({ id, name, tile = false, onGo }: { id: string; name: string;
       loading="lazy"
       src={`/a/${id}/w_160,f_webp`}
       onError={() => setBlank(true)}
-      className={cn("bg-muted object-cover", tile ? "aspect-square w-full" : "size-6 shrink-0 rounded")}
+      onLoad={() => setLoaded(true)}
+      className={cn("bg-muted object-cover transition-opacity duration-300", tile ? "aspect-square w-full" : "size-6 shrink-0 rounded", tile && !loaded && "opacity-40")}
     />
   );
   if (tile) {

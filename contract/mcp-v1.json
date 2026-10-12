@@ -75,11 +75,37 @@
         "description": "Only what waits on a human: proposed assets and suggested tags",
         "type": "boolean"
       },
+      "uploadedSince": {
+        "description": "Added on or after this: a day (YYYY-MM-DD) or an ISO date-time",
+        "type": "string",
+        "maxLength": 40
+      },
+      "uploadedBefore": {
+        "description": "Added before this, as uploadedSince",
+        "type": "string",
+        "maxLength": 40
+      },
+      "expiresBefore": {
+        "description": "Licenses whose last day is before this one: \"by the end of 2026\" is 2027-01-01. Expired ones only with status [\"expired\"]",
+        "type": "string",
+        "format": "date",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+      },
+      "untagged": {
+        "description": "Only assets carrying no tags",
+        "type": "boolean"
+      },
       "limit": {
         "default": 20,
         "type": "integer",
         "minimum": 1,
         "maximum": 50
+      },
+      "offset": {
+        "description": "Skip this many: the next page is offset + limit, until `total`",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000
       }
     }
   },
@@ -5448,11 +5474,26 @@
         "type": "string",
         "maxLength": 300
       },
+      "tags": {
+        "description": "Only objects carrying every one of these tags",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
       "limit": {
         "default": 20,
         "type": "integer",
         "minimum": 1,
         "maximum": 50
+      },
+      "cursor": {
+        "description": "The `next` of the page before",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
       }
     }
   },
@@ -5539,6 +5580,645 @@
     "required": [
       "object"
     ]
+  },
+  "review_assets": {
+    "type": "object",
+    "properties": {
+      "reviews": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Asset id, from search_assets"
+            },
+            "decision": {
+              "description": "approve puts a proposed asset in the library; reject turns it down and keeps it, with `note` saying why",
+              "type": "string",
+              "enum": [
+                "approve",
+                "reject"
+              ]
+            },
+            "note": {
+              "description": "Why, read back by whoever proposed it in my_proposals; asked for with reject",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "fields": {
+              "description": "Field values to set, merged; null clears one. Required fields must be set before approve",
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "acceptTags": {
+              "description": "Suggested tags to apply, or \"all\"",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "all"
+                },
+                {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                }
+              ]
+            },
+            "dismissTags": {
+              "description": "Suggested tags to drop, or \"all\"",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "all"
+                },
+                {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                }
+              ]
+            },
+            "acceptFields": {
+              "description": "Keys of suggested values to apply, or \"all\"",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "all"
+                },
+                {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                  }
+                }
+              ]
+            },
+            "dismissFields": {
+              "description": "Keys of suggested values to drop, or \"all\"",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "all"
+                },
+                {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "description": "One per asset, each as review_asset takes it"
+      }
+    },
+    "required": [
+      "reviews"
+    ]
+  },
+  "update_asset": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "creator": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "copyright": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "description": "Replaces the whole set",
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "fields": {
+        "description": "Merges; null clears one unless it is required",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
+      "rights": {
+        "description": "Replaces them whole; null clears",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "license": {
+                "description": "e.g. \"Royalty-free\", \"CC BY 4.0\", \"Getty, rights-managed\"",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "territories": {
+                "description": "Countries it may run in (ISO 3166-1 alpha-2); empty: anywhere",
+                "maxItems": 250,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "channels": {
+                "description": "What it may be used for, e.g. web, print, paid-social; empty: anything",
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                }
+              },
+              "embargo": {
+                "description": "Not to be used before this day",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "expires": {
+                "description": "The last day it may be used",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "modelRelease": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "released",
+                      "missing",
+                      "not-needed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "downloadable": {
+                "description": "Whether people outside the project may download the file itself; null follows its license (isDownloadable). Either way they see it.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "supersededBy": {
+        "description": "The asset that replaces this one; /api/v1/check then refuses it and names that",
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      },
+      "addTags": {
+        "description": "Add these to its tags",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "removeTags": {
+        "description": "Take these off its tags",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  },
+  "update_assets": {
+    "type": "object",
+    "properties": {
+      "ids": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Asset ids, from search_assets"
+      },
+      "addTags": {
+        "description": "Add these to its tags",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "removeTags": {
+        "description": "Take these off its tags",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "fields": {
+        "description": "Merges; null clears one unless it is required",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "ids"
+    ]
+  },
+  "delete_asset": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "restore_asset": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "A deleted asset's id: search_assets with status [\"deleted\"] lists them"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "asset_versions": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "make_version_current": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      },
+      "number": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991,
+        "description": "The version's number, from asset_versions"
+      }
+    },
+    "required": [
+      "id",
+      "number"
+    ]
+  },
+  "get_activity": {
+    "type": "object",
+    "properties": {
+      "before": {
+        "description": "Older than this: the `next` of the page before",
+        "type": "string",
+        "format": "date-time"
+      },
+      "limit": {
+        "default": 30,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    }
+  },
+  "get_insights": {
+    "type": "object",
+    "properties": {}
+  },
+  "asset_insights": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Asset id, from search_assets"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "brand_insights": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "brand_updates": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "brand_assets": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      }
+    }
+  },
+  "brand_tokens": {
+    "type": "object",
+    "properties": {
+      "brand": {
+        "description": "A brand's slug; the default brand when left out",
+        "type": "string",
+        "maxLength": 60
+      },
+      "format": {
+        "default": "css",
+        "description": "css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens) or designmd (DESIGN.md, with guidance)",
+        "type": "string",
+        "enum": [
+          "css",
+          "scss",
+          "less",
+          "tailwind",
+          "tailwind3",
+          "ts",
+          "shadcn",
+          "mui",
+          "chakra",
+          "json",
+          "designmd"
+        ]
+      },
+      "context": {
+        "description": "Resolve for this context; otherwise the defaults",
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    }
+  },
+  "create_share": {
+    "type": "object",
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": [
+          "view",
+          "upload"
+        ],
+        "description": "view: see and download; upload: send files in, as proposals"
+      },
+      "asset": {
+        "description": "For a view link: one asset instead of a collection",
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "description": "What the holder sees it called, e.g. Press kit",
+        "type": "string",
+        "maxLength": 120
+      },
+      "password": {
+        "type": "string",
+        "minLength": 4,
+        "maxLength": 200
+      },
+      "expiresAt": {
+        "description": "It stops working then",
+        "type": "string",
+        "format": "date-time"
+      },
+      "emails": {
+        "description": "Email the link to these people, through the organization's email",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        }
+      },
+      "collection": {
+        "description": "The collection it shows, or files uploads into: its id or name",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "required": [
+      "kind"
+    ],
+    "additionalProperties": false
+  },
+  "list_shares": {
+    "type": "object",
+    "properties": {}
+  },
+  "save_search": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "query": {
+        "type": "string",
+        "maxLength": 4000,
+        "description": "An /api/v1/assets query string, e.g. \"q=fox&f.channel=web\""
+      }
+    },
+    "required": [
+      "name",
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  "list_searches": {
+    "type": "object",
+    "properties": {}
+  },
+  "list_members": {
+    "type": "object",
+    "properties": {
+      "projectOnly": {
+        "description": "Only who can open this project, and invitations into it",
+        "type": "boolean"
+      }
+    }
+  },
+  "object_activity": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "An id or an address, as search_catalog gives them"
+      },
+      "limit": {
+        "default": 30,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "required": [
+      "object"
+    ]
+  },
+  "shared_with_us": {
+    "type": "object",
+    "properties": {}
+  },
+  "list_projects": {
+    "type": "object",
+    "properties": {}
   },
   "propose_fields": {
     "type": "object",

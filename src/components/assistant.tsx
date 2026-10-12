@@ -2,10 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AssistantAnswer } from "@/components/assistant-answer";
+import { AnswerLine, AssistantAnswer } from "@/components/assistant-answer";
 import { useMe } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
-import { IconArrowUp, IconArrowsMaximize, IconArrowsMinimize, IconChevronRight, IconHistory, IconPlus, IconSparkles, IconX } from "@/components/icons";
+import { IconAlertTriangle, IconArrowUp, IconArrowsMaximize, IconArrowsMinimize, IconCheck, IconChevronRight, IconCircleX, IconHistory, IconPencil, IconPlus, IconShare, IconSparkles, IconTrash, IconX } from "@/components/icons";
 import { IconButton } from "@/components/icon-button";
 import { assistantPlace } from "@/lib/assistant-place";
 import { jsonLines, plainText } from "@/lib/assistant-answer";
@@ -145,7 +145,19 @@ export function AssistantProvider({ url, onChanged, children }: { url: string | 
 type Notice = { code?: string; title: string; text: string; href?: string; label?: string };
 type Start = { notice: Notice | null; project?: string; chats?: { id: string; title: string }[]; ideas?: { library: string[]; asset: string[] } };
 /** A change the assistant asks to make. `deciding`: the person said yes or no, and it is on its way. */
-type Action = { name: string; label: string; input: unknown; state: "waiting" | "deciding" | "done" | "failed" | "declined"; error?: string };
+/**
+ * `note`: what the change takes away, said before the person decides (a delete: what uses the asset). `details`: what
+ * it will do, as rows of a label and a value written in the answer's grammar (the server's words, chips and dates).
+ */
+type Action = {
+  name: string;
+  label: string;
+  input: unknown;
+  state: "waiting" | "deciding" | "done" | "failed" | "declined";
+  error?: string;
+  note?: string;
+  details?: { label: string; value: string }[];
+};
 type Step = { tool: string } | { said: string };
 /**
  * A question and its answer. `since`: tools run since the answer last had words, where a step's words go. `started`:
@@ -363,8 +375,6 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
     current((t) => ({ ...t, started: Date.now() }));
     stick.current = true;
     let changed = false;
-    // Where the assistant takes the app: gone to once the answer ends, so the page doesn't move under the person mid-answer.
-    let go: string | null = null;
     try {
       const res = await fetch(`${a.url}/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok || !res.body) throw new Error(await refusal(res, "Something went wrong"));
@@ -383,13 +393,17 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
         } else if (ev.type === "working" && typeof ev.text === "string") {
           // What it said in a step that only read: not the answer, so it moves to the steps, before that step's tools.
           const said = ev.text;
+          // The server holds a step's first words until it knows: those it never showed go straight to the steps.
           current((t) => {
-            if (!t.answer.endsWith(said)) return t;
             const steps = [...t.steps];
             steps.splice(steps.length - t.since, 0, { said: said.trim() });
-            return { ...t, answer: t.answer.slice(0, -said.length), steps };
+            return { ...t, answer: t.answer.endsWith(said) ? t.answer.slice(0, -said.length) : t.answer, steps };
           });
-        } else if (ev.type === "ui" && typeof ev.path === "string") go = ev.path;
+        } else if (ev.type === "ui" && typeof ev.path === "string") {
+          // The app goes there at once, before the words: the sentence then says what is already in view.
+          const place = assistantPlace(ev.path, window.location.origin);
+          if (place) router.push(place);
+        }
         else if (ev.type === "text" && typeof ev.text === "string") {
           const text = ev.text;
           // The first words after the steps start the answer: no paragraph break above them.
@@ -397,7 +411,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
           setStatus("Writing");
         } else if (ev.type === "approval" && typeof ev.id === "string") {
           const id = ev.id;
-          setActions((as) => ({ ...as, [id]: { name: String(ev.name ?? ""), label: String(ev.label ?? "A change"), input: ev.input, state: "waiting" } }));
+          setActions((as) => ({ ...as, [id]: { name: String(ev.name ?? ""), label: String(ev.label ?? "A change"), input: ev.input, state: "waiting", ...(typeof ev.note === "string" && { note: ev.note }), ...(Array.isArray(ev.details) && { details: rowsOf(ev.details) }) } }));
           current((t) => ({ ...t, answer: `${t.answer}\n\n[[action:${id}]]\n\n` }));
         } else if (ev.type === "action" && typeof ev.id === "string") {
           const { id, state, error } = ev as { id: string; state: Action["state"]; error?: string };
@@ -421,9 +435,15 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
         router.refresh();
         a.onChanged();
       }
-      const place = go && assistantPlace(go, window.location.origin);
-      if (place) router.push(place);
     }
+  }
+
+  /** The last question again, after its answer failed: the failed try is taken away first. */
+  function retry() {
+    const last = turns.at(-1);
+    if (!last || busy) return;
+    setTurns((ts) => ts.slice(0, -1));
+    ask(last.question);
   }
 
   function ask(q: string) {
@@ -455,11 +475,11 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
     void stream({ chat: shown.current, approvals, embed: true }, approvals.some((x) => x.approved) ? "Making the change" : STATUS_THINKING, "");
   }
 
-  const card = (id: string) => <ActionCard key={id} a={actions[id]} approved={decisions.current[id]} busy={busy} onDecide={(yes) => decide(id, yes)} />;
   const onGo = (path: string) => {
     const place = assistantPlace(path, window.location.origin);
     if (place) router.push(place);
   };
+  const card = (id: string) => <ActionCard key={id} a={actions[id]} approved={decisions.current[id]} busy={busy} onDecide={(yes) => decide(id, yes)} onGo={onGo} />;
   const notice = start?.notice ?? null;
   const ideas = start?.ideas ? (a.asset ? start.ideas.asset : start.ideas.library) : [];
 
@@ -575,8 +595,17 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
                   <p className="bg-muted max-w-[85%] justify-self-end rounded-2xl rounded-br-sm px-3.5 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{t.question}</p>
                   <div className="grid min-w-0 gap-2">
                     {!writing && <Steps steps={t.steps} took={t.took} />}
-                    <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} />
-                    {t.error && <p className="text-destructive text-sm">{t.error}</p>}
+                    <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} onAsk={last && !busy ? ask : undefined} />
+                    {t.error && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-destructive text-sm">{t.error}</p>
+                        {last && !busy && (
+                          <button type="button" onClick={retry} className="bg-muted hover:bg-accent rounded-full px-3 py-1 text-xs">
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {writing && <Working label={status ?? STATUS_THINKING} since={t.started ?? null} steps={t.steps} />}
                     {!writing && t.answer.trim() && (
                       <div className="flex">
@@ -604,7 +633,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
               ref={box}
               rows={1}
               value={question}
-              placeholder="Ask about your library"
+              placeholder={Object.values(actions).some((x) => x.state === "waiting") ? "Approve or decline above, or ask something else" : "Ask about your library"}
               aria-label="Your question"
               maxLength={4000}
               className="field-sizing-content max-h-48 min-h-9 resize-none bg-transparent px-1.5 py-1 text-sm outline-none"
@@ -760,56 +789,99 @@ function History({
   );
 }
 
-const short = (v: unknown) => {
-  const s = typeof v === "string" ? v : Array.isArray(v) && v.every((x) => x === null || typeof x !== "object") ? v.join(", ") : JSON.stringify(v);
-  return s.length > 160 ? `${s.slice(0, 159)}…` : s;
+/** Rows as the server sent them, each a label and a value of text; anything else is left out. */
+const rowsOf = (v: unknown[]) =>
+  v.flatMap((r) => (r && typeof r === "object" && typeof (r as { label?: unknown }).label === "string" && typeof (r as { value?: unknown }).value === "string" ? [r as { label: string; value: string }] : []));
+
+const words = (key: string) => {
+  const s = key.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+/** A value as words, for a change kept from before the server sent rows: lists joined, pairs as "Key: value". */
+const said = (v: unknown): string =>
+  v === null ? "cleared" : typeof v === "boolean" ? (v ? "Yes" : "No") : Array.isArray(v) ? v.map(said).join(", ") || "none" : typeof v === "object" ? Object.entries(v as object).map(([k, x]) => `${words(k)}: ${said(x)}`).join(" · ") || "none" : String(v);
+const fallback = (input: unknown) =>
+  input && typeof input === "object" ? Object.entries(input as Record<string, unknown>).filter(([k, v]) => v !== undefined && k !== "say").map(([k, v]) => ({ label: words(k), value: said(v).replace(/\[\[|\]\]/g, "") })) : [];
+
+/** Rows a card shows before "Show N more". */
+const SHOWN = 5;
+
+const STATUS: Record<Action["state"], { text: string; className: string }> = {
+  waiting: { text: "Needs your approval", className: "bg-warning/15 text-warning" },
+  deciding: { text: "Working on it", className: "bg-muted text-muted-foreground" },
+  done: { text: "Done", className: "bg-success/15 text-success" },
+  failed: { text: "Failed", className: "bg-destructive/10 text-destructive" },
+  declined: { text: "Declined", className: "bg-muted text-muted-foreground" },
 };
 
-/** A change the assistant asks to make: what, its details, and Approve or Decline; then how it went. */
-function ActionCard({ a, approved, busy, onDecide }: { a: Action | undefined; approved: boolean | undefined; busy: boolean; onDecide: (yes: boolean) => void }) {
+/** A change the assistant asks to make: what it is, what it will do in words, Approve or Decline; then how it went. */
+function ActionCard({
+  a,
+  approved,
+  busy,
+  onDecide,
+  onGo,
+}: {
+  a: Action | undefined;
+  approved: boolean | undefined;
+  busy: boolean;
+  onDecide: (yes: boolean) => void;
+  onGo: (path: string) => void;
+}) {
   if (!a) return null;
-  const input = a.input && typeof a.input === "object" ? (a.input as Record<string, unknown>) : {};
-  const keys = Object.keys(input).filter((k) => input[k] !== undefined && input[k] !== null && input[k] !== "");
-  const shown = keys.slice(0, 8);
-  // Everything it will send, when the list leaves some out.
-  const whole = keys.length > shown.length || shown.some((k) => typeof input[k] === "object" || String(input[k]).length > 160);
   const danger = /^(delete|close)_/.test(a.name);
+  const sharing = /share|publish|site_request|hub/.test(a.name);
+  const Mark = danger ? IconTrash : sharing ? IconShare : IconPencil;
+  // From the stream or a kept conversation: checked the same way either way.
+  const rows = Array.isArray(a.details) ? rowsOf(a.details) : fallback(a.input);
+  const status = a.state === "deciding" && approved === false ? STATUS.declined : STATUS[a.state];
+  const row = (r: { label: string; value: string }, i: number) => (
+    <div key={i} className="contents">
+      <dt className="text-muted-foreground pt-px text-xs">
+        <AnswerLine text={r.label} onGo={onGo} />
+      </dt>
+      <dd className="min-w-0">
+        <AnswerLine text={r.value} onGo={onGo} />
+      </dd>
+    </div>
+  );
   return (
-    <div className="bg-card grid gap-2 rounded-xl border px-3.5 py-3" data-state={a.state}>
-      <div className="font-semibold">
-        {a.label}
-        {a.state === "waiting" && <small className="text-muted-foreground ms-1.5 font-normal">needs your approval</small>}
+    <div className={cn("bg-card overflow-hidden rounded-xl border shadow-xs", danger && a.state === "waiting" && "border-destructive/40")} data-state={a.state}>
+      <div className="flex items-center gap-2.5 px-3.5 pt-3">
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg", danger ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary-ink")}>
+          <Mark className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1 truncate font-medium">{a.label}</span>
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[0.7rem] font-medium", status.className)}>{status.text}</span>
       </div>
-      {shown.length > 0 && (
-        <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-          {shown.map((k) => (
-            <div key={k} className="contents">
-              <dt className="text-muted-foreground">{k}</dt>
-              <dd className="[overflow-wrap:anywhere]">{short(input[k])}</dd>
-            </div>
-          ))}
-        </dl>
+      {a.note && a.state === "waiting" && (
+        <p className={cn("mx-3.5 mt-2.5 flex gap-1.5 rounded-lg px-2.5 py-1.5 text-xs leading-relaxed", danger ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning")}>
+          <IconAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          {a.note}
+        </p>
       )}
-      {whole && (
-        <details className="text-muted-foreground text-xs">
-          <summary className="cursor-pointer">All details</summary>
-          <pre className="bg-muted text-foreground mt-1.5 max-h-64 overflow-auto rounded-md p-2 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">
-            {JSON.stringify(input, null, 2)}
-          </pre>
+      {rows.length > 0 && (
+        <dl className="grid grid-cols-[minmax(4.5rem,max-content)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 px-3.5 pt-2.5 text-sm">{rows.slice(0, SHOWN).map(row)}</dl>
+      )}
+      {rows.length > SHOWN && (
+        <details className="group px-3.5 pt-1.5 text-sm">
+          <summary className="text-muted-foreground hover:text-foreground w-fit cursor-pointer list-none text-xs group-open:hidden">Show {rows.length - SHOWN} more</summary>
+          <dl className="grid grid-cols-[minmax(4.5rem,max-content)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">{rows.slice(SHOWN).map((r, i) => row(r, SHOWN + i))}</dl>
         </details>
       )}
       {a.state === "waiting" ? (
-        <div className="flex gap-2">
+        <div className="bg-muted/40 mt-3 flex gap-2 border-t px-3.5 py-2.5">
           <Button type="button" size="sm" variant={danger ? "destructive" : "default"} disabled={busy} onClick={() => onDecide(true)}>
             {danger ? "Delete" : "Approve"}
           </Button>
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onDecide(false)}>
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onDecide(false)}>
             Decline
           </Button>
         </div>
       ) : (
-        <p className={cn("text-sm", a.state === "done" ? "text-success" : a.state === "failed" ? "text-destructive" : "text-muted-foreground")}>
-          {a.state === "deciding" ? (approved ? "Approved. Working on it…" : "Declined.") : a.state === "done" ? "Done." : a.state === "failed" ? `It failed${a.error ? `: ${short(a.error)}` : "."}` : "Declined."}
+        <p className={cn("mt-3 flex items-center gap-1.5 border-t px-3.5 py-2 text-xs", a.state === "done" ? "text-success" : a.state === "failed" ? "text-destructive" : "text-muted-foreground")}>
+          {a.state === "done" ? <IconCheck className="size-3.5" /> : a.state === "failed" ? <IconCircleX className="size-3.5" /> : null}
+          {a.state === "deciding" ? (approved ? "Approved. Working on it…" : "Declined.") : a.state === "done" ? "Done." : a.state === "failed" ? `It failed${a.error ? `: ${a.error.slice(0, 200)}` : "."}` : "Declined. Nothing changed."}
         </p>
       )}
     </div>

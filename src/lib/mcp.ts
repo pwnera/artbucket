@@ -3,12 +3,14 @@ import pkg from "../../package.json" with { type: "json" };
 import { AssetError } from "@/lib/core/errors";
 import {
   collectionId,
+  deleteAsset,
   describeAsset,
   getAsset,
   ingestFromUrl,
   parseAssetQuery,
   proposeFields,
   proposeTags,
+  restoreAsset,
   searchAssets,
   updateAsset,
   type Asset,
@@ -18,6 +20,7 @@ import {
   getVersion,
   listContexts,
   listRules,
+  listUpdates,
   listVersions,
   nameVersion,
   publishBrand,
@@ -30,7 +33,16 @@ import { createComment, deleteComment, listComments, updateComment } from "@/lib
 import { deletePage, editPage, generatePages, getPage, listPages, savePage } from "@/lib/core/pages";
 import { getTheme, setTheme } from "@/lib/core/theme";
 import { checkUse } from "@/lib/core/check";
-import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
+import { catalogTree, describeObject, lineage, objectActivity, searchCatalog, sharedHere, whoCan, type CatalogItem } from "@/lib/core/catalog";
+import { listVersions as assetVersions, makeCurrent } from "@/lib/core/versions";
+import { listActivity } from "@/lib/core/activity";
+import { assetInsights, brandInsights, insightsOf } from "@/lib/core/insights";
+import { brandAssets } from "@/lib/core/brand-assets";
+import { createShare, listShares } from "@/lib/core/shares";
+import { listSearches, saveSearch } from "@/lib/core/searches";
+import { listMembers } from "@/lib/core/people";
+import { PURGE_DAYS } from "@/lib/core/sweep";
+import { TOKEN_FORMATS } from "@/lib/tokens";
 import { shareObject } from "@/lib/core/project-shares";
 import { parseQuery } from "@/lib/catalog";
 import { record, who } from "@/lib/core/events";
@@ -200,6 +212,91 @@ const portalOf = async (caller: Caller, ref: string) => {
 
 const brandUrl = (slug: string) => `${env.APP_URL}${guidelinesPath(slug)}`;
 
+/** What review_asset and review_assets decide about one asset; "all" takes every suggestion there is. */
+type Review = {
+  id: string;
+  decision?: "approve" | "reject";
+  note?: string;
+  fields?: Record<string, unknown>;
+  acceptTags?: string[] | "all";
+  dismissTags?: string[] | "all";
+  acceptFields?: string[] | "all";
+  dismissFields?: string[] | "all";
+};
+
+async function reviewOne(caller: Caller, { id, decision, note, fields, acceptTags, dismissTags, acceptFields, dismissFields }: Review) {
+  const a = await found(caller, id);
+  if (decision === "reject" && !note) throw new AssetError("invalid", "Say why in `note`: whoever proposed it reads it in my_proposals");
+  const every = (list: string[] | "all" | undefined, all: string[]) => (list === "all" ? all : (list ?? []));
+  const [accept, dismiss] = [normalizeTags(every(acceptTags, a.proposedTags)), normalizeTags(every(dismissTags, a.proposedTags))];
+  const strayTags = [...accept, ...dismiss].filter((t) => !a.proposedTags.includes(t));
+  if (strayTags.length) {
+    throw new AssetError("invalid", `Not suggested: ${strayTags.join(", ")}. Suggested tags: ${a.proposedTags.join(", ") || "none"}`);
+  }
+  const suggested = Object.keys(a.proposedFields);
+  const [take, drop] = [every(acceptFields, suggested), every(dismissFields, suggested)];
+  if (a.proposedBy === caller.actor && (accept.length || take.length)) {
+    throw new AssetError("forbidden", "You proposed this asset or its suggestions, so someone else accepts them");
+  }
+  const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));
+  if (strayKeys.length) {
+    throw new AssetError("invalid", `No suggested value for ${strayKeys.join(", ")}. Suggested: ${suggested.join(", ") || "none"}`);
+  }
+  const patch: AssetPatch = {};
+  if (accept.length) patch.tags = [...a.tags, ...accept];
+  if (accept.length || dismiss.length) patch.proposedTags = a.proposedTags.filter((t) => !accept.includes(t) && !dismiss.includes(t));
+  if (take.length || drop.length) {
+    patch.proposedFields = Object.fromEntries(Object.entries(a.proposedFields).filter(([k]) => !take.includes(k) && !drop.includes(k)));
+  }
+  const values = { ...Object.fromEntries(take.map((k) => [k, a.proposedFields[k]])), ...fields };
+  if (Object.keys(values).length) patch.fields = values;
+  if (decision) patch.status = decision === "approve" ? "active" : "rejected";
+  if (note) patch.reviewNote = note;
+  if (!Object.keys(patch).length) throw new AssetError("invalid", "Nothing to do: pass a decision, fields, or suggestions to accept or dismiss");
+  const next = (await updateAsset(caller, id, patch))!;
+  return { ...summary(next), reviewNote: next.reviewNote, proposedTags: next.proposedTags, proposedFields: next.proposedFields };
+}
+
+/**
+ * The bulk tools: each asset on its own, one after the other, so one that fails (gone, not yours to change, a
+ * required field missing) says why and leaves the others done. Not a transaction: `failed` says what to retry.
+ */
+async function eachOf<T extends { id: string }>(caller: Caller, list: T[], run: (one: T) => Promise<Record<string, unknown>>) {
+  const done: Record<string, unknown>[] = [];
+  const failed: { id: string; error: string }[] = [];
+  for (const one of list) {
+    try {
+      done.push(await run(one));
+    } catch (err) {
+      const known = expected(err);
+      if (!known) throw err;
+      failed.push({ id: one.id, error: known.error });
+    }
+  }
+  return { done, failed, summary: `${done.length} of ${list.length} done${failed.length ? `, ${failed.length} failed` : ""}` };
+}
+
+/** A tag list changed as update_asset and update_assets say: the whole set, or some added and some taken off. */
+const retag = (current: string[], { tags, addTags, removeTags }: { tags?: string[]; addTags?: string[]; removeTags?: string[] }) => {
+  if (tags && (addTags || removeTags)) throw new AssetError("invalid", "Pass `tags` (the whole set) or addTags and removeTags, not both");
+  if (tags) return tags;
+  if (!addTags?.length && !removeTags?.length) return undefined;
+  const off = normalizeTags(removeTags ?? []);
+  return [...new Set([...current, ...normalizeTags(addTags ?? [])])].filter((t) => !off.includes(t));
+};
+
+/** A catalog object as the catalog tools list one. */
+const listed = ({ id, type, name, address, status, project, parent, sharedFrom }: CatalogItem) => ({
+  id,
+  type,
+  name,
+  address,
+  status,
+  project: project.slug,
+  partOf: parent?.name ?? null,
+  ...(sharedFrom && { sharedFrom: sharedFrom.name }),
+});
+
 /** Every tool in lib/mcp-tools.ts, and nothing else: their signatures are frozen there. */
 const TOOLS: Record<ToolName, Tool> = {
   search_assets: tool({
@@ -209,7 +306,7 @@ const TOOLS: Record<ToolName, Tool> = {
       return [
         "Search the library. Every word of `q` must match (as a prefix) the filename, tags, captions or field values.",
         "No arguments lists the newest assets. Results carry facet counts: tags, types and field values you can narrow by,",
-        "and `total`, every match. Next: describe_asset before using one, rendition_url for a size to hand out.",
+        "and `total`, every match: page with `offset`. Next: describe_asset before using one, rendition_url for a size to hand out.",
         fields.length
           ? `Custom fields, for \`filters\`: ${fields.map((f) => `${f.key} (${f.type}${f.options.length ? `: ${f.options.join(", ")}` : ""})`).join("; ")}.`
           : "",
@@ -223,8 +320,13 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "asset.read",
     readOnly: true,
     input: TOOL_INPUTS.search_assets,
-    run: async ({ q, tags, types, collection, filters, status, review, limit }, caller) => {
+    run: async ({ q, tags, types, collection, filters, status, review, uploadedSince, uploadedBefore, expiresBefore, untagged, limit, offset }, caller) => {
       const params = new URLSearchParams();
+      if (uploadedSince) params.set("uploadedSince", uploadedSince);
+      if (uploadedBefore) params.set("uploadedBefore", uploadedBefore);
+      if (expiresBefore) params.set("expiresBefore", expiresBefore);
+      if (untagged) params.set("untagged", "true");
+      if (offset) params.set("offset", String(offset));
       if (q) params.set("q", q);
       for (const t of tags ?? []) params.append("tag", t);
       for (const t of types ?? []) params.append("type", t);
@@ -236,7 +338,9 @@ const TOOLS: Record<ToolName, Tool> = {
       params.set("limit", String(limit));
       // The REST query parser, so a filter the API rejects is rejected here too.
       const { data, total, facets } = await searchAssets(caller, await parseAssetQuery(caller, params), "mcp");
-      return { results: data.map(summary), total, facets };
+      // Reviewing, the suggestions come along, so review_assets can take them without a describe_asset each.
+      const results = review ? data.map((a) => ({ ...summary(a), proposedTags: a.proposedTags, proposedFields: a.proposedFields })) : data.map(summary);
+      return { results, total, facets };
     },
   }),
 
@@ -248,20 +352,22 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "catalog.read",
     readOnly: true,
     input: TOOL_INPUTS.search_catalog,
-    run: async ({ q, type, projects: only, status, uses, usedby, limit }, caller) => {
+    run: async ({ q, type, projects: only, status, uses, usedby, tags, limit, cursor }, caller) => {
       const query = parseQuery(q ?? "");
+      query.tags.push(...(tags ?? []));
       query.types.push(...(type ?? []));
       query.projects.push(...(only ?? []));
       query.statuses.push(...(status ?? []));
       if (uses) query.uses.push(uses);
       if (usedby) query.usedBy.push(usedby);
-      const { items, counts, total, hidden, projects } = await searchCatalog(caller, query, { limit });
+      const { items, counts, total, hidden, projects, next } = await searchCatalog(caller, query, { limit, cursor });
       return {
         results: items.map(({ id, type, name, address, status, release, expiring, project, parent }) => ({ id, type, name, address, status, release, expiring, project: project.slug, partOf: parent?.name ?? null })),
         counts,
         total,
         projects,
         hidden,
+        next,
       };
     },
   }),
@@ -1013,36 +1119,7 @@ const TOOLS: Record<ToolName, Tool> = {
     action: "asset.review",
     readOnly: false,
     input: TOOL_INPUTS.review_asset,
-    run: async ({ id, decision, note, fields, acceptTags, dismissTags, acceptFields, dismissFields }, caller) => {
-      const a = await found(caller, id);
-      if (decision === "reject" && !note) throw new AssetError("invalid", "Say why in `note`: whoever proposed it reads it in my_proposals");
-      const [accept, dismiss] = [normalizeTags(acceptTags ?? []), normalizeTags(dismissTags ?? [])];
-      const strayTags = [...accept, ...dismiss].filter((t) => !a.proposedTags.includes(t));
-      if (strayTags.length) {
-        throw new AssetError("invalid", `Not suggested: ${strayTags.join(", ")}. Suggested tags: ${a.proposedTags.join(", ") || "none"}`);
-      }
-      const [take, drop] = [acceptFields ?? [], dismissFields ?? []];
-      if (a.proposedBy === caller.actor && (accept.length || take.length)) {
-        throw new AssetError("forbidden", "You proposed this asset or its suggestions, so someone else accepts them");
-      }
-      const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));
-      if (strayKeys.length) {
-        throw new AssetError("invalid", `No suggested value for ${strayKeys.join(", ")}. Suggested: ${Object.keys(a.proposedFields).join(", ") || "none"}`);
-      }
-      const patch: AssetPatch = {};
-      if (accept.length) patch.tags = [...a.tags, ...accept];
-      if (accept.length || dismiss.length) patch.proposedTags = a.proposedTags.filter((t) => !accept.includes(t) && !dismiss.includes(t));
-      if (take.length || drop.length) {
-        patch.proposedFields = Object.fromEntries(Object.entries(a.proposedFields).filter(([k]) => !take.includes(k) && !drop.includes(k)));
-      }
-      const values = { ...Object.fromEntries(take.map((k) => [k, a.proposedFields[k]])), ...fields };
-      if (Object.keys(values).length) patch.fields = values;
-      if (decision) patch.status = decision === "approve" ? "active" : "rejected";
-      if (note) patch.reviewNote = note;
-      if (!Object.keys(patch).length) throw new AssetError("invalid", "Nothing to do: pass a decision, fields, or suggestions to accept or dismiss");
-      const next = (await updateAsset(caller, id, patch))!;
-      return { ...summary(next), reviewNote: next.reviewNote, proposedTags: next.proposedTags, proposedFields: next.proposedFields };
-    },
+    run: (input, caller) => reviewOne(caller, input),
   }),
 
   list_fields: tool({
@@ -1173,6 +1250,303 @@ const TOOLS: Record<ToolName, Tool> = {
       const a = await proposeFields(caller, id, fields);
       if (!a) throw new AssetError("not_found", `No asset ${id}`);
       return { id: a.id, fields: { ...a.inherited, ...a.fields }, proposedFields: a.proposedFields };
+    },
+  }),
+
+  review_assets: tool({
+    description:
+      "review_asset for many assets at once, one approval for them all: approve or reject proposals, and apply or drop " +
+      'suggested tags and field values ("all" takes every suggestion an asset has). Each asset succeeds or fails on its own; ' +
+      "`failed` says which and why. Same rules as review_asset: only on a person's say-so, never on what you proposed.",
+    action: "asset.review",
+    readOnly: false,
+    input: TOOL_INPUTS.review_assets,
+    run: async ({ reviews }, caller) => eachOf(caller, reviews, (r) => reviewOne(caller, r)),
+  }),
+
+  update_asset: tool({
+    description:
+      "Change one asset directly, when a person asks to rename it, fix its caption, credit or copyright, set its tags " +
+      "(`tags` replaces the set, addTags and removeTags change some), set custom field values, its rights (replaced whole: " +
+      "describe_asset first), or what replaced it. Suggestions waiting on review are review_asset's.",
+    action: "asset.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.update_asset,
+    run: async ({ id, tags, addTags, removeTags, ...rest }, caller) => {
+      const a = await found(caller, id);
+      const next = retag(a.tags, { tags, addTags, removeTags });
+      const patch: AssetPatch = { ...rest, ...(next && { tags: next }) };
+      if (!Object.keys(patch).length) throw new AssetError("invalid", "Nothing to change: pass at least one of title, description, creator, copyright, tags, fields, rights, supersededBy");
+      const out = (await updateAsset(caller, id, patch))!;
+      return { ...summary(out), description: out.metadata?.description ?? null, creator: out.metadata?.creator ?? null, copyright: out.metadata?.copyright ?? null };
+    },
+  }),
+
+  update_assets: tool({
+    description:
+      "Retag or refield a list of assets in one change, when a person asks for the same edit on many: addTags, removeTags and " +
+      "custom field values (merged) applied to each. Each asset succeeds or fails on its own; `failed` says which and why.",
+    action: "asset.edit",
+    readOnly: false,
+    input: TOOL_INPUTS.update_assets,
+    run: async ({ ids, addTags, removeTags, fields }, caller) => {
+      if (!addTags?.length && !removeTags?.length && !fields) throw new AssetError("invalid", "Nothing to change: pass addTags, removeTags or fields");
+      return eachOf(caller, ids.map((id) => ({ id })), async ({ id }) => {
+        const a = await found(caller, id);
+        const tags = retag(a.tags, { addTags, removeTags });
+        const out = (await updateAsset(caller, id, { ...(tags && { tags }), ...(fields && { fields }) }))!;
+        return { id: out.id, filename: out.filename, tags: out.tags, fields: { ...out.inherited, ...out.fields } };
+      });
+    },
+  }),
+
+  delete_asset: tool({
+    description:
+      `Delete an asset when a person asks to: it leaves the library, its links and its version stack at once, and restore_asset ` +
+      `brings it back for ${PURGE_DAYS} days. Brand rules, pages and collections that use it lose it without a word, so ask ` +
+      "lineage first and tell the person what uses it; the answer lists them too, with the day it is gone for good.",
+    action: "asset.delete",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_asset,
+    run: async ({ id }, caller) => {
+      const a = await found(caller, id);
+      // What used it, read before it leaves the catalog.
+      const l = await lineage(caller, id, { direction: ["down"], depth: 2 }).catch(() => null);
+      if (!(await deleteAsset(caller, id))) throw new AssetError("not_found", `No asset ${id}`);
+      const since = a.deletedAt ? new Date(a.deletedAt) : new Date();
+      return {
+        id: a.id,
+        filename: a.filename,
+        deleted: true,
+        restoreUntil: new Date(since.getTime() + PURGE_DAYS * 86_400_000).toISOString().slice(0, 10),
+        usedBy: (l?.nodes ?? []).filter((n) => n.id !== l?.root).map(({ type, name, address }) => ({ type, name, address })),
+        impact: l?.impact.line ?? null,
+      };
+    },
+  }),
+
+  restore_asset: tool({
+    description:
+      `Bring back an asset deleted in the last ${PURGE_DAYS} days, as it was, when a person asks; search_assets with status ` +
+      '["deleted"] lists them. A version comes back beside the current one: make_version_current to make it current again.',
+    action: "asset.delete",
+    readOnly: false,
+    input: TOOL_INPUTS.restore_asset,
+    run: async ({ id }, caller) => {
+      const a = await restoreAsset(caller, id);
+      if (!a) throw new AssetError("not_found", `No asset ${id}`);
+      return summary(a);
+    },
+  }),
+
+  asset_versions: tool({
+    description:
+      "Every version of an asset, newest first, to say which one is live (`current`, what the library shows and links serve) " +
+      "or to pick one to roll back to with make_version_current.",
+    action: "asset.read",
+    readOnly: true,
+    input: TOOL_INPUTS.asset_versions,
+    run: async ({ id }, caller) => {
+      const list = await assetVersions(caller, id);
+      if (!list) throw new AssetError("not_found", `No asset ${id}`);
+      return { versions: list.map((v) => ({ ...summary(v), current: v.current, createdAt: v.createdAt })) };
+    },
+  }),
+
+  make_version_current: tool({
+    description:
+      "Roll an asset back (or forward), when a person asks: that approved version becomes the one the library shows and links " +
+      "serve, and the others are superseded by it. Returns the versions.",
+    action: "asset.review",
+    readOnly: false,
+    input: TOOL_INPUTS.make_version_current,
+    run: async ({ id, number }, caller) => {
+      const list = await makeCurrent(caller, id, number);
+      if (!list) throw new AssetError("not_found", `No asset ${id}`);
+      return { versions: list.map((v) => ({ ...summary(v), current: v.current })) };
+    },
+  }),
+
+  get_activity: tool({
+    description:
+      "Who did what in the project, newest first, for \"what changed this week?\": assets added, suggested, approved, rejected and " +
+      "deleted, tags suggested, brand edits and publishes. Page back with `before`, the `next` of the page before.",
+    action: "activity.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_activity,
+    run: async ({ before, limit }, caller) => listActivity(caller, { before, limit }),
+  }),
+
+  get_insights: tool({
+    description:
+      "What the project's use says, for questions about it: the most fetched assets by surface, searches that found nothing, " +
+      "brand answers per week, release adoption and who is still on an old version, delivery traffic and portal page views.",
+    action: "insights.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_insights,
+    run: async (_input, caller) => ({ insights: await insightsOf(caller) }),
+  }),
+
+  asset_insights: tool({
+    description:
+      "Where one asset is used and how much: the brand rules that point at it, the brand pages that show it, the public portals " +
+      "it is on, and its fetches over the last 30 days by surface and referrer.",
+    action: "insights.read",
+    readOnly: true,
+    input: TOOL_INPUTS.asset_insights,
+    run: async ({ id }, caller) => {
+      const data = await assetInsights(caller, id);
+      if (!data) throw new AssetError("not_found", `No asset ${id}`);
+      return { insights: data };
+    },
+  }),
+
+  brand_insights: tool({
+    description:
+      "How a brand is read: BrandHub reads of its files and portal views of its pages over 30 days, this week's answers from its " +
+      "files, and adoption of its latest release.",
+    action: "insights.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_insights,
+    run: async ({ brand }, caller) => {
+      const b = await resolveBrand(caller.project.id, brand);
+      return { brand: b.slug, insights: await brandInsights(caller, b.slug) };
+    },
+  }),
+
+  brand_updates: tool({
+    description: "A brand's latest publishes, newest first, each with what it changed for readers, for \"what changed since the last publish?\".",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_updates,
+    run: async ({ brand }, caller) => {
+      const b = await resolveBrand(caller.project.id, brand);
+      return { brand: b.slug, updates: await listUpdates(b.id) };
+    },
+  }),
+
+  brand_assets: tool({
+    description: "The files a brand uses: its rules' files, then the ones its pages show, each with the rules and pages it is in.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_assets,
+    run: async ({ brand }, caller) => {
+      const b = await resolveBrand(caller.project.id, brand);
+      return { brand: b.slug, assets: await brandAssets(caller, b.slug) };
+    },
+  }),
+
+  brand_tokens: tool({
+    description:
+      "A brand as design tokens to hand a developer: CSS variables by default, or SCSS, Less, Tailwind, TypeScript, shadcn, MUI, " +
+      "Chakra, W3C JSON or DESIGN.md. With a context, what that context resolves to.",
+    action: "brand.read",
+    readOnly: true,
+    input: TOOL_INPUTS.brand_tokens,
+    run: async ({ brand, format, context }, caller) => {
+      const b = await resolveBrand(caller.project.id, brand);
+      const all = await listRules(caller.project.id, { brand: b.slug, context });
+      const rules = context ? all : all.filter((r) => r.context === null);
+      const title = `${b.slug} design tokens${context ? ` for ${context}` : ""}, from Artbucket.`;
+      const f = TOKEN_FORMATS[format];
+      return { brand: b.slug, format, mime: f.mime, tokens: f.render(rules, { origin: env.APP_URL, title }) };
+    },
+  }),
+
+  create_share: tool({
+    description:
+      "Make a link for people without an account, when a person asks: `view` a collection or one asset, or `upload` into a " +
+      "collection (or the project) as proposals, for an agency say. Optional password and expiry; `emails` sends it through " +
+      "the organization's email. Answers with the link.",
+    action: "share.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_share,
+    run: async ({ collection, ...rest }, caller) => ({
+      share: await createShare(caller, { ...rest, ...(collection && { collection: (await collectionOf(caller, collection)).id }) }),
+    }),
+  }),
+
+  list_shares: tool({
+    description: "The project's share links on what you may share: what each shows or takes in, its link, password and expiry.",
+    action: "share.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_shares,
+    run: async (_input, caller) => ({ shares: await listShares(caller) }),
+  }),
+
+  save_search: tool({
+    description:
+      "Keep a search a person runs often, under a name, as an /api/v1/assets query string: search_assets' arguments as " +
+      "q, tag, type, collection, status, f.{field}, uploadedSince, expiresBefore, untagged.",
+    action: "search.save",
+    readOnly: false,
+    input: TOOL_INPUTS.save_search,
+    run: async (input, caller) => ({ search: await saveSearch(caller, input) }),
+  }),
+
+  list_searches: tool({
+    description: "The project's saved searches, each a name and an /api/v1/assets query string to run with search_assets.",
+    action: "search.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_searches,
+    run: async (_input, caller) => ({ searches: await listSearches(caller.project.id) }),
+  }),
+
+  list_members: tool({
+    description: "Who is in the organization and this project, for \"who is on this project?\": each person's grants, and invitations still waiting.",
+    action: "member.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_members,
+    run: async ({ projectOnly }, caller) => {
+      const { data, invitations } = await listMembers(caller, { here: !!projectOnly });
+      return {
+        people: data.map(({ id, name, email, grants }) => ({ id, name, email, grants: grants.map(({ resource, label, scope }) => ({ resource, on: label, scope })) })),
+        // Never the invitation link: it lets whoever holds it in.
+        invitations: invitations.map(({ email, resource, label, scope, invitedBy, expiresAt }) => ({ email, resource, on: label, scope, invitedBy, expiresAt })),
+      };
+    },
+  }),
+
+  object_activity: tool({
+    description: "What happened to one catalog object, newest first: an asset's uploads, reviews and versions, a brand's edits and releases.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.object_activity,
+    run: async ({ object, limit }, caller) => {
+      const lines = await objectActivity(caller, object, limit);
+      if (!lines) throw new AssetError("not_found", `Nothing at "${object}" you can reach: search_catalog finds addresses`);
+      return { activity: lines };
+    },
+  }),
+
+  shared_with_us: tool({
+    description: "What other projects of the organization shared into this one (share_object), each where it lives and is edited.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.shared_with_us,
+    run: async (_input, caller) => ({ shared: (await sharedHere(caller)).map(listed) }),
+  }),
+
+  list_projects: tool({
+    description:
+      "Every project you reach, with your role and how many brands, collections, portals and assets each holds; search_catalog " +
+      "with `projects` lists what is in one.",
+    action: "catalog.read",
+    readOnly: true,
+    input: TOOL_INPUTS.list_projects,
+    run: async (_input, caller) => {
+      const { projects } = await catalogTree(caller);
+      return {
+        projects: projects.map(({ id, slug, name, role, objects }) => ({
+          id,
+          slug,
+          name,
+          role,
+          counts: objects.reduce<Record<string, number>>((n, o) => ({ ...n, [o.type]: (n[o.type] ?? 0) + 1 }), {}),
+          shared: objects.filter((o) => o.sharedFrom).length,
+        })),
+      };
     },
   }),
 };

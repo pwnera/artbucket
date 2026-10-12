@@ -506,9 +506,22 @@ export type AssetQuery = {
   review?: boolean;
   /** Everything this actor proposed, whatever became of it: active, proposed or rejected. */
   proposedBy?: string;
+  /** Added on or after this time (an ISO date is its start, UTC). */
+  uploadedSince?: string;
+  /** Added before this time. */
+  uploadedBefore?: string;
+  /** Whose license runs out before this day (YYYY-MM-DD): its last day of use is earlier. */
+  expiresBefore?: string;
+  /** Carrying no tags at all. */
+  untagged?: boolean;
   limit?: number;
   offset?: number;
 };
+
+/** A day (YYYY-MM-DD, from its start in UTC) or a moment with its offset. */
+const when = z.union([z.iso.date(), z.iso.datetime({ offset: true })], { error: "A time is a day (YYYY-MM-DD) or an ISO date-time with an offset" });
+
+const utc = (t: string) => (t.length === 10 ? `${t}T00:00:00Z` : t);
 
 const QueryParams = z.object({
   q: z.string().max(512).optional(),
@@ -517,6 +530,10 @@ const QueryParams = z.object({
   status: z.array(z.enum(STATES, { error: `A status is one of ${STATES.join(", ")}` })).max(STATES.length),
   collection: z.string().max(120).optional(),
   review: z.enum(["true", "false"]).optional(),
+  uploadedSince: when.optional(),
+  uploadedBefore: when.optional(),
+  expiresBefore: z.iso.date({ error: "expiresBefore is a day: YYYY-MM-DD" }).optional(),
+  untagged: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().optional(),
   offset: z.coerce.number().int().optional(),
 });
@@ -526,13 +543,17 @@ const QueryParams = z.object({
  * searches, so a search that saves is a search that runs.
  */
 export async function parseAssetQuery(caller: Caller, params: URLSearchParams): Promise<AssetQuery> {
-  const { tag, type, review, ...rest } = QueryParams.parse({
+  const { tag, type, review, untagged, ...rest } = QueryParams.parse({
     q: params.get("q") ?? undefined,
     tag: params.getAll("tag"),
     type: params.getAll("type"),
     status: params.getAll("status"),
     collection: params.get("collection") ?? undefined,
     review: params.get("review") ?? undefined,
+    uploadedSince: params.get("uploadedSince") ?? undefined,
+    uploadedBefore: params.get("uploadedBefore") ?? undefined,
+    expiresBefore: params.get("expiresBefore") ?? undefined,
+    untagged: params.get("untagged") ?? undefined,
     limit: params.get("limit") ?? undefined,
     offset: params.get("offset") ?? undefined,
   });
@@ -546,6 +567,10 @@ export async function parseAssetQuery(caller: Caller, params: URLSearchParams): 
       tags: tag,
       types: type,
       review: review === "true",
+      untagged: untagged === "true",
+      // A day is its start in UTC, whatever the database session's zone.
+      uploadedSince: rest.uploadedSince && utc(rest.uploadedSince),
+      uploadedBefore: rest.uploadedBefore && utc(rest.uploadedBefore),
       filters: parseFieldFilters(params, await listFields(caller.project.id)),
     };
   } catch (err) {
@@ -600,7 +625,7 @@ function filterSql(f: FieldFilter): SQL {
  */
 export function assetWhere(
   caller: Caller,
-  { q, tags = [], types = [], status = [], collection, filters = [], review = false, proposedBy }: AssetQuery,
+  { q, tags = [], types = [], status = [], collection, filters = [], review = false, proposedBy, uploadedSince, uploadedBefore, expiresBefore, untagged }: AssetQuery,
   except?: string,
   anyType = false,
   anyState = false,
@@ -621,6 +646,11 @@ export function assetWhere(
     tsq ? sql`${assets.search} @@ to_tsquery('simple', ${tsq})` : undefined,
     wanted.length ? sql`${assets.tags} @> ${JSON.stringify(wanted)}::jsonb` : undefined,
     types.length && !anyType ? inArray(assetType, types) : undefined,
+    uploadedSince ? sql`${assets.createdAt} >= ${uploadedSince}::timestamptz` : undefined,
+    uploadedBefore ? sql`${assets.createdAt} < ${uploadedBefore}::timestamptz` : undefined,
+    // Days as text compare as days, the way stateSql reads `expires`.
+    expiresBefore ? sql`(${assets.rights} ->> 'expires') < ${expiresBefore}` : undefined,
+    untagged ? sql`${assets.tags} = '[]'::jsonb` : undefined,
     collection
       ? sql`exists (select 1 from ${collectionAssets} ca where ca.asset_id = ${assets.id} and ca.collection_id = ${collection})`
       : undefined,
