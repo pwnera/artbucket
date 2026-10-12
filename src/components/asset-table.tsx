@@ -224,7 +224,8 @@ export function AssetTable({
                           {a.status !== "proposed" ? suggestions(a) : a.version && a.version > 1 ? `New version, v${a.version}` : "New asset"} ·{" "}
                           {ago(a.updatedAt)}
                         </span>
-                        {(chips.from.length > 0 || chips.missing) && (
+                        {/* What the file is, only when the file itself waits: beside suggested tags it would read as the suggestion's. */}
+                        {a.status === "proposed" && (chips.from.length > 0 || chips.missing) && (
                           <span className="flex flex-wrap gap-1">
                             {chips.from.map((c) => (
                               <Badge key={c} variant="outline" className="text-2xs h-4 px-1.5 font-normal">
