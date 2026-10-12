@@ -1501,7 +1501,7 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async ({ projectOnly }, caller) => {
       const { data, invitations } = await listMembers(caller, { here: !!projectOnly });
       return {
-        people: data.map(({ name, email, grants }) => ({ name, email, grants: grants.map(({ resource, label, scope }) => ({ resource, on: label, scope })) })),
+        people: data.map(({ id, name, email, grants }) => ({ id, name, email, grants: grants.map(({ resource, label, scope }) => ({ resource, on: label, scope })) })),
         // Never the invitation link: it lets whoever holds it in.
         invitations: invitations.map(({ email, resource, label, scope, invitedBy, expiresAt }) => ({ email, resource, on: label, scope, invitedBy, expiresAt })),
       };

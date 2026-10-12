@@ -150,3 +150,63 @@ test("every place a link names is one the app goes to, as it is", () => {
     assert.equal(assistantPlace(path, "https://app.example"), path, spec);
   }
 });
+
+test("facts: a key and value grid whose values hold inline blocks, up to eight rows", () => {
+  const [b] = md(`[[facts:License|to [[date:2027-06-30]];Credit|[[asset:${A}|hero.jpg]], by Lena|Ortiz;Territory|EU]]`);
+  assert.equal(b.t, "facts");
+  if (b.t !== "facts") return;
+  assert.deepEqual(b.rows.map((r) => r.label), ["License", "Credit", "Territory"]);
+  assert.deepEqual(b.rows[0].value, [T("to "), { t: "date", iso: "2027-06-30", word: null }]);
+  // A value's own | stays in it; a block's | and ; are the block's.
+  assert.deepEqual(b.rows[1].value, [{ t: "asset", id: A, name: "hero.jpg" }, T(", by Lena|Ortiz")]);
+  const nine = Array.from({ length: 9 }, (_, i) => `R${i}|v`).join(";");
+  const [many] = md(`[[facts:${nine}]]`);
+  assert.equal(many.t === "facts" && many.rows.length, 8);
+  // Without values it falls back to its words, never brackets.
+  assert.deepEqual(md("[[facts:Only a label]]"), [{ t: "p", inline: [T("Only a label")] }]);
+});
+
+test("dates: a real day, with until or since; anything else stays text", () => {
+  assert.deepEqual(inline("Runs [[date:2027-06-30|until]]."), [T("Runs "), { t: "date", iso: "2027-06-30", word: "until" }, T(".")]);
+  assert.deepEqual(inline("[[date:2026-10-01|since]]"), [{ t: "date", iso: "2026-10-01", word: "since" }]);
+  assert.deepEqual(inline("[[date:2026-10-01|jusqu'au]]"), [{ t: "date", iso: "2026-10-01", word: null }]);
+  assert.deepEqual(inline("[[date:2026-02-30]]"), [T("2026-02-30")]);
+  assert.deepEqual(inline("[[date:next week]]"), [T("next week")]);
+});
+
+test("next: up to three questions to tap, only as the last line, only once the answer has ended", () => {
+  const text = "Two colors.\n[[next:Open the rules;Get them as CSS;Which fonts?;A fourth]]";
+  assert.deepEqual(md(text).at(-1), { t: "next", items: ["Open the rules", "Get them as CSS", "Which fonts?"] });
+  assert.equal(md(text, { streaming: true }).some((b) => b.t === "next"), false);
+  // Anywhere but last, it is dropped.
+  assert.deepEqual(md("[[next:A;B]]\nThen words."), [{ t: "p", inline: [T("Then words.")] }]);
+});
+
+test("brand, collection and person chips; a wrong one says its name", () => {
+  assert.deepEqual(inline("[[brand:northwind|Northwind Coffee]]"), [{ t: "brand", slug: "northwind", name: "Northwind Coffee" }]);
+  assert.deepEqual(inline(`[[collection:${A}|Summer 2026]]`), [{ t: "collection", id: A, name: "Summer 2026" }]);
+  assert.deepEqual(inline("[[person:sVqENoNdzJn6wQI849JNB1aNz7hgG0Yb|Maya Chen]]"), [{ t: "person", id: "sVqENoNdzJn6wQI849JNB1aNz7hgG0Yb", name: "Maya Chen" }]);
+  assert.deepEqual(inline("[[brand:../x|Acme]]"), [T("Acme")]);
+  assert.deepEqual(inline("[[collection:summer|Summer]]"), [T("Summer")]);
+  assert.deepEqual(inline("[[person:a b|Maya]]"), [T("Maya")]);
+});
+
+test("a verdict holds an asset chip and a date; tables keep four columns; a warning two lines", () => {
+  const [v] = md(`[[verdict:no|[[asset:${A}|hero.jpg]] licensed [[date:2027-06-30|until]], organic only.]]`);
+  assert.equal(v.t, "verdict");
+  if (v.t === "verdict") assert.deepEqual(v.why.map((n) => n.t), ["asset", "text", "date", "text"]);
+  const [t] = md("| a | b | c | d | e |\n|---|---|---|---|---|\n| 1 | 2 | 3 | 4 | 5 |");
+  assert.equal(t.t === "table" && t.head.length, 4);
+  assert.equal(t.t === "table" && t.rows[0].length, 4);
+  const [w] = md("> ⚠ one\n> two\n> three");
+  assert.equal(w.t === "callout" && w.lines.length, 2);
+});
+
+test("streaming: a half-written facts line isn't drawn until it closes", () => {
+  assert.deepEqual(md("Two rows.\n[[facts:License|to [[date:2027-", { streaming: true }), [{ t: "p", inline: [T("Two rows.")] }]);
+});
+
+test("the answer to copy says the new blocks in words, and leaves the questions to tap out", () => {
+  const text = `May it run?\n[[facts:License|[[date:2027-06-30|until]];Brand|[[brand:northwind|Northwind]];Who|[[person:u1|Maya Chen]]]]\n[[next:Find another;Ask the holder]]`;
+  assert.equal(plainText(text), "May it run?\nLicense: until 2027-06-30\nBrand: Northwind\nWho: Maya Chen");
+});

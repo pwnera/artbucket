@@ -576,7 +576,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
                   <p className="bg-muted max-w-[85%] justify-self-end rounded-2xl rounded-br-sm px-3.5 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{t.question}</p>
                   <div className="grid min-w-0 gap-2">
                     {!writing && <Steps steps={t.steps} took={t.took} />}
-                    <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} />
+                    <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} onAsk={last && !busy ? ask : undefined} />
                     {t.error && <p className="text-destructive text-sm">{t.error}</p>}
                     {writing && <Working label={status ?? STATUS_THINKING} since={t.started ?? null} steps={t.steps} />}
                     {!writing && t.answer.trim() && (
