@@ -210,3 +210,9 @@ test("the answer to copy says the new blocks in words, and leaves the questions 
   const text = `May it run?\n[[facts:License|[[date:2027-06-30|until]];Brand|[[brand:northwind|Northwind]];Who|[[person:u1|Maya Chen]]]]\n[[next:Find another;Ask the holder]]`;
   assert.equal(plainText(text), "May it run?\nLicense: until 2027-06-30\nBrand: Northwind\nWho: Maya Chen");
 });
+
+test("a table's cells split outside blocks: a chip in a cell keeps its name", () => {
+  const [t] = md("| Person | Access |\n|---|---|\n| [[person:u_1|Maya Chen]] | Admin |");
+  assert.equal(t.t, "table");
+  if (t.t === "table") assert.deepEqual(t.rows[0], [[{ t: "person", id: "u_1", name: "Maya Chen" }], [T("Admin")]]);
+});

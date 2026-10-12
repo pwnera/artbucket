@@ -278,12 +278,8 @@ function block(kind: string, body: string): Block | null {
   return { t: "font", family, role: (parts[1] || "").trim(), asset: IS_UUID.test(id) ? id.toLowerCase() : null };
 }
 
-const CELLS = (line: string) =>
-  line
-    .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((c) => c.trim());
+/** A table row's cells, split outside blocks: a [[person:ID|name]] in a cell keeps its |. */
+const CELLS = (line: string) => split(line.trim().replace(/^\||\|$/g, ""), "|").map((c) => c.trim());
 const SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
 /**
