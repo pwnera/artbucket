@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IconFolder, IconPalette } from "@tabler/icons-react";
 import { useCan } from "@/components/can";
 import { CopyButton, copyText } from "@/components/copy-button";
-import { GRID_MAX, VERDICTS, parseAnswer, type Block, type DateWord, type Inline, type Verdict } from "@/lib/assistant-answer";
+import { IconFolder, IconPalette } from "@/components/icons";
+import { GRID_MAX, VERDICTS, inline, parseAnswer, type Block, type DateWord, type Inline, type Verdict } from "@/lib/assistant-answer";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,6 +39,12 @@ export function AssistantAnswer({
 }
 
 type Go = { onGo: (path: string) => void };
+
+/** A line of the answer's grammar, inline only: chips, dates, swatches, words. What an approval card's rows are written in. */
+export function AnswerLine({ text, onGo }: { text: string } & Go) {
+  const nodes = useMemo(() => inline(text), [text]);
+  return <Inlines nodes={nodes} onGo={onGo} />;
+}
 
 function BlockView({ b, card, onGo, onAsk }: { b: Block; card: (id: string) => React.ReactNode; onAsk?: (question: string) => void } & Go) {
   switch (b.t) {
