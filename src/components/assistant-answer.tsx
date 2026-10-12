@@ -297,6 +297,8 @@ function go(e: React.MouseEvent, path: string, onGo: (path: string) => void) {
 /** An asset: its thumbnail and name, inline, or a tile in a grid. A file with no picture shows its type instead. */
 function AssetLink({ id, name, tile = false, onGo }: { id: string; name: string; tile?: boolean } & Go) {
   const [blank, setBlank] = useState(false);
+  // A tile keeps its square from the start, muted; the thumbnail fades in, so nothing jumps.
+  const [loaded, setLoaded] = useState(false);
   const ext = (name.match(/\.(\w{1,5})$/)?.[1] ?? "file").toUpperCase();
   const path = `/?asset=${id}`;
   const thumb = blank ? (
@@ -310,7 +312,8 @@ function AssetLink({ id, name, tile = false, onGo }: { id: string; name: string;
       loading="lazy"
       src={`/a/${id}/w_160,f_webp`}
       onError={() => setBlank(true)}
-      className={cn("bg-muted object-cover", tile ? "aspect-square w-full" : "size-6 shrink-0 rounded")}
+      onLoad={() => setLoaded(true)}
+      className={cn("bg-muted object-cover transition-opacity duration-300", tile ? "aspect-square w-full" : "size-6 shrink-0 rounded", tile && !loaded && "opacity-40")}
     />
   );
   if (tile) {

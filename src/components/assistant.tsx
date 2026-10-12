@@ -364,8 +364,6 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
     current((t) => ({ ...t, started: Date.now() }));
     stick.current = true;
     let changed = false;
-    // Where the assistant takes the app: gone to once the answer ends, so the page doesn't move under the person mid-answer.
-    let go: string | null = null;
     try {
       const res = await fetch(`${a.url}/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok || !res.body) throw new Error(await refusal(res, "Something went wrong"));
@@ -384,13 +382,17 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
         } else if (ev.type === "working" && typeof ev.text === "string") {
           // What it said in a step that only read: not the answer, so it moves to the steps, before that step's tools.
           const said = ev.text;
+          // The server holds a step's first words until it knows: those it never showed go straight to the steps.
           current((t) => {
-            if (!t.answer.endsWith(said)) return t;
             const steps = [...t.steps];
             steps.splice(steps.length - t.since, 0, { said: said.trim() });
-            return { ...t, answer: t.answer.slice(0, -said.length), steps };
+            return { ...t, answer: t.answer.endsWith(said) ? t.answer.slice(0, -said.length) : t.answer, steps };
           });
-        } else if (ev.type === "ui" && typeof ev.path === "string") go = ev.path;
+        } else if (ev.type === "ui" && typeof ev.path === "string") {
+          // The app goes there at once, before the words: the sentence then says what is already in view.
+          const place = assistantPlace(ev.path, window.location.origin);
+          if (place) router.push(place);
+        }
         else if (ev.type === "text" && typeof ev.text === "string") {
           const text = ev.text;
           // The first words after the steps start the answer: no paragraph break above them.
@@ -422,9 +424,15 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
         router.refresh();
         a.onChanged();
       }
-      const place = go && assistantPlace(go, window.location.origin);
-      if (place) router.push(place);
     }
+  }
+
+  /** The last question again, after its answer failed: the failed try is taken away first. */
+  function retry() {
+    const last = turns.at(-1);
+    if (!last || busy) return;
+    setTurns((ts) => ts.slice(0, -1));
+    ask(last.question);
   }
 
   function ask(q: string) {
@@ -577,7 +585,16 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
                   <div className="grid min-w-0 gap-2">
                     {!writing && <Steps steps={t.steps} took={t.took} />}
                     <AssistantAnswer text={t.answer} streaming={writing} card={card} onGo={onGo} onAsk={last && !busy ? ask : undefined} />
-                    {t.error && <p className="text-destructive text-sm">{t.error}</p>}
+                    {t.error && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-destructive text-sm">{t.error}</p>
+                        {last && !busy && (
+                          <button type="button" onClick={retry} className="bg-muted hover:bg-accent rounded-full px-3 py-1 text-xs">
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {writing && <Working label={status ?? STATUS_THINKING} since={t.started ?? null} steps={t.steps} />}
                     {!writing && t.answer.trim() && (
                       <div className="flex">
@@ -605,7 +622,7 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
               ref={box}
               rows={1}
               value={question}
-              placeholder="Ask about your library"
+              placeholder={Object.values(actions).some((x) => x.state === "waiting") ? "Approve or decline above, or ask something else" : "Ask about your library"}
               aria-label="Your question"
               maxLength={4000}
               className="field-sizing-content max-h-48 min-h-9 resize-none bg-transparent px-1.5 py-1 text-sm outline-none"
