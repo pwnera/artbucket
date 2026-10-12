@@ -1538,7 +1538,8 @@ const TOOLS: Record<ToolName, Tool> = {
     run: async (_input, caller) => {
       const { projects } = await catalogTree(caller);
       return {
-        projects: projects.map(({ slug, name, role, objects }) => ({
+        projects: projects.map(({ id, slug, name, role, objects }) => ({
+          id,
           slug,
           name,
           role,

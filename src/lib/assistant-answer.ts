@@ -12,12 +12,16 @@
  *   [[color:#RRGGBB|name]]            a swatch, inline; a click copies its HEX
  *   [[verdict:yes|no|conditions|why]] may it be used: a banner, on a line of its own
  *   [[font:Family|role|asset ID]]     a typeface in its own face, on a line of its own
- *   [[open:asset/ID|label]]           a place in the app (asset/ID, brand/SLUG[/TAB], brand/SLUG/guidelines/PAGE,
- *                                     review, collections, brands, activity, insights, sites, team, library), inline
+ *   [[open:asset/ID|label]]           a place in the app (asset/ID, brand/SLUG[/TAB], brand/SLUG/guidelines/PAGE[/edit],
+ *                                     catalog[/ID[/TAB]], site/ID[/requests], settings[/CONTEXT/SECTION],
+ *                                     insights[/activity|checks], team[/TAB], review, collections, brands, activity,
+ *                                     sites, connections, library), inline; lib/assistant-place.ts says where it may go
  *   [[action:ID]]                     a change waiting for the person's approval, on a line of its own
  * And Markdown: **bold**, *italic*, `code`, links, "- " and "1. " lists, "#"-"###" titles (all one size), tables,
  * ``` code blocks, "> " notes ("> ⚠" a warning).
  */
+
+import { BRAND_TABS, CATALOG_TABS, TEAM_TABS } from "./assistant-place.ts";
 
 export type Inline =
   | { t: "text"; text: string }
@@ -47,7 +51,7 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const IS_UUID = new RegExp(`^${UUID}$`, "i");
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const TABS = ["overview", "guidelines", "rules", "theme", "assets", "score", "insights", "releases", "portals", "sharing", "settings"];
+const TABS = ["overview", ...BRAND_TABS];
 const PLACES: Record<string, string> = {
   library: "/",
   review: "/review",
@@ -57,6 +61,9 @@ const PLACES: Record<string, string> = {
   insights: "/insights",
   sites: "/sites",
   team: "/team",
+  catalog: "/catalog",
+  connections: "/connections",
+  settings: "/settings",
 };
 /** A grid shows this many; the rest are counted. */
 export const GRID_MAX = 12;
@@ -69,9 +76,18 @@ export function placePath(spec: string): string | null {
   if (p[0] === "brand" && SLUG.test(p[1] || "")) {
     if (p.length === 2 || (p.length === 3 && p[2] === "overview")) return `/brands/${p[1]}`;
     if (p.length === 4 && p[2] === "guidelines" && SLUG.test(p[3])) return `/brands/${p[1]}/guidelines?page=${p[3]}`;
+    if (p.length === 5 && p[2] === "guidelines" && SLUG.test(p[3]) && p[4] === "edit") return `/brands/${p[1]}/guidelines/edit?page=${p[3]}`;
     if (p.length === 3 && TABS.includes(p[2])) return `/brands/${p[1]}/${p[2]}`;
     return null;
   }
+  if (p[0] === "catalog" && p.length > 1) {
+    if (!IS_UUID.test(p[1]) || p.length > 3 || (p[2] && !CATALOG_TABS.includes(p[2]))) return null;
+    return `/catalog?o=${p[1].toLowerCase()}${p[2] ? `&tab=${p[2]}` : ""}`;
+  }
+  if (p[0] === "site") return IS_UUID.test(p[1] || "") && (p.length === 2 || (p.length === 3 && p[2] === "requests")) ? `/sites?${p[2] ? "open" : "edit"}=${p[1].toLowerCase()}` : null;
+  if (p[0] === "settings" && p.length > 1) return p.length === 3 && ["project", "organization", "account"].includes(p[1]) && /^[a-z][a-z-]{0,40}$/.test(p[2]) ? `/settings/${p[1]}/${p[2]}` : null;
+  if (p[0] === "insights" && p.length > 1) return p.length === 2 && ["activity", "checks"].includes(p[1]) ? `/insights/${p[1]}` : null;
+  if (p[0] === "team" && p.length > 1) return p.length === 2 && TEAM_TABS.includes(p[1]) ? `/team?tab=${p[1]}` : null;
   return p.length <= 1 && Object.hasOwn(PLACES, p[0] || "library") ? PLACES[p[0] || "library"] : null;
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { inline, jsonLine, jsonLines, parseAnswer as md, placePath, plainText } from "./assistant-answer.ts";
+import { assistantPlace } from "./assistant-place.ts";
 
 const A = "6700995f-e0d8-4e6b-a64f-7abbf7ec1752";
 const B = "b778186c-9853-4a68-b8d2-ffce37d8a6da";
@@ -76,9 +77,22 @@ test("a place in the app: only the app's own, as open_in_app takes them", () => 
   assert.equal(placePath("brand/acme/rules"), "/brands/acme/rules");
   assert.equal(placePath("brand/acme/guidelines/colors"), "/brands/acme/guidelines?page=colors");
   assert.equal(placePath("review"), "/review");
-  for (const bad of ["settings", "brand/acme/edit", "brand/../x", "asset/x", "//evil.example", "https://evil.example"]) assert.equal(placePath(bad), null, bad);
+  assert.equal(placePath("brand/acme/guidelines/colors/edit"), "/brands/acme/guidelines/edit?page=colors");
+  assert.equal(placePath("catalog"), "/catalog");
+  assert.equal(placePath(`catalog/${A}`), `/catalog?o=${A}`);
+  assert.equal(placePath(`catalog/${A}/lineage`), `/catalog?o=${A}&tab=lineage`);
+  assert.equal(placePath(`site/${A}`), `/sites?edit=${A}`);
+  assert.equal(placePath(`site/${A}/requests`), `/sites?open=${A}`);
+  assert.equal(placePath("settings"), "/settings");
+  assert.equal(placePath("settings/project/fields"), "/settings/project/fields");
+  assert.equal(placePath("insights/checks"), "/insights/checks");
+  assert.equal(placePath("team/audit"), "/team?tab=audit");
+  assert.equal(placePath("connections"), "/connections");
+  for (const bad of ["brand/acme/edit", "brand/../x", "asset/x", "catalog/x", `catalog/${A}/delete`, "site/x", "settings/x/y", "settings/project/../../x", "team/keys", "insights/x", "hub", "//evil.example", "https://evil.example"]) {
+    assert.equal(placePath(bad), null, bad);
+  }
   assert.deepEqual(inline("[[open:review|Review]]"), [{ t: "place", path: "/review", label: "Review" }]);
-  assert.deepEqual(inline("[[open:settings|Settings]]"), [T("Settings")]);
+  assert.deepEqual(inline("[[open:hub|BrandHub]]"), [T("BrandHub")]);
 });
 
 test("while it streams, a block not yet closed isn't shown; once written, all of it is", () => {
@@ -126,4 +140,13 @@ test("a stream of JSON lines: one event a line, heartbeats and broken lines skip
   const seen = [];
   for await (const ev of jsonLines(new Response(body))) seen.push(ev);
   assert.deepEqual(seen, [{ type: "chat", id: "c1" }, { type: "text", text: "Hi" }, { type: "done" }]);
+});
+
+test("every place a link names is one the app goes to, as it is", () => {
+  const specs = ["library", "review", "collections", "brands", "activity", "insights", "insights/activity", "insights/checks", "sites", "team", "team/sharing", "catalog", "connections", "settings", "settings/organization/usage", `asset/${A}`, "brand/acme", "brand/acme/rules", "brand/acme/guidelines/logo", "brand/acme/guidelines/logo/edit", `catalog/${A}/access`, `site/${A}`, `site/${A}/requests`];
+  for (const spec of specs) {
+    const path = placePath(spec);
+    assert.ok(path, spec);
+    assert.equal(assistantPlace(path, "https://app.example"), path, spec);
+  }
 });
