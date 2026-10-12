@@ -9,6 +9,10 @@ import { PORTAL_ACCESS } from "./portal.ts";
 import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
 import {
+  AssetPatch,
+  SaveSearch,
+  ShareCreate,
+  TokenQuery,
   BrandCreate,
   BrandPatch,
   HubPatch,
@@ -38,33 +42,151 @@ import { FITS, FORMATS, MAX_DIMENSION } from "./transform.ts";
 
 const text = z.string().min(1);
 const id = z.uuid().describe("Asset id, from search_assets");
-const brand = z.string().max(60).optional().describe("A brand's slug; the default brand when left out");
+const brand = z
+  .string()
+  .max(60)
+  .optional()
+  .describe("A brand's slug; the default brand when left out");
 const page = pageSlug.describe("Its slug, e.g. logo (list_pages)");
 // The tool descriptions say how to use it: edit_page's schema has no room for more (mcp-tools.test.ts).
 const revision = z.string().optional().describe("From get_page");
-const which = z.string().min(1).max(60).describe("The brand's slug, as brand_status names it");
-const version = z.number().int().min(1).describe("The version's number, from list_versions");
-const address = z.string().min(1).max(64).describe("The site's address (slug), as list_sites names it");
-const fieldKey = z.string().regex(FIELD_KEY).describe("The field's key, as list_fields names it");
+const which = z
+  .string()
+  .min(1)
+  .max(60)
+  .describe("The brand's slug, as brand_status names it");
+const version = z
+  .number()
+  .int()
+  .min(1)
+  .describe("The version's number, from list_versions");
+const address = z
+  .string()
+  .min(1)
+  .max(64)
+  .describe("The site's address (slug), as list_sites names it");
+const fieldKey = z
+  .string()
+  .regex(FIELD_KEY)
+  .describe("The field's key, as list_fields names it");
 const comment = z.uuid().describe("The comment's id, from list_comments");
-const collection = z.string().min(1).max(120).describe("Its id, or its name in any case, as list_collections names it");
+const collection = z
+  .string()
+  .min(1)
+  .max(120)
+  .describe("Its id, or its name in any case, as list_collections names it");
+const ids = z
+  .array(z.uuid())
+  .min(1)
+  .max(50)
+  .describe("Asset ids, from search_assets");
+const addTags = z
+  .array(text.max(64))
+  .max(50)
+  .optional()
+  .describe("Add these to its tags");
+const removeTags = z
+  .array(text.max(64))
+  .max(50)
+  .optional()
+  .describe("Take these off its tags");
+const object = z
+  .string()
+  .min(1)
+  .max(300)
+  .describe("An id or an address, as search_catalog gives them");
+/** What review_asset decides about one asset; review_assets takes a list of them, where "all" means every suggestion. */
+const review = {
+  id,
+  decision: z
+    .enum(["approve", "reject"])
+    .optional()
+    .describe(
+      "approve puts a proposed asset in the library; reject turns it down and keeps it, with `note` saying why",
+    ),
+  note: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .optional()
+    .describe(
+      "Why, read back by whoever proposed it in my_proposals; asked for with reject",
+    ),
+  fields: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      "Field values to set, merged; null clears one. Required fields must be set before approve",
+    ),
+};
+const everyOr = <T extends z.ZodType>(list: T) =>
+  z.union([z.literal("all"), list]);
 
 export const TOOL_INPUTS = {
   search_assets: z.object({
     q: z.string().max(512).optional().describe("Free text"),
-    tags: z.array(z.string()).max(20).optional().describe("Only assets carrying every one of these tags"),
-    types: z.array(z.enum(ASSET_TYPES)).optional().describe("Only assets of any of these types"),
-    collection: z.string().max(120).optional().describe("Only this collection's assets: its name or id"),
+    tags: z
+      .array(z.string())
+      .max(20)
+      .optional()
+      .describe("Only assets carrying every one of these tags"),
+    types: z
+      .array(z.enum(ASSET_TYPES))
+      .optional()
+      .describe("Only assets of any of these types"),
+    collection: z
+      .string()
+      .max(120)
+      .optional()
+      .describe("Only this collection's assets: its name or id"),
     filters: z
       .record(z.string(), z.union([z.string(), z.array(z.string())]))
       .optional()
-      .describe('Field filters: {"channel": ["web", "print"], "budget.gte": "10", "expires.lte": "2027-01-31"}'),
+      .describe(
+        'Field filters: {"channel": ["web", "print"], "budget.gte": "10", "expires.lte": "2027-01-31"}',
+      ),
     status: z
       .array(z.enum(STATES))
       .optional()
-      .describe("Only assets in these states; approved (active) and unexpired ones when left out, which is what may be used"),
-    review: z.boolean().optional().describe("Only what waits on a human: proposed assets and suggested tags"),
+      .describe(
+        "Only assets in these states; approved (active) and unexpired ones when left out, which is what may be used",
+      ),
+    review: z
+      .boolean()
+      .optional()
+      .describe(
+        "Only what waits on a human: proposed assets and suggested tags",
+      ),
+    uploadedSince: z
+      .string()
+      .max(40)
+      .optional()
+      .describe(
+        "Added on or after this: a day (YYYY-MM-DD) or an ISO date-time",
+      ),
+    uploadedBefore: z
+      .string()
+      .max(40)
+      .optional()
+      .describe("Added before this, as uploadedSince"),
+    expiresBefore: z.iso
+      .date()
+      .optional()
+      .describe(
+        'Licenses whose last day is before this one: "by the end of 2026" is 2027-01-01. Expired ones only with status ["expired"]',
+      ),
+    untagged: z.boolean().optional().describe("Only assets carrying no tags"),
     limit: z.number().int().min(1).max(50).default(20),
+    offset: z
+      .number()
+      .int()
+      .min(0)
+      .max(100000)
+      .optional()
+      .describe(
+        "Skip this many: the next page is offset + limit, until `total`",
+      ),
   }),
 
   describe_asset: z.object({ id }),
@@ -73,8 +195,16 @@ export const TOOL_INPUTS = {
     id,
     width: z.number().int().min(1).max(MAX_DIMENSION).optional(),
     height: z.number().int().min(1).max(MAX_DIMENSION).optional(),
-    fit: z.enum(FITS).optional().describe("With both width and height: cover crops, contain pads, inside fits (default)"),
-    format: z.enum(FORMATS).optional().describe("Defaults to the original's format; webp suits the web"),
+    fit: z
+      .enum(FITS)
+      .optional()
+      .describe(
+        "With both width and height: cover crops, contain pads, inside fits (default)",
+      ),
+    format: z
+      .enum(FORMATS)
+      .optional()
+      .describe("Defaults to the original's format; webp suits the web"),
     quality: z.number().int().min(1).max(100).optional(),
     expiresIn: z
       .number()
@@ -89,42 +219,115 @@ export const TOOL_INPUTS = {
 
   check_use: Use.extend({
     id,
-    context: z.string().max(64).optional().describe("The brand context, e.g. dark-background, instagram-story"),
-    brand: z.string().max(60).optional().describe("A brand's slug; every brand's rules when left out"),
+    context: z
+      .string()
+      .max(64)
+      .optional()
+      .describe("The brand context, e.g. dark-background, instagram-story"),
+    brand: z
+      .string()
+      .max(60)
+      .optional()
+      .describe("A brand's slug; every brand's rules when left out"),
   }),
 
   ingest_asset: z.object({
     url: z.url({ protocol: /^https?$/ }).max(2048),
-    filename: z.string().min(1).max(512).optional().describe("Defaults to the URL's last path segment"),
-    title: z.string().trim().min(1).max(500).optional().describe("What people see it called; the file's own title, if it carries one, wins"),
-    description: z.string().trim().max(5000).optional().describe("What it shows and where it is used; the file's own, if it carries one, wins"),
+    filename: z
+      .string()
+      .min(1)
+      .max(512)
+      .optional()
+      .describe("Defaults to the URL's last path segment"),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .optional()
+      .describe(
+        "What people see it called; the file's own title, if it carries one, wins",
+      ),
+    description: z
+      .string()
+      .trim()
+      .max(5000)
+      .optional()
+      .describe(
+        "What it shows and where it is used; the file's own, if it carries one, wins",
+      ),
     tags: z.array(text.max(64)).max(50).optional(),
-    fields: z.record(z.string(), z.unknown()).optional().describe("Custom field values; required fields must be set"),
+    fields: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe("Custom field values; required fields must be set"),
     collections: z.array(z.uuid()).max(50).optional(),
-    origin: z.enum(ORIGINS).optional().describe("generated for anything a model made; read from Content Credentials when left out"),
-    generator: z.string().max(200).optional().describe('The model or tool that made it, e.g. "gpt-image 2.0"'),
-    prompt: z.string().max(10000).optional().describe("For a generated image: what it was asked for"),
-    parentAssetId: z.uuid().optional().describe("The library asset it was made from, e.g. the photo you edited"),
-    rights: RightsInput.optional().describe("License, territories, channels, embargo, expires, modelRelease, if known"),
+    origin: z
+      .enum(ORIGINS)
+      .optional()
+      .describe(
+        "generated for anything a model made; read from Content Credentials when left out",
+      ),
+    generator: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('The model or tool that made it, e.g. "gpt-image 2.0"'),
+    prompt: z
+      .string()
+      .max(10000)
+      .optional()
+      .describe("For a generated image: what it was asked for"),
+    parentAssetId: z
+      .uuid()
+      .optional()
+      .describe(
+        "The library asset it was made from, e.g. the photo you edited",
+      ),
+    rights: RightsInput.optional().describe(
+      "License, territories, channels, embargo, expires, modelRelease, if known",
+    ),
     versionOf: z
       .uuid()
       .optional()
-      .describe("It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved"),
+      .describe(
+        "It is a new version of this asset: it joins its stack, collections, tags and fields, and replaces it once approved",
+      ),
   }),
 
   import_google_font: z.object({
-    family: z.string().trim().regex(GOOGLE_FAMILY).describe("As Google Fonts names it, e.g. Playfair Display"),
+    family: z
+      .string()
+      .trim()
+      .regex(GOOGLE_FAMILY)
+      .describe("As Google Fonts names it, e.g. Playfair Display"),
     tags: z.array(text.max(64)).max(50).optional(),
     collections: z.array(z.uuid()).max(50).optional(),
   }),
 
   find_icons: z.object({
-    q: z.string().max(80).optional().describe("Words in a set's name, author or license; with prefix, in an icon's name"),
-    prefix: IconBrowseQuery.shape.prefix.optional().describe("A set, e.g. tabler: search its icons instead of the sets"),
+    q: z
+      .string()
+      .max(80)
+      .optional()
+      .describe(
+        "Words in a set's name, author or license; with prefix, in an icon's name",
+      ),
+    prefix: IconBrowseQuery.shape.prefix
+      .optional()
+      .describe("A set, e.g. tabler: search its icons instead of the sets"),
     group: IconSetQuery.shape.group,
-    category: IconBrowseQuery.shape.category.describe("With prefix: one of the set's categories"),
+    category: IconBrowseQuery.shape.category.describe(
+      "With prefix: one of the set's categories",
+    ),
     offset: z.number().int().min(0).max(100000).default(0),
-    limit: z.number().int().min(1).max(200).optional().describe("20 sets or 100 icons when left out"),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe("20 sets or 100 icons when left out"),
   }),
 
   import_icons: z.object({
@@ -135,32 +338,50 @@ export const TOOL_INPUTS = {
   }),
 
   brand_rules: z.object({
-    brand: z.string().max(60).optional().describe("A brand's slug; the default brand when left out"),
-    context: z.string().max(64).optional().describe("e.g. dark-background, instagram-story"),
+    brand: z
+      .string()
+      .max(60)
+      .optional()
+      .describe("A brand's slug; the default brand when left out"),
+    context: z
+      .string()
+      .max(64)
+      .optional()
+      .describe("e.g. dark-background, instagram-story"),
   }),
 
   my_proposals: z.object({
-    status: z.enum(STATUSES).optional().describe("Only these; all of them when left out"),
+    status: z
+      .enum(STATUSES)
+      .optional()
+      .describe("Only these; all of them when left out"),
     limit: z.number().int().min(1).max(50).default(20),
   }),
 
   propose_tags: z.object({ id, tags: z.array(text.max(64)).min(1).max(50) }),
 
   review_asset: z.strictObject({
-    id,
-    decision: z
-      .enum(["approve", "reject"])
+    ...review,
+    acceptTags: z
+      .array(text.max(64))
+      .max(50)
       .optional()
-      .describe("approve puts a proposed asset in the library; reject turns it down and keeps it, with `note` saying why"),
-    note: z.string().trim().min(1).max(2000).optional().describe("Why, read back by whoever proposed it in my_proposals; asked for with reject"),
-    fields: z
-      .record(z.string(), z.unknown())
+      .describe("Suggested tags to apply"),
+    dismissTags: z
+      .array(text.max(64))
+      .max(50)
       .optional()
-      .describe("Field values to set, merged; null clears one. Required fields must be set before approve"),
-    acceptTags: z.array(text.max(64)).max(50).optional().describe("Suggested tags to apply"),
-    dismissTags: z.array(text.max(64)).max(50).optional().describe("Suggested tags to drop"),
-    acceptFields: z.array(z.string().regex(FIELD_KEY)).max(50).optional().describe("Keys of suggested field values to apply"),
-    dismissFields: z.array(z.string().regex(FIELD_KEY)).max(50).optional().describe("Keys of suggested field values to drop"),
+      .describe("Suggested tags to drop"),
+    acceptFields: z
+      .array(z.string().regex(FIELD_KEY))
+      .max(50)
+      .optional()
+      .describe("Keys of suggested field values to apply"),
+    dismissFields: z
+      .array(z.string().regex(FIELD_KEY))
+      .max(50)
+      .optional()
+      .describe("Keys of suggested field values to drop"),
   }),
 
   list_fields: z.object({}),
@@ -182,8 +403,12 @@ export const TOOL_INPUTS = {
   // POST /collections/{id}/assets's own fields; strict, as there.
   update_collection_assets: MembersChange.extend({
     collection,
-    add: MembersChange.shape.add.describe("Asset ids to put in it, from search_assets"),
-    remove: MembersChange.shape.remove.describe("Asset ids to take out; the assets stay in the library"),
+    add: MembersChange.shape.add.describe(
+      "Asset ids to put in it, from search_assets",
+    ),
+    remove: MembersChange.shape.remove.describe(
+      "Asset ids to take out; the assets stay in the library",
+    ),
   }),
 
   delete_collection: z.object({ collection }),
@@ -207,8 +432,15 @@ export const TOOL_INPUTS = {
   preview_page: z.object({
     brand,
     page,
-    width: z.enum(["desktop", "phone"]).optional().describe("desktop (1280px) when left out"),
-    context: z.string().max(64).optional().describe("Draw it in this context, e.g. dark-background"),
+    width: z
+      .enum(["desktop", "phone"])
+      .optional()
+      .describe("desktop (1280px) when left out"),
+    context: z
+      .string()
+      .max(64)
+      .optional()
+      .describe("Draw it in this context, e.g. dark-background"),
   }),
 
   list_pages: z.object({ brand }),
@@ -216,7 +448,11 @@ export const TOOL_INPUTS = {
   get_page: z.object({
     brand,
     page,
-    context: z.string().max(64).optional().describe("Resolve its rules for this context, e.g. dark-background"),
+    context: z
+      .string()
+      .max(64)
+      .optional()
+      .describe("Resolve its rules for this context, e.g. dark-background"),
   }),
 
   set_rules: z.object({
@@ -225,16 +461,37 @@ export const TOOL_INPUTS = {
       .array(RuleInput)
       .max(100)
       .optional()
-      .describe("Rules to make, or change where the key and context exist: { key, type, value, label?, usage?, spec?, context?, assets? }"),
+      .describe(
+        "Rules to make, or change where the key and context exist: { key, type, value, label?, usage?, spec?, context?, assets? }",
+      ),
     remove: z
-      .array(z.object({ key: ruleKey, context: ruleContext.nullable().optional().describe("Only this context's version; the key and every version when left out") }))
+      .array(
+        z.object({
+          key: ruleKey,
+          context: ruleContext
+            .nullable()
+            .optional()
+            .describe(
+              "Only this context's version; the key and every version when left out",
+            ),
+        }),
+      )
       .max(100)
       .optional(),
   }),
 
   save_page: PageInput.extend({ brand, page, revision }),
 
-  edit_page: z.object({ brand, page, ops: z.array(PageOp).min(1).max(50).describe("Applied in order; all or none"), revision }),
+  edit_page: z.object({
+    brand,
+    page,
+    ops: z
+      .array(PageOp)
+      .min(1)
+      .max(50)
+      .describe("Applied in order; all or none"),
+    revision,
+  }),
 
   delete_page: z.object({ brand, page }),
 
@@ -253,14 +510,21 @@ export const TOOL_INPUTS = {
     against: z
       .union([z.number().int().min(1), z.literal("current")])
       .optional()
-      .describe("Diff against this version, or current for this one to now; the version before when left out"),
+      .describe(
+        "Diff against this version, or current for this one to now; the version before when left out",
+      ),
   }),
 
   name_version: VersionPatch.extend({ brand, number: version }),
 
   restore_version: z.object({ brand, number: version }),
 
-  list_comments: z.object({ brand, page: pageSlug.optional().describe("That page's only; an old slug finds it too") }),
+  list_comments: z.object({
+    brand,
+    page: pageSlug
+      .optional()
+      .describe("That page's only; an old slug finds it too"),
+  }),
 
   add_comment: CommentCreate.safeExtend({ brand }),
 
@@ -270,8 +534,16 @@ export const TOOL_INPUTS = {
 
   publish: z.object({
     brand,
-    note: z.string().trim().max(2000).optional().describe("What changed, for the history and What's new"),
-    image: z.uuid().optional().describe("An asset shown beside the note, from search_assets"),
+    note: z
+      .string()
+      .trim()
+      .max(2000)
+      .optional()
+      .describe("What changed, for the history and What's new"),
+    image: z
+      .uuid()
+      .optional()
+      .describe("An asset shown beside the note, from search_assets"),
   }),
 
   list_sites: z.object({}),
@@ -281,10 +553,14 @@ export const TOOL_INPUTS = {
 
   // POST /portals's own fields; strict, as there. Access is asked for, never assumed public.
   create_site: PortalInput.extend({
-    slug: PortalInput.shape.slug.optional().describe("Its address, /p/{slug}; made from the name when left out"),
+    slug: PortalInput.shape.slug
+      .optional()
+      .describe("Its address, /p/{slug}; made from the name when left out"),
     access: z
       .enum(PORTAL_ACCESS)
-      .describe("members: people with access to the project; password: whoever has `password`; public: anyone with the address"),
+      .describe(
+        "members: people with access to the project; password: whoever has `password`; public: anyone with the address",
+      ),
   }),
 
   close_site: z.object({ address }),
@@ -293,41 +569,226 @@ export const TOOL_INPUTS = {
 
   list_site_requests: z.object({ address }),
 
-  decide_site_request: PortalDecision.extend({ address, request: z.uuid().describe("The request's id, from list_site_requests") }),
-
-  search_catalog: z.object({
-    q: z.string().max(512).optional().describe('Free words, and filters inline: "logo type:asset status:current uses:acme/corporate/brand/acme"'),
-    type: z.array(z.enum(CATALOG_TYPES)).optional(),
-    projects: z.array(z.string().max(64)).optional().describe("Only these projects, by slug"),
-    status: z.array(z.enum(CATALOG_STATUSES)).optional().describe("Current, draft and in review when left out: replaced, archived and expired are counted aside"),
-    uses: z.string().max(300).optional().describe("Only what is downstream of this address or id"),
-    usedby: z.string().max(300).optional().describe("Only what is upstream of this address or id"),
-    limit: z.number().int().min(1).max(50).default(20),
+  decide_site_request: PortalDecision.extend({
+    address,
+    request: z.uuid().describe("The request's id, from list_site_requests"),
   }),
 
-  describe_object: z.object({ object: z.string().min(1).max(300).describe("An id or an address, as search_catalog gives them") }),
+  search_catalog: z.object({
+    q: z
+      .string()
+      .max(512)
+      .optional()
+      .describe(
+        'Free words, and filters inline: "logo type:asset status:current uses:acme/corporate/brand/acme"',
+      ),
+    type: z.array(z.enum(CATALOG_TYPES)).optional(),
+    projects: z
+      .array(z.string().max(64))
+      .optional()
+      .describe("Only these projects, by slug"),
+    status: z
+      .array(z.enum(CATALOG_STATUSES))
+      .optional()
+      .describe(
+        "Current, draft and in review when left out: replaced, archived and expired are counted aside",
+      ),
+    uses: z
+      .string()
+      .max(300)
+      .optional()
+      .describe("Only what is downstream of this address or id"),
+    usedby: z
+      .string()
+      .max(300)
+      .optional()
+      .describe("Only what is upstream of this address or id"),
+    tags: z
+      .array(z.string().max(64))
+      .max(20)
+      .optional()
+      .describe("Only objects carrying every one of these tags"),
+    limit: z.number().int().min(1).max(50).default(20),
+    cursor: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("The `next` of the page before"),
+  }),
+
+  describe_object: z.object({
+    object: z
+      .string()
+      .min(1)
+      .max(300)
+      .describe("An id or an address, as search_catalog gives them"),
+  }),
 
   lineage: z.object({
     object: z.string().min(1).max(300).describe("An id or an address"),
-    direction: z.enum(["up", "down", "both"]).default("both").describe("up: what it comes from; down: what uses it"),
+    direction: z
+      .enum(["up", "down", "both"])
+      .default("both")
+      .describe("up: what it comes from; down: what uses it"),
     depth: z.number().int().min(1).max(6).default(3),
   }),
 
   share_object: z.object({
-    object: z.string().min(1).max(300).describe("A brand, collection or asset: its id or address"),
-    into: z.string().min(1).max(64).describe("The project to share it into: its slug, as search_catalog's projects name them"),
+    object: z
+      .string()
+      .min(1)
+      .max(300)
+      .describe("A brand, collection or asset: its id or address"),
+    into: z
+      .string()
+      .min(1)
+      .max(64)
+      .describe(
+        "The project to share it into: its slug, as search_catalog's projects name them",
+      ),
   }),
 
   who_can: z.object({
     object: z.string().min(1).max(300).describe("An id or an address"),
-    who: z.string().max(320).optional().describe("One person, by email: the grant behind their role"),
+    who: z
+      .string()
+      .max(320)
+      .optional()
+      .describe("One person, by email: the grant behind their role"),
   }),
+
+  review_assets: z.object({
+    reviews: z
+      .array(
+        z.strictObject({
+          ...review,
+          acceptTags: everyOr(z.array(text.max(64)).max(50))
+            .optional()
+            .describe('Suggested tags to apply, or "all"'),
+          dismissTags: everyOr(z.array(text.max(64)).max(50))
+            .optional()
+            .describe('Suggested tags to drop, or "all"'),
+          acceptFields: everyOr(z.array(z.string().regex(FIELD_KEY)).max(50))
+            .optional()
+            .describe('Keys of suggested values to apply, or "all"'),
+          dismissFields: everyOr(z.array(z.string().regex(FIELD_KEY)).max(50))
+            .optional()
+            .describe('Keys of suggested values to drop, or "all"'),
+        }),
+      )
+      .min(1)
+      .max(50)
+      .describe("One per asset, each as review_asset takes it"),
+  }),
+
+  update_asset: AssetPatch.pick({
+    title: true,
+    description: true,
+    creator: true,
+    copyright: true,
+    tags: true,
+    fields: true,
+    rights: true,
+    supersededBy: true,
+  }).extend({
+    id,
+    addTags,
+    removeTags,
+  }),
+
+  update_assets: z.object({
+    ids,
+    addTags,
+    removeTags,
+    fields: AssetPatch.shape.fields,
+  }),
+
+  delete_asset: z.object({ id }),
+
+  restore_asset: z.object({
+    id: z
+      .uuid()
+      .describe(
+        'A deleted asset\'s id: search_assets with status ["deleted"] lists them',
+      ),
+  }),
+
+  asset_versions: z.object({ id }),
+
+  make_version_current: z.object({
+    id,
+    number: z
+      .number()
+      .int()
+      .min(1)
+      .describe("The version's number, from asset_versions"),
+  }),
+
+  get_activity: z.object({
+    before: z.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Older than this: the `next` of the page before"),
+    limit: z.number().int().min(1).max(100).default(30),
+  }),
+
+  get_insights: z.object({}),
+
+  asset_insights: z.object({ id }),
+
+  brand_insights: z.object({ brand }),
+
+  brand_updates: z.object({ brand }),
+
+  brand_assets: z.object({ brand }),
+
+  brand_tokens: z.object({
+    brand,
+    format: TokenQuery.shape.format,
+    context: TokenQuery.shape.context,
+  }),
+
+  create_share: ShareCreate.omit({ collection: true }).extend({
+    collection: collection
+      .optional()
+      .describe(
+        "The collection it shows, or files uploads into: its id or name",
+      ),
+  }),
+
+  list_shares: z.object({}),
+
+  save_search: SaveSearch,
+
+  list_searches: z.object({}),
+
+  list_members: z.object({
+    projectOnly: z
+      .boolean()
+      .optional()
+      .describe("Only who can open this project, and invitations into it"),
+  }),
+
+  object_activity: z.object({
+    object,
+    limit: z.number().int().min(1).max(100).default(30),
+  }),
+
+  shared_with_us: z.object({}),
+
+  list_projects: z.object({}),
 
   propose_fields: z.object({
     id,
     fields: z
-      .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]))
-      .describe("Custom field values by key, as list_fields names them: each is checked against its field"),
+      .record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+      )
+      .describe(
+        "Custom field values by key, as list_fields names them: each is checked against its field",
+      ),
   }),
 };
 
