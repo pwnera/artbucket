@@ -233,7 +233,8 @@ export function SectionFrame({
               <Eyebrow />
               {(open || s.title) && (
                 // Centered, the copy-link hangs past the title's end, so the title alone is centered.
-                <div className={cn("flex items-center gap-1", center && "relative mx-auto w-fit")}>
+                // A title that wraps leaves it room (ms-1 and the 24px button), or it hangs past a phone's edge.
+                <div className={cn("flex items-center gap-1", center && "relative mx-auto w-fit max-w-[calc(100%-1.75rem)]")}>
                   <Title className={cn("min-w-0", size ? SIZED[size] : H2)} />
                   {s.title && <AnchorLink id={id} label={`Copy a link to ${s.title}`} className={cn("group-hover/section:opacity-100", center && "absolute start-full ms-1")} />}
                 </div>

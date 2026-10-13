@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Status } from "@/components/builder/use-status";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { liveLine } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { brandPath, builderPath, guidelinesPath, type PageView } from "@/lib/site";
@@ -63,6 +64,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
   const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
   const focus = !embed;
+  const mobile = useIsMobile();
   const at = useCallback((page: string | null, o: At) => readerHref(slug, focus, page, o), [focus, slug]);
 
   const asked = params.get("version");
@@ -125,7 +127,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
 
   const contexts = view.contexts.length > 0 && (
     <Select value={context ?? "*"} onValueChange={(c) => navigate(at(view.page?.slug ?? null, { context: c === "*" ? null : c, lang, version: asked }))}>
-      <SelectTrigger size="sm" aria-label="Read the rules for a context">
+      <SelectTrigger size="sm" aria-label="Read the rules for a context" className="min-w-0 shrink!">
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
@@ -156,11 +158,12 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
       }
     >
       {contexts}
+      {/* On a phone they don't fit beside the brand's menu: the floating Edit, there from the start, has both. */}
       <Can do="brand.edit">
-        <Button variant="outline" size="sm" onClick={() => setTheming(true)}>
+        <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setTheming(true)}>
           Theme
         </Button>
-        <Button variant="outline" size="sm" asChild>
+        <Button variant="outline" size="sm" className="max-md:hidden" asChild>
           <Link href={builderPath(slug, { page: view.page?.slug, context })}>Edit</Link>
         </Button>
       </Can>
@@ -171,7 +174,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
     <>
       <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
       <Can do="brand.edit">
-        <FloatingEdit href={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} />
+        <FloatingEdit href={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} always={focus && mobile} />
         {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
         <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
       </Can>

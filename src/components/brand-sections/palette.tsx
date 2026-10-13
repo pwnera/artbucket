@@ -388,10 +388,10 @@ function Swatch({
   );
 }
 
-/** A value and its copy button; a converted print value says so. */
+/** A value and its copy button; a converted print value says so. min-w-0: in its grid, a long value truncates rather than widen the column. */
 function ValueRow({ label, text, converted, wrap }: Row & { wrap?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3">
       <span className="text-muted-foreground w-14 shrink-0 text-xs font-medium">{label}</span>
       <code className={cn("min-w-0 flex-1 font-mono text-sm", wrap ? "break-all" : "truncate")} title={text}>
         {text}

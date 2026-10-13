@@ -91,7 +91,8 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   // The compact header's buttons are their icons: their words are their tooltips, and for screen readers.
   const word = compact ? "sr-only" : undefined;
   const actions = (
-    <div className="flex shrink-0 items-center gap-2">
+    // Under the name on a phone, the full header's buttons wrap rather than run past the screen's edge.
+    <div className={cn("flex shrink-0 items-center gap-2", !compact && "max-w-full flex-wrap")}>
       <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {!compact && <PinButton pin={{ id: brand.id, type: "brand", label: brand.name, href: brandPath(brand.slug) }} />}
