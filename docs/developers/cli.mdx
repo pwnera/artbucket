@@ -58,9 +58,14 @@ artbucket sites
 artbucket site new acme-docs --brand acme --kind docs --create
 artbucket site push dist --site acme-docs
 artbucket site push storybook-static --site acme --path /storybook --kind storybook
+artbucket site push dist --site acme-docs --preview pr-12
 artbucket site eject acme-guidelines --brand acme
 artbucket site check dist
 ```
+
+`--preview pr-12` keeps the build as a preview at its own address, printed
+when it is up, and leaves the live one alone ([Preview a pull
+request](/guides/sites#preview-a-pull-request)).
 
 `site eject` starts a guidelines site from the brand's released pages, built
 with [the kit](/developers/kit) ([Eject to code](/developers/kit#eject-to-code)).

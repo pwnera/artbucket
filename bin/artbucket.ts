@@ -52,9 +52,11 @@ const HELP = `artbucket <command>
                           who reaches it, and the grant behind each role
   brands                  list brands; the default is starred
   sites                   list the project's sites: their kind, address and URL
-  site push [dir] --site <address> [--path /docs] [--kind docs]
+  site push [dir] --site <address> [--path /docs] [--kind docs] [--preview pr-12]
                           deploy a built site: dir (dist/ by default) zipped and
-                          sent, live at --path (/ by default) once checked
+                          sent, live at --path (/ by default) once checked;
+                          --preview keeps it as that preview, at an address of
+                          its own, never live (a pull request's build)
   site new <dir> --brand <b> [--kind landing|docs|guidelines] [--site <address>] [--create]
                           start a site from the brand: plain HTML and a build script,
                           deployed with npm run deploy to --site (dir's name by
@@ -193,6 +195,7 @@ const { values: opt, positionals } = parseArgs({
     publish: { type: "boolean" },
     note: { type: "string" },
     release: { type: "string" },
+    preview: { type: "string" },
     status: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
@@ -1117,7 +1120,7 @@ async function main() {
       const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
       if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);
       const { zip, files } = await zipFolder(resolve(dir));
-      const q = new URLSearchParams({ path: opt.path ?? "/", ...(opt.kind && { kind: opt.kind }) });
+      const q = new URLSearchParams({ path: opt.path ?? "/", ...(opt.kind && { kind: opt.kind }), ...(opt.preview && { preview: opt.preview }) });
       const res = await fetch(`${BASE}/api/v1/sites/${site.id}/deployments?${q}`, {
         method: "POST",
         headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
@@ -1129,6 +1132,7 @@ async function main() {
         process.exitCode = 1;
         return out(json, () => json.data.error);
       }
+      if (json.data.state === "preview") return out(json, () => `Preview: ${json.data.url} (${files} files)`);
       return out(json, () => `Live: ${site.url}${json.data.path === "/" ? "" : json.data.path} (${files} files)`);
     }
     case "sites": {

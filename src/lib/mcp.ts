@@ -1041,14 +1041,16 @@ const TOOLS: Record<ToolName, Tool> = {
       "Publish a site you built (guidelines, a landing page, docs) to a site list_sites names, or one create_site " +
       "made with a kind other than portal: its files are checked as check_site does, then live at the site's " +
       "address, the build there before kept to restore. Beside a brand portal, mount it at a path such as /docs. " +
-      "index.html at its root. A held state means it waits for whoever runs the server; read `error`. Ask the " +
+      "index.html at its root. With `preview` (pr-12) it isn't live: it answers at an address of its own, for people to " +
+      "look at before it ships. A held state means it waits for whoever runs the server; read `error`. Ask the " +
       "person before deploying to a public site. Returns the deployment and where it answers.",
     action: "portal.manage",
     readOnly: false,
     input: TOOL_INPUTS.deploy_site,
-    run: async ({ address, files, path, kind }, caller) => {
+    run: async ({ address, files, path, kind, preview }, caller) => {
       const p = await portalOf(caller, address);
-      const d = (await deploy(caller, p.id, zipOf(files), { path, kind }))!;
+      const d = (await deploy(caller, p.id, zipOf(files), { path, kind, preview }))!;
+      if (d.state === "preview") return d;
       return { ...d, url: d.state === "live" ? `${p.url.replace(/\/$/, "")}${d.path === "/" ? "/" : `${d.path}/`}` : null };
     },
   }),

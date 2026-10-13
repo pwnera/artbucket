@@ -100,6 +100,20 @@ export function slugAtHost(host: string, domain: string | undefined) {
   return PORTAL_SLUG.test(slug) && !subdomainRefusal(slug) ? slug : null;
 }
 
+/**
+ * The site and preview a host names under `domain` (PORTAL_DOMAIN): `pr-12--acme-docs.{domain}`, split at its first
+ * two dashes (lib/sites.ts previewLabel). Null for any other host. A portal whose own address holds two dashes
+ * answers at it first (lib/core/domains.ts hostTarget).
+ */
+export function previewAtHost(host: string, domain: string | undefined, isName: (s: string) => boolean) {
+  if (!domain || !host.endsWith(`.${domain}`)) return null;
+  const label = host.slice(0, -domain.length - 1);
+  const at = label.indexOf("--");
+  if (at < 1 || label.length > 63) return null;
+  const [preview, slug] = [label.slice(0, at), label.slice(at + 2)];
+  return isName(preview) && PORTAL_SLUG.test(slug) && !subdomainRefusal(slug) ? { slug, preview } : null;
+}
+
 export const PORTAL_ACCESS = ["public", "password", "members"] as const;
 export type PortalAccess = (typeof PORTAL_ACCESS)[number];
 

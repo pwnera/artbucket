@@ -22,8 +22,11 @@ export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   storybook: "Storybook",
 };
 
-/** `held`: it looks like phishing or malware and waits for the operator (lib/site-safety.ts), its files kept but not served. */
-export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced", "held"] as const;
+/**
+ * `held`: it looks like phishing or malware and waits for the operator (lib/site-safety.ts), its files kept but not
+ * served. `preview`: a pull request's build, served at its own address beside the live one (previewHost), never live.
+ */
+export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced", "held", "preview"] as const;
 export type DeploymentState = (typeof DEPLOYMENT_STATES)[number];
 
 /**
@@ -153,3 +156,12 @@ export const unlockCookie = (secure: boolean) => (secure ? "__Host-ab_site" : "a
  * builds hold there.
  */
 export const ENTER_PATH = "/.artbucket/enter";
+
+/** A preview's name: what a CI gives it, such as pr-12. Lowercase letters, digits and single dashes, 30 at most. */
+export const PREVIEW_NAME = /^[a-z0-9](?:[a-z0-9]|-(?!-)){0,28}[a-z0-9]$|^[a-z0-9]$/;
+
+/**
+ * The one DNS label a site's preview answers at under PORTAL_DOMAIN: `pr-12--acme-docs`, the preview's name, two
+ * dashes, the site's address. Null when it can't be one label (63 characters at most).
+ */
+export const previewLabel = (slug: string, name: string) => (name.length + 2 + slug.length <= 63 ? `${name}--${slug}` : null);

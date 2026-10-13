@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const site = url.searchParams.get("site") ?? "";
   try {
-    const out = await enterSite(site, req.headers, url.searchParams.get("to"));
+    const out = await enterSite(site, req.headers, url.searchParams.get("to"), url.searchParams.get("preview"));
     if ("url" in out) return new Response(null, { status: 303, headers: { Location: out.url, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
     if ("signIn" in out) {
       const signIn = `/login?${new URLSearchParams({ next: `${url.pathname}${url.search}` })}`;

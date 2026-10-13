@@ -141,9 +141,9 @@ export async function sweep() {
     await deleteObject(o.key);
     removed++;
   }
-  // A deployment's files live under sites/{site}/{deployment}/: kept while it is live, replaced, held for review or still landing.
+  // A deployment's files live under sites/{site}/{deployment}/: kept while it is live, replaced, held for review, a preview or still landing.
   const builds = new Set(
-    (await db.select({ id: siteDeployments.id }).from(siteDeployments).where(inArray(siteDeployments.state, ["checking", "live", "replaced", "held"]))).map((d) => d.id),
+    (await db.select({ id: siteDeployments.id }).from(siteDeployments).where(inArray(siteDeployments.state, ["checking", "live", "replaced", "held", "preview"]))).map((d) => d.id),
   );
   for await (const o of listObjects("sites/")) {
     const deployment = o.key.split("/")[2];

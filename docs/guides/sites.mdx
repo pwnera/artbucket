@@ -79,6 +79,47 @@ are kept, so **Restore** (or `POST
 /api/v1/sites/{id}/deployments/{deployment}/restore`) puts one back without
 building again; older ones, and failed ones, are deleted with their files.
 
+## Preview a pull request
+
+A deployment named as a preview is kept beside the live one, never in its
+place: it answers at `{name}--{address}.PORTAL_DOMAIN` (`pr-12--acme-docs`),
+behind the site's own door, with `X-Robots-Tag: noindex` so search engines
+leave it out. A name is lowercase letters, digits and single dashes, 30 at
+most. Deploying the same name again replaces that preview; a preview is
+deleted 30 days after it was deployed. One that looks like phishing is
+refused rather than held. A domain of the site's own serves its live build
+only.
+
+```bash
+artbucket site push dist --site acme-docs --preview pr-12
+```
+
+The API takes `preview` in the query and answers the deployment with its
+`url`. From GitHub Actions, a preview per pull request, its address posted on
+it:
+
+```yaml
+# .github/workflows/preview.yml
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci && npm run build
+      - id: push
+        run: echo "url=$(npx --yes artbucket site push dist --site acme-docs --preview pr-${{ github.event.number }} | sed -n 's/^Preview: \([^ ]*\).*/\1/p')" >> "$GITHUB_OUTPUT"
+        env:
+          ARTBUCKET_URL: https://app.example.com
+          ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+      - run: gh pr comment ${{ github.event.number }} --edit-last --create-if-none --body "Preview: ${{ steps.push.outputs.url }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+```
+
 ## How a build is served
 
 A request finds its file, then `{path}.html`, then `{path}/index.html`, then
