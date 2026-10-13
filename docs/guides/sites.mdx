@@ -176,9 +176,16 @@ live, with nothing for the build to declare:
 ```json
 {
   "brand": "acme",
+  "release": 12,
+  "rules": ["color.*", "brand.headline"],
   "assets": ["0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f"]
 }
 ```
+
+`release` and `rules` say what the build was made from: the brand's release,
+and the rules it reads (a key, `color.*` for a group, `*` for all). A site
+that says both isn't built again for a release that changes none of them
+(see below).
 
 A pinned link to a replaced, unapproved, archived or expired asset fails the
 deployment, and so does a copy of one the library says not to use (replaced,
@@ -266,6 +273,14 @@ it follows. Each release of that brand POSTs to it:
 ```json
 { "event": "brand.released", "brand": "acme", "release": 12, "note": "Bluer primary", "site": "acme-docs" }
 ```
+
+A release that changes nothing a site's live builds read calls no hook: when
+every build deployed here names its `release` and `rules` in its manifest,
+and no rule they read changed since that release, the site's panel says
+`skipped: nothing it uses changed since release 11` and no build minutes are
+spent. A build that doesn't say is built again for every release. The
+starters name `*`: their `tokens.css` carries every rule, so only releases
+that change pages or the theme alone pass them by.
 
 Set it in the site's panel in **Sites** (Rebuild on release), or on the API:
 

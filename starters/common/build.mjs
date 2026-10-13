@@ -149,5 +149,7 @@ for (const [path, id] of Object.entries(brand.files)) {
 }
 // What the site uses, for its lineage: Artbucket reads this as it deploys (and finds the copies by their bytes anyway).
 used.delete(undefined);
-await writeFile(join(OUT, "artbucket.site.json"), JSON.stringify({ brand: brand.slug, release: brand.release?.number ?? null, assets: [...used] }, null, 2) + "\n");
+// `rules`: what a release must change for this site to be built again. tokens.css carries every rule, so all of them;
+// a build that reads fewer can name them (keys, or color.* for a group) and skip releases that change none.
+await writeFile(join(OUT, "artbucket.site.json"), JSON.stringify({ brand: brand.slug, release: brand.release?.number ?? null, rules: ["*"], assets: [...used] }, null, 2) + "\n");
 console.log(`Built ${pages.length} page${pages.length === 1 ? "" : "s"} into ${OUT}/ from ${brand.name}${brand.release ? ` release ${brand.release.number}` : ""}, using ${used.size} of its files`);

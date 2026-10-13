@@ -14,6 +14,7 @@ import { createCollection } from "@/lib/core/collections";
 import { createPortal, decideRequest, getPortal, listRequests, requestAccess, updatePortal } from "@/lib/core/portals";
 import { rebuildSites } from "@/lib/core/rebuild";
 import { resolveBrand } from "@/lib/core/brands";
+import { publishBrand, setRules } from "@/lib/core/brand";
 import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
@@ -428,4 +429,53 @@ test("an approved request's key opens a site's builds, and stops when the reques
   await assert.rejects(siteFile(elsewhere.slug, {}, "/", cookie), /for members/);
   await decideRequest(ada.caller, shut.id, asked.id, "denied");
   await assert.rejects(siteFile(shut.slug, {}, "/", cookie), /for members/);
+});
+
+test("a release that changes nothing a site's build reads calls no hook; one that does, does", async (t) => {
+  const calls: number[] = [];
+  t.after(() => mock.restoreAll());
+  mock.method(https, "request", (_url: URL, _opts: unknown, cb: (res: unknown) => void) => {
+    const req = Object.assign(new EventEmitter(), {
+      end: (data: Buffer) => {
+        calls.push(JSON.parse(data.toString()).release);
+        queueMicrotask(() => cb(Object.assign(new EventEmitter(), { statusCode: 204, resume() {} })));
+      },
+      destroy() {},
+    });
+    return req;
+  });
+  const { caller } = await signUp("Sitesgrace");
+  const set = (key: string, value: string) => setRules(caller, undefined, { set: [{ key, type: key.startsWith("color") ? "color" : "text", value }] } as Parameters<typeof setRules>[2]);
+  await set("color.primary", "#e11d48");
+  await set("brand.headline", "Rockets, delivered.");
+  const first = (await publishBrand(caller, undefined)).number;
+  const brand = await resolveBrand(caller.project.id, undefined);
+  const hook = "https://api.netlify.com/build_hooks/abc";
+  const site = await createPortal(caller, { name: "Reads colors", slug: `colors-${Date.now().toString(36)}`, kind: "landing", rebuild: { url: hook, brand: brand.slug } });
+  await deploy(caller, site.id, pack({ "index.html": "x", "artbucket.site.json": JSON.stringify({ brand: brand.slug, release: first, rules: ["color.*"] }) }));
+
+  // Each release calls the sites' hooks on its own, after it is saved: wait for the site to say what came of it.
+  const released = async () => {
+    const at = async () => String((await getPortal(caller, site.id))!.rebuild?.lastAt);
+    const before = await at();
+    const number = (await publishBrand(caller, undefined)).number;
+    for (let i = 0; i < 100 && (await at()) === before; i++) await new Promise((r) => setTimeout(r, 20));
+    return { number, status: (await getPortal(caller, site.id))!.rebuild?.lastStatus };
+  };
+
+  // The headline changed; the build reads colors only: no build.
+  await set("brand.headline", "Rockets, faster.");
+  assert.deepEqual((await released()).status, `skipped: nothing it uses changed since release ${first}`);
+  assert.deepEqual(calls, []);
+
+  // A color changed since the release it was built from: built again.
+  await set("color.primary", "#2563eb");
+  const third = await released();
+  assert.deepEqual([third.status, calls], ["204", [third.number]]);
+
+  // A build that doesn't say what it reads is always built again.
+  await deploy(caller, site.id, pack({ "index.html": "y" }));
+  await set("brand.headline", "Rockets, fastest.");
+  const fourth = await released();
+  assert.deepEqual([fourth.status, calls], ["204", [third.number, fourth.number]]);
 });

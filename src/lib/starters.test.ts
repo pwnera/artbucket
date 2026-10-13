@@ -72,7 +72,7 @@ test("a landing page: the release's text escaped, its logo copied in, its look f
 
 test("the manifest names the release and every file the build uses, the fonts tokens.css points at included", () => {
   const site = built("landing");
-  assert.deepEqual(JSON.parse(site.read("artbucket.site.json")), { brand: "acme", release: 4, assets: [LOGO, FONT] });
+  assert.deepEqual(JSON.parse(site.read("artbucket.site.json")), { brand: "acme", release: 4, rules: ["*"], assets: [LOGO, FONT] });
   assert.ok(site.has(`assets/${FONT}.woff2`));
   assert.match(site.read("tokens.css"), new RegExp(`url\\("assets/${FONT}\\.woff2"\\)`));
 });
