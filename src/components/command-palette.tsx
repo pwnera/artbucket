@@ -53,7 +53,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSidebar } from "@/components/ui/sidebar";
 import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
-import { builderPath, guidelinesPath } from "@/lib/site";
+import { guidelinesPath, rulesPath } from "@/lib/site";
 import { hasPreview } from "@/lib/preview";
 
 type RuleHit = Rule & { brandInfo: BrandInfo };
@@ -97,9 +97,8 @@ function hidden(p: PageHit, all: PageHit[]): boolean {
   return false;
 }
 
-/** A brand page in the app: the reader, in focus mode from focus mode, and the builder from the builder. */
+/** A brand page in the app: the reader, in focus mode from focus mode. */
 function pageHref(p: PageHit) {
-  if (location.pathname.endsWith("/guidelines/edit")) return builderPath(p.brandInfo.slug, { page: p.slug });
   const focus = location.pathname.endsWith("/guidelines") && new URLSearchParams(location.search).get("focus") === "1";
   return guidelinesPath(p.brandInfo.slug, { page: p.slug, focus: focus ? "1" : null });
 }
@@ -363,7 +362,7 @@ export function CommandPalette({
                 key={r.id}
                 value={`rule ${r.id} ${ruleLabel(r.key)} ${r.key} ${r.context ?? ""} ${several ? r.brandInfo.name : ""}`}
                 keywords={[String(r.value), r.usage ?? ""]}
-                onSelect={() => jump(`${builderPath(r.brandInfo.slug, { context: r.context })}#rule-${r.key}`)}
+                onSelect={() => jump(rulesPath(r.brandInfo.slug, r.key))}
               >
                 {r.type === "color" ? (
                   <span className="size-4 shrink-0 rounded-sm border" style={{ background: String(r.value).slice(0, 7) }} />

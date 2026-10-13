@@ -32,8 +32,9 @@ const PLACES: [RegExp, Reads][] = [
   [/^\/(?:collections|activity|connections|insights(?:\/(?:activity|checks))?)$/, nothing],
   // ?new=brand opens New brand, empty.
   [/^\/brands$/, (k, v) => k === "new" && v === "brand"],
-  // A guidelines page by its slug, as readers see it or in the editor; first, as guidelines is a tab too.
-  [new RegExp(`^/brands/${SLUG}/guidelines(?:/edit)?$`), page],
+  // A guidelines page by its slug, with the ways to edit it or its comments open; first, as guidelines is a tab too.
+  // The retired builder's address (/edit) still redirects there.
+  [new RegExp(`^/brands/${SLUG}/guidelines(?:/edit)?$`), (k, v) => page(k, v) || ((k === "ways" || k === "comments") && v === "1")],
   [new RegExp(`^/brands/${SLUG}(?:/(?:${BRAND_TABS.join("|")}))?$`), nothing],
   // The catalog: an object (by id or address) on one of its tabs, or a project's folder.
   [/^\/catalog$/, (k, v) => (k === "o" && plain(v)) || (k === "f" && IS_UUID.test(v)) || (k === "tab" && CATALOG_TABS.includes(v))],

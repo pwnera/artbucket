@@ -27,9 +27,10 @@ test("each win is read from what happened", () => {
   assert.equal(win("ai", { mcp: true }), true);
 });
 
-test("without a brand, brand steps start by making one; with one, they open its builder", () => {
+test("without a brand, brand steps start by making one; with one, they open where the step is taken", () => {
   assert.equal(onboardingSteps("company", none).find((s) => s.id === "basics")!.href, "/brands");
-  assert.equal(onboardingSteps("company", { ...none, brand }).find((s) => s.id === "publish")!.href, "/brands/acme/guidelines/edit");
+  assert.equal(onboardingSteps("company", { ...none, brand }).find((s) => s.id === "basics")!.href, "/brands/acme/rules");
+  assert.equal(onboardingSteps("company", { ...none, brand }).find((s) => s.id === "publish")!.href, "/brands/acme/releases/new");
   assert.equal(onboardingSteps("product", { ...none, brand, git: "https://git.example/connect?b={brand}" }).at(-1)!.href, "https://git.example/connect?b=acme");
   assert.equal(onboardingSteps("product", { ...none, brand }).at(-1)!.href, "/brands/acme");
 });

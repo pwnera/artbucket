@@ -7,7 +7,7 @@ description: Keep a brand's rules, pages and theme as files in a Git repository,
 A brand can live in a Git repository as well as in Artbucket: its rules,
 pages and theme as YAML a person reads and reviews, beside the files they
 point at. Change it in the repository, through a pull request, or in the
-app's builder: each side's changes reach the other, and a change both sides
+app: each side's changes reach the other, and a change both sides
 made to the same rule is named, not lost.
 
 ```
@@ -97,13 +97,13 @@ whoever holds the host's credentials (an app, a CI job, you) does.
 
 Where the server has a Git integration (`GIT_CONNECT_URL`, see
 [Environment](/configuration/environment)), a project admin reaches it from
-three places:
+these places:
 
 - **New brand, From a Git repository:** bring in a brand a repository already
   holds (its `brand.yaml`, pages and files), or start a new brand and keep it
   in a repository from the first edit.
-- **A new brand's setup:** connect a repository before laying out any page.
-- **The builder's bar:** Git, until the brand is kept somewhere; then the
+- **A brand's header:** Connect Git in the brand's menu, and Git among the
+  ways **Edit** opens, until the brand is kept somewhere; then the
   repository, and whether both sides are in step.
 
 The integration sends you back to the brand's Overview, which says when the

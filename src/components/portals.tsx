@@ -51,7 +51,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { builderPath } from "@/lib/site";
+import { brandPath } from "@/lib/site";
 import { SITE_KIND_LABEL, type SiteKind } from "@/lib/sites";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
@@ -1163,7 +1163,7 @@ function PublishState({ brand }: { brand: { slug: string; name: string } }) {
       {last === null && (
         <>
           <Badge variant="warning">Not released: visitors see nothing</Badge>
-          <Link href={builderPath(brand.slug)} className="text-foreground underline underline-offset-2">
+          <Link href={brandPath(brand.slug, "/releases/new")} className="text-foreground underline underline-offset-2">
             Open it to release
           </Link>
         </>

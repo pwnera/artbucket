@@ -18,8 +18,24 @@ const withQuery = (path: string, q: Record<string, string | null | undefined>) =
 /** A brand's guidelines in the app, to read: its Guidelines tab (`page`, `context`, `lang`, `version`), or with `focus: "1"` the pages alone. */
 export const guidelinesPath = (slug: string, q: Record<string, string | null | undefined> = {}) => withQuery(`${brandPath(slug)}/guidelines`, q);
 
-/** The same guidelines in the builder, to edit (`page`, `context`); `panel` opens one of its panels. */
-export const builderPath = (slug: string, q: Record<string, string | null | undefined> = {}) => withQuery(`${brandPath(slug)}/guidelines/edit`, q);
+/** A brand's Rules tab, where its rules are edited; with a key, scrolled to that rule and open (`#rule-{key}`). */
+export const rulesPath = (slug: string, key?: string) => `${brandPath(slug, "/rules")}${key ? `#rule-${encodeURIComponent(key)}` : ""}`;
+
+/** Where each of the retired builder's panels' work is on the brand now. */
+const PANEL_TABS: Record<string, string> = { rules: "/rules", history: "/releases", tokens: "/theme", publish: "/releases/new" };
+
+/**
+ * Where an address of the retired guidelines builder (/brands/{slug}/guidelines/edit,
+ * still in links, bookmarks and agents' answers) goes for an editor: a panel
+ * to its work on the brand, back from the Git integration (`git`) to the
+ * brand's Overview, which says how it went, else the page in the reader
+ * with the ways to change it open (`?ways=1`).
+ */
+export function formerBuilderPath(slug: string, q: { page?: string; context?: string; lang?: string; panel?: string; git?: string }) {
+  if (q.panel && Object.hasOwn(PANEL_TABS, q.panel)) return brandPath(slug, PANEL_TABS[q.panel]);
+  if (q.git) return withQuery(brandPath(slug), { git: q.git });
+  return guidelinesPath(slug, { page: q.page, context: q.context, lang: q.lang, ways: "1" });
+}
 
 /**
  * A brand's pages as readers get them: one page at a time, with the nav of

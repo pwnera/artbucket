@@ -77,7 +77,7 @@ test("a place in the app: only the app's own, as open_in_app takes them", () => 
   assert.equal(placePath("brand/acme/rules"), "/brands/acme/rules");
   assert.equal(placePath("brand/acme/guidelines/colors"), "/brands/acme/guidelines?page=colors");
   assert.equal(placePath("review"), "/review");
-  assert.equal(placePath("brand/acme/guidelines/colors/edit"), "/brands/acme/guidelines/edit?page=colors");
+  assert.equal(placePath("brand/acme/guidelines/colors/edit"), "/brands/acme/guidelines?page=colors&ways=1");
   assert.equal(placePath("catalog"), "/catalog");
   assert.equal(placePath(`catalog/${A}`), `/catalog?o=${A}`);
   assert.equal(placePath(`catalog/${A}/lineage`), `/catalog?o=${A}&tab=lineage`);

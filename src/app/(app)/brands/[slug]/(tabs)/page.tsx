@@ -11,7 +11,7 @@ import { hubBrand, hubViewer } from "@/lib/core/hub";
 import { releaseSummary } from "@/lib/history";
 import { can } from "@/lib/permissions";
 import { get, whoami } from "@/lib/sidebar";
-import { brandPath, builderPath } from "@/lib/site";
+import { brandPath, guidelinesPath } from "@/lib/site";
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
@@ -80,7 +80,7 @@ async function Tab({ params }: Props) {
         comments={comments}
         links={{
           release: can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined,
-          review: can(me, "brand.edit") ? builderPath(slug) : undefined,
+          review: can(me, "brand.comment") ? guidelinesPath(slug, { comments: "1" }) : undefined,
         }}
       />
       {/* The Git integration lands here after connecting or bringing the brand in. */}

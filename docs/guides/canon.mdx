@@ -7,10 +7,10 @@ Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
 `text`, `number`, `list` or `font`), a sentence on how to use it, and the assets
 it points at.
 
-In the app, open the brand under **Brands**, then **Edit**: the builder's
-**Rules** holds every rule, and **Release** puts them in front of readers. A
-new brand starts from its [setup](#brand-pages). Scripts and agents write the
-same records:
+In the app, open the brand under **Brands**: its **Rules** tab holds every
+rule, and **Release** in its header puts them in front of readers. A new brand
+opens on its Overview, whose next steps say what to add. Scripts and agents
+write the same records:
 
 ```bash
 artbucket rules set color.primary '#34a853' --type color --usage "Buttons, links, the mark's tile"
@@ -27,13 +27,11 @@ Each brand, under Brands in the sidebar, opens on its page, a repository's:
 the header names it (its mark, whether its organization is verified, whether
 it is public on BrandHub, a link to its page there, `{org}/{brand}`, what is live and whether it is
 the latest: "@4 live · Unreleased changes", "@4 live · Up to date" or "Never
-released", as the builder's Release button says it too, where it is live,
-"@4 live on BrandHub, Press and Partners" or "Only the team", each place a
+released", where it is live, "@4 live on BrandHub, Press and Partners" or "Only the team", each place a
 link out in a popover (portals only for whoever manages them), and the
 release's note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
 BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand), **Edit** (the
-builder, where you are: at the page on show from Guidelines, in its Rules
-panel from Rules) and, while readers don't see the latest, **Release** beside it, the one
+three ways to change the pages, [below](#brand-pages)) and, while readers don't see the latest, **Release** beside it, the one
 filled button; the rest is in the brand's menu at the header's end (Theme, Insights, Settings,
 Connect Git, pinning it to the sidebar, opening it in the catalog). Every tab stays in the page,
 under the same header (folded to one
@@ -56,45 +54,51 @@ the default, its repository, deleting it, at `/brands/{slug}/settings`). The Ove
 the portal BrandHub links, the BrandHub brand it started from), its colors,
 its latest release with what it changed, its typefaces, and its Health: the
 Brand Agent Score and the signals that say it is read, each opening its own page. Its
-guidelines, edited in the builder at `/brands/{slug}/guidelines/edit`
-(`?focus=1` on the reader shows the pages on their own), are drawn from those records
-and edited in place:
+guidelines (`?focus=1` on the reader shows the pages on their own) are drawn
+from those records, and the records are edited in place on the Rules tab:
 click a value to change it, press `/` to add a rule from named building blocks
-(brand color, clear space, logo don'ts, type scale, words to avoid), drag to
-reorder. Colors show their contrast on white and black, a numeric `type.scale`
+(brand color, clear space, logo don'ts, type scale, words to avoid), give it
+context versions, a spec and files, drag to reorder or use a rule's menu (Move
+up, Move down, Duplicate, Delete, with Undo). `/brands/{slug}/rules#rule-{key}`
+opens that rule there. Colors show their contrast on white and black, a numeric `type.scale`
 renders as a specimen. An attached asset can name a rendition (`w_512,f_png`):
 agents then get that exact URL.
 
 ## Brand pages
 
-**Edit** always opens the builder. A brand with no pages gets them laid out
-from its rules as it opens (`generate_pages`, or `POST
-/api/v1/brands/{slug}/pages`): `color.primary`, `color.secondary`,
+**Edit**, in the brand's header and on the Guidelines tab, opens the three
+ways to change the pages, over the pages as readers see them
+(`/brands/{slug}/guidelines?ways=1`): an agent over
+[MCP](/developers/mcp#brand-pages), with the pages tools (`list_pages`,
+`get_page`, `save_page`, `edit_page`, `generate_pages`, `delete_page`,
+`preview_page`, `list_templates`), Git ([brand as code](/guides/brand-as-code)),
+or [Eject to code](/developers/kit#eject-to-code). The pages API and MCP write
+the same pages. The rules are edited on the **Rules** tab and the look on
+**Theme** (`/brands/{slug}/theme`).
+
+A brand with no pages gets them laid out from its rules by `generate_pages`,
+or `POST /api/v1/brands/{slug}/pages`: `color.primary`, `color.secondary`,
 `color.dark`, `type.heading`, `type.body`, `logo.primary` and `tone.voice`
 make the cover and the pages after it, and a brand with none of them starts
-from a cover. Set them in **Rules**, in the builder, like any other. In the builder,
-the page list sits beside the canvas, and the bar names what an editor reaches
-for: Add, Rules and Theme, then the Brand Agent Score, Preview and Release.
-The score, of 100, weighs the brand's steps to being worth sharing (colors,
+from a cover. Set them on the **Rules** tab, like any other. The score, of 100, weighs the brand's steps to being worth sharing (colors,
 typefaces, logo, voice, a look, pages, a release, a portal) by what each gives
-an agent working from it; the builder and the brand's Overview show it, and
+an agent working from it; the brand's Overview shows it, and
 its own page (`/brands/{slug}/score`, from the Overview) lists every step with
 what it gives, the two fixes worth the most, a prompt that hands them to an
 agent connected over MCP, and BrandHub's public score for the domain the
 organization proved. Agents read the same
 score and steps with `brand_status`, or `GET /api/v1/brands/{slug}/status`.
 
-On the canvas a section is edited where it reads. Its words are typed in
-place, and an empty one shows where they go. A cover's mark, clicked, picks or
-uploads the logo, kept as the `logo.primary` rule. A block's own picture (an
-annotated image's, a split's) is picked or uploaded in the frame where it will
-show, or changed with a double click. An annotated image takes a click where a
-numbered note goes, and its notes drag to move. An embed takes the link you
-paste: a YouTube, Vimeo or Loom page becomes its player. Readers see a
-placeholder naming the service until they click to load it, so their browser
-contacts YouTube, Vimeo, Loom, Figma or Google only when they choose. The section's panel
-holds the rest: its layout, its template's options, the rules it shows, and who
-sees it.
+Review comments on the pages are read and answered on the Guidelines tab:
+**Comments** in its bar opens them for the page on show (`?comments=1`), with
+the other pages that have open threads one click away. Agents read and write
+them over MCP (`list_comments`, `add_comment`, `update_comment`,
+`delete_comment`).
+
+An embed section takes a link: a YouTube, Vimeo or Loom page becomes its
+player. Readers see a placeholder naming the service until they click to load
+it, so their browser contacts YouTube, Vimeo, Loom, Figma or Google only when
+they choose.
 
 The rules are the content; pages lay them out for people. A brand's pages
 form a tree, up to three levels deep (Overview, then Identity with Color, Logo
@@ -160,8 +164,7 @@ project, with sharing not turned off.
 
 In the app, a publish is a release, numbered as its version (`@5`). The
 brand's **Releases** tab (`/brands/{slug}/releases`) lists them, each with its
-note and what it changed; **Publish release** in the brand's header, or
-Release in the builder, opens the form (`/brands/{slug}/releases/new`): the
+note and what it changed; **Release** in the brand's header opens the form (`/brands/{slug}/releases/new`): the
 note, what changes since the last release line by line (a color's value
 before and after, a page's sections edited), and the Brand Agent Score before
 and after. While only the team reads the brand (no portal shows it, and it is

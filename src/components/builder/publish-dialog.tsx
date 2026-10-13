@@ -6,7 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
-import type { BuilderApi, Transport } from "@/components/builder/use-builder";
+import type { Transport } from "@/components/builder/use-builder";
 import type { Status } from "@/components/builder/use-status";
 import { FilesOut } from "@/components/files-out";
 import { useAssetUrl } from "@/components/site/asset-url";
@@ -15,7 +15,6 @@ import { useCan } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,25 +41,14 @@ import { cn } from "@/lib/utils";
  * who should see it in the same step: a portal named for the brand, showing
  * it, open to the project's members or to anyone, and public on BrandHub
  * (PATCH .../hub once released), each as far as the person may. Requests go
- * through the host's transport, so the builder's dev page records them.
+ * through the host's transport.
  *
  * The draft is the brand's latest version, which is what a publish
  * publishes, so it is read from the server once every write has landed.
  *
- * The form is ReleaseForm, drawn by the builder's dialog (PublishDialog) and
- * by the release page (/brands/{slug}/releases/new) alike; `host` is what it
- * needs from either.
- *
- * Props:
- * - b: the builder.
- * - open, onOpenChange: a controlled dialog; the builder opens it for
- *   b.panel "publish".
+ * The form is ReleaseForm, drawn by the release page
+ * (/brands/{slug}/releases/new); `host` is what it needs from there.
  */
-export type PublishDialogProps = {
-  b: BuilderApi;
-  open: boolean;
-  onOpenChange(open: boolean): void;
-};
 
 /** What the release form needs from where it is drawn. */
 export type ReleaseHost = {
@@ -104,32 +92,6 @@ const slugOf = (name: string) =>
 
 /** `draftSince`: when the first version after the last release was made, the draft's start. */
 type News = { error: string } | { draft: number | null; since: number | null; draftSince: string | null; changes: ReleaseLine[] | null };
-
-export function PublishDialog({ b, open, onOpenChange }: PublishDialogProps) {
-  const host: ReleaseHost = {
-    brand: b.brand,
-    name: b.view.brand.name,
-    transport: b.transport,
-    status: b.status,
-    comments: {
-      open: b.comments.openCount,
-      review: () => {
-        onOpenChange(false);
-        b.setCommentsOnPage(true);
-        b.setDock("comments");
-      },
-    },
-    released: () => void b.refreshStatus(),
-  };
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="app-tokens">
-        <DialogTitle className="sr-only">Release</DialogTitle>
-        {open && <ReleaseForm host={host} onClose={() => onOpenChange(false)} />}
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 const draftDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 

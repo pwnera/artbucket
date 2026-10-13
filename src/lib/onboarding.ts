@@ -1,5 +1,5 @@
 import { gitLink } from "./git.ts";
-import { brandPath, builderPath } from "./site.ts";
+import { brandPath, rulesPath } from "./site.ts";
 
 /**
  * Onboarding by use case (PRD): what someone came to do decides their first
@@ -100,13 +100,14 @@ export type OnboardingStep = {
 export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
   const b = f.brand;
   // Without a brand, every brand step starts by making one.
-  const builder = b ? builderPath(b.slug) : "/brands";
+  const rules = b ? rulesPath(b.slug) : "/brands";
+  const releasing = b ? brandPath(b.slug, "/releases/new") : "/brands";
   const basics = {
     id: "basics",
     label: "Set up your brand",
     why: "Colors, type, logo and voice, as pages people and agents read.",
     done: !!b?.basics,
-    href: builder,
+    href: rules,
   };
   // Brand as code: the integration's connect page where the server has one, else the brand, whose Settings show the CLI way.
   const git = {
@@ -119,7 +120,7 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
   // Where the server has no Git integration nothing can tick the step off (a CLI push records no repository), so a path that
   // doesn't end on it leaves it out; the product path, whose win it is, keeps it, pointing at the brand and its CLI way.
   const gitStep = f.git ? [git] : [];
-  const release = { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder };
+  const release = { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: releasing };
   switch (path) {
     case "company":
       return [
@@ -128,7 +129,7 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
         ...(f.noEmail ? [{ id: "email", label: "Turn on email", why: "Invites and password resets need it.", done: false, href: "/settings/organization/email" }] : []),
         { id: "team", label: "Invite your team", why: "Decide who can see, add and approve.", done: f.team, href: "/team" },
         ...gitStep,
-        { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: builder, win: true },
+        { id: "publish", label: "Release your brand", why: "Readers, portals and agents get what you release.", done: !!b?.published, href: releasing, win: true },
       ];
     case "oss":
       return [
@@ -148,8 +149,8 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
       ];
     case "product":
       return [
-        { id: "tokens", label: "Put in your colors and type", why: "Each rule is a token: color, font, size.", done: !!b?.tokens, href: builder },
-        { id: "publish", label: "Make a release", why: "Tokens and DESIGN.md serve what is released.", done: !!b?.published, href: builder },
+        { id: "tokens", label: "Put in your colors and type", why: "Each rule is a token: color, font, size.", done: !!b?.tokens, href: rules },
+        { id: "publish", label: "Make a release", why: "Tokens and DESIGN.md serve what is released.", done: !!b?.published, href: releasing },
         { ...git, why: "Brand as code: tokens and DESIGN.md go out to your code with every push.", win: true as const },
       ];
     case "clients":
