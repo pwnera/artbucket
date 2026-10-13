@@ -62,6 +62,14 @@ const schema = z.object({
    */
   GIT_CONNECT_URL: z.string().url().optional(),
   /**
+   * The guidelines builder: `on`, or `read-only`, where Edit opens the pages
+   * as readers see them with the three ways to change them (an agent over
+   * MCP, Git, Eject to code). The pages API and MCP write pages either way.
+   * The builder is being retired (docs: decisions, PRD part 2); read-only is
+   * the step before it goes.
+   */
+  BUILDER: z.enum(["on", "read-only"]).default("on"),
+  /**
    * An assistant this server offers beside the app: the address of its
    * endpoints, on the app's origin, which answer questions about the library
    * (through the API or MCP, as the person). The app draws it in a panel, by

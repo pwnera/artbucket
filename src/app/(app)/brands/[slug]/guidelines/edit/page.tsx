@@ -4,6 +4,7 @@ import { Builder } from "@/components/builder/builder";
 import { GitReturn } from "@/components/git-return";
 import { AppHeader } from "@/components/page";
 import type { NavEntry } from "@/lib/builder-ops";
+import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
 import { contextLabel, type Rule } from "@/lib/rules";
 import { brands, get, getBody, whoami } from "@/lib/sidebar";
@@ -16,6 +17,9 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Query> }
 
 /** The builder's panels a link may open (`?panel=`). */
 const PANELS = ["rules", "history", "tokens", "publish"] as const;
+
+/** Where each panel's work is on the brand, when the builder is read-only. */
+const ON_THE_BRAND: Record<(typeof PANELS)[number], string> = { rules: "/rules", history: "/releases", tokens: "/theme", publish: "" };
 
 /** The brand the address names. */
 const pick = async (slug: string) => (await brands()).find((b) => b.slug === slug);
@@ -69,6 +73,7 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
   const [brand, me] = await Promise.all([pick(slug), whoami()]);
   if (!brand) notFound();
   if (!can(me, "brand.edit")) redirect(guidelinesPath(brand.slug, { page, context, lang }));
+  if (env.BUILDER === "read-only") readOnly(brand.slug, { page, context, lang }, PANELS.find((p) => p === panel));
 
   const b = encodeURIComponent(brand.slug);
   const q = new URLSearchParams({ ...(page && { page }), ...(context && { context }), edit: "1" });
@@ -105,4 +110,13 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
       <GitReturn brand={brand.slug} />
     </>
   );
+}
+
+/**
+ * The builder, read-only (BUILDER=read-only): the pages as readers see them,
+ * with the three ways to change them open over them (`?ways=1`). A link to
+ * one of its panels goes where that work is now, on the brand.
+ */
+function readOnly(slug: string, q: { page?: string; context?: string; lang?: string }, panel?: (typeof PANELS)[number]): never {
+  redirect(panel ? brandPath(slug, ON_THE_BRAND[panel]) : guidelinesPath(slug, { ...q, ways: "1" }));
 }

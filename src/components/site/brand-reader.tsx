@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandHeader, type BrandHeaderProps } from "@/components/brand-header";
+import { EditWays, type Ways } from "@/components/edit-ways";
 import { BrandTabMenu } from "@/components/brand-tabs";
 import { Can } from "@/components/can";
 import { FloatingEdit } from "@/components/floating-edit";
@@ -34,6 +35,8 @@ export type BrandReaderProps = {
   status: Pick<Status, "publish" | "live"> | null;
   /** What it shows when the address doesn't say (`?version=`): lib/readiness.ts shownVersion. */
   version: "draft" | "live";
+  /** The builder read-only (BUILDER=read-only): the ways to edit, open while the address says `?ways=1`. */
+  ways?: Ways;
 };
 
 type At = { context?: string | null; lang?: string | null; version?: string | null };
@@ -54,7 +57,7 @@ const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.bran
  * whether it shows the draft or the live release, with a switch while they
  * differ.
  */
-export function BrandReader({ initial, embed, status, version: fallback }: BrandReaderProps) {
+export function BrandReader({ initial, embed, status, version: fallback, ways }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
   const [theming, setTheming] = useState(false);
@@ -172,6 +175,19 @@ export function BrandReader({ initial, embed, status, version: fallback }: Brand
         {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
         <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
       </Can>
+      {ways && (
+        <EditWays
+          brand={slug}
+          ways={ways}
+          open={params.get("ways") === "1"}
+          onOpenChange={(open) => {
+            const q = new URLSearchParams(params);
+            if (open) q.set("ways", "1");
+            else q.delete("ways");
+            router.replace(`${location.pathname}${q.size ? `?${q}` : ""}${location.hash}`, { scroll: false });
+          }}
+        />
+      )}
     </>
   );
 }
