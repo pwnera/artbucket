@@ -16,10 +16,11 @@ const LOGO = "0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f";
 const FONT = "1c7d3f1f-7b63-4b6f-8e4c-2a2b3d4e5f60";
 
 /** A site made from a kind, with a release exported into .brand/ beside it, built. */
-function built(kind: string, brand: Record<string, unknown> = {}) {
+function built(kind: string, brand: Record<string, unknown> = {}, pages: Record<string, string> = {}) {
   const dir = mkdtempSync(join(tmpdir(), `starter-${kind}-`));
   cpSync(join(STARTERS, "common"), dir, { recursive: true });
   cpSync(join(STARTERS, kind), dir, { recursive: true });
+  for (const [name, html] of Object.entries(pages)) writeFileSync(join(dir, "src", "pages", name), html);
   mkdirSync(join(dir, ".brand", "assets"), { recursive: true });
   writeFileSync(join(dir, ".brand", "assets", `${LOGO}.svg`), "<svg xmlns='http://www.w3.org/2000/svg'/>");
   writeFileSync(join(dir, ".brand", "assets", `${FONT}.woff2`), "font");
@@ -93,4 +94,12 @@ test("no export yet: the build says to run it first", () => {
   const dir = mkdtempSync(join(tmpdir(), "starter-none-"));
   cpSync(join(STARTERS, "common"), dir, { recursive: true });
   assert.throws(() => execFileSync(process.execPath, ["build.mjs"], { cwd: dir, stdio: "pipe" }), /npm run brand/);
+});
+
+test("a page's title in the menu and <title> is its heading's text, with no tag or angle bracket left", () => {
+  const site = built("docs", {}, { "tricky.html": "<h1>Odd <<b>script>alert(1)<</b>/script> heading</h1>" });
+  const html = site.read("tricky.html");
+  const title = html.match(/<title>(.*?)<\/title>/)![1];
+  assert.doesNotMatch(title, /[<>]/);
+  assert.match(title, /^Odd scriptalert\(1\)\/script heading/);
 });
