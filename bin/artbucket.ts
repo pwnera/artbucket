@@ -55,6 +55,9 @@ const HELP = `artbucket <command>
   site push [dir] --site <address> [--path /docs] [--kind docs]
                           deploy a built site: dir (dist/ by default) zipped and
                           sent, live at --path (/ by default) once checked
+  site check [dir]        check a build hosted anywhere, from its CI: what it uses
+                          of the library, and why any of it may not be shown;
+                          exits 1 when something may not
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
   rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
@@ -758,7 +761,23 @@ async function main() {
     }
     case "site": {
       const [sub, dir = "dist"] = args;
-      if (sub !== "push") throw new Error("artbucket site push [dir] --site <address> [--path /docs] [--kind docs]");
+      if (sub === "check") {
+        const { zip, files } = await zipFolder(resolve(dir));
+        const res = await fetch(`${BASE}/api/v1/sites/check`, {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
+          body: zip,
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw failed(res, json, "site check");
+        const r = json.data as { allowed: boolean; uses: { asset: string }[]; problems: string[] };
+        if (!r.allowed) process.exitCode = 1;
+        const used = new Set(r.uses.map((u) => u.asset)).size;
+        return out(json, () =>
+          [`${r.allowed ? "allowed" : "refused"}  ${files} files, ${used} asset${used === 1 ? "" : "s"} of the library`, ...r.problems.map((p) => `  x ${p}`)].join("\n"),
+        );
+      }
+      if (sub !== "push") throw new Error("artbucket site push|check [dir] --site <address> [--path /docs] [--kind docs]");
       if (!opt.site) throw new Error("--site: the site's address, as artbucket sites lists it");
       const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
       if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);

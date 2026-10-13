@@ -50,12 +50,14 @@ artbucket audit
 
 Sites, and a build deployed to one ([Sites](/guides/sites)): `push` zips the
 folder, hidden files left out, and sends it; `--path` mounts it beside a brand
-portal.
+portal. `check` sends a build hosted anywhere for the same check, stores
+nothing, and exits 1 when it uses what may not be shown, so it can fail a CI job.
 
 ```bash
 artbucket sites
 artbucket site push dist --site acme-docs
 artbucket site push storybook-static --site acme --path /storybook --kind storybook
+artbucket site check dist
 ```
 
 A brand's pages, rules and theme, from JSON files in the shapes the API takes:

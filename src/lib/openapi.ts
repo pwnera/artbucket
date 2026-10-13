@@ -1557,6 +1557,32 @@ export function openapi(serverUrl: string) {
           requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
         },
       },
+      "/api/v1/sites/check": {
+        post: {
+          ...op({
+            summary: "Check a build hosted anywhere",
+            scope: "read",
+            description:
+              "The body is a zip of a built site (`Content-Type: application/zip`), from a CI job that deploys it somewhere else: " +
+              "Vercel, Netlify, GitHub Pages. It is checked as a deployment would be, and nothing is stored: every file matched " +
+              "against the project's library by its bytes, every /a/ and /c/ address in its HTML, CSS and JS read, and the ids " +
+              "artbucket.site.json names. `allowed` is false when any of it may not be shown, with the reasons in `problems`.",
+            ok: [
+              200,
+              "The verdict",
+              data(
+                z.object({
+                  allowed: z.boolean(),
+                  files: z.number().int(),
+                  uses: Deployment.shape.uses,
+                  problems: z.array(z.string()).describe("Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"),
+                }),
+              ),
+            ],
+          }),
+          requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
+        },
+      },
       "/api/v1/sites/{id}/deployments/{deployment}/restore": {
         parameters: [path("id", "Site id"), path("deployment", "Deployment id")],
         post: op({

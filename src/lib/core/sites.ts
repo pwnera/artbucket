@@ -302,6 +302,43 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
 }
 
 /**
+ * A build checked as a deployment is, without deploying it: for a site
+ * hosted anywhere (Vercel, Netlify, GitHub Pages), from its CI. What it uses
+ * of the project's library, and why any of it may not be shown. Nothing is
+ * stored, and any folder of files will do: no index.html is asked for.
+ */
+export async function checkBuild(caller: Caller, zip: Uint8Array) {
+  if (zip.length > MAX_SITE_BYTES) throw new AssetError("too_large", `A build is ${MAX_SITE_BYTES / 1024 / 1024} MB at most`);
+  let entries;
+  try {
+    entries = unzip(zip);
+  } catch {
+    throw new AssetError("invalid", "That isn't a zip");
+  }
+  const files = siteFiles(entries.map((e) => e.name));
+  if (!files || !files.size) throw new AssetError("invalid", files ? "That zip holds no files" : "A file in the zip names a path outside the site");
+  if (files.size > MAX_SITE_FILES) throw new AssetError("invalid", `A build holds ${MAX_SITE_FILES} files at most`);
+  const byName = new Map(entries.map((e) => [e.name, e]));
+  const scan = buildScan();
+  let bytes = 0;
+  for (const [served, name] of files) {
+    const data = await byName.get(name)!.read();
+    bytes += data.length;
+    if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A build is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
+    if (served !== MANIFEST) scan.add(served, data);
+    else
+      try {
+        scan.declare(JSON.parse(new TextDecoder().decode(data)) as Manifest);
+      } catch {
+        throw new AssetError("invalid", `${MANIFEST} isn't JSON`);
+      }
+  }
+  const { uses, unknown } = await resolveUses(caller.project.id, scan);
+  const problems = [...unknown, ...(await problemsWith(uses))];
+  return { allowed: !problems.length, files: files.size, uses, problems };
+}
+
+/**
  * Put a deployment kept as replaced back live at its path, the one live there
  * now replaced in turn: undoing a bad deploy without building again. Null: no
  * such site or deployment here, or one that never went live (failed).

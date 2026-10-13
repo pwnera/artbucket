@@ -49145,6 +49145,139 @@
       }
     }
   },
+  "/api/v1/sites/check": {
+    "post": {
+      "summary": "Check a build hosted anywhere",
+      "description": "The body is a zip of a built site (`Content-Type: application/zip`), from a CI job that deploys it somewhere else: Vercel, Netlify, GitHub Pages. It is checked as a deployment would be, and nothing is stored: every file matched against the project's library by its bytes, every /a/ and /c/ address in its HTML, CSS and JS read, and the ids artbucket.site.json names. `allowed` is false when any of it may not be shown, with the reasons in `problems`.\n\nScope: `read`.",
+      "x-scope": "read",
+      "responses": {
+        "200": {
+          "description": "The verdict",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "allowed": {
+                        "type": "boolean"
+                      },
+                      "files": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "uses": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "how": {
+                              "type": "string",
+                              "enum": [
+                                "copy",
+                                "link",
+                                "current",
+                                "declared"
+                              ],
+                              "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                            },
+                            "file": {
+                              "description": "The build's file it was found in",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "asset",
+                            "how",
+                            "file"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "What it uses of the project's library, found in its files: its lineage"
+                      },
+                      "problems": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"
+                      }
+                    },
+                    "required": [
+                      "allowed",
+                      "files",
+                      "uses",
+                      "problems"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/zip": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/sites/{id}/deployments/{deployment}/restore": {
     "parameters": [
       {

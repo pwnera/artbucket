@@ -8,7 +8,7 @@ import { assets, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, updatePortal } from "@/lib/core/portals";
-import { deploy, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -164,4 +164,24 @@ test("live builds are checked again: a license that ended since shows on the dep
   await db.update(siteDeployments).set({ checkedAt: null }).where(eq(siteDeployments.id, d.id));
   await recheckSites("2026-06-01");
   assert.deepEqual((await listDeployments(ada.caller, site.id))![0].problems, []);
+});
+
+test("a build hosted elsewhere is checked the same way, and nothing is stored", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const oldBytes = await png("#2b3c4d");
+  const old = (await ingestBytes(ada.caller, { bytes: oldBytes, mime: "image/png", filename: "badge-v1.png" })).asset;
+  const now = (await ingestBytes(ada.caller, { bytes: await png("#4d3c2b"), mime: "image/png", filename: "badge-v2.png" })).asset;
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const files = (f: Record<string, Uint8Array | string>) => zip(Object.entries(f).map(([name, d]) => ({ name, data: typeof d === "string" ? text(d) : d })));
+  const before = (await usageOf(ada.caller)).used.storage;
+
+  const refused = await checkBuild(ada.caller, files({ "out/docs/img/badge.png": oldBytes, "out/docs/page.html": "no index needed" }));
+  assert.equal(refused.allowed, false);
+  assert.equal(refused.files, 2);
+  assert.match(refused.problems[0], /badge-v1\.png was replaced by badge-v2\.png .*docs\/img\/badge\.png is a copy of it/);
+
+  const fine = await checkBuild(ada.caller, files({ "index.html": `<img src="/c/${old.id}">` }));
+  assert.deepEqual(fine, { allowed: true, files: 1, uses: [{ asset: now.id, how: "current", file: "index.html" }], problems: [] });
+  await assert.rejects(checkBuild(ada.caller, files({ "artbucket.site.json": "{not json" })), /isn't JSON/);
+  assert.equal((await usageOf(ada.caller)).used.storage, before);
 });
