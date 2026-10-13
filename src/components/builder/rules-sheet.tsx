@@ -1,7 +1,24 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { IconAlignLeft, IconChevronDown, IconHash, IconList, IconListDetails, IconPhoto, IconPlus, IconSearch, IconX } from "@/components/icons";
+import {
+  IconAlignLeft,
+  IconArrowDown,
+  IconArrowUp,
+  IconChevronDown,
+  IconCopy,
+  IconDots,
+  IconGripVertical,
+  IconHash,
+  IconList,
+  IconListDetails,
+  IconPhoto,
+  IconPlus,
+  IconSearch,
+  IconTrash,
+  IconX,
+} from "@/components/icons";
+import { toast } from "sonner";
 import { AssetPicker } from "@/components/builder/asset-picker";
 import { SpecForm } from "@/components/builder/spec-form";
 import type { BuilderApi } from "@/components/builder/use-builder";
@@ -129,12 +146,28 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
   });
 
   const taken = new Set(rules.map((r) => r.key));
+  /** A section's keys as last dragged or moved here, ahead of the next load: the order PUT /brand/rules/order saved. */
+  const [order, setOrder] = useState<Record<string, string[]>>({});
   /** The keys of each section, sections and keys in the brand's order. */
   const sections = new Map<string, string[]>();
   for (const r of rules) {
     const ks = sections.get(section(r.key)) ?? [];
     if (!ks.includes(r.key)) sections.set(section(r.key), [...ks, r.key]);
   }
+  for (const [name, ks] of sections) {
+    const moved = order[name];
+    if (moved) sections.set(name, [...moved.filter((k) => ks.includes(k)), ...ks.filter((k) => !moved.includes(k))]);
+  }
+  /**
+   * The row being dragged, and the row it would land before (null: its section's end): in a ref for the drag's
+   * events, which come before a render would; in state for how the rows look meanwhile.
+   */
+  const [dragging, setDragState] = useState<{ key: string; over: string | null } | null>(null);
+  const drag = useRef<{ key: string; over: string | null } | null>(null);
+  const setDragging = (d: { key: string; over: string | null } | null) => {
+    drag.current = d;
+    setDragState(d);
+  };
   /** A key's versions, the default first. */
   const versionsOf = (key: string) => {
     const vs = rules.filter((r) => r.key === key);
@@ -249,6 +282,59 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
       undo: () => (latest.current.some((v) => same(v, r)) ? false : (change([r]) ?? Promise.reject())),
     });
     return true;
+  }
+
+  /**
+   * A section's rules in a new order, as readers see them on its pages: shown
+   * at once, saved with PUT /brand/rules/order, put back if that fails.
+   */
+  async function reorder(name: string, keys: string[]) {
+    const before = order[name];
+    setOrder((o) => ({ ...o, [name]: keys }));
+    const res = await b.transport("PUT", `/api/v1/brand/rules/order?brand=${encodeURIComponent(b.brand)}`, { keys });
+    if (res.ok) return;
+    setOrder((o) => {
+      const rest = { ...o };
+      delete rest[name];
+      return before ? { ...rest, [name]: before } : rest;
+    });
+    toast.error("The new order couldn't be saved", { description: "Check your connection and try again." });
+  }
+
+  /** A rule up or down by one in its section. */
+  function nudge(key: string, by: -1 | 1) {
+    const name = section(key);
+    const keys = [...(sections.get(name) ?? [])];
+    const i = keys.indexOf(key);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    void reorder(name, keys);
+  }
+
+  /** A dragged rule dropped before `before` (null: at its section's end), in its own section only. */
+  function drop(key: string, before: string | null) {
+    const name = section(key);
+    const keys = (sections.get(name) ?? []).filter((k) => k !== key);
+    const at = before === null ? keys.length : keys.indexOf(before);
+    if (at < 0) return;
+    keys.splice(at, 0, key);
+    if (keys.join() !== sections.get(name)?.join()) void reorder(name, keys);
+  }
+
+  /** A rule and every version of it gone, with the 8 s Undo: the row's Delete. */
+  function removeKey(key: string) {
+    const vs = versionsOf(key);
+    if (!vs.length || !change([], vs.map(refOf))) return;
+    if (expanded === key) {
+      setExpanded(null);
+      setDetails(null);
+    }
+    const shown = b.shownOn(key).length;
+    undoable(`Deleted ${ruleName(vs[0])}${vs.length > 1 ? ` and its ${vs.length - 1} other ${vs.length === 2 ? "version" : "versions"}` : ""}`, {
+      description: shown ? `${shown === 1 ? "A page shows" : `${shown} pages show`} it as missing until it is back.` : undefined,
+      undo: () => (latest.current.some((v) => v.key === key) ? false : (change(vs) ?? Promise.reject())),
+    });
   }
 
   /** Every version again as "<name> copy", at its section's end. */
@@ -383,23 +469,94 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
                 className="ms-auto"
               />
             </div>
-            <ul className="divide-y rounded-lg border">
-              {keys.map((key) => {
+            <ul
+              className="divide-y rounded-lg border"
+              onDragOver={(e) => {
+                // Past the last row: its section's end.
+                const d = drag.current;
+                if (d && section(d.key) === name && e.target === e.currentTarget) {
+                  e.preventDefault();
+                  if (d.over !== null) setDragging({ key: d.key, over: null });
+                }
+              }}
+              onDrop={(e) => {
+                const d = drag.current;
+                if (!d || section(d.key) !== name) return;
+                e.preventDefault();
+                drop(d.key, d.over);
+                setDragging(null);
+              }}
+            >
+              {keys.map((key, i) => {
                 const vs = versionsOf(key);
                 const open = expanded === key;
                 const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
+                // Reordering only without a search narrowing the list: dropped between hidden rows, it would land somewhere unseen.
+                const movable = !needle && keys.length > 1;
                 return (
-                  <li key={key} data-rule={key}>
-                    <RuleRow
-                      rule={vs[0]}
-                      versions={vs.length}
-                      pages={b.shownOn(key).length}
-                      open={open}
-                      onToggle={() => {
-                        setExpanded(open ? null : key);
-                        setDetails(open ? null : refOf(vs[0]));
-                      }}
-                    />
+                  <li
+                    key={key}
+                    data-rule={key}
+                    onDragOver={(e) => {
+                      const d = drag.current;
+                      if (!d || section(d.key) !== name) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      // The lower half of a row drops after it.
+                      const box = e.currentTarget.getBoundingClientRect();
+                      const after = e.clientY > box.top + box.height / 2;
+                      const over = after ? (keys[i + 1] ?? null) : key;
+                      if (over !== d.over) setDragging({ key: d.key, over });
+                    }}
+                    className={cn(
+                      "relative",
+                      dragging?.key === key && "opacity-50",
+                      dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === key && "before:bg-primary before:absolute before:inset-x-0 before:-top-px before:h-0.5",
+                      dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === null && i === keys.length - 1 && "after:bg-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5",
+                    )}
+                  >
+                    <div className="flex items-center">
+                      {movable && (
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", key);
+                            const row = e.currentTarget.closest("li");
+                            if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                            setDragging({ key, over: key });
+                          }}
+                          onDragEnd={() => setDragging(null)}
+                          title="Drag to reorder"
+                          aria-hidden
+                          className="text-muted-foreground hover:text-foreground grid w-6 shrink-0 cursor-grab place-items-center self-stretch ps-1 active:cursor-grabbing"
+                        >
+                          <IconGripVertical className="size-4" />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <RuleRow
+                          rule={vs[0]}
+                          versions={vs.length}
+                          pages={b.shownOn(key).length}
+                          open={open}
+                          onToggle={() => {
+                            setExpanded(open ? null : key);
+                            setDetails(open ? null : refOf(vs[0]));
+                          }}
+                        />
+                      </div>
+                      <RowMenu
+                        name={ruleName(vs[0])}
+                        first={i === 0}
+                        last={i === keys.length - 1}
+                        movable={movable}
+                        onUp={() => nudge(key, -1)}
+                        onDown={() => nudge(key, 1)}
+                        onDuplicate={() => duplicate(key)}
+                        onDelete={() => removeKey(key)}
+                      />
+                    </div>
                     {open && (
                       // Start padding: room for RuleView's gutter, its + and handle.
                       <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
@@ -475,6 +632,56 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
         {list}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** A rule's own actions, beside its row: move it (the keyboard's way to reorder), copy it, delete it. */
+function RowMenu({
+  name,
+  first,
+  last,
+  movable,
+  onUp,
+  onDown,
+  onDuplicate,
+  onDelete,
+}: {
+  name: string;
+  first: boolean;
+  last: boolean;
+  movable: boolean;
+  onUp(): void;
+  onDown(): void;
+  onDuplicate(): void;
+  onDelete(): void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton variant="ghost" size="icon-sm" label={`More for ${name}`} className="me-1 shrink-0">
+          <IconDots />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        {movable && (
+          <>
+            <DropdownMenuItem disabled={first} onSelect={onUp}>
+              <IconArrowUp aria-hidden /> Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={last} onSelect={onDown}>
+              <IconArrowDown aria-hidden /> Move down
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem onSelect={onDuplicate}>
+          <IconCopy aria-hidden /> Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+          <IconTrash aria-hidden /> Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
