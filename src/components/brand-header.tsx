@@ -38,7 +38,7 @@ import { PinButton } from "@/components/pin-button";
  * of links out) and whether it is the latest (lib/readiness.ts liveLine,
  * livePlaces), when it was released, and the release's note. Use this brand,
  * Edit (the builder, where you are: the page on show, or its Rules panel
- * from Tokens and rules) and Release, while readers don't see the latest, sit
+ * from Rules) and Release, while readers don't see the latest, sit
  * at its end, the tabs under it. The brand's page is read-only: Edit is the way into the builder.
  */
 export type BrandHeaderProps = {
@@ -385,7 +385,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
 
 /** The crumb after the brand's name, by the address under /brands/{slug}; none on the Overview. */
 const CRUMBS: Record<string, string> = {
-  rules: "Tokens and rules",
+  rules: "Rules",
   theme: "Theme",
   assets: "Assets",
   releases: "Releases",

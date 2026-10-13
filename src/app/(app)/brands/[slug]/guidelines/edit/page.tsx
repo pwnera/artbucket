@@ -3,12 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { Builder } from "@/components/builder/builder";
 import { GitReturn } from "@/components/git-return";
 import { AppHeader } from "@/components/page";
-import type { NavEntry } from "@/lib/builder-ops";
 import { env } from "@/lib/env";
 import { can } from "@/lib/permissions";
-import { contextLabel, type Rule } from "@/lib/rules";
-import { brands, get, getBody, whoami } from "@/lib/sidebar";
-import { brandPath, builderPath, guidelinesPath, type PageView, type ViewRule } from "@/lib/site";
+import { builderInit } from "@/lib/builder-init";
+import { contextLabel } from "@/lib/rules";
+import { brands, whoami } from "@/lib/sidebar";
+import { brandPath, builderPath, guidelinesPath } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -23,35 +23,6 @@ const ON_THE_BRAND: Record<(typeof PANELS)[number], string> = { rules: "/rules",
 
 /** The brand the address names. */
 const pick = async (slug: string) => (await brands()).find((b) => b.slug === slug);
-
-/**
- * A rule as the builder holds it, from GET /brand/rules: described as the
- * page's view describes it when the page shows it, else from the rule's own
- * asset rows. ponytail: those carry no size, so a file list off the first
- * page reads 0 B until builder-ops load() takes rules from each view.
- */
-function viewRule(r: Rule, shown: Map<string, ViewRule>): ViewRule {
-  return (
-    shown.get(`${r.key}@${r.context ?? ""}`) ?? {
-      key: r.key,
-      context: r.context,
-      type: r.type,
-      label: r.label ?? null,
-      value: r.value,
-      usage: r.usage,
-      spec: r.spec ?? null,
-      assets: r.assets.map((a) => ({
-        ...a,
-        title: a.title ?? null,
-        filename: a.filename ?? "",
-        mime: a.mime ?? "",
-        size: 0,
-        preview: !!a.preview,
-        supersededBy: null,
-      })),
-    }
-  );
-}
 
 /** The tab says which brand, and which context, like a Notion page's title. */
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -75,28 +46,12 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
   if (!can(me, "brand.edit")) redirect(guidelinesPath(brand.slug, { page, context, lang }));
   if (env.BUILDER === "read-only") readOnly(brand.slug, { page, context, lang }, PANELS.find((p) => p === panel));
 
-  const b = encodeURIComponent(brand.slug);
-  const q = new URLSearchParams({ ...(page && { page }), ...(context && { context }), edit: "1" });
-  const [pages, edit, rules] = await Promise.all([
-    get(`brands/${b}/pages`, (x: { data: (NavEntry & { sections: number })[] }) => x.data, null),
-    getBody<{ data?: PageView }>(`brands/${b}/view?${q}`),
-    // Every rule and version, whatever the context: the builder resolves a context itself, so switching it is instant.
-    get(`brand/rules?brand=${b}`, (x: { data: Rule[] }) => x.data, null),
-  ]);
-  const shown = edit?.data;
+  const got = await builderInit(brand.slug, { page, context });
   // A page that is gone (deleted, or an old link): the book opens on its first page rather than on nothing.
-  if (page && !shown && pages) redirect(builderPath(brand.slug, { context }));
-  if (!pages || !shown || !rules) notFound();
-  if (shown.redirect) redirect(builderPath(brand.slug, { page: shown.redirect, context }));
-
-  const described = new Map(shown.rules.map((r) => [`${r.key}@${r.context ?? ""}`, r]));
-  const init = {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    nav: pages.map(({ sections: _, ...p }) => p),
-    view: shown,
-    rules: rules.map((r) => viewRule(r, described)),
-    theme: shown.theme.settings,
-  };
+  if (page && got && !got.shown) redirect(builderPath(brand.slug, { context }));
+  if (!got?.shown || !got.init) notFound();
+  if (got.shown.redirect) redirect(builderPath(brand.slug, { page: got.shown.redirect, context }));
+  const { init } = got;
   // Remount per brand only: another page is a view of the same book, and the builder opens it itself.
   return (
     <>

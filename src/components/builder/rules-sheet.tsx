@@ -43,11 +43,17 @@ import { cn } from "@/lib/utils";
  * - b: the builder.
  * - open, onOpenChange: a controlled sheet; the builder opens it for
  *   b.panel "rules".
+ * - inline: the same list in the page, no sheet (the brand's Rules tab);
+ *   onOpenPage then says where a page that shows a rule opens.
  */
 export type RulesSheetProps = {
   b: BuilderApi;
   open: boolean;
   onOpenChange(open: boolean): void;
+  /** In the page rather than a sheet: the brand's Rules tab. */
+  inline?: boolean;
+  /** A page that shows a rule, opened: the builder's own page by default (b.open). */
+  onOpenPage?(slug: string): void;
 };
 
 /** The sections most brands have; any other key prefix reads as its words. */
@@ -97,7 +103,7 @@ const blockIn = (root: HTMLElement | null, key: string) => rowIn(root, key)?.que
 // The rules op keeps each rule where it is, so a block here has nowhere to be dropped.
 const NO_DRAG: Dnd = { onDragStart() {}, onDragEnd() {}, onDragOver() {}, onDrop() {} };
 
-export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
+export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }: RulesSheetProps) {
   const rules = b.state.rules;
   // The list, found by id when it is needed: a ref read from a handler that render hands on reads as read in render.
   const bodyId = useId();
@@ -312,6 +318,139 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
     .filter((st) => st.done === false && st.id in ESSENTIALS)
     .map((st) => ({ id: st.id, ...ESSENTIALS[st.id as keyof typeof ESSENTIALS] }));
 
+  const list = (
+    <>
+      <div className="grid gap-3 border-b px-6 py-3">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <IconSearch aria-hidden className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a rule by name or value" aria-label="Find a rule" className="h-8 ps-8" />
+          </div>
+          <AddMenu label="Add a rule" groups={EVERY} onPick={(p) => pick(p, p.section)} variant="default" />
+        </div>
+        {sections.size > 1 && (
+          <div role="group" aria-label="Show one section" className="flex flex-wrap gap-1.5">
+            {[null, ...sections.keys()].map((name) => (
+              <button
+                key={name ?? "*"}
+                type="button"
+                aria-pressed={only === name}
+                onClick={() => setOnly(name)}
+                className="text-muted-foreground hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background focus-visible:ring-ring/50 rounded-full border px-2.5 py-0.5 text-xs outline-none focus-visible:ring-2"
+              >
+                {name === null ? "All" : titleOf(name)} <span className="tabular-nums opacity-70">{name === null ? taken.size : sections.get(name)!.length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {missing.length > 0 && (
+          <div className="bg-muted/60 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Still missing:</span>
+            {missing.map((m) => (
+              <Button
+                key={m.id}
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  setQ("");
+                  setOnly(null);
+                  make(m.preset, m.preset.section, m.name);
+                }}
+              >
+                <IconPlus /> {m.label}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div id={bodyId} className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
+        {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with a color, a typeface and the logo.</p>}
+        {rules.length > 0 && !shownSections.length && <p className="text-muted-foreground text-sm">No rule by that name or value.</p>}
+        {shownSections.map(([name, keys]) => (
+          <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 id={`rules-${name}`} className="text-sm font-semibold">
+                {titleOf(name)}
+              </h3>
+              <span className="text-muted-foreground text-xs tabular-nums">{keys.length}</span>
+              <AddMenu
+                label="Add"
+                groups={groupsFor(name)}
+                open={adding === name}
+                onOpenChange={(o) => setAdding(o ? name : null)}
+                onPick={(p) => pick(p, name)}
+                className="ms-auto"
+              />
+            </div>
+            <ul className="divide-y rounded-lg border">
+              {keys.map((key) => {
+                const vs = versionsOf(key);
+                const open = expanded === key;
+                const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
+                return (
+                  <li key={key} data-rule={key}>
+                    <RuleRow
+                      rule={vs[0]}
+                      versions={vs.length}
+                      pages={b.shownOn(key).length}
+                      open={open}
+                      onToggle={() => {
+                        setExpanded(open ? null : key);
+                        setDetails(open ? null : refOf(vs[0]));
+                      }}
+                    />
+                    {open && (
+                      // Start padding: room for RuleView's gutter, its + and handle.
+                      <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
+                        <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
+                        <Details
+                          rule={shown}
+                          b={b}
+                          onHeading={(name) => rename(key, name)}
+                          onVersion={(c) => addVersion(shown, c)}
+                          onPatch={(fields) => patch(shown, fields)}
+                          onAssets={() => setPicking({ ref: refOf(shown), open: true })}
+                          onPage={(page) => {
+                            if (onOpenPage) return onOpenPage(page);
+                            b.open(page);
+                            onOpenChange(false);
+                          }}
+                          onClose={() => {
+                            setExpanded(null);
+                            setDetails(null);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {draft(name)}
+          </section>
+        ))}
+        {naming && !sections.has(naming.section) && draft(naming.section)}
+      </div>
+
+      <datalist id="rule-contexts">
+        {b.view.contexts.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+      {/* Inside the sheet, so a click in the picker isn't a click outside it. */}
+      {picking && picked && (
+        <AssetPicker
+          open={picking.open}
+          rule={picked}
+          onClose={() => setPicking((p) => p && { ...p, open: false })}
+          onSave={(assets) => patch(picked, { assets })}
+          transport={b.transport}
+        />
+      )}
+    </>
+  );
+  if (inline) return <div className="bg-card flex flex-col overflow-hidden rounded-xl border">{list}</div>;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -333,133 +472,7 @@ export function RulesSheet({ b, open, onOpenChange }: RulesSheetProps) {
           <SheetDescription>Colors, type, logo and words, as data.</SheetDescription>
         </SheetHeader>
 
-        <div className="grid gap-3 border-b px-6 py-3">
-          <div className="flex items-center gap-2">
-            <div className="relative min-w-0 flex-1">
-              <IconSearch aria-hidden className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a rule by name or value" aria-label="Find a rule" className="h-8 ps-8" />
-            </div>
-            <AddMenu label="Add a rule" groups={EVERY} onPick={(p) => pick(p, p.section)} variant="default" />
-          </div>
-          {sections.size > 1 && (
-            <div role="group" aria-label="Show one section" className="flex flex-wrap gap-1.5">
-              {[null, ...sections.keys()].map((name) => (
-                <button
-                  key={name ?? "*"}
-                  type="button"
-                  aria-pressed={only === name}
-                  onClick={() => setOnly(name)}
-                  className="text-muted-foreground hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background focus-visible:ring-ring/50 rounded-full border px-2.5 py-0.5 text-xs outline-none focus-visible:ring-2"
-                >
-                  {name === null ? "All" : titleOf(name)} <span className="tabular-nums opacity-70">{name === null ? taken.size : sections.get(name)!.length}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {missing.length > 0 && (
-            <div className="bg-muted/60 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Still missing:</span>
-              {missing.map((m) => (
-                <Button
-                  key={m.id}
-                  variant="outline"
-                  size="xs"
-                  onClick={() => {
-                    setQ("");
-                    setOnly(null);
-                    make(m.preset, m.preset.section, m.name);
-                  }}
-                >
-                  <IconPlus /> {m.label}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div id={bodyId} className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
-          {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with a color, a typeface and the logo.</p>}
-          {rules.length > 0 && !shownSections.length && <p className="text-muted-foreground text-sm">No rule by that name or value.</p>}
-          {shownSections.map(([name, keys]) => (
-            <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h3 id={`rules-${name}`} className="text-sm font-semibold">
-                  {titleOf(name)}
-                </h3>
-                <span className="text-muted-foreground text-xs tabular-nums">{keys.length}</span>
-                <AddMenu
-                  label="Add"
-                  groups={groupsFor(name)}
-                  open={adding === name}
-                  onOpenChange={(o) => setAdding(o ? name : null)}
-                  onPick={(p) => pick(p, name)}
-                  className="ms-auto"
-                />
-              </div>
-              <ul className="divide-y rounded-lg border">
-                {keys.map((key) => {
-                  const vs = versionsOf(key);
-                  const open = expanded === key;
-                  const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
-                  return (
-                    <li key={key} data-rule={key}>
-                      <RuleRow
-                        rule={vs[0]}
-                        versions={vs.length}
-                        pages={b.shownOn(key).length}
-                        open={open}
-                        onToggle={() => {
-                          setExpanded(open ? null : key);
-                          setDetails(open ? null : refOf(vs[0]));
-                        }}
-                      />
-                      {open && (
-                        // Start padding: room for RuleView's gutter, its + and handle.
-                        <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
-                          <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
-                          <Details
-                            rule={shown}
-                            b={b}
-                            onHeading={(name) => rename(key, name)}
-                            onVersion={(c) => addVersion(shown, c)}
-                            onPatch={(fields) => patch(shown, fields)}
-                            onAssets={() => setPicking({ ref: refOf(shown), open: true })}
-                            onPage={(page) => {
-                              b.open(page);
-                              onOpenChange(false);
-                            }}
-                            onClose={() => {
-                              setExpanded(null);
-                              setDetails(null);
-                            }}
-                          />
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-              {draft(name)}
-            </section>
-          ))}
-          {naming && !sections.has(naming.section) && draft(naming.section)}
-        </div>
-
-        <datalist id="rule-contexts">
-          {b.view.contexts.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
-        {/* Inside the sheet, so a click in the picker isn't a click outside it. */}
-        {picking && picked && (
-          <AssetPicker
-            open={picking.open}
-            rule={picked}
-            onClose={() => setPicking((p) => p && { ...p, open: false })}
-            onSave={(assets) => patch(picked, { assets })}
-            transport={b.transport}
-          />
-        )}
+        {list}
       </SheetContent>
     </Sheet>
   );

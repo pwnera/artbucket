@@ -13,24 +13,18 @@ import { contextLabel, fontLabel, fontValue, ruleLabel, ruleName, section, type 
 import { TOKEN_FORMAT_IDS, TOKEN_FORMATS } from "@/lib/tokens";
 
 /**
- * A brand's Tokens and rules tab, read-only: every rule by section (the
- * key's first part: color, type, logo, tone), each with its value, its
- * variants per context, its note and its files; and its tokens, in every
- * format the API serves (DESIGN.md among them), to download or look at.
- * Rules are changed in the builder's Rules panel.
+ * The brand's tokens, in every format the API serves (DESIGN.md among them),
+ * to download or look at: above its rules on the Rules tab, read-only or not.
  */
-export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
+export function UseInCode({ brand }: { brand: BrandInfo }) {
   const [tokens, setTokens] = useState(false);
-  const own = rules.filter((r) => !r.context);
-  const variants = (key: string) => rules.filter((r) => r.key === key && r.context);
-  const sections = [...new Set(own.map((r) => section(r.key)))];
   return (
-    <div className="grid gap-4">
+    <>
       <section className="bg-card grid gap-3 rounded-xl border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-1.5 font-medium">
-            Tokens
-            <InfoTip>Colors, faces and the type scale as code for your stack, each a link that stays current.</InfoTip>
+            Use in code
+            <InfoTip>Colors, faces and the type scale as tokens for your stack, each a link that stays current.</InfoTip>
           </h2>
           <Button size="sm" variant="outline" onClick={() => setTokens(true)}>
             <IconCode aria-hidden /> Look at them
@@ -48,9 +42,26 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
           ))}
         </ul>
       </section>
+      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
+    </>
+  );
+}
 
+/**
+ * A brand's Rules tab for whoever may only read: every rule by section (the
+ * key's first part: color, type, logo, tone), each with its value, its
+ * variants per context, its note and its files, under its tokens. Whoever
+ * may edit gets BrandRulesEditor instead.
+ */
+export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }) {
+  const own = rules.filter((r) => !r.context);
+  const variants = (key: string) => rules.filter((r) => r.key === key && r.context);
+  const sections = [...new Set(own.map((r) => section(r.key)))];
+  return (
+    <div className="grid gap-4">
+      <UseInCode brand={brand} />
       {sections.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No rules yet. Add them in Edit.</p>
+        <p className="text-muted-foreground text-sm">No rules yet.</p>
       ) : (
         sections.map((s) => (
           <section key={s} aria-labelledby={`rules-${s}`} className="bg-card rounded-xl border">
@@ -91,7 +102,6 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
           </section>
         ))
       )}
-      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
     </div>
   );
 }
