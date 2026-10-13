@@ -127,6 +127,15 @@ const Deployment = z.object({
   ref: z.string().nullable(),
   error: z.string().nullable().describe("Why it failed"),
   manifest: z.record(z.string(), z.unknown()).nullable().describe("artbucket.site.json, when the zip held one"),
+  uses: z
+    .array(
+      z.object({
+        asset: z.uuid(),
+        how: z.enum(["copy", "link", "current", "declared"]).describe("copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"),
+        file: z.string().nullable().describe("The build's file it was found in"),
+      }),
+    )
+    .describe("What it uses of the project's library, found in its files: its lineage"),
   createdBy: z.string(),
   createdAt: z.string(),
 });
@@ -1532,8 +1541,9 @@ export function openapi(serverUrl: string) {
               "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in " +
               "the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as " +
               "replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip " +
-              "holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails " +
-              "with the reasons. Served on the site's own address only.",
+              "holds artbucket.site.json, every asset it names is checked too. Every file is matched against the project's library, by its " +
+              "bytes and by the /a/ and /c/ addresses in its HTML, CSS and JS: a copy or a pinned link of a replaced, unapproved or expired " +
+              "asset fails the deployment, naming the file and the replacement. Served on the site's own address only.",
             query: {
               path: { schema: str, description: "Where it is mounted: / (the default) or a path such as /docs" },
               kind: { schema: { type: "string", enum: ["guidelines", "landing", "docs", "storybook"] }, description: "What it is; the site's own kind when left out" },

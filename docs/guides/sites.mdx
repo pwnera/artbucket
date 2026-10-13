@@ -73,8 +73,15 @@ address can't share.
 
 ## What it uses
 
-A build that reads from Artbucket says so in `artbucket.site.json` at its
-root:
+Every deployment is checked against the project's library before it goes
+live, with nothing for the build to declare:
+
+- **Its files**, by their bytes: a logo copied into `dist/` is that logo,
+  whatever its name.
+- **Its addresses**: every `/a/{id}` and `/c/{id}` in its HTML, CSS and
+  JavaScript, on the app's host or relative. `/a/` pins a version; `/c/`
+  follows the current one, so it is weighed on the version it serves.
+- **Its manifest**, when it has one: `artbucket.site.json` at its root.
 
 ```json
 {
@@ -83,8 +90,15 @@ root:
 }
 ```
 
-Every asset it names must be the project's, approved, current and unexpired,
-or the deployment fails and says which and why: a build can't ship a replaced
-logo or a lapsed license. Once live, the site shows in the
-[catalog](/guides/catalog)'s lineage of each asset and of the brand, as
-`built`, so you see every site a logo reaches.
+A copy or a pinned link of a replaced, unapproved, archived or expired asset
+fails the deployment, and says which file and what replaced it:
+
+```
+logo-2024.png was replaced by logo-2026.png (use 9f1e0d2c-...): img/logo.png is a copy of it
+```
+
+Every id the manifest names must be the project's. An address of another
+project's asset, or another server's, is left alone: it may well be public.
+Once live, what the build uses shows in the [catalog](/guides/catalog)'s
+lineage of each asset and of the brand, as `built`, so you see every site a
+logo reaches before you replace it. The deployment lists it as `uses`.

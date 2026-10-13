@@ -33,7 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
-import type { BuildKind, DeploymentState, SiteKind } from "@/lib/sites";
+import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
 
 export type AssetStatus = Status;
 
@@ -1128,6 +1128,8 @@ export const siteDeployments = pgTable(
     files: integer("files").notNull().default(0),
     bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
     manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
+    uses: jsonb("uses").$type<SiteUse[] | null>(),
     /** Where it came from, when a build says: a commit and its ref. */
     commit: text("commit"),
     ref: text("ref"),
@@ -1681,8 +1683,11 @@ export const catalogEdges = pgView("catalog_edges", {
       join ${brands} s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
     where b.forked_from is not null
     union all
+    select distinct (u ->> 'asset')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(d.uses) u
+    where d.state = 'live' and jsonb_typeof(d.uses) = 'array' and (u ->> 'asset') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    union all
     select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x
-    where d.state = 'live' and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    where d.state = 'live' and d.uses is null and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     union all
     select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
     where d.state = 'live'`,

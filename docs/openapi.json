@@ -48800,6 +48800,43 @@
                             ],
                             "description": "artbucket.site.json, when the zip held one"
                           },
+                          "uses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "asset": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "how": {
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "link",
+                                    "current",
+                                    "declared"
+                                  ],
+                                  "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                                },
+                                "file": {
+                                  "description": "The build's file it was found in",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "asset",
+                                "how",
+                                "file"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "What it uses of the project's library, found in its files: its lineage"
+                          },
                           "createdBy": {
                             "type": "string"
                           },
@@ -48818,6 +48855,7 @@
                           "ref",
                           "error",
                           "manifest",
+                          "uses",
                           "createdBy",
                           "createdAt"
                         ],
@@ -48870,7 +48908,7 @@
       },
       "post": {
         "summary": "Deploy to a site",
-        "description": "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails with the reasons. Served on the site's own address only.\n\nScope: `write`.",
+        "description": "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip holds artbucket.site.json, every asset it names is checked too. Every file is matched against the project's library, by its bytes and by the /a/ and /c/ addresses in its HTML, CSS and JS: a copy or a pinned link of a replaced, unapproved or expired asset fails the deployment, naming the file and the replacement. Served on the site's own address only.\n\nScope: `write`.",
         "x-scope": "write",
         "parameters": [
           {
@@ -48994,6 +49032,43 @@
                           ],
                           "description": "artbucket.site.json, when the zip held one"
                         },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
                         "createdBy": {
                           "type": "string"
                         },
@@ -49012,6 +49087,7 @@
                         "ref",
                         "error",
                         "manifest",
+                        "uses",
                         "createdBy",
                         "createdAt"
                       ],
@@ -49180,6 +49256,43 @@
                           ],
                           "description": "artbucket.site.json, when the zip held one"
                         },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
                         "createdBy": {
                           "type": "string"
                         },
@@ -49198,6 +49311,7 @@
                         "ref",
                         "error",
                         "manifest",
+                        "uses",
                         "createdBy",
                         "createdAt"
                       ],

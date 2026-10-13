@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { createHash, randomUUID } from "node:crypto";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, portals, siteDeployments } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -11,7 +11,8 @@ import { enterPortal, type Pass } from "@/lib/core/portals";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
-import { BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, siteFiles, type BuildKind } from "@/lib/sites";
+import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
+import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { putObject, sizeOf } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
 
@@ -41,6 +42,7 @@ const present = (d: Deployment) => ({
   ref: d.ref,
   error: d.error,
   manifest: d.manifest,
+  uses: d.uses ?? [],
   createdBy: d.createdBy,
   createdAt: d.createdAt,
 });
@@ -64,27 +66,153 @@ export async function listDeployments(caller: Caller, siteId: string) {
 
 type Manifest = { release?: number; assets?: string[]; rules?: string[] };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * What a build read, checked as check_use would: every asset it names is the
- * project's, approved, current and unexpired. The reasons, or none.
+ * What a build's files point at in the library, gathered as they are read:
+ * the hash of every file, the `/a/` and `/c/` addresses in its text, and
+ * what its manifest names. Nothing is trusted to declare itself: a zip
+ * downloaded from Lovable carries no manifest, and a logo copied into it is
+ * still that logo.
  */
-async function manifestProblems(projectId: string, m: Manifest) {
-  const ids = (Array.isArray(m.assets) ? m.assets : []).filter((x) => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x));
-  if (!ids.length) return [];
-  const rows = await db
-    .select({ id: assets.id, name: assets.filename, projectId: assets.projectId, status: assets.status, supersededBy: assets.supersededBy, rights: assets.rights })
-    .from(assets)
-    .where(inArray(assets.id, ids));
-  const today = new Date().toISOString().slice(0, 10);
+export function buildScan() {
+  const hashes = new Map<string, string[]>();
+  const pinned = new Map<string, string[]>();
+  const current = new Map<string, string[]>();
+  const declared: string[] = [];
+  const note = (m: Map<string, string[]>, key: string, file: string) => m.set(key, [...(m.get(key) ?? []), file]);
+  return {
+    hashes,
+    pinned,
+    current,
+    declared,
+    /** A file of the build, by the name it is served at. */
+    add(name: string, data: Uint8Array) {
+      note(hashes, createHash("sha256").update(data).digest("hex"), name);
+      if (!readsLinks(name, data.length)) return;
+      const found = assetAddresses(new TextDecoder().decode(data));
+      for (const id of found.pinned) note(pinned, id, name);
+      for (const id of found.current) note(current, id, name);
+    },
+    /** What artbucket.site.json names. */
+    declare(m: Manifest) {
+      for (const id of Array.isArray(m.assets) ? m.assets : []) if (typeof id === "string" && UUID.test(id)) declared.push(id.toLowerCase());
+    },
+  };
+}
+export type BuildScan = ReturnType<typeof buildScan>;
+
+const useColumns = {
+  id: assets.id,
+  name: assets.filename,
+  sha256: assets.sha256,
+  status: assets.status,
+  supersededBy: assets.supersededBy,
+  rights: assets.rights,
+  deletedAt: assets.deletedAt,
+};
+type UseRow = { id: string; name: string; sha256: string; status: string; supersededBy: string | null; rights: Rights | null; deletedAt: Date | null };
+
+/** The version a stack serves now, from any version of it: `/c/`'s answer. */
+async function currentOf(row: UseRow) {
+  let at = row;
+  const seen = new Set([at.id]);
+  while (at.supersededBy && !seen.has(at.supersededBy)) {
+    const [next] = await db.select(useColumns).from(assets).where(eq(assets.id, at.supersededBy));
+    if (!next) break;
+    seen.add(next.id);
+    at = next as UseRow;
+  }
+  return at;
+}
+
+/** Why a version may not be shown, as the use check would say it with no channel or territory; null when it may. */
+function barred(a: UseRow, date: string) {
+  if (a.deletedAt) return "was deleted";
+  if (a.status === "archived") return "is archived";
+  if (a.status !== "active") return "isn't approved";
+  const r = rightsReasons(a.rights, { date }).find((x) => x.blocking);
+  return r ? `can't be used: ${r.message}` : null;
+}
+
+/**
+ * What a scanned build uses of this project's library, each found by its
+ * bytes, its addresses or its manifest; and the ids its manifest names that
+ * are no asset here. An address of another project's asset, or another
+ * server's, is left alone: it may well be public.
+ */
+async function resolveUses(projectId: string, scan: BuildScan) {
+  const ids = [...new Set([...scan.pinned.keys(), ...scan.current.keys(), ...scan.declared])];
+  const shas = [...scan.hashes.keys()];
+  const rows = (
+    ids.length || shas.length
+      ? await db
+          .select(useColumns)
+          .from(assets)
+          .where(and(eq(assets.projectId, projectId), or(ids.length ? inArray(assets.id, ids) : sql`false`, shas.length ? inArray(assets.sha256, shas) : sql`false`)))
+      : []
+  ) as UseRow[];
   const byId = new Map(rows.map((r) => [r.id, r]));
-  return ids.flatMap((id) => {
-    const a = byId.get(id);
-    if (!a || a.projectId !== projectId) return [`${id} is not an asset of this project`];
-    if (a.supersededBy) return [`${a.name} was replaced (use ${a.supersededBy})`];
-    if (a.status !== "active") return [`${a.name} is not approved`];
-    if (a.rights?.expires && a.rights.expires < today) return [`${a.name}'s license ended on ${a.rights.expires}`];
-    return [];
-  });
+  const uses: SiteUse[] = [];
+  for (const r of rows) for (const file of scan.hashes.get(r.sha256) ?? []) uses.push({ asset: r.id, how: "copy", file });
+  for (const [id, files] of scan.pinned) if (byId.has(id)) for (const file of files) uses.push({ asset: id, how: "link", file });
+  for (const [id, files] of scan.current) {
+    const r = byId.get(id);
+    if (r) for (const file of files) uses.push({ asset: (await currentOf(r)).id, how: "current", file });
+  }
+  for (const id of new Set(scan.declared)) if (byId.has(id)) uses.push({ asset: id, how: "declared", file: null });
+  const unknown = [...new Set(scan.declared)].filter((id) => !byId.has(id)).map((id) => `${id} is not an asset of this project`);
+  return { uses, unknown };
+}
+
+const WHERE: Record<SiteUse["how"], (files: string) => string> = {
+  copy: (f) => `${f} is a copy of it`,
+  link: (f) => `${f} links it`,
+  current: (f) => `${f} shows it through /c/`,
+  declared: () => "artbucket.site.json names it",
+};
+const listed = (files: string[]) => (files.length > 3 ? `${files.slice(0, 3).join(", ")} and ${files.length - 3} more` : files.join(", "));
+
+/**
+ * Why what a build uses may not be shown on `date`, one line per asset and
+ * way it is used, saying where: a copy or a pinned link of a replaced
+ * version names its replacement; `/c/` is weighed on the version it serves
+ * now. Empty: everything may be shown. Deploying and the daily re-check ask
+ * the same question.
+ */
+export async function problemsWith(uses: SiteUse[], date = today()) {
+  if (!uses.length) return [];
+  const ids = [...new Set(uses.map((u) => u.asset))];
+  const rows = new Map(((await db.select(useColumns).from(assets).where(inArray(assets.id, ids))) as UseRow[]).map((r) => [r.id, r]));
+  const groups = new Map<string, { use: SiteUse; files: string[] }>();
+  for (const u of uses) {
+    const key = `${u.asset} ${u.how}`;
+    const g = groups.get(key) ?? groups.set(key, { use: u, files: [] }).get(key)!;
+    if (u.file) g.files.push(u.file);
+  }
+  const out: string[] = [];
+  for (const { use, files } of groups.values()) {
+    const a = rows.get(use.asset);
+    const where = WHERE[use.how](listed(files));
+    if (!a) {
+      out.push(`An asset it used is gone from the library: ${where}`);
+      continue;
+    }
+    if (use.how === "current") {
+      const now = await currentOf(a);
+      const no = barred(now, date);
+      if (no) out.push(`${now.name} ${no}: ${where}`);
+      continue;
+    }
+    if (a.supersededBy && !a.deletedAt) {
+      const now = await currentOf(a);
+      out.push(`${a.name} was replaced by ${now.name} (use ${now.id}): ${where}`);
+      continue;
+    }
+    const no = barred(a, date);
+    if (no) out.push(`${a.name} ${no}: ${where}`);
+  }
+  return out;
 }
 
 /**
@@ -126,6 +254,7 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
   try {
     let bytes = 0;
     let manifest: Manifest | null = null;
+    const scan = buildScan();
     const list = [...files];
     // ponytail: 16 uploads at a time, the zip held in memory; a streaming unpack when deployments grow past MAX_SITE_BYTES.
     for (let i = 0; i < list.length; i += 16) {
@@ -135,11 +264,14 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
           bytes += data.length;
           if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A deployment is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
           if (served === MANIFEST) manifest = JSON.parse(new TextDecoder().decode(data)) as Manifest;
+          else scan.add(served, data);
           await putObject(prefix + served, Buffer.from(data), contentTypeOf(served));
         }),
       );
     }
-    const problems = manifest ? await manifestProblems(site.projectId, manifest) : [];
+    if (manifest) scan.declare(manifest);
+    const { uses, unknown } = await resolveUses(site.projectId, scan);
+    const problems = [...unknown, ...(await problemsWith(uses))];
     if (problems.length) throw new AssetError("invalid", `It uses what may not be used: ${problems.join("; ")}`);
     const [live] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
@@ -155,7 +287,7 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
         .orderBy(desc(siteDeployments.createdAt))
         .offset(KEEP_REPLACED);
       if (old.length) await tx.delete(siteDeployments).where(inArray(siteDeployments.id, old.map((o) => o.id)));
-      return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest }).where(eq(siteDeployments.id, id)).returning();
+      return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest, uses }).where(eq(siteDeployments.id, id)).returning();
     });
     await recordAudit(caller, "site.deployed", site.slug, { path, kind, files: files.size }, { projectId: site.projectId });
     return present(live);

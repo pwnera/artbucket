@@ -100,3 +100,41 @@ test("builds count as storage, and only a few replaced are kept per path", async
   assert.deepEqual(list.map((d) => d.state), ["live", ...Array(KEEP_REPLACED).fill("replaced")]);
   assert.equal((await usageOf(ada.caller)).used.storage - before, (KEEP_REPLACED + 1) * 1000);
 });
+
+test("every file is matched against the library: a copy or a pinned link of a replaced or expired asset fails, with no manifest", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const oldBytes = await png("#a1b2c3");
+  const old = (await ingestBytes(ada.caller, { bytes: oldBytes, mime: "image/png", filename: "logo-2024.png" })).asset;
+  const now = (await ingestBytes(ada.caller, { bytes: await png("#c3b2a1"), mime: "image/png", filename: "logo-2026.png" })).asset;
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const site = await createPortal(ada.caller, { name: "Scanned", slug: `scanned-${Date.now().toString(36)}`, kind: "landing" });
+  const files = (extra: Record<string, Uint8Array | string>) =>
+    zip(Object.entries({ "index.html": "<h1>hi</h1>", ...extra }).map(([name, d]) => ({ name, data: typeof d === "string" ? text(d) : d })));
+
+  // A copied file: refused, naming the file and what replaced it.
+  await assert.rejects(deploy(ada.caller, site.id, files({ "img/logo.png": oldBytes })), (e: Error) => /logo-2024\.png was replaced by logo-2026\.png/.test(e.message) && /img\/logo\.png is a copy of it/.test(e.message) && e.message.includes(now.id));
+  // A pinned link to the old version: refused too.
+  await assert.rejects(deploy(ada.caller, site.id, files({ "index.html": `<img src="/a/${old.id}/w_200">` })), /index\.html links it/);
+  // An expired license, through a link.
+  const photo = (await ingestBytes(ada.caller, { bytes: await png("#0f0f0f"), mime: "image/png", filename: "photo.png" })).asset;
+  await db.update(assets).set({ rights: { license: "RM", territories: [], channels: [], embargo: null, expires: "2020-01-01", modelRelease: null } }).where(eq(assets.id, photo.id));
+  await assert.rejects(deploy(ada.caller, site.id, files({ "about.html": `<img src="https://app.example.com/a/${photo.id}">` })), /photo\.png can't be used: License expired after 2020-01-01: about\.html links it/);
+
+  // /c/ follows the stack, so the old id there shows the new logo: live, and its lineage is the version it serves.
+  const d = (await deploy(ada.caller, site.id, files({ "index.html": `<img src="/c/${old.id}">`, "css/site.css": "body{}" })))!;
+  assert.equal(d.state, "live");
+  assert.deepEqual(d.uses, [{ asset: now.id, how: "current", file: "index.html" }]);
+  const l = (await lineage(ada.caller, now.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(l.edges.some((e) => e.to === site.id && e.kind === "built"));
+
+  // A copy of what may be used goes live, and is lineage too.
+  const ok = (await deploy(ada.caller, site.id, files({ "logo.png": await png("#c3b2a1") })))!;
+  assert.deepEqual(ok.uses, [{ asset: now.id, how: "copy", file: "logo.png" }]);
+});
+
+test("an address of an asset that isn't the project's is left alone", async () => {
+  const site = await createPortal(ada.caller, { name: "Elsewhere", slug: `elsewhere-${Date.now().toString(36)}`, kind: "docs" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": `<img src="https://other.example/a/0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f">` })))!;
+  assert.equal(d.state, "live");
+  assert.deepEqual(d.uses, []);
+});

@@ -18,7 +18,13 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; createdBy: string; createdAt: string };
+
+/** "uses 3 assets", from what the check found in its files: the library it reaches. */
+const usesLine = (d: Deployment) => {
+  const n = new Set(d.uses.map((u) => u.asset)).size;
+  return n ? ` · uses ${n} asset${n === 1 ? "" : "s"}` : "";
+};
 
 const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline" };
 
@@ -205,6 +211,7 @@ function Deployments({ site }: { site: Portal }) {
                   <code className="text-xs">{d.path}</code>
                   <span className="text-muted-foreground text-xs">
                     {SITE_KIND_LABEL[d.kind]} · {d.files} files · {formatSize(d.bytes)}
+                    {usesLine(d)}
                   </span>
                   <span className="text-muted-foreground ms-auto text-xs" suppressHydrationWarning>
                     {d.createdBy}, {ago(d.createdAt)}
