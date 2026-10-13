@@ -309,7 +309,7 @@ export async function deploy(
   const preview = o.preview || null;
   if (preview !== null) {
     if (!PREVIEW_NAME.test(preview)) throw new AssetError("invalid", "preview: lowercase letters, digits and single dashes, 30 at most, such as pr-12");
-    if (!previewAt(site.slug, preview)) throw new AssetError("invalid", env.PORTAL_DOMAIN ? `preview: ${preview}--${site.slug} is too long for an address: pick a shorter name` : "Previews answer at {name}--{site}.PORTAL_DOMAIN: this server has none");
+    if (!previewAt(site.slug, preview)) throw new AssetError("invalid", env.BUILD_DOMAIN || env.PORTAL_DOMAIN ? `preview: ${preview}--${site.slug} is too long for an address: pick a shorter name` : "Previews answer at {name}--{site}.BUILD_DOMAIN or PORTAL_DOMAIN: this server has neither");
   }
   if (site.kind === "portal" && path === "/") throw new AssetError("invalid", "A brand portal's root is drawn by Artbucket: mount a build at a path, such as /docs");
   const kind = (o.kind ?? (site.kind === "portal" ? null : site.kind)) as BuildKind | null;

@@ -46,6 +46,7 @@ const hubHost = (() => {
   }
 })();
 const portalDomain = process.env.PORTAL_DOMAIN?.toLowerCase().replace(/\.$/, "");
+const buildDomain = process.env.BUILD_DOMAIN?.toLowerCase().replace(/\.$/, "");
 const s3 = origin(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT);
 // Virtual-hosted buckets live at {bucket}.{host}: that is where a presigned PUT goes.
 const bucket = s3 && process.env.S3_FORCE_PATH_STYLE === "false" ? s3.replace("://", `://${process.env.S3_BUCKET}.`) : "";
@@ -114,7 +115,7 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   const { pathname, search } = req.nextUrl;
   const asked = target?.portal ?? null;
   // PORTAL_DOMAIN holds portals: at a name there that nothing holds, the domain itself too, nothing of the app answers.
-  if (!target && host !== appHost && underDomain(host, portalDomain)) return new NextResponse("There is no portal here", { status: 404 });
+  if (!target && host !== appHost && (underDomain(host, portalDomain) || underDomain(host, buildDomain))) return new NextResponse("There is no portal here", { status: 404 });
   if (pathname.startsWith("/api/") || bytes(pathname) || pathname === "/robots.txt" || pathname === "/.well-known/brand.json") return null;
   // A verified domain the organization uses neither for the app nor for a portal serves no page.
   if (target && !target.portal && !target.app) return new NextResponse("This domain isn't in use yet", { status: 404 });
@@ -131,6 +132,21 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
     return res;
   }
   const home = await portalHome(slug).catch(() => null);
+  // BUILD_DOMAIN holds builds only: a path a build serves (and the members' door) answers here, at the site's current
+  // address; any other is the site's own page, where it answers. Its owner's JavaScript never shares a domain with portals.
+  if (asked && target?.builds) {
+    if (!home) return new NextResponse("There is no site here", { status: 404 });
+    if (servesBuild(home, rest) || rest === ENTER_PATH) {
+      if (home.builds && new URL(home.builds).host !== host) return new NextResponse(null, { status: 308, headers: { Location: `${home.builds}${rest}${search}` } });
+      const url = req.nextUrl.clone();
+      url.pathname = `/sitefiles/${home.slug}${rest || "/"}`;
+      const res = NextResponse.rewrite(url, init);
+      builds.add(res);
+      return res;
+    }
+    if (new URL(home.url, req.nextUrl).host === host) return new NextResponse("Not found", { status: 404 });
+    return new NextResponse(null, { status: 308, headers: { Location: `${new URL(home.url, req.nextUrl).href.replace(/\/$/, "")}${rest}${search}` } });
+  }
   // A members site's builds, and the door its members come back through (lib/core/sites.ts enterSite), answer only where its builds
   // do, never at /p/ on the app's host. A brand portal's own pages stay at /p/, where its members sign in; a site that is all
   // build has none, so every path of it goes to its host.
@@ -149,6 +165,8 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   const url = req.nextUrl.clone();
   // A path a live build holds is its files (lib/core/sites.ts); a site that is all build, every path. Only here, on the site's own host.
   const built = !!home && servesBuild(home, rest);
+  // Builds that answer on a domain of their own (BUILD_DOMAIN) go there.
+  if (built && home.builds && new URL(home.builds).host !== host) return new NextResponse(null, { status: 308, headers: { Location: `${home.builds}${rest}${search}` } });
   url.pathname = built ? `/sitefiles/${asked}${rest || "/"}` : `/p/${asked}${rest}`;
   const res = NextResponse.rewrite(url, init);
   if (built) builds.add(res);

@@ -110,6 +110,19 @@ const schema = z.object({
     .transform((v) => v.toLowerCase().replace(/\.$/, ""))
     .optional(),
   /**
+   * A domain of their own for built sites (lib/core/sites.ts): {slug}.BUILD_DOMAIN
+   * serves a site's builds, {name}--{slug}.BUILD_DOMAIN its previews, and
+   * PORTAL_DOMAIN keeps the portals' own pages. A build runs its owner's
+   * JavaScript: on another registrable domain it can't set cookies the
+   * portals read. It takes a wildcard DNS record and certificate. Unset:
+   * builds answer at {slug}.PORTAL_DOMAIN.
+   */
+  BUILD_DOMAIN: z
+    .string()
+    .regex(/^[a-z0-9.-]+$/i, "A domain, e.g. sites.example.com")
+    .transform((v) => v.toLowerCase().replace(/\.$/, ""))
+    .optional(),
+  /**
    * Where BrandHub answers (lib/core/hub.ts): every published brand,
    * private to its project or public, for people and agents. A host of its
    * own (https://hub.artbucket.io) is served by src/proxy.ts and shows public
