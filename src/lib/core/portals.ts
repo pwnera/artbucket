@@ -535,8 +535,12 @@ const isMember = (p: Row, headers: Headers | undefined) => readsProject(p.projec
 export async function reader(headers: Headers | undefined) {
   if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
-  if (!session) return null;
-  const mine = await db.select().from(grants).where(heldBy(session.user.id));
+  return session && readerOf(session.user);
+}
+
+/** The same for a person known by id, without a session here: a members site's door cookie (lib/core/sites.ts) names them. */
+export async function readerOf<U extends { id: string }>(user: U) {
+  const mine = await db.select().from(grants).where(heldBy(user.id));
   const may = async (projectId: string, action: Action) => {
     const ws = await projectById(projectId);
     if (!ws) return false;
@@ -545,7 +549,7 @@ export async function reader(headers: Headers | undefined) {
     const orgScope = highest(...mine.filter((g) => g.resource === "organization" && g.resourceId === ws.organizationId).map((g) => g.scope));
     return can({ ...access, orgScope }, action);
   };
-  return { user: session.user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads: (ws: string) => may(ws, "library.read"), may };
+  return { user, orgs: [...new Set(mine.map((g) => g.organizationId))], reads: (ws: string) => may(ws, "library.read"), may };
 }
 
 /** The project of the portal `slug` names, when whoever is signed in may edit its brands; else null. */

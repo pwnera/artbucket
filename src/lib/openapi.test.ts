@@ -11,12 +11,13 @@ const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"];
  * Every route.ts under app/, as [openapi path, exported methods]. /api/auth
  * is better-auth's own surface (signing in), documented by better-auth; /hub
  * is BrandHub's, on a host of its own, documented in guides/portals;
- * /sitefiles is a built site's files, reached only on the site's own host.
+ * /sitefiles is a built site's files, reached only on the site's own host,
+ * and /sites/enter the way into a members site's, a redirect for browsers.
  */
 function routes(): [string, string[]][] {
   return readdirSync(APP, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(`${sep}route.ts`) || f === "route.ts")
-    .filter((f) => !f.startsWith(join("api", "auth")) && !f.startsWith(`hub${sep}`) && !f.startsWith(`sitefiles${sep}`))
+    .filter((f) => !f.startsWith(join("api", "auth")) && !f.startsWith(`hub${sep}`) && !f.startsWith(`sitefiles${sep}`) && !f.startsWith(join("(app)", "sites", "enter")))
     .map((f) => {
       const dir = relative(APP, join(APP, f, "..")).split(sep);
       const path =

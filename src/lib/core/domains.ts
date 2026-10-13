@@ -69,22 +69,34 @@ export async function portalNamed(slug: string) {
   return was ?? null;
 }
 
-type PortalRef = { slug: string; access: string; projectId: string };
+type PortalRef = { slug: string; access: string; projectId: string; kind?: string };
 
 /**
  * Where a portal answers: its own domain once verified; else
  * {slug}.PORTAL_DOMAIN when the server has one; else /p/{slug}, on the
  * organization's domain when it has one. A members portal stays on the app's:
- * sessions don't reach another domain.
+ * sessions don't reach another domain. A members site that is all build
+ * answers where its builds do (buildsAt), its members let in there.
  */
 export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: Date | null } | null) {
-  const app = new URL(env.APP_URL);
-  if (own?.verifiedAt) return `${app.protocol}//${own.host}`;
-  if (env.PORTAL_DOMAIN && p.access !== "members" && !subdomainRefusal(p.slug)) {
-    return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
-  }
+  const at = own?.verifiedAt || p.access !== "members" || (p.kind && p.kind !== "portal") ? buildsAt(p, own) : null;
+  if (at) return at;
   const [ws] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, p.projectId));
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
+}
+
+/**
+ * The origin a site's builds answer at, or null when it has none: its own
+ * domain once verified, else {slug}.PORTAL_DOMAIN when the server has one
+ * and the slug may be a subdomain. Never the app's host: customer JavaScript
+ * runs only on a site's own. A members site's too, where its members are let
+ * in from the app (lib/core/sites.ts enterSite).
+ */
+export function buildsAt(p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null) {
+  const app = new URL(env.APP_URL);
+  if (own?.verifiedAt) return `${app.protocol}//${own.host}`;
+  if (env.PORTAL_DOMAIN && !subdomainRefusal(p.slug)) return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
+  return null;
 }
 
 /** The portal a slug names, now or before a rename: its slug now, who it is for, and where it answers. For src/proxy.ts's redirects. */
@@ -97,7 +109,7 @@ export async function portalHome(slug: string) {
     db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live"))),
   ]);
   // Where its builds answer (lib/core/sites.ts): the proxy sends those paths to their files.
-  return { slug: p.slug, access: p.access, kind: p.kind, mounts: live.map((m) => m.path), url: await portalUrl(p, own ?? null) };
+  return { slug: p.slug, access: p.access, kind: p.kind, mounts: live.map((m) => m.path), url: await portalUrl(p, own ?? null), builds: buildsAt(p, own ?? null) };
 }
 
 /** The portal a verified host name serves, for the proxy; null for any other host. */

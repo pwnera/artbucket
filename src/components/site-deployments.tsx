@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { slugOf } from "@/lib/catalog";
 import { formatSize } from "@/lib/limits";
+import { PORTAL_ACCESS, type PortalAccess } from "@/lib/portal";
 import { send } from "@/lib/send";
 import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
@@ -67,6 +68,15 @@ export function BuildSiteDialog({
         {shown ? (
           <>
             <Deployments site={shown} />
+            {shown.kind !== "portal" && (
+              <WhoGetsIn
+                site={shown}
+                onSaved={(saved) => {
+                  setMade(saved);
+                  onSaved(saved);
+                }}
+              />
+            )}
             <RebuildHook site={shown} />
           </>
         ) : (
@@ -249,6 +259,69 @@ function Deployments({ site }: { site: Portal }) {
  * from it, here or on Vercel, Netlify or Cloudflare Pages, is built again.
  * The URL is a key: once saved it is never shown, only its host.
  */
+const WHO: Record<PortalAccess, string> = { public: "Anyone with the address", password: "Whoever has the password", members: "People in this project, signed in" };
+
+/**
+ * Who may open a built site, as for a portal (a brand portal's own dialog
+ * sets it there). Members open its builds on its own address once signed in
+ * here (lib/core/sites.ts enterSite); a password lasts a week on a browser.
+ */
+function WhoGetsIn({ site, onSaved }: { site: Portal; onSaved: (site: Portal) => void }) {
+  const [access, setAccess] = useState<PortalAccess>(site.access);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fresh = access === "password" && site.access !== "password";
+  const dirty = access !== site.access || (access === "password" && !!password);
+  return (
+    <section aria-label="Who gets in" className="grid gap-2 border-t pt-4">
+      <h3 className="text-sm font-medium">Who gets in</h3>
+      <form
+        className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          const saved: Portal | null = await send("PATCH", `/api/v1/sites/${site.id}`, { access, ...(access === "password" && password && { password }) });
+          setBusy(false);
+          if (!saved) return;
+          setPassword("");
+          onSaved(saved);
+          toast.success(`${WHO[saved.access]} can open it`);
+        }}
+      >
+        <Select value={access} onValueChange={(v) => setAccess(v as PortalAccess)}>
+          <SelectTrigger className={cn("w-full", access !== "password" && "sm:col-span-2")} aria-label="Who gets in">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PORTAL_ACCESS.map((a) => (
+              <SelectItem key={a} value={a}>
+                {WHO[a]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {access === "password" && (
+          <Input
+            type="password"
+            required={fresh}
+            minLength={4}
+            maxLength={200}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={fresh ? "Password" : "A new password"}
+            aria-label="Password"
+          />
+        )}
+        <Button type="submit" variant="outline" disabled={!dirty || busy}>
+          {busy && <Spinner />} Save
+        </Button>
+      </form>
+      {site.access === "members" && <p className="text-muted-foreground text-xs">Members sign in here, then read it at its own address. Anyone else is asked to sign in.</p>}
+    </section>
+  );
+}
+
 function RebuildHook({ site }: { site: Portal }) {
   const [rebuild, setRebuild] = useState(site.rebuild);
   const [brands, setBrands] = useState<{ slug: string; name: string; default: boolean }[]>([]);
