@@ -18,11 +18,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toAse } from "@/lib/ase";
 import { colorsOf } from "@/lib/brand-theme";
-import { contrast, grade, hsl, inkOn, rgb, tintOf, toCmyk } from "@/lib/color";
+import { inkOn, tintOf } from "@/lib/color";
 import type { TEMPLATE_PROPS } from "@/lib/pages";
 import { type COLOR_SPEC, resolve, ruleName } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
-import { gradientCss, gradientOf, kebab, stopHex } from "@/lib/tokens";
+import { gradientCss, gradientOf, stopHex } from "@/lib/tokens";
+import { colorValues, PRINT, SCREEN, swatchInk, type ValueRow } from "../../../kit/ui/swatch.js";
 import { cn } from "@/lib/utils";
 
 /**
@@ -40,8 +41,6 @@ type Value = NonNullable<Props["show"]>[number];
 type Medium = NonNullable<Props["media"]>;
 type Spec = z.output<typeof COLOR_SPEC>;
 
-const SCREEN: Value[] = ["hex", "rgb", "hsl", "token", "css"];
-const PRINT: Value[] = ["cmyk", "pantone", "ral"];
 
 /** The section's columns, as many as its room takes: one on a phone. */
 const GRID: Record<number, string> = {
@@ -72,40 +71,13 @@ function fill(r: ViewRule, paint: (color: string) => string) {
   return g ? gradientCss(g, paint) : (r.value as string);
 }
 
-type Row = { label: string; text: string; converted?: boolean };
+type Row = ValueRow;
 
-/** The values `show` asks for that the color has, in its order; print values the book didn't give are converted, and say so. */
-function readouts(r: ViewRule, show: Value[]): Row[] {
-  const hex = r.value as string;
-  const s = specOf(r);
-  const [R, G, B] = s.rgb ?? rgb(hex);
-  // #rrggbbaa: the RGB says how see-through.
-  const alpha = hex.length === 9 ? Math.round((parseInt(hex.slice(7), 16) / 255) * 100) : 100;
-  return show.flatMap((v): Row[] => {
-    switch (v) {
-      case "hex":
-        return [{ label: "HEX", text: hex }];
-      case "rgb":
-        return [{ label: "RGB", text: alpha < 100 ? `rgb(${R} ${G} ${B} / ${alpha}%)` : `rgb(${R} ${G} ${B})` }];
-      case "hsl": {
-        const [h, sat, l] = hsl([R, G, B]);
-        return [{ label: "HSL", text: `hsl(${h} ${sat}% ${l}%)` }];
-      }
-      case "token":
-        return s.token ? [{ label: "Token", text: s.token }] : [];
-      case "css":
-        return [{ label: "CSS", text: `var(--${kebab(r.key)})` }];
-      case "cmyk": {
-        const [c, m, y, k] = s.cmyk ?? toCmyk(hex);
-        return [{ label: "CMYK", text: `C${c} M${m} Y${y} K${k}`, converted: s.print === "converted" || !s.cmyk }];
-      }
-      case "pantone":
-        return (s.pantone ?? []).map((p) => ({ label: "Pantone", text: p }));
-      case "ral":
-        return s.ral ? [{ label: "RAL", text: `RAL ${s.ral}` }] : [];
-    }
-  });
-}
+/**
+ * The values `show` asks for that the color has, in its order; print values the book didn't give are converted,
+ * and say so. The kit's (kit/ui/swatch.js), so a site built with @artbucket/ui shows the same.
+ */
+const readouts = (r: ViewRule, show: Value[]): Row[] => colorValues(r, show);
 
 /** The section's colors as Adobe swatches, in CMYK where the book gives it, saved as `name`. */
 function saveAse(colors: ViewRule[], name: string) {
@@ -130,7 +102,7 @@ export function PaletteSection({ section, rules }: SectionProps) {
   // Pairs and stops name colors the section may not bind; they read as the context being read has them.
   const all = useMemo(() => resolve(view.rules, context ?? ""), [view.rules, context]);
   const paint = useMemo(() => stopHex(all), [all]);
-  const show = p.show ?? [...SCREEN, ...PRINT];
+  const show: Value[] = p.show ?? [...SCREEN, ...PRINT];
   const values = { screen: show.filter((v) => SCREEN.includes(v)), print: show.filter((v) => PRINT.includes(v)) };
   const both = values.screen.length > 0 && values.print.length > 0;
   const [picked, setPicked] = useState<Medium>(p.media ?? "screen");
@@ -283,11 +255,8 @@ function Swatch({
   const texture = useMedia(s.texture);
   const g = gradientOf(r);
   const name = ruleName(r);
-  // Text on it: the color the book pairs with it, else whichever of black and white reads.
-  const partner = s.pair ? all.find((x) => x.key === s.pair && x.type === "color") : undefined;
-  const ink = partner ? (partner.value as string).slice(0, 7) : inkOn(hex);
-  const ratio = contrast(ink, hex);
-  const graded = grade(ratio);
+  // Text on it: the color the book pairs with it, else whichever of black and white reads (the kit's, swatch.js).
+  const { ink, partner, ratio, grade: graded } = swatchInk(r, all);
 
   return (
     <div id={anchor} className="group/block min-w-0 scroll-mt-20 space-y-3">

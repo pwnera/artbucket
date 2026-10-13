@@ -96,7 +96,7 @@ test("guidelines: the palette, faces, logos and every other rule, from the relea
   const html = site.read("index.html");
   // Drawn by @artbucket/ui: the chip in its color with the ink that reads on it, its values and contrast.
   assert.match(html, /<span class="ab-chip" style="background:#e11d48;color:#ffffff">Aa<\/span><b>color\.primary<\/b><code>#e11d48<\/code>/);
-  assert.match(html, /<dt>RGB<\/dt><dd>225, 29, 72<\/dd>/);
+  assert.match(html, /<dt>RGB<\/dt><dd>rgb\(225 29 72\)<\/dd>/);
   assert.match(html, /<dt>On white<\/dt><dd>4\.\d:1 AA<\/dd>/);
   assert.match(html, /font-family:&#34;Acme Sans&#34;/);
   assert.match(html, new RegExp(`<img src="/assets/${LOGO}.svg" alt="logo.primary">`));
