@@ -55,9 +55,20 @@ nothing, and exits 1 when it uses what may not be shown, so it can fail a CI job
 
 ```bash
 artbucket sites
+artbucket site new acme-docs --brand acme --kind docs --create
 artbucket site push dist --site acme-docs
 artbucket site push storybook-static --site acme --path /storybook --kind storybook
 artbucket site check dist
+```
+
+`site new` starts a site from the brand (`landing`, `docs` or `guidelines`),
+wired to deploy with `npm run deploy`; `brand export` writes the release
+readers see into a folder a build reads: its rules as JSON, `tokens.css` and
+the files they point at.
+
+```bash
+artbucket brand export .brand --brand acme
+artbucket brand export .brand --brand acme --release 12
 ```
 
 A brand's pages, rules and theme, from JSON files in the shapes the API takes:

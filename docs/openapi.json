@@ -3314,6 +3314,14 @@
               "type": "string"
             },
             "description": "Resolve for this context, e.g. dark-background"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "live: the release readers see, as a site built from the brand shows it; a number: that release. The draft without it"
           }
         ],
         "responses": {
@@ -16898,6 +16906,14 @@
               "format": "uuid"
             },
             "description": "Only the rules that point at this asset"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "live: the release readers see, with only the files that may leave the team; a number: that release. The draft without it"
           }
         ],
         "responses": {
@@ -17110,6 +17126,32 @@
                         "type": "string"
                       },
                       "description": "Every context some rule is scoped to"
+                    },
+                    "release": {
+                      "description": "With `version`: the release read; null for a brand with no history yet, read as it stands",
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "publishedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "publishedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [

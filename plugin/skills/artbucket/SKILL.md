@@ -133,7 +133,10 @@ A landing page, docs or a guidelines site you build yourself, in any framework t
 files, is published to a site of its own, or beside a brand portal at a path. Deploying takes a key
 that manages sites; checking, a read key.
 
-1. **Build from the brand.** Read `brand_rules` first, as above. Put assets in by their rendition
+1. **Build from the brand.** With a terminal, `artbucket site new <folder> --brand <slug> --kind docs`
+   starts one (landing, docs or guidelines) that builds from the brand's release and deploys with
+   `npm run deploy`; `artbucket brand export` gives any other build the release as files. Read
+   `brand_rules` first, as above. Put assets in by their rendition
    URLs, `/c/{id}/w_800,f_webp` (from `rendition_url`), not as copied files: `/c/` follows the current
    version, so a new logo reaches the site with no rebuild. A file you copy in anyway is known by its
    bytes and checked the same.

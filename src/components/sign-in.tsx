@@ -958,7 +958,14 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       forgot={auth.passwordReset}
       organization={first}
       setup={first && auth.setupToken}
-      then={first ? (v) => void nameOrganization(v.organization).then(() => go(next || "/")) : undefined}
+      then={
+        first
+          ? (v) => void nameOrganization(v.organization).then(() => go(next || "/"))
+          : // A members site's way in answers with a redirect to the site's own host: a page load, not the app's router, follows it.
+            next?.startsWith("/sites/enter")
+            ? () => window.location.assign(next)
+            : undefined
+      }
       error={error ? SSO_FAILED : undefined}
       below={!first && !auth.open ? "Accounts are by invitation: ask an admin." : undefined}
       legal={auth.legal}
