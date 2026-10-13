@@ -1,0 +1,17 @@
+{
+  "name": "@artbucket/brand",
+  "version": "2.0.0",
+  "description": "One release of a brand from Artbucket, read at build time, and the manifest of what the site used.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pwnera/artbucket.git",
+    "directory": "kit/brand"
+  },
+  "type": "module",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" }
+  },
+  "files": ["index.js", "index.d.ts", "LICENSE", "README.md"],
+  "engines": { "node": ">=22" }
+}

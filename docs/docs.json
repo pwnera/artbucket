@@ -94,6 +94,7 @@
           "developers/api",
           "developers/mcp",
           "developers/cli",
+          "developers/kit",
           "developers/stability",
           "developers/benchmarks",
           {

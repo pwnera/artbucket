@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { BrandReader } from "@/components/site/brand-reader";
 import { brandHead } from "@/lib/brand-head";
 import { env } from "@/lib/env";
+import { gitLink } from "@/lib/git";
 import { can } from "@/lib/permissions";
 import { shownVersion } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
@@ -11,7 +12,7 @@ import { builderPath, guidelinesPath, type PageView } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-type Query = { page?: string; context?: string; lang?: string; version?: string; focus?: string; panel?: string; git?: string };
+type Query = { page?: string; context?: string; lang?: string; version?: string; focus?: string; panel?: string; git?: string; ways?: string };
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Query> };
 
 /** One page's view as its readers get it (GET /api/v1/brands/{slug}/view). */
@@ -55,6 +56,8 @@ export default async function GuidelinesPage({ params, searchParams }: Props) {
       embed={q.focus === "1" ? undefined : { head: { brand, origin: env.APP_URL, rules, status, release } }}
       status={status}
       version={version}
+      // The builder read-only: Edit opens the three ways to change the pages instead (`?ways=1`).
+      ways={edit && env.BUILDER === "read-only" ? { mcp: `${env.APP_URL}/api/v1/mcp`, git: env.GIT_CONNECT_URL ? gitLink(env.GIT_CONNECT_URL, slug) : null } : undefined}
     />
   );
 }

@@ -1,8 +1,8 @@
 # __NAME__
 
 A __KIND__ site for the __BRAND__ brand, made with `artbucket site new`. It is plain HTML and one build
-script with no dependencies but the Artbucket CLI: change anything, or move it to the framework you
-like. These files are yours, under the MIT License: keep its notice (LICENSE) and do as you wish.
+script, with the Artbucket CLI and kit (`@artbucket/brand` reads the release, `@artbucket/ui` draws
+its rules): change anything, or move it to the framework you like. These files are yours, under the MIT License: keep its notice (LICENSE) and do as you wish.
 
 ## Build and deploy
 
@@ -24,7 +24,8 @@ site with that address) or with `npx artbucket site new --create`.
 
 Each page is an HTML file in `src/pages`, wrapped in `src/layout.html`; its first heading is its
 title in the menu. Double braces bring in the brand, as `build.mjs` explains at its top:
-`{{text:brand.headline}}`, `{{logo}}`, `{{palette}}`, `{{type}}`, `{{logos}}`. The colors and
+`{{text:brand.headline}}`, `{{logo}}`, `{{palette}}`, `{{type}}`, `{{logos}}`, `{{rule:color.primary}}`.
+Files in `src/public` are copied as they are. The colors and
 faces come from the brand too (`look.css`, and every rule as a custom property in `tokens.css`).
 
 ## When the brand changes

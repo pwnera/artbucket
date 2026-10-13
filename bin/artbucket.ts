@@ -61,6 +61,9 @@ const HELP = `artbucket <command>
                           start a site from the brand: plain HTML and a build script,
                           deployed with npm run deploy to --site (dir's name by
                           default); --create makes that site, for members
+  site eject <dir> --brand <b> [--site <address>] [--create]
+                          eject to code: the brand's released pages as a
+                          guidelines site of its own, built with the kit
   site check [dir]        check a build hosted anywhere, from its CI: what it uses
                           of the library, and why any of it may not be shown;
                           exits 1 when something may not
@@ -598,7 +601,7 @@ async function filesIn(root: URL | string, rel = ""): Promise<string[]> {
  * writes into an empty or new folder only. --create makes the site in
  * Artbucket, for members until someone opens it.
  */
-async function siteNew(dir: string) {
+async function siteNew(dir: string, pages?: (target: string, brand: string) => Promise<string>) {
   const kind = opt.kind ?? "landing";
   if (!SITE_KINDS.includes(kind)) throw new Error(`--kind is ${SITE_KINDS.join(", ")}`);
   const target = resolve(dir);
@@ -632,12 +635,20 @@ async function siteNew(dir: string) {
       check: "npm run build && artbucket site check dist",
       deploy: `npm run build && artbucket site push dist --site ${address}`,
     },
-    devDependencies: { artbucket: `^${own.version}` },
+    devDependencies: { artbucket: `^${own.version}`, "@artbucket/brand": `^${own.version}`, "@artbucket/ui": `^${own.version}` },
     engines: { node: ">=22" },
   };
   await writeFile(join(target, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
+  // Eject: the brand's own pages in place of the starter's.
+  let made: string | null = null;
+  if (pages) {
+    await rm(join(target, "src", "pages"), { recursive: true, force: true });
+    await mkdir(join(target, "src", "pages"), { recursive: true });
+    made = await pages(target, slug);
+  }
   return [
     `Made ${dir}/: a ${kind} site for ${slug}, deploying to ${site ? site.url : `the site ${address}`}.`,
+    made,
     site ? null : `There is no site ${address} yet: make it in Sites (a built site with that address), or run this again with --create.`,
     "",
     `  cd ${dir}`,
@@ -646,6 +657,152 @@ async function siteNew(dir: string) {
   ]
     .filter((l) => l !== null)
     .join("\n");
+}
+
+/** Text for a page the starter's build fills: escaped, and no {{ left for it to read as a slot. */
+const pageText = (v: unknown) => String(v ?? "").replace(/[&<>"'{}]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** A link a page may keep: a page of the site, an anchor, https or mail. */
+const keptLink = (href: string) => (/^(https?:\/\/|mailto:|\/(?!\/)|#)/i.test(href) ? href : null);
+
+/** Markdown, as brand pages write it (paragraphs, lists, headings, bold, italics, code and links), as HTML. */
+function markdownHtml(md: string) {
+  const inline = (t: string) =>
+    pageText(t)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[\s(])[*_](?!\s)(.+?)[*_](?=[\s).,;:!?]|$)/g, "$1<em>$2</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (whole, text: string, href: string) => {
+        const to = keptLink(href.replace(/&#38;/g, "&"));
+        return to ? `<a href="${pageText(to)}">${text}</a>` : text;
+      });
+  return md
+    .trim()
+    .split(/\n{2,}/)
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split("\n");
+      if (lines.every((l) => /^\s*[-*] /.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ""))}</li>`).join("")}</ul>`;
+      if (lines.every((l) => /^\s*\d+\. /.test(l))) return `<ol>${lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\. /, ""))}</li>`).join("")}</ol>`;
+      const heading = block.match(/^(#{1,6}) (.*)$/);
+      if (heading && lines.length === 1) return `<h3>${inline(heading[2])}</h3>`;
+      return `<p>${lines.map(inline).join("<br>")}</p>`;
+    })
+    .join("\n");
+}
+
+type ViewSection = { template: string; title?: string; eyebrow?: string; lede?: string; body?: string; keys?: string[]; items?: { title?: string; text?: string; link?: string; label?: string; asset?: string; verdict?: "do" | "dont"; caption?: string }[]; hidden?: boolean; props?: Record<string, unknown> };
+type View = { nav: { slug: string; title: string; home: boolean }[]; page: { slug: string; title: string; eyebrow: string | null; lede: string | null; sections: ViewSection[] }; rules: { key: string; type: string; context: string | null; assets: { id: string }[] }[]; media: Record<string, { mime: string; filename: string; original: string }> };
+
+/** What the kit draws a rule as, by its type and files: the starter's {{palette}}, {{type}}, {{logos}} or {{rules}}. */
+const DRAWN: Record<string, string> = { color: "palette", font: "type" };
+/** Templates whose drawing the kit has no match for yet: kept as their words, with a note to draw them. */
+const AS_WORDS = new Set(["chart", "pattern", "diagram", "annotated", "request", "updates", "collection", "specs", "copy", "embed"]);
+
+/**
+ * One page of a brand as readers see it, as a page of a site built with the
+ * kit: its sections in order, their words as HTML, their rules drawn by
+ * @artbucket/ui as the build fills the slots. A picture a section shows is
+ * fetched once into src/public/assets.
+ */
+async function pageFile(view: View, target: string, pictures: Map<string, string | null>) {
+  const kindOf = (key: string) => {
+    const r = view.rules.find((x) => x.key === key && x.context === null);
+    if (!r) return null;
+    if (r.assets.some((a) => view.media[a.id]?.mime?.startsWith("image/"))) return "logos";
+    return DRAWN[r.type] ?? "rules";
+  };
+  const draw = (keys: string[] = []) => {
+    const groups = new Map<string, string[]>();
+    for (const k of keys) {
+      const kind = kindOf(k);
+      if (kind) groups.set(kind, [...(groups.get(kind) ?? []), k]);
+    }
+    return [...groups].map(([kind, ks]) => `{{${kind}:${ks.join(",")}}}`).join("\n");
+  };
+  const picture = async (id?: string) => {
+    const m = id ? view.media[id] : undefined;
+    if (!id || !m?.mime?.startsWith("image/") || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+    if (!pictures.has(id)) {
+      const res = await fetch(`${BASE}/a/${id}`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
+      if (!res.ok) pictures.set(id, null);
+      else {
+        const name = `assets/${id}.${EXTENSIONS[(res.headers.get("content-type") ?? "").split(";")[0].trim()] ?? "bin"}`;
+        await mkdir(join(target, "src", "public", "assets"), { recursive: true });
+        await writeFile(join(target, "src", "public", name), Buffer.from(await res.arrayBuffer()));
+        pictures.set(id, `/${name}`);
+      }
+    }
+    return pictures.get(id) ?? null;
+  };
+  const items = async (s: ViewSection) => {
+    if (!s.items?.length) return "";
+    if (s.template === "faq") return s.items.map((i) => `<details><summary>${pageText(i.title)}</summary>${markdownHtml(i.text ?? "")}</details>`).join("\n");
+    const lis = [];
+    for (const i of s.items) {
+      const img = await picture(i.asset);
+      const alt = pageText(i.caption ?? i.title ?? "");
+      if (i.verdict) {
+        // As @artbucket/ui draws a do or a don't, so kit.css styles it.
+        const dont = i.verdict === "dont";
+        lis.push(`<li class="${dont ? "ab-dont" : "ab-do"}">${img ? `<figure class="ab-tile"><img src="${img}" alt="${alt}"></figure>` : ""}<span class="ab-verdict">${dont ? "Don't" : "Do"}</span>${i.title ? `<b>${pageText(i.title)}</b>` : ""}${i.text ? markdownHtml(i.text) : ""}</li>`);
+        continue;
+      }
+      const link = i.link ? keptLink(i.link) : null;
+      const title = i.title ? (link ? `<a href="${pageText(link)}"><b>${pageText(i.title)}</b></a>` : `<b>${pageText(i.title)}</b>`) : "";
+      lis.push(`<li>${img ? `<img src="${img}" alt="${alt}">` : ""}${title}${i.text ? markdownHtml(i.text) : ""}${i.label && link ? `<a href="${pageText(link)}">${pageText(i.label)}</a>` : ""}</li>`);
+    }
+    return `<ul class="${s.items.some((i) => i.verdict) ? "ab-dodont" : "cards"}">\n${lis.join("\n")}\n</ul>`;
+  };
+  const out = [`<section class="hero">`, view.page.eyebrow ? `  <p class="eyebrow">${pageText(view.page.eyebrow)}</p>` : null, `  <h1>${pageText(view.page.title)}</h1>`, view.page.lede ? `  <p>${pageText(view.page.lede)}</p>` : null, `</section>`];
+  for (const s of view.page.sections) {
+    if (s.hidden) continue;
+    const quote = s.template === "statement" || s.template === "quote";
+    out.push(
+      "",
+      `<section class="${s.template}">`,
+      AS_WORDS.has(s.template) ? `  <!-- A "${s.template}" section in Artbucket, kept here as its words: draw it as you like. -->` : null,
+      s.eyebrow ? `  <p class="eyebrow">${pageText(s.eyebrow)}</p>` : null,
+      s.title ? (quote ? `  <blockquote><p>${pageText(s.title).replace(/\n/g, "<br>")}</p></blockquote>` : `  <h2>${pageText(s.title).replace(/\n/g, "<br>")}</h2>`) : null,
+      s.lede ? `  <p class="lede">${pageText(s.lede)}</p>` : null,
+      s.body ? markdownHtml(s.body) : null,
+      s.template === "embed" && typeof s.props?.url === "string" && keptLink(s.props.url) ? `  <p><a href="${pageText(s.props.url)}">${pageText(s.props.url)}</a></p>` : null,
+      draw(s.keys) || null,
+      (await items(s)) || null,
+      `</section>`,
+    );
+  }
+  return out.filter((l) => l !== null).join("\n") + "\n";
+}
+
+/**
+ * Eject to code: a brand's pages as readers see them (its release), made a
+ * guidelines site of its own with the kit, in a new folder. The pages in
+ * Artbucket stay as they are; the site is built and deployed like any other.
+ */
+async function siteEject(dir: string) {
+  opt.kind = "guidelines";
+  return siteNew(dir, async (target, slug) => {
+    const path = `/api/v1/brands/${encodeURIComponent(slug)}/view`;
+    const first = (
+      await api("GET", `${path}?version=live`).catch((err: Error) => {
+        throw /Never released/.test(err.message) ? new Error(`${slug} has no release yet: ejecting takes the pages readers see. Release it first (artbucket publish --brand ${slug})`) : err;
+      })
+    ).data as View;
+    const pictures = new Map<string, string | null>();
+    const order: string[] = [];
+    for (const p of first.nav) {
+      const view = p.slug === first.page.slug ? first : ((await api("GET", `${path}?${new URLSearchParams({ version: "live", page: p.slug })}`)).data as View);
+      const name = p.home || order.length === 0 ? "index.html" : `${p.slug}.html`;
+      if (order.includes(name)) continue;
+      order.push(name);
+      await writeFile(join(target, "src", "pages", name), await pageFile(view, target, pictures));
+    }
+    // The menu keeps the brand's order.
+    await writeFile(join(target, "src", "pages", "order.txt"), order.join("\n") + "\n");
+    const n = [...pictures.values()].filter(Boolean).length;
+    return `Ejected ${order.length} page${order.length === 1 ? "" : "s"} of ${slug}${n ? `, with ${n} picture${n === 1 ? "" : "s"} in src/public/assets` : ""}: they are this site's now, and the brand's pages in Artbucket stay as they are.`;
+  });
 }
 
 async function brandPull(dir: string) {
@@ -941,6 +1098,7 @@ async function main() {
     case "site": {
       const [sub, dir = "dist"] = args;
       if (sub === "new") return console.log(await siteNew(need(args[1], "the new site's folder: artbucket site new acme-docs --brand acme")));
+      if (sub === "eject") return console.log(await siteEject(need(args[1], "the new site's folder: artbucket site eject acme-guidelines --brand acme")));
       if (sub === "check") {
         const { zip, files } = await zipFolder(resolve(dir));
         const res = await fetch(`${BASE}/api/v1/sites/check`, {

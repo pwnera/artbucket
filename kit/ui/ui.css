@@ -1,0 +1,23 @@
+/* @artbucket/ui: the drawings' look. Colors follow the page (currentColor) unless --ab-line, --ab-tile
+   or --ab-do / --ab-dont say otherwise; faces are the brand's own. MIT License, see LICENSE. */
+.ab-palette, .ab-type, .ab-logos, .ab-dodont { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
+.ab-palette > li, .ab-type > li, .ab-logos > li, .ab-dodont > li { display: grid; gap: 0.35rem; align-content: start; }
+.ab-chip { display: grid; place-items: end start; height: 7rem; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid var(--ab-line, rgb(0 0 0 / 0.08)); font-weight: 600; }
+.ab-values { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.75rem; margin: 0; font-size: 0.85rem; }
+.ab-values dt { opacity: 0.6; }
+.ab-values dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ab-usage { margin: 0; font-size: 0.9rem; opacity: 0.75; }
+.ab-sample { font-size: 4.5rem; line-height: 1; }
+.ab-family { opacity: 0.75; }
+.ab-alphabet { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.ab-tile { margin: 0; display: grid; place-items: center; height: 9rem; padding: 1.25rem; border-radius: 0.75rem; background: var(--ab-tile, rgb(0 0 0 / 0.04)); }
+.ab-tile img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ab-verdict { font-weight: 700; color: var(--ab-do, #15803d); }
+.ab-dont .ab-verdict { color: var(--ab-dont, #b91c1c); }
+.ab-dodont p { margin: 0; }
+.ab-rules { margin: 0; }
+.ab-rules dt { font-weight: 600; margin-top: 1rem; }
+.ab-rules dd { margin: 0; }
+.ab-value { display: inline-flex; align-items: center; gap: 0.4rem; }
+img.ab-value { height: 2rem; width: auto; }
+.ab-dot { width: 1em; height: 1em; border-radius: 50%; border: 1px solid var(--ab-line, rgb(0 0 0 / 0.08)); }
