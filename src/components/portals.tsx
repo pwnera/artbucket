@@ -146,9 +146,10 @@ const upsert = (rows: Portal[], p: Portal) =>
  * collections and brand guidelines, themed, with downloads made for a
  * purpose. Each from /api/v1/sites like any client's; `?open={id}` opens
  * one's requests. `portalDomain`: the server's PORTAL_DOMAIN, where each
- * portal answers at {slug}.{portalDomain} too.
+ * portal answers at {slug}.{portalDomain} too. `buildUrl`: the server's
+ * SITE_BUILD_URL, where a built site gets built from a repository.
  */
-export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDomain?: string }) {
+export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]; portalDomain?: string; buildUrl?: string }) {
   const { collections, brands, openCollection } = useShell();
   const router = useRouter();
   const params = useSearchParams();
@@ -327,6 +328,7 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
           key={building === "new" ? "new" : building.id}
           open
           site={building === "new" ? null : building}
+          buildUrl={buildUrl}
           onClose={() => {
             setBuilding(null);
             if (fresh) router.replace("/sites", { scroll: false });

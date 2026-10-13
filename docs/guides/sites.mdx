@@ -79,6 +79,12 @@ are kept, so **Restore** (or `POST
 /api/v1/sites/{id}/deployments/{deployment}/restore`) puts one back without
 building again; older ones, and failed ones, are deleted with their files.
 
+On a server with a build integration (`SITE_BUILD_URL`, see
+[Environment](/configuration/environment)), a site's Deployments offer
+**Build from GitHub**: the integration builds the site from its repository on
+each push, previews each pull request, and deploys through the same API, so
+every check below applies to its builds too.
+
 ## Preview a pull request
 
 A deployment named as a preview is kept beside the live one, never in its
