@@ -146,3 +146,10 @@ export const servesBuild = (site: { kind: string; mounts: string[] }, rest: stri
  * shadow it. Plain HTTP, in development, can't carry the prefix.
  */
 export const unlockCookie = (secure: boolean) => (secure ? "__Host-ab_site" : "ab_site");
+
+/**
+ * Where a members site's host trades the app's ticket for its door's cookie
+ * (lib/core/sites.ts letIn): answered on every site's host, whatever its
+ * builds hold there.
+ */
+export const ENTER_PATH = "/.artbucket/enter";

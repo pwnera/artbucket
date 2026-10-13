@@ -6,13 +6,15 @@ import { eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets, portals, siteDeployments } from "@/lib/db/schema";
+import { assets, grants, portals, siteDeployments } from "@/lib/db/schema";
+import { env } from "@/lib/env";
+import { ENTER_PATH } from "@/lib/sites";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, getPortal, updatePortal } from "@/lib/core/portals";
 import { rebuildSites } from "@/lib/core/rebuild";
 import { resolveBrand } from "@/lib/core/brands";
-import { checkBuild, deploy, HELD_DAYS, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -335,4 +337,50 @@ test("a build's _redirects and _headers: redirects, a single-page app's rewrite,
   // What can't be read is refused, at its line.
   await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": "x", _redirects: "/a /b\n/c" })), /_redirects:2: a rule is a path/);
   await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": "x", _headers: "/*\n  Set-Cookie: a=b" })), /_headers:2: Set-Cookie is the server's to set/);
+});
+
+test("a members site's builds open on its own host for someone who may read the project, let in from the app with a ticket used once", async (t) => {
+  env.PORTAL_DOMAIN = "sites.test";
+  t.after(() => void (env.PORTAL_DOMAIN = undefined));
+  const club = await createPortal(ada.caller, { name: "Club", slug: `club-${Date.now().toString(36)}`, kind: "docs", access: "members" });
+  await deploy(ada.caller, club.id, pack({ "index.html": "inside" }));
+  // A members site that is all build answers where its builds do.
+  assert.equal((await getPortal(ada.caller, club.id))?.url, `http://${club.slug}.sites.test:3000`);
+  await assert.rejects(siteFile(club.slug, {}, "/"), /for members/);
+  assert.equal(await membersDoor(club.slug, "/guide?x=1"), `http://localhost:3000/sites/enter?site=${club.slug}&to=%2Fguide%3Fx%3D1`);
+
+  // Signed out: sign in first. Signed in: back to the site with a ticket, to the path asked, never another origin.
+  assert.deepEqual(await enterSite(club.slug, new Headers(), "/"), { signIn: true });
+  const went = await enterSite(club.slug, new Headers({ cookie: ada.cookie }), "//evil.example/x");
+  assert.ok("url" in went);
+  const back = new URL(went.url);
+  assert.equal(back.origin, `http://${club.slug}.sites.test:3000`);
+  assert.equal(back.pathname, ENTER_PATH);
+  assert.equal(back.searchParams.get("to"), "/");
+  const ticket = back.searchParams.get("t")!;
+
+  // The ticket opens this site once, and no other.
+  const other = await createPortal(ada.caller, { name: "Other club", slug: `club2-${Date.now().toString(36)}`, kind: "docs", access: "members" });
+  assert.equal(await letIn(other.slug, ticket), null);
+  const cookie = await letIn(club.slug, ticket);
+  assert.ok(cookie);
+  assert.equal(await letIn(club.slug, ticket), null);
+  assert.equal(statusOf(await siteFile(club.slug, {}, "/", cookie)), 200);
+  await assert.rejects(siteFile(other.slug, {}, "/", cookie), /for members/);
+  await assert.rejects(siteFile(club.slug, {}, "/", `${cookie!.split(".")[0]}.9999999999.forged`), /for members/);
+
+  // Someone outside the project is told so; someone let in and then removed is out at once.
+  const bob = await signUp("Sitesbob");
+  const refused = await enterSite(club.slug, new Headers({ cookie: bob.cookie }), "/");
+  assert.ok("refused" in refused && /isn't one of them/.test(refused.refused));
+  const [grant] = await db
+    .insert(grants)
+    .values({ userId: bob.user.id, organizationId: ada.caller.project.organizationId, projectId: ada.caller.project.id, resource: "project", resourceId: ada.caller.project.id, scope: "read" })
+    .returning();
+  const his = await enterSite(club.slug, new Headers({ cookie: bob.cookie }), "/");
+  assert.ok("url" in his);
+  const bobs = await letIn(club.slug, new URL(his.url).searchParams.get("t")!);
+  assert.equal(statusOf(await siteFile(club.slug, {}, "/", bobs)), 200);
+  await db.delete(grants).where(eq(grants.id, grant.id));
+  await assert.rejects(siteFile(club.slug, {}, "/", bobs), /for members/);
 });

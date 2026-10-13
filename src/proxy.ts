@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { servesBuild } from "@/lib/sites";
+import { ENTER_PATH, servesBuild } from "@/lib/sites";
 import { ipOf } from "@/lib/client-ip";
 import { hostTarget, portalHome } from "@/lib/core/domains";
 import { suspendedAt } from "@/lib/core/suspension";
@@ -123,6 +123,17 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   if (!slug) return null;
   const rest = onApp ? (onApp[2] ?? "") : pathname === "/" ? "" : pathname;
   const home = await portalHome(slug).catch(() => null);
+  // A members site's builds, and the door its members come back through (lib/core/sites.ts enterSite), answer only where its builds
+  // do, never at /p/ on the app's host; its own pages stay at /p/, where its members sign in.
+  if (home?.access === "members" && home.builds && (servesBuild(home, rest) || rest === ENTER_PATH)) {
+    const elsewhere = asked !== home.slug || new URL(home.builds).host !== host;
+    const url = req.nextUrl.clone();
+    url.pathname = `/sitefiles/${asked}${rest || "/"}`;
+    // Either way the path goes as asked, its slash included: the build's folders keep theirs.
+    const res = elsewhere ? new NextResponse(null, { status: 308, headers: { Location: `${home.builds}${rest}${search}` } }) : NextResponse.rewrite(url, init);
+    builds.add(res);
+    return res;
+  }
   const where = home && portalRedirect(home, asked ? { host, slug } : { slug });
   if (where) return new NextResponse(null, { status: 308, headers: { Location: `${where}${rest}${search}` } });
   if (!asked) return null;

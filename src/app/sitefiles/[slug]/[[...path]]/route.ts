@@ -1,8 +1,9 @@
 import { handle } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
 import { enterPortal, passOf } from "@/lib/core/portals";
-import { siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
-import { unlockCookie } from "@/lib/sites";
+import { letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
+import { ENTER_PATH, unlockCookie } from "@/lib/sites";
+import { localPath } from "@/lib/markdown";
 import { getStream } from "@/lib/storage";
 
 /**
@@ -30,8 +31,13 @@ const cookieOf = (req: Request, name: string) =>
     .find((c) => c.startsWith(`${name}=`))
     ?.slice(name.length + 1) ?? null;
 
+/** The door's cookie, on the site's own host only, for `seconds`. */
+const doorCookie = (req: Request, value: string, seconds: number) =>
+  `${unlockCookie(secure(req))}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${seconds}${secure(req) ? "; Secure" : ""}`;
+
 export async function GET(req: Request, ctx: Params) {
   const { slug, path, rest } = await asked(req, ctx);
+  if (rest === ENTER_PATH) return enter(req, slug);
   try {
     const f = await siteFile(slug, passOf(req), rest, cookieOf(req, unlockCookie(secure(req))));
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -50,9 +56,28 @@ export async function GET(req: Request, ctx: Params) {
     headers.set("Content-Length", String(length));
     return new Response(body, { status: f.status, headers });
   } catch (err) {
-    if (err instanceof AssetError && err.code === "password") return door(err, rest);
+    if (err instanceof AssetError && err.code === "password") return door(err, slug, `${rest}${new URL(req.url).search}`);
     return handle(err);
   }
+}
+
+/**
+ * A members site's ticket from the app (lib/core/sites.ts enterSite), traded
+ * for the door's cookie, then on to the page asked. A ticket that doesn't
+ * open it goes back to the app, which says why or hands a new one.
+ */
+async function enter(req: Request, slug: string) {
+  const q = new URL(req.url).searchParams;
+  const to = localPath(q.get("to")) ? q.get("to")! : "/";
+  const value = await letIn(slug, q.get("t") ?? "").catch(() => null);
+  const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  if (!value) {
+    headers.set("Location", await membersDoor(slug, to));
+    return new Response(null, { status: 303, headers });
+  }
+  headers.set("Location", to);
+  headers.set("Set-Cookie", doorCookie(req, value, MEMBER_HOURS * 3600));
+  return new Response(null, { status: 303, headers });
 }
 
 /** The door's form, posted to the address it stands at: the password checked as the portal checks it, then a cookie for the site's host. */
@@ -63,17 +88,13 @@ export async function POST(req: Request, ctx: Params) {
   try {
     await enterPortal(slug, { password, key: null, headers: req.headers });
   } catch (err) {
-    if (err instanceof AssetError && (err.code === "password" || err.code === "rate_limited")) return door(err, rest, true);
+    if (err instanceof AssetError && (err.code === "password" || err.code === "rate_limited")) return door(err, slug, rest, true);
     return handle(err);
   }
   const value = await unlockValue(slug);
-  const https = secure(req);
   return new Response(null, {
     status: 303,
-    headers: {
-      Location: `${rest}${new URL(req.url).search}`,
-      "Set-Cookie": `${unlockCookie(https)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${UNLOCK_DAYS * 86400}${https ? "; Secure" : ""}`,
-    },
+    headers: { Location: `${rest}${new URL(req.url).search}`, "Set-Cookie": doorCookie(req, value ?? "", UNLOCK_DAYS * 86400) },
   });
 }
 
@@ -103,10 +124,10 @@ function own(rules: [string, string][], open: boolean) {
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** A members site's builds wait for sign-in on its own host; a password site's ask here. */
-function door(err: AssetError, rest: string, tried = false) {
+/** A members site's visitor goes to sign in at the app, and comes back let in (enter); a password site's ask here. */
+async function door(err: AssetError, slug: string, rest: string, tried = false) {
   const d = (err.detail ?? {}) as { name?: string; access?: string };
-  if (d.access === "members") return new Response("This site is for members: its built pages aren't shown here yet", { status: 403, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  if (d.access === "members") return new Response(null, { status: 303, headers: { Location: await membersDoor(slug, rest), "Cache-Control": "no-store" } });
   const name = esc(d.name ?? "This site");
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${name}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,sans-serif;background:#fafafa;color:#18181b}form{display:grid;gap:12px;width:min(320px,90vw)}h1{font-size:18px;margin:0}p{margin:0;color:#71717a}input,button{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid #d4d4d8}button{background:#18181b;color:#fff;border-color:#18181b;cursor:pointer}@media (prefers-color-scheme:dark){body{background:#09090b;color:#fafafa}p{color:#a1a1aa}input{background:#18181b;color:#fafafa;border-color:#3f3f46}button{background:#fafafa;color:#18181b;border-color:#fafafa}}</style>

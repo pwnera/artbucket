@@ -1,22 +1,23 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, portals, siteDeployments } from "@/lib/db/schema";
+import { assets, brands, domains, portals, siteDeployments } from "@/lib/db/schema";
 import { projectById, type Caller } from "@/lib/core/access";
 import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, portalNamed } from "@/lib/core/domains";
-import { adminsOf, enterPortal, type Pass } from "@/lib/core/portals";
+import { appUrlFor, buildsAt, portalNamed } from "@/lib/core/domains";
+import { adminsOf, enterPortal, reader, readerOf, type Pass } from "@/lib/core/portals";
 import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
-import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
+import { assetAddresses, BUILD_KINDS, ENTER_PATH, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { signLines, signsIn, type Sign } from "@/lib/site-safety";
 import { headersFor, HEADERS, parseHeaders, parseRedirects, redirectFor, REDIRECTS, type SiteRules } from "@/lib/site-rules";
+import { localPath } from "@/lib/markdown";
 import { putObject, sizeOf } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
 
@@ -434,11 +435,82 @@ export async function unlockValue(slug: string) {
   return p ? signAsset(env.BETTER_AUTH_SECRET, unlockId(p), new Date(Date.now() + UNLOCK_DAYS * 864e5)) : null;
 }
 
-/** Whether a cookie opens this password site. */
-async function unlocked(slug: string, value: string | null | undefined) {
-  if (!value) return false;
+/**
+ * A members site's builds answer on its own host, where the app's session
+ * doesn't reach: a member asked there goes to the app (app/(app)/sites/enter,
+ * membersDoor), which, once they are signed in and may read the project,
+ * sends them back with a ticket good for ENTER_SECONDS and once (enterSite).
+ * The site's host trades it for its door's cookie (letIn), which names them:
+ * each file asked checks again that they may still read the project, so
+ * someone removed from it is out at once. It lasts MEMBER_HOURS, then the
+ * trip to the app runs again, unseen while they are still signed in there.
+ */
+export const MEMBER_HOURS = 12;
+const ENTER_SECONDS = 120;
+const enterId = (siteId: string, user: string) => `site-enter:${siteId}:${user}`;
+const memberId = (siteId: string, user: string) => `site-member:${siteId}:${user}`;
+/** `{user}.{exp}.{mac}`: who, in base64url, then lib/signed.ts's signature over them and the site. */
+const personal = (user: string, id: string, until: Date) => `${Buffer.from(user).toString("base64url")}.${signAsset(env.BETTER_AUTH_SECRET, id, until)}`;
+function whoseSigned(value: string, idOf: (user: string) => string) {
+  const dot = value.indexOf(".");
+  if (dot < 1) return null;
+  const user = Buffer.from(value.slice(0, dot), "base64url").toString("utf8");
+  return user && signedUntil(env.BETTER_AUTH_SECRET, idOf(user), value.slice(dot + 1)) ? user : null;
+}
+/**
+ * Tickets already traded, until they expire: one opens one browser. ponytail: kept in this process, so with several
+ * instances a ticket could be traded once on each within its two minutes; a table of them is the step past that.
+ */
+const traded = new Map<string, number>();
+
+/** Where a visitor goes to be let into the members site `slug`: the app, which sends them back to `to` once they are in. */
+export async function membersDoor(slug: string, to: string) {
+  const named = await portalNamed(slug);
+  return `${await appUrlFor(named?.organizationId ?? null)}/sites/enter?${new URLSearchParams({ site: slug, to })}`;
+}
+
+/**
+ * For app/(app)/sites/enter, on the app's host: where someone signed in goes
+ * to be let into the members site `slug`, with a ticket naming them, or why
+ * they can't. `to` is a path of the site; anything else goes to its home.
+ */
+export async function enterSite(slug: string, headers: Headers, to: string | null): Promise<{ url: string } | { signIn: true } | { refused: string }> {
+  const named = await portalNamed(slug);
+  const p = named?.p;
+  if (!p || p.access !== "members") return { refused: "There is no members site at this address" };
+  const at = buildsAt(p, (await db.select().from(domains).where(eq(domains.portalId, p.id)))[0] ?? null);
+  if (!at) return { refused: "This site's builds have no address to answer at: give it a domain of its own" };
+  const who = await reader(headers);
+  if (!who) return { signIn: true };
+  if (!(await who.reads(p.projectId))) return { refused: `${p.name} is for the people of its project, and ${who.user.email} isn't one of them: ask its team for access` };
+  const ticket = personal(who.user.id, enterId(p.id, who.user.id), new Date(Date.now() + ENTER_SECONDS * 1000));
+  return { url: `${at}${ENTER_PATH}?${new URLSearchParams({ t: ticket, to: localPath(to) ? to : "/" })}` };
+}
+
+/**
+ * On the site's own host: the door cookie for the person a ticket names, when
+ * it is this site's, unexpired, not traded before, and they still may read
+ * its project; null otherwise.
+ */
+export async function letIn(slug: string, ticket: string) {
   const p = (await portalNamed(slug))?.p;
-  return !!p && p.access === "password" && !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
+  if (!p || p.access !== "members") return null;
+  const user = whoseSigned(ticket, (u) => enterId(p.id, u));
+  if (!user || traded.has(ticket)) return null;
+  const now = Date.now();
+  for (const [t, until] of traded) if (until < now) traded.delete(t);
+  traded.set(ticket, now + ENTER_SECONDS * 1000);
+  if (!(await (await readerOf({ id: user })).reads(p.projectId))) return null;
+  return personal(user, memberId(p.id, user), new Date(now + MEMBER_HOURS * 36e5));
+}
+
+/** Whether a door cookie opens this site: a password site's for its password now, a members site's for someone who may still read its project. */
+async function unlocked(p: typeof portals.$inferSelect, value: string | null | undefined) {
+  if (!value) return false;
+  if (p.access === "password") return !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
+  if (p.access !== "members") return false;
+  const user = whoseSigned(value, (u) => memberId(p.id, u));
+  return !!user && (await (await readerOf({ id: user })).reads(p.projectId));
 }
 
 /** Live deployments checked again per run of the sweep (every six hours), the longest unchecked first. */
@@ -533,7 +605,8 @@ const HIDDEN = new Set([MANIFEST, REDIRECTS, HEADERS]);
 export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null): Promise<SiteAnswer | null> {
   const { p } = await enterPortal(slug, pass).catch(async (err) => {
     // Its door's cookie stands for the password. Still the portal's own checks first: closed, suspended, gone.
-    if (err instanceof AssetError && err.code === "password" && (await unlocked(slug, unlock))) return { p: (await portalNamed(slug))!.p };
+    const p = err instanceof AssetError && err.code === "password" ? (await portalNamed(slug))?.p : null;
+    if (p && (await unlocked(p, unlock))) return { p };
     throw err;
   });
   const live = await db
