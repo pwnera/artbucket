@@ -133,7 +133,7 @@ export const IconImport = z.strictObject({
 });
 
 export const TokenQuery = z.object({
-  format: z.enum(TOKEN_FORMAT_IDS).default("css").describe("css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens) or designmd (DESIGN.md, with guidance)"),
+  format: z.enum(TOKEN_FORMAT_IDS).default("css").describe("css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens), designmd (DESIGN.md, with guidance) or designsystem (tokens.json for a Claude design system)"),
   context: z.string().regex(RULE_CONTEXT).optional().describe("Resolve for this context; otherwise the defaults"),
 });
 
