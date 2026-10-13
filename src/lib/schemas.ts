@@ -137,6 +137,14 @@ export const TokenQuery = z.object({
   context: z.string().regex(RULE_CONTEXT).optional().describe("Resolve for this context; otherwise the defaults"),
 });
 
+/** Which release to read instead of the draft: `live`, the one readers see, or one by its number. */
+export const ReleaseRef = z
+  .union([z.literal("live"), z.coerce.number().int().min(1)])
+  .describe("live: the release readers see; a number: that release. The draft without it");
+
+/** GET /api/v1/brand/tokens: a release as well as the draft. */
+export const BrandTokenQuery = TokenQuery.extend({ version: ReleaseRef.optional() });
+
 export const GoogleFontQuery = z.object({
   q: z.string().max(80).optional().describe("Part of the family name, any case"),
   category: z.enum(FONT_CATEGORIES).optional(),
@@ -640,6 +648,11 @@ export const BrandRule = z.object({
 export const BrandRules = z.object({
   data: z.array(BrandRule),
   contexts: z.array(z.string()).describe("Every context some rule is scoped to"),
+  release: z
+    .object({ number: z.number().int(), publishedAt: z.string() })
+    .nullable()
+    .optional()
+    .describe("With `version`: the release read; null for a brand with no history yet, read as it stands"),
 });
 
 export const Brand = z.object({

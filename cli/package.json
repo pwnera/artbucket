@@ -13,7 +13,8 @@
     "artbucket": "artbucket.js"
   },
   "files": [
-    "artbucket.js"
+    "artbucket.js",
+    "starters"
   ],
   "engines": {
     "node": ">=22"

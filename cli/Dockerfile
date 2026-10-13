@@ -6,12 +6,14 @@ FROM node:24-alpine AS build
 WORKDIR /src
 COPY LICENSE ./
 COPY bin/artbucket.ts bin/
+COPY starters starters/
 COPY cli/build.js cli/package.json cli/
 RUN node cli/build.js
 
 FROM node:24-alpine
 # package.json beside it says the file is a module; the link puts it on the path.
 COPY --from=build /src/cli/artbucket.js /src/cli/package.json /src/cli/LICENSE /opt/artbucket/
+COPY --from=build /src/cli/starters /opt/artbucket/starters/
 RUN ln -s /opt/artbucket/artbucket.js /usr/local/bin/artbucket \
  && mkdir /config /work && chown node:node /config /work
 # A volume on /config starts out the node user's, so `login` can write to it.

@@ -1,0 +1,35 @@
+/* The starter's look. --accent, --ink, --paper and the two fonts below are defaults: look.css, written by build.mjs
+   from the brand and linked after this file, sets them. Every custom property the brand's rules make is in tokens.css
+   too, e.g. var(--color-primary). Change anything: it's yours. */
+:root {
+  --accent: #2563eb;
+  --ink: #18181b;
+  --paper: #ffffff;
+  --font-head: system-ui, sans-serif;
+  --font-body: system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--font-body); }
+h1, h2, h3 { font-family: var(--font-head); line-height: 1.15; }
+h1 { font-size: clamp(2.2rem, 6vw, 4rem); margin: 0 0 1rem; }
+a { color: var(--accent); }
+main { max-width: 64rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.top { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; max-width: 64rem; margin: 0 auto; padding: 1rem; }
+.top nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.top nav a { color: inherit; text-decoration: none; opacity: 0.75; }
+.top nav a[aria-current] { opacity: 1; font-weight: 600; }
+.logo { height: 2rem; width: auto; display: block; }
+.wordmark { font: 700 1.25rem var(--font-head); color: var(--ink); }
+footer { max-width: 64rem; margin: 0 auto; padding: 2rem 1rem; opacity: 0.6; font-size: 0.9rem; }
+.hero { padding: 4rem 0; }
+.hero p { font-size: 1.25rem; max-width: 40rem; }
+.button { display: inline-block; background: var(--accent); color: var(--paper); padding: 0.75rem 1.25rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
+.docs { display: grid; gap: 2rem; }
+.palette, .type, .logos { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.palette li, .type li, .logos li { display: grid; gap: 0.25rem; }
+.palette p, .type p, .logos p, .rules p { margin: 0; font-size: 0.9rem; opacity: 0.75; }
+.swatch { display: block; height: 6rem; border-radius: 0.75rem; border: 1px solid rgb(0 0 0 / 0.08); }
+.sample { font-size: 4rem; line-height: 1; }
+.logos img { width: 100%; height: 8rem; object-fit: contain; background: rgb(0 0 0 / 0.04); border-radius: 0.75rem; padding: 1rem; }
+.rules dt { font-weight: 600; margin-top: 1rem; }
+.rules dd { margin: 0; }

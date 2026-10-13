@@ -127,8 +127,8 @@ storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
   site you build anywhere (guidelines, docs, a landing page, a Storybook) and
   deploy as static files: every file is checked against the library before it
   goes live and again each day, so a replaced logo or an expired photo is
-  refused and named. A build hosted elsewhere gets the same check in CI
-  ([sites]).
+  refused and named. A build hosted elsewhere gets the same check in CI, and
+  `artbucket site new` starts one from the brand's release ([sites]).
 - **Review.** What agents (by default) and contributors upload or suggest
   waits for a person's yes, and nobody approves their own.
 - **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP

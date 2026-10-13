@@ -10,7 +10,7 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { hostname, homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -55,6 +55,10 @@ const HELP = `artbucket <command>
   site push [dir] --site <address> [--path /docs] [--kind docs]
                           deploy a built site: dir (dist/ by default) zipped and
                           sent, live at --path (/ by default) once checked
+  site new <dir> --brand <b> [--kind landing|docs|guidelines] [--site <address>] [--create]
+                          start a site from the brand: plain HTML and a build script,
+                          deployed with npm run deploy to --site (dir's name by
+                          default); --create makes that site, for members
   site check [dir]        check a build hosted anywhere, from its CI: what it uses
                           of the library, and why any of it may not be shown;
                           exits 1 when something may not
@@ -99,6 +103,10 @@ const HELP = `artbucket <command>
   brand diff [dir] [--brand b]
                           what push would change; exits 1 on problems in the files,
                           not on files under assets/ that push would upload
+  brand export [dir] [--brand b] [--release live|n]
+                          the release readers see (or release n) for a site's build,
+                          into dir (.brand/ by default): brand.json (its rules),
+                          tokens.css, and the files they point at under assets/
                           The brand is --brand, or the slug: in brand.yaml (pull
                           writes it), never the project's default
   history [--brand b]     the brand's versions, newest first
@@ -181,6 +189,7 @@ const { values: opt, positionals } = parseArgs({
     force: { type: "boolean" },
     publish: { type: "boolean" },
     note: { type: "string" },
+    release: { type: "string" },
     status: { type: "string", multiple: true },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
@@ -467,6 +476,173 @@ async function uncommittedIn(dir: string) {
     git("ls-files", "-z", "--others", "--exclude-standard"),
   ]);
   return { changed: new Set([...changed, ...staged]), untracked: new Set(untracked) };
+}
+
+/** A file's extension from what the server says it is, for the files a site build copies. */
+const EXTENSIONS: Record<string, string> = {
+  "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/avif": "avif", "image/gif": "gif", "image/svg+xml": "svg",
+  "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "ttf", "font/otf": "otf", "application/pdf": "pdf",
+};
+
+/**
+ * A brand's release, as a site's build reads it: brand.json (its rules, each
+ * file's path under assets/), tokens.css with its files' URLs pointing there,
+ * and the files themselves, fetched with this key. Only files that may leave
+ * the team come with a release. The folder is the build's to read, never to
+ * edit: a new export replaces it.
+ */
+async function brandExport(dir: string) {
+  const slug = await brandSlug();
+  const version = opt.release ?? "live";
+  if (version !== "live" && !/^\d+$/.test(version)) throw new Error('--release is "live" or a release number');
+  const q = new URLSearchParams({ brand: slug, version });
+  const [{ data: rules, contexts, release }, tokens, { data: brands }] = await Promise.all([
+    api("GET", `/api/v1/brand/rules?${q}`).catch((err: Error) => {
+      throw /isn't published yet/.test(err.message) ? new Error(`${err.message}: a site shows a release. Release it first (artbucket publish --brand ${slug})`) : err;
+    }),
+    fetch(`${BASE}/api/v1/brand/tokens?${new URLSearchParams({ ...Object.fromEntries(q), format: "css" })}`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} }).then(async (r) => {
+      if (!r.ok) throw failed(r, await r.json().catch(() => null), "tokens");
+      return r.text();
+    }),
+    api("GET", "/api/v1/brands"),
+  ]);
+  const out = resolve(dir);
+  // A new export replaces the last one, and nothing else: a file, or a folder holding anything but an export, is left alone.
+  const there = await stat(out).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
+  if (there && !there.isDirectory()) throw new Error(`${dir} is a file: pick a folder (.brand by default)`);
+  const was = await readFile(join(out, "brand.json"), "utf8").then((t) => JSON.parse(t).exportedAt, () => undefined);
+  if (there && !was && (await readdir(out)).length) throw new Error(`${dir} isn't empty and holds no export: pick another folder (.brand by default)`);
+  // Written beside it, then swapped in whole: an export that fails halfway leaves the last one as it was.
+  const tmp = `${out}.partial`;
+  await rm(tmp, { recursive: true, force: true });
+  await mkdir(join(tmp, "assets"), { recursive: true });
+  try {
+    // Each file once, by the path it is fetched at: an asset as itself, or one of its renditions.
+    const files: Record<string, string> = {};
+    const fetched = new Map<string, Promise<string>>();
+    const local = (id: string, rendition: string | null) => {
+      if (!/^[0-9a-f-]{36}$/i.test(id) || (rendition !== null && !/^[a-z0-9_,.]+$/i.test(rendition))) throw new Error(`Not a file of the library: ${id}${rendition ? `/${rendition}` : ""}`);
+      const path = `/a/${id}${rendition ? `/${rendition}` : ""}`;
+      if (!fetched.has(path)) {
+        fetched.set(
+          path,
+          (async () => {
+            const res = await fetch(`${BASE}${path}`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
+            if (!res.ok) throw new Error(`Couldn't fetch ${path}: ${res.status}`);
+            const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+            const name = `assets/${id}${rendition ? `-${rendition.replace(/[^a-z0-9_-]+/gi, "-")}` : ""}.${EXTENSIONS[type] ?? "bin"}`;
+            await writeFile(join(tmp, name), Buffer.from(await res.arrayBuffer()));
+            files[name] = id;
+            return name;
+          })(),
+        );
+      }
+      return fetched.get(path)!;
+    };
+    type Exported = { assets: { id: string; rendition: string | null; file?: string }[] };
+    for (const r of rules as Exported[]) for (const a of r.assets) a.file = await local(a.id, a.rendition);
+    // The server's /a/ URLs, signed for a day, on its own address (which may not be the one asked): in tokens.css
+    // (@font-face, a logo) and in rules' text alike, the same files here, so the built site never points at a link that lapses.
+    const pattern = /https?:\/\/[^/"')\s\\]+\/a\/([0-9a-f-]{36})(?:\/([a-z0-9_,.]+))?(?:\?[^"')\s\\]*)?/gi;
+    const localized = async (text: string) => {
+      const found = [...text.matchAll(pattern)];
+      const names = await Promise.all(found.map((m) => local(m[1], m[2] ?? null)));
+      let i = 0;
+      return text.replace(pattern, () => names[i++]);
+    };
+    const css = await localized(tokens);
+    const ruled = JSON.parse(await localized(JSON.stringify(rules)));
+    const name = (brands as { slug: string; name: string }[]).find((b) => b.slug === slug)?.name ?? slug;
+    await writeFile(join(tmp, "tokens.css"), css);
+    await writeFile(join(tmp, "brand.json"), JSON.stringify({ slug, name, release, server: BASE, exportedAt: new Date().toISOString(), contexts, rules: ruled, files }, null, 2) + "\n");
+    await rm(out, { recursive: true, force: true });
+    await rename(tmp, out);
+    const n = Object.keys(files).length;
+    return `Exported ${name}${release ? ` release ${release.number}` : " (no history yet: as it stands)"} into ${dir}/: ${rules.length} rules, ${n} file${n === 1 ? "" : "s"}`;
+  } catch (err) {
+    await rm(tmp, { recursive: true, force: true });
+    throw err;
+  }
+}
+
+const SITE_KINDS = ["landing", "docs", "guidelines"];
+
+/** The starters (starters/ in the repository, beside artbucket.js in the package). */
+async function starters() {
+  for (const at of ["./starters/", "../starters/"]) {
+    const url = new URL(at, import.meta.url);
+    if (await stat(url).then((s) => s.isDirectory(), () => false)) return url;
+  }
+  throw new Error("This artbucket has no starters: install it from npm (npx artbucket site new)");
+}
+
+/** Every file under a folder, by its path in it. */
+async function filesIn(root: URL | string, rel = ""): Promise<string[]> {
+  const out: string[] = [];
+  for (const e of await readdir(new URL(rel, root), { withFileTypes: true })) {
+    if (e.isDirectory()) out.push(...(await filesIn(root, `${rel}${e.name}/`)));
+    else out.push(`${rel}${e.name}`);
+  }
+  return out;
+}
+
+/**
+ * A new site from a starter (starters/: the shared build, then the kind's
+ * pages over it), wired to the brand and to the site it deploys to. It
+ * writes into an empty or new folder only. --create makes the site in
+ * Artbucket, for members until someone opens it.
+ */
+async function siteNew(dir: string) {
+  const kind = opt.kind ?? "landing";
+  if (!SITE_KINDS.includes(kind)) throw new Error(`--kind is ${SITE_KINDS.join(", ")}`);
+  const target = resolve(dir);
+  if ((await readdir(target).catch(() => [])).length) throw new Error(`${dir} isn't empty: pick a new folder`);
+  const slug = await brandSlug();
+  const address = opt.site ?? basename(target).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  // Reading the sites takes a key that manages them; without one, the site is just not known yet.
+  const sites = ((await api("GET", "/api/v1/sites").catch(() => ({ data: [] }))).data ?? []) as { slug: string; kind: string; url: string }[];
+  let site = sites.find((x) => x.slug === address);
+  if (!site && opt.create) site = (await api("POST", "/api/v1/sites", { name: basename(target), slug: address, kind, access: "members" })).data;
+  const root = await starters();
+  const own = JSON.parse(await readFile(new URL("../package.json", root), "utf8").catch(() => readFile(new URL("./package.json", import.meta.url), "utf8")));
+  const words: Record<string, string> = { NAME: basename(target), KIND: kind, BRAND: slug, SITE: address, SERVER: BASE.replace(/^https:\/\//, "") };
+  // A function, not a string: a folder named a$'b stays a$'b.
+  const fill = (text: string) => text.replace(/__(NAME|KIND|BRAND|SITE|SERVER)__/g, (_, w: string) => words[w]);
+  for (const from of [new URL("common/", root), new URL(`${kind}/`, root)]) {
+    for (const rel of await filesIn(from)) {
+      // npm leaves .gitignore out of a package: the starter keeps it as gitignore.
+      const to = join(target, rel === "gitignore" ? ".gitignore" : rel);
+      await mkdir(dirname(to), { recursive: true });
+      await writeFile(to, fill(await readFile(new URL(rel, from), "utf8")));
+    }
+  }
+  const pkg = {
+    name: address,
+    private: true,
+    type: "module",
+    scripts: {
+      brand: `artbucket brand export .brand --brand ${slug}`,
+      build: "npm run brand && node build.mjs",
+      check: "npm run build && artbucket site check dist",
+      deploy: `npm run build && artbucket site push dist --site ${address}`,
+    },
+    devDependencies: { artbucket: `^${own.version}` },
+    engines: { node: ">=22" },
+  };
+  await writeFile(join(target, "package.json"), JSON.stringify(pkg, null, 2) + "\n");
+  return [
+    `Made ${dir}/: a ${kind} site for ${slug}, deploying to ${site ? site.url : `the site ${address}`}.`,
+    site ? null : `There is no site ${address} yet: make it in Sites (a built site with that address), or run this again with --create.`,
+    "",
+    `  cd ${dir}`,
+    "  npm install",
+    "  npm run deploy",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
 }
 
 async function brandPull(dir: string) {
@@ -761,6 +937,7 @@ async function main() {
     }
     case "site": {
       const [sub, dir = "dist"] = args;
+      if (sub === "new") return console.log(await siteNew(need(args[1], "the new site's folder: artbucket site new acme-docs --brand acme")));
       if (sub === "check") {
         const { zip, files } = await zipFolder(resolve(dir));
         const res = await fetch(`${BASE}/api/v1/sites/check`, {
@@ -815,7 +992,8 @@ async function main() {
       if (sub === "pull") return console.log(await brandPull(dir));
       if (sub === "push") return console.log(await brandPush(dir, !!opt["dry-run"]));
       if (sub === "diff") return console.log(await brandPush(dir, true));
-      throw new Error("brand pull, brand push or brand diff. artbucket --help");
+      if (sub === "export") return console.log(await brandExport(args[1] ?? ".brand"));
+      throw new Error("brand pull, brand push, brand diff or brand export. artbucket --help");
     }
     case "history":
     case "restore": {

@@ -15,6 +15,41 @@ Both live under **Sites** in the sidebar and at `/api/v1/sites`. Agents
 manage them with `create_site`, `update_site`, `list_sites`, `close_site` and
 `delete_site`. Making or deploying a site takes write on the project.
 
+## Start from a starter
+
+`artbucket site new` makes a site from the brand in one step: plain HTML and a
+build script with no dependencies but the CLI, for a `landing` page, `docs`
+or `guidelines`. `--create` makes the site in Artbucket too, for members
+until you open it.
+
+```bash
+npx artbucket site new acme-docs --brand acme --kind docs --create
+cd acme-docs
+npm install
+npm run deploy
+```
+
+`npm run deploy` exports the release of the brand that readers see, never the
+draft, builds `dist/` from it and deploys it. Its colors, faces and logo come
+from the brand's rules, its text from rules such as `brand.headline`, and the
+files it shows are copied in, so the check knows each one and the site
+shows in its lineage. Change the files as you like: they are yours (MIT-0),
+and the README in the folder says how the pages bring in the brand.
+
+The export works with any framework as well:
+
+```bash
+artbucket brand export .brand --brand acme
+```
+
+writes `.brand/brand.json` (the release's rules, each file with its path),
+`.brand/tokens.css` (every rule as a custom property, and `@font-face` for its
+faces) and the files under `.brand/assets/`, ready for a build to read
+offline. `--release 12` exports that release instead. On the API, it is
+`GET /api/v1/brand/rules?version=live` and `GET
+/api/v1/brand/tokens?version=live`: only the files that may leave the team
+come with a release.
+
 ## Deploy a build
 
 A deployment is a zip of the build: `index.html` at its root, or in the one

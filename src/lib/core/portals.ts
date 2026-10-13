@@ -857,6 +857,18 @@ export async function readBrand(
   };
 }
 
+/**
+ * A brand's release as a site built from it reads it (GET /api/v1/brand/rules
+ * and /tokens with `version`, the CLI's `brand export`): `live`, the release
+ * readers see, or one by its number, with only the files that may leave the
+ * team. One edited and never released has none (404); one with no history
+ * at all reads as it stands, `version` null, as its portals show it.
+ */
+export async function releasedRules(ws: string, slug: string | undefined, version: "live" | number, context?: string) {
+  const brand = await resolveBrand(ws, slug);
+  return { slug: brand.slug, ...(await readBrand(ws, brand, null, { context, version: version === "live" ? undefined : version })) };
+}
+
 // ---- brand pages, for visitors ------------------------------------------------------
 
 const rank = (a: Audience) => AUDIENCES.indexOf(a);
