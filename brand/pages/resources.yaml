@@ -21,9 +21,9 @@ sections:
     template: faq
     title: Before you make it.
     items:
-      - text: Use the white mark on Night or Violet. Check the [logo guide](/logo) before placing it on a photo.
+      - text: Use the white mark on Night. On the accent, use the week's tile file. Check the [logo guide](/logo) before placing it on a photo.
         title: Which mark belongs on a dark background?
-      - text: Keep it white or black. The app icon uses the white mark on its Violet tile. Do not add a gradient or change the silhouette.
+      - text: Keep it white or black. The app icon is the mark on a tile in this week's accent, in ink or white. Do not add a gradient or change the silhouette.
         title: Can the mark be recolored?
       - text: Open [Type](/type). Try your own words, inspect the characters and copy the font-loading code.
         title: Where are the font specimens and embed code?

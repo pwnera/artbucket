@@ -4,7 +4,7 @@ layout: landing
 sections:
   - template: cover
     eyebrow: The Artbucket brand
-    title: Where brands live.
+    title: Change your brand once.
     lede: Including ours. The mark, the colors, the type and the words.
     props:
       mark: always
@@ -60,15 +60,15 @@ sections:
   - id: the-palette
     template: palette
     eyebrow: 03 / Color · Choose
-    title: Violet leads. Lime marks.
-    lede: White gives the work room. Violet draws the eye. A little lime picks out what matters.
+    title: One accent a week. Ink holds it.
+    lede: Paper gives the work room. Ink does the talking. This week's accent picks out what matters.
     body: |-
-      Lime is a highlight. Not a background.
+      The accent is a fill. Never text.
 
       [Explore the full palette](/color)
     keys:
       - color.primary
-      - color.highlight
+      - color.onPrimary
       - color.background
       - color.panel
       - color.ink
@@ -100,7 +100,7 @@ sections:
         text: Three approved files, and what to leave alone.
         title: Use the mark
       - link: /color
-        text: Violet, lime and the neutrals that give them room.
+        text: This week's accent and the neutrals that hold it.
         title: Choose your colors
       - link: /type
         text: Three faces, one measured scale.

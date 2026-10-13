@@ -45,8 +45,8 @@ sections:
         caption: The black mark disappears on Night. Use white.
         verdict: dont
       - key: color.primary
-        asset: assets/mark-black.svg
-        caption: Use the white mark on Violet.
+        asset: assets/mark-white.svg
+        caption: White disappears on Volt. Use the week's tile file.
         verdict: dont
     props:
       ask: false

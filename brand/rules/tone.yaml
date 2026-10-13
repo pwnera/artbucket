@@ -5,6 +5,8 @@ tone.voice:
 tone.always:
   type: list
   value:
+    - A headline is a benefit in six words or fewer, then one plain line.
+    - Outcomes before features, in the reader's words; technical terms behind a For developers view.
     - Short sentences. Two sentences over one long one.
     - Name the thing, not its category.
     - Say what happens, not what is possible.

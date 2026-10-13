@@ -1,14 +1,21 @@
+radius.small:
+  type: number
+  label: Hairline grids
+  value: 4
+  usage: Grid cells, inputs and tags.
+  spec:
+    unit: px
 radius.card:
   type: number
   label: Soft edges
-  value: 16
-  usage: Cards and small panels in the brand guide.
+  value: 12
+  usage: Cards and demo frames.
   spec:
     unit: px
 radius.stage:
   type: number
   label: A larger canvas
   value: 24
-  usage: Large showcase panels. Keep the original logo tile shape intact.
+  usage: The dark stage under the hero. Keep the logo tile shape intact.
   spec:
     unit: px

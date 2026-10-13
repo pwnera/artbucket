@@ -2,14 +2,14 @@ type.heading:
   type: font
   value:
     family: Funnel Display
-    weight: 700
-  usage: Headings and the wordmark, tracked a little tight.
+    weight: 500
+  usage: Headings and the wordmark, large and medium weight, tracked tight. The size does the work, not the weight.
   spec:
     url: https://fonts.google.com/specimen/Funnel+Display
     role: headline
     source: google
     fallback: system-ui, sans-serif
-    tracking: -0.03
+    tracking: -0.035
 type.body:
   type: font
   value:
@@ -21,6 +21,17 @@ type.body:
     role: body
     source: google
     fallback: system-ui, sans-serif
+type.accent:
+  type: font
+  value:
+    family: Instrument Serif
+    weight: 400
+  usage: In italic, one phrase inside a headline at the headline's size. Never a whole line, never body text.
+  spec:
+    url: https://fonts.google.com/specimen/Instrument+Serif
+    role: display
+    source: google
+    fallback: Georgia, serif
 type.code:
   type: font
   value:
@@ -34,5 +45,5 @@ type.code:
 type.scale:
   type: list
   label: A measured scale
-  value: [12, 16, 20, 25, 31, 39, 49, 61]
-  usage: Use 16px as the reading size. Move up the scale for headings; 12px is for short labels.
+  value: [12, 14, 16, 20, 24, 32, 48, 64, 96]
+  usage: Use 16px as the reading size and 20px for the line under a headline. 96px is the hero, once a page; 12px is for short labels.
