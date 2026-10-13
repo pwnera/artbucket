@@ -49128,7 +49128,7 @@
       ],
       "get": {
         "summary": "A site's deployments",
-        "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.\n\nScope: `write`.",
+        "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced, held, preview), its files and why one failed or is held; a preview's address.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -49168,9 +49168,24 @@
                               "live",
                               "failed",
                               "replaced",
-                              "held"
+                              "held",
+                              "preview"
                             ],
-                            "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
+                            "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"
+                          },
+                          "preview": {
+                            "description": "A preview's name, such as pr-12; null for any other deployment",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "url": {
+                            "description": "Where a preview answers: {name}--{site}.{PORTAL_DOMAIN}, at its mount. Given for previews only",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "files": {
                             "type": "integer",
@@ -49286,6 +49301,7 @@
                           "path",
                           "kind",
                           "state",
+                          "preview",
                           "files",
                           "bytes",
                           "commit",
@@ -49388,6 +49404,14 @@
               "type": "string"
             },
             "description": "The branch or tag of that commit"
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A preview's name, such as pr-12: the build is checked as any deployment is, then served at {name}--{site}.{PORTAL_DOMAIN} behind the site's own door, never live. A later build of the same preview replaces it; previews go 30 days after they were made"
           }
         ],
         "responses": {
@@ -49426,9 +49450,24 @@
                             "live",
                             "failed",
                             "replaced",
-                            "held"
+                            "held",
+                            "preview"
                           ],
-                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"
+                        },
+                        "preview": {
+                          "description": "A preview's name, such as pr-12; null for any other deployment",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "description": "Where a preview answers: {name}--{site}.{PORTAL_DOMAIN}, at its mount. Given for previews only",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "files": {
                           "type": "integer",
@@ -49544,6 +49583,7 @@
                         "path",
                         "kind",
                         "state",
+                        "preview",
                         "files",
                         "bytes",
                         "commit",
@@ -49817,9 +49857,24 @@
                             "live",
                             "failed",
                             "replaced",
-                            "held"
+                            "held",
+                            "preview"
                           ],
-                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"
+                        },
+                        "preview": {
+                          "description": "A preview's name, such as pr-12; null for any other deployment",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "description": "Where a preview answers: {name}--{site}.{PORTAL_DOMAIN}, at its mount. Given for previews only",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "files": {
                           "type": "integer",
@@ -49935,6 +49990,7 @@
                         "path",
                         "kind",
                         "state",
+                        "preview",
                         "files",
                         "bytes",
                         "commit",

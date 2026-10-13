@@ -19,7 +19,7 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced" | "held"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced" | "held" | "preview"; preview: string | null; url?: string | null; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
 
 /** "uses 3 assets", from what the check found in its files: the library it reaches. */
 const usesLine = (d: Deployment) => {
@@ -27,7 +27,7 @@ const usesLine = (d: Deployment) => {
   return n ? ` · uses ${n} asset${n === 1 ? "" : "s"}` : "";
 };
 
-const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline", held: "secondary" };
+const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline", held: "secondary", preview: "secondary" };
 
 /**
  * A built site (PRD part 2): made with a name, an address and a kind, then
@@ -223,6 +223,14 @@ function Deployments({ site }: { site: Portal }) {
                     {d.state}
                   </Badge>
                   <code className="text-xs">{d.path}</code>
+                  {d.preview &&
+                    (d.url ? (
+                      <a href={d.url} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-2">
+                        {d.preview}
+                      </a>
+                    ) : (
+                      <span className="text-xs">{d.preview}</span>
+                    ))}
                   <span className="text-muted-foreground text-xs">
                     {SITE_KIND_LABEL[d.kind]} · {d.files} files · {formatSize(d.bytes)}
                     {usesLine(d)}

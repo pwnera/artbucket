@@ -17,8 +17,10 @@ type Params = { params: Promise<{ slug: string; path?: string[] }> };
 
 /** The address asked, as the visitor sent it (this one is the proxy's rewrite). */
 async function asked(req: Request, { params }: Params) {
-  const { slug, path = [] } = await params;
-  return { slug, path, rest: `/${path.join("/")}${new URL(req.url).pathname.endsWith("/") && path.length ? "/" : ""}` };
+  const { slug: raw, path = [] } = await params;
+  // A preview's host rewrites to {slug}~{preview} (src/proxy.ts).
+  const [slug, preview = null] = decodeURIComponent(raw).split("~");
+  return { slug, preview, path, rest: `/${path.join("/")}${new URL(req.url).pathname.endsWith("/") && path.length ? "/" : ""}` };
 }
 
 /** Whether the visitor came over HTTPS, here or at the proxy in front: the door's cookie is then `__Host-` and Secure. */
@@ -36,8 +38,8 @@ const doorCookie = (req: Request, value: string, seconds: number) =>
   `${unlockCookie(secure(req))}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${seconds}${secure(req) ? "; Secure" : ""}`;
 
 export async function GET(req: Request, ctx: Params) {
-  const { slug, path, rest } = await asked(req, ctx);
-  if (rest === ENTER_PATH) return enter(req, slug);
+  const { slug, preview, path, rest } = await asked(req, ctx);
+  if (rest === ENTER_PATH) return enter(req, slug, preview);
   // An approved request's link: its key, traded for the door's cookie, and the same page without it.
   const key = new URL(req.url).searchParams.get("key");
   if (key) {
@@ -51,24 +53,24 @@ export async function GET(req: Request, ctx: Params) {
     }
   }
   try {
-    const f = await siteFile(slug, passOf(req), rest, cookieOf(req, unlockCookie(secure(req))));
+    const f = await siteFile(slug, passOf(req), rest, cookieOf(req, unlockCookie(secure(req))), preview);
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     // Relative to the address asked: /guide to guide/.
     if ("slash" in f) return new Response(null, { status: 308, headers: { Location: `${path.at(-1) ?? ""}/${new URL(req.url).search}` } });
     if ("redirect" in f) {
       // The query goes along unless the target has its own, as Netlify does.
       const search = new URL(req.url).search;
-      const headers = own(f.headers, false);
+      const headers = own(f.headers, false, preview);
       headers.set("Location", f.redirect.includes("?") ? f.redirect : `${f.redirect}${search}`);
       return new Response(null, { status: f.status, headers });
     }
     const { body, length } = await getStream(f.key);
-    const headers = own(f.headers, f.open);
+    const headers = own(f.headers, f.open, preview);
     headers.set("Content-Type", f.contentType);
     headers.set("Content-Length", String(length));
     return new Response(body, { status: f.status, headers });
   } catch (err) {
-    if (err instanceof AssetError && err.code === "password") return door(err, slug, `${rest}${new URL(req.url).search}`);
+    if (err instanceof AssetError && err.code === "password") return door(err, slug, `${rest}${new URL(req.url).search}`, false, preview);
     return handle(err);
   }
 }
@@ -78,13 +80,13 @@ export async function GET(req: Request, ctx: Params) {
  * for the door's cookie, then on to the page asked. A ticket that doesn't
  * open it goes back to the app, which says why or hands a new one.
  */
-async function enter(req: Request, slug: string) {
+async function enter(req: Request, slug: string, preview: string | null) {
   const q = new URL(req.url).searchParams;
   const to = localPath(q.get("to")) ? q.get("to")! : "/";
   const value = await letIn(slug, q.get("t") ?? "").catch(() => null);
   const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   if (!value) {
-    headers.set("Location", await membersDoor(slug, to));
+    headers.set("Location", await membersDoor(slug, to, preview));
     return new Response(null, { status: 303, headers });
   }
   headers.set("Location", to);
@@ -116,19 +118,21 @@ export async function POST(req: Request, ctx: Params) {
  * sent beside the server's frame-ancestors, so both hold. A site behind a
  * door is never made cacheable by its rules.
  */
-function own(rules: [string, string][], open: boolean) {
+function own(rules: [string, string][], open: boolean, preview: string | null = null) {
   const headers = new Headers({
     "Cache-Control": open ? "public, max-age=60" : "private, no-store",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "frame-ancestors 'self'",
     "Referrer-Policy": "strict-origin-when-cross-origin",
   });
+  // A preview is for its reviewers, not for search engines, whatever its build says.
+  if (preview) headers.set("X-Robots-Tag", "noindex");
   for (const [name, value] of rules) {
     const lower = name.toLowerCase();
     if (lower === "cache-control") {
       if (open) headers.set(name, value);
     } else if (lower === "content-security-policy") headers.append(name, value);
-    else if (lower === "x-content-type-options") continue;
+    else if (lower === "x-content-type-options" || (preview && lower === "x-robots-tag")) continue;
     else headers.set(name, value);
   }
   return headers;
@@ -137,9 +141,9 @@ function own(rules: [string, string][], open: boolean) {
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** A members site's visitor goes to sign in at the app, and comes back let in (enter); a password site's ask here. */
-async function door(err: AssetError, slug: string, rest: string, tried = false) {
+async function door(err: AssetError, slug: string, rest: string, tried = false, preview: string | null = null) {
   const d = (err.detail ?? {}) as { name?: string; access?: string };
-  if (d.access === "members") return new Response(null, { status: 303, headers: { Location: await membersDoor(slug, rest), "Cache-Control": "no-store" } });
+  if (d.access === "members") return new Response(null, { status: 303, headers: { Location: await membersDoor(slug, rest, preview), "Cache-Control": "no-store" } });
   const name = esc(d.name ?? "This site");
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${name}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,sans-serif;background:#fafafa;color:#18181b}form{display:grid;gap:12px;width:min(320px,90vw)}h1{font-size:18px;margin:0}p{margin:0;color:#71717a}input,button{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid #d4d4d8}button{background:#18181b;color:#fff;border-color:#18181b;cursor:pointer}@media (prefers-color-scheme:dark){body{background:#09090b;color:#fafafa}p{color:#a1a1aa}input{background:#18181b;color:#fafafa;border-color:#3f3f46}button{background:#fafafa;color:#18181b;border-color:#fafafa}}</style>

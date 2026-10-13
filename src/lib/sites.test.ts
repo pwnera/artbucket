@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, mountPath, readsLinks, servesBuild, siteFiles, unlockCookie } from "./sites.ts";
+import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, mountPath, PREVIEW_NAME, previewLabel, readsLinks, servesBuild, siteFiles, unlockCookie } from "./sites.ts";
+import { previewAtHost } from "./portal.ts";
 
 test("a mount path is / or lowercase segments, no trailing slash", () => {
   assert.equal(mountPath("/"), "/");
@@ -53,4 +54,19 @@ test("a build's text names the library by /a/ (pinned) and /c/ (current), on any
   assert.deepEqual(assetAddresses(`/a/${a}0`), { pinned: [], current: [] });
   assert.ok(readsLinks("index.html", 10) && readsLinks("assets/app.mjs", 10) && readsLinks("style.CSS", 10));
   assert.ok(!readsLinks("logo.png", 10) && !readsLinks("bundle.js", 3_000_000));
+});
+
+test("a preview's name is one an address can hold, and its host names the site and the preview", () => {
+  for (const ok of ["pr-12", "a", "main", "feature-x-2"]) assert.ok(PREVIEW_NAME.test(ok), ok);
+  for (const bad of ["PR-12", "pr--12", "-pr", "pr-", "pr_12", "x".repeat(31), ""]) assert.ok(!PREVIEW_NAME.test(bad), bad);
+  assert.equal(previewLabel("acme", "pr-12"), "pr-12--acme");
+  assert.equal(previewLabel("a".repeat(40), "b".repeat(30)), null);
+  const name = (s: string) => PREVIEW_NAME.test(s);
+  assert.deepEqual(previewAtHost("pr-12--acme.sites.test", "sites.test", name), { slug: "acme", preview: "pr-12" });
+  // A site's own address, a dash or two inside its slug, another domain, a nested name: none is a preview.
+  assert.equal(previewAtHost("acme.sites.test", "sites.test", name), null);
+  assert.equal(previewAtHost("--acme.sites.test", "sites.test", name), null);
+  assert.equal(previewAtHost("pr-12--acme.other.test", "sites.test", name), null);
+  assert.equal(previewAtHost("x.pr-12--acme.sites.test", "sites.test", name), null);
+  assert.equal(previewAtHost("pr-12--acme.sites.test", undefined, name), null);
 });

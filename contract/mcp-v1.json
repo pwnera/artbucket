@@ -5503,6 +5503,11 @@
           "docs",
           "storybook"
         ]
+      },
+      "preview": {
+        "description": "A preview's name, such as pr-12: checked, then served at an address of its own for people to look at, never live",
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9]|-(?!-)){0,28}[a-z0-9]$|^[a-z0-9]$"
       }
     },
     "required": [

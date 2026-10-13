@@ -10,7 +10,8 @@ import { checkLimit } from "@/lib/core/usage";
 import { txtAt } from "@/lib/domain-proof";
 import { env } from "@/lib/env";
 import { can, needs } from "@/lib/permissions";
-import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } from "@/lib/portal";
+import { challengeName, hostname, previewAtHost, slugAtHost, subdomainRefusal, underDomain } from "@/lib/portal";
+import { PREVIEW_NAME, previewLabel } from "@/lib/sites";
 
 /**
  * Host names this server answers for besides APP_URL's: an organization's
@@ -28,7 +29,8 @@ import { challengeName, hostname, slugAtHost, subdomainRefusal, underDomain } fr
 const appHost = new URL(env.APP_URL).host.replace(/:\d+$/, "");
 const scheme = new URL(env.APP_URL).protocol;
 
-type Target = { organizationId: string; portal: string | null; app: boolean; primary: boolean };
+/** `preview`: the host is a preview's (pr-12--acme-docs), its builds served instead of the live ones. */
+type Target = { organizationId: string; portal: string | null; app: boolean; primary: boolean; preview?: string };
 
 // ponytail: per process, a minute stale at most: a domain verified on another instance takes that long to answer there.
 let hostCache: { at: number; map: Map<string, Target> } | null = null;
@@ -56,7 +58,19 @@ export async function hostTarget(rawHost: string): Promise<Target | null> {
   const slug = slugAtHost(host, env.PORTAL_DOMAIN);
   // Not cached: a portal made or renamed on another instance answers at once.
   const named = slug ? await portalNamed(slug) : null;
-  return named && { organizationId: named.organizationId, portal: slug, app: false, primary: false };
+  if (named) return { organizationId: named.organizationId, portal: slug, app: false, primary: false };
+  // A preview's host, pr-12--acme-docs: the site's current address only, never one from before a rename.
+  const at = previewAtHost(host, env.PORTAL_DOMAIN, (s) => PREVIEW_NAME.test(s));
+  const site = at && (await portalNamed(at.slug));
+  return site && site.p.slug === at.slug ? { organizationId: site.organizationId, portal: at.slug, app: false, primary: false, preview: at.preview } : null;
+}
+
+/** Where a site's preview answers: {name}--{slug}.PORTAL_DOMAIN, or null without PORTAL_DOMAIN or when it can't be one label. */
+export function previewAt(slug: string, name: string) {
+  const label = previewLabel(slug, name);
+  if (!env.PORTAL_DOMAIN || !label || subdomainRefusal(slug)) return null;
+  const app = new URL(env.APP_URL);
+  return `${app.protocol}//${label}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
 }
 
 /** The portal a slug names, now or before a rename (portal_aliases), with its organization. */
