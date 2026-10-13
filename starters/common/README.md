@@ -2,7 +2,7 @@
 
 A __KIND__ site for the __BRAND__ brand, made with `artbucket site new`. It is plain HTML and one build
 script with no dependencies but the Artbucket CLI: change anything, or move it to the framework you
-like. These files are yours, under no license terms.
+like. These files are yours, under the MIT License: keep its notice (LICENSE) and do as you wish.
 
 ## Build and deploy
 
