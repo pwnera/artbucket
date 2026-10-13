@@ -1,8 +1,9 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { brands, brandVersions, portals, siteDeployments } from "@/lib/db/schema";
+import { brands, brandVersions, portals, projects, siteDeployments } from "@/lib/db/schema";
 import { diffRules } from "@/lib/history";
 import { recordAudit } from "@/lib/core/audit";
+import { limitsOf } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { postPublic } from "@/lib/fetch-public";
 import { unseal } from "@/lib/settings";
@@ -21,15 +22,23 @@ import { unseal } from "@/lib/settings";
  */
 export async function rebuildSites(brandId: string, release: { number: number; note?: string | null }) {
   const sites = await db
-    .select({ id: portals.id, slug: portals.slug, name: portals.name, projectId: portals.projectId, hook: portals.rebuildHook, brand: brands.slug })
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, projectId: portals.projectId, hook: portals.rebuildHook, brand: brands.slug, organizationId: projects.organizationId })
     .from(portals)
     .innerJoin(brands, eq(brands.id, portals.rebuildBrandId))
+    .innerJoin(projects, eq(projects.id, portals.projectId))
     .where(and(eq(portals.rebuildBrandId, brandId), isNotNull(portals.rebuildHook)));
   const results = await Promise.all(
     sites.map(async (s) => {
       const url = unseal(s.hook!, env.BETTER_AUTH_SECRET);
       let status: string;
       try {
+        // A plan without rebuilds (limits' `rebuilds`) keeps its hook, uncalled, and says why.
+        const { features } = await limitsOf(s.organizationId);
+        if (features && !features.includes("rebuilds")) {
+          status = "skipped: rebuilding on release isn't in this organization's plan";
+          await db.update(portals).set({ rebuiltAt: new Date(), rebuildStatus: status }).where(eq(portals.id, s.id));
+          return { site: s.slug, status };
+        }
         const since = await unchangedSince(s.id, brandId, release.number);
         // Nothing to call for: no build minutes spent on a release that changes nothing the site shows.
         if (since !== null) {

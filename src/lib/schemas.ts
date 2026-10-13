@@ -1229,7 +1229,7 @@ export const Me = z.object({
   features: z
     .array(z.enum(FEATURES))
     .nullable()
-    .describe("What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"),
+    .describe("What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains, rebuilds); null is everything"),
   off: z
     .array(z.string())
     .describe("Features turned off in this project, by its organization or itself (GET /api/v1/features): agents, shares, portals, hub, insights, and the server's own"),

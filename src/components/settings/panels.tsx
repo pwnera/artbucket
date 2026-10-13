@@ -514,7 +514,7 @@ export type Usage = {
 };
 
 /** How the Usage panel names a feature the limits switch off. */
-const OFF: Record<Feature, string> = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on", branding: "custom branding", domains: "custom domains" };
+const OFF: Record<Feature, string> = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on", branding: "custom branding", domains: "custom domains", rebuilds: "rebuilding sites when a brand is released" };
 
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {

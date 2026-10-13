@@ -38468,7 +38468,8 @@
                                   "shares",
                                   "sso",
                                   "branding",
-                                  "domains"
+                                  "domains",
+                                  "rebuilds"
                                 ]
                               }
                             },
@@ -38476,7 +38477,7 @@
                               "type": "null"
                             }
                           ],
-                          "description": "What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains); null is everything"
+                          "description": "What the organization may use, of what its limits can switch off (agents, shares, sso, branding, domains, rebuilds); null is everything"
                         },
                         "off": {
                           "type": "array",

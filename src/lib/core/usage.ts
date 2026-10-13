@@ -196,6 +196,7 @@ const FEATURE_LABEL: Record<Feature, string> = {
   sso: "Setting up single sign-on",
   branding: "Custom branding",
   domains: "Custom domains",
+  rebuilds: "Rebuilding sites when a brand is released",
 };
 
 /**
