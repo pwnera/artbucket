@@ -7,16 +7,17 @@ import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, buildsAt, portalNamed, previewAt } from "@/lib/core/domains";
+import { appUrlFor, buildsAt, hostTarget, portalHome, portalNamed, previewAt } from "@/lib/core/domains";
 import { adminsOf, digest, enterPortal, reader, readerOf, type Pass } from "@/lib/core/portals";
 import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
-import { assetAddresses, BUILD_KINDS, ENTER_PATH, PREVIEW_NAME, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
+import { assetAddresses, BUILD_KINDS, ENTER_PATH, PREVIEW_NAME, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { signLines, signsIn, type Sign } from "@/lib/site-safety";
-import { headersFor, HEADERS, parseHeaders, parseRedirects, redirectFor, REDIRECTS, type SiteRules } from "@/lib/site-rules";
+import { HEADERS, parseHeaders, parseRedirects, REDIRECTS, type SiteRules } from "@/lib/site-rules";
+import { resolveSitePath, type Mount, type SiteAnswer } from "@/lib/site-serve";
 import { localPath } from "@/lib/markdown";
 import { putObject, sizeOf } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
@@ -692,24 +693,13 @@ export async function liveMounts(siteId: string) {
   return rows.map((r) => r.path).sort((a, b) => b.length - a.length);
 }
 
-export const underMount = (rest: string, mount: string) => mount === "/" || rest === mount || rest.startsWith(`${mount}/`);
-
-/** What a request to a site's build gets: a folder's slash, a redirect, or a stored file with its status and the build's headers. */
-export type SiteAnswer =
-  | { slash: true }
-  | { redirect: string; status: number; headers: [string, string][] }
-  | { key: string; contentType: string; status: number; open: boolean; headers: [string, string][] };
-
-/** A build's own files that are read, never served. */
-const HIDDEN = new Set([MANIFEST, REDIRECTS, HEADERS]);
+export { underMount, type SiteAnswer } from "@/lib/site-serve";
 
 /**
  * The stored file a request to a site asks for, as this visitor may see it
  * (the portal's own gate: a password or members site refuses here), or null
- * when no live build holds the path: a folder's slash, a redirect of the
- * build's _redirects, or a file with its status and the build's _headers. A
- * file the path names wins over a redirect unless it is forced (!); a miss
- * answers the build's 404.html.
+ * when no live build holds the path (lib/site-serve.ts resolveSitePath, which
+ * an edge in front answers the same way).
  */
 export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null, preview?: string | null): Promise<SiteAnswer | null> {
   const { p } = await enterPortal(slug, pass).catch(async (err) => {
@@ -718,43 +708,38 @@ export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: 
     if (p && (await unlocked(p, unlock))) return { p };
     throw err;
   });
-  const live = await db
+  return resolveSitePath(await mountsOf(p.id, preview), rest, p.access === "public", async (key) => (await sizeOf(key)) !== null);
+}
+
+/**
+ * What an edge in front of the server needs to serve a host's builds from
+ * storage itself (GET /api/v1/sites/edge, PRD part 2 "Serving"): the site,
+ * the preview the host names if any, and its mounts, each with where its
+ * files are stored and its rules, for lib/site-serve.ts. Only for a site open
+ * to everyone, at the host its builds answer on; null for anything else
+ * (behind a password or for members, closed, or another host, which the
+ * server itself redirects or refuses), which the edge passes on. `ttl`: how
+ * long the answer holds, at most a minute, never past the site's end.
+ */
+export async function edgeRoute(host: string): Promise<{ slug: string; preview: string | null; mounts: Mount[]; ttl: number } | null> {
+  const target = await hostTarget(host).catch(() => null);
+  if (!target?.portal) return null;
+  const opened = await enterPortal(target.portal, {}).catch(() => null);
+  if (!opened || opened.p.access !== "public") return null;
+  const { p } = opened;
+  if (!target.preview) {
+    // Its builds' own host only: anywhere else the server redirects there, or serves the portal's pages.
+    const home = await portalHome(p.slug);
+    if (!home?.builds || p.slug !== target.portal || new URL(home.builds).host !== host) return null;
+  }
+  const left = p.expiresAt ? Math.floor((p.expiresAt.getTime() - Date.now()) / 1000) : 60;
+  return { slug: p.slug, preview: target.preview ?? null, mounts: await mountsOf(p.id, target.preview), ttl: Math.max(0, Math.min(60, left)) };
+}
+
+/** A site's live deployments (or one preview's), as serving reads them. */
+async function mountsOf(siteId: string, preview?: string | null): Promise<Mount[]> {
+  return db
     .select({ path: siteDeployments.path, prefix: siteDeployments.prefix, rules: siteDeployments.rules })
     .from(siteDeployments)
-    .where(and(eq(siteDeployments.siteId, p.id), preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
-  const mount = live.sort((a, b) => b.path.length - a.path.length).find((m) => underMount(rest, m.path));
-  if (!mount) return null;
-  const inner = mount.path === "/" ? rest || "/" : rest.slice(mount.path.length);
-  // A folder asked without its slash gets one, as static hosts do: its page's relative links resolve under it.
-  if (!inner) return { slash: true as const };
-  const open = p.access === "public";
-  const headers = headersFor(mount.rules?.headers ?? [], inner);
-  // The file a path names, else none: what a redirect that isn't forced gives way to. Its rules files are never served.
-  // A rewrite serves the file it names as it is: no slash added for a folder's index.
-  const fileAt = async (path: string, rewrite = false): Promise<{ slash: true } | { key: string; contentType: string } | null> => {
-    for (const name of candidates(path)) {
-      if (name === "404.html" || HIDDEN.has(name)) continue;
-      if ((await sizeOf(mount.prefix + name)) === null) continue;
-      if (!rewrite && name.endsWith("index.html") && !path.endsWith("/")) return { slash: true as const };
-      return { key: mount.prefix + name, contentType: contentTypeOf(name) };
-    }
-    return null;
-  };
-  const notFound = async (): Promise<SiteAnswer | null> => {
-    const key = mount.prefix + "404.html";
-    return (await sizeOf(key)) === null ? null : { key, contentType: contentTypeOf("404.html"), status: 404, open, headers };
-  };
-  const rule = redirectFor(mount.rules?.redirects ?? [], inner);
-  const found = rule?.force ? null : await fileAt(inner);
-  if (found) return "slash" in found ? found : { ...found, status: 200, open, headers };
-  if (!rule) return notFound();
-  if (rule.status === 200 || rule.status === 404) {
-    // Served from the build itself: a single-page app's index for every path, or a page of its own for a miss.
-    const target = await fileAt(rule.to, true);
-    if (!target || "slash" in target) return notFound();
-    return { ...target, status: rule.status, open, headers };
-  }
-  // A path of the build is under its mount; a URL goes where it says.
-  const to = rule.to.startsWith("/") ? `${mount.path === "/" ? "" : mount.path}${rule.to}` : rule.to;
-  return { redirect: to, status: rule.status, headers };
+    .where(and(eq(siteDeployments.siteId, siteId), preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
 }
