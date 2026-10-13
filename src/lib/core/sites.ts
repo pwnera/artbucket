@@ -445,7 +445,7 @@ export async function recheckSites(date = today()) {
     if (!fresh.length) continue;
     await recordAudit({ actor: "server" }, "site.problems", site.slug, { path: d.path, problems }, { projectId: site.projectId });
     const ws = await projectById(site.projectId);
-    const url = `${await appUrlFor(ws?.organizationId ?? null)}/sites?open=${site.id}`;
+    const url = `${await appUrlFor(ws?.organizationId ?? null)}/sites?deployments=${site.id}`;
     for (const to of await adminsOf(site)) await sendAs(ws?.organizationId ?? null, siteProblemsEmail(to, { site: site.name, path: d.path, problems, url }), { capped: false });
   }
   return { checked: due.length, troubled };

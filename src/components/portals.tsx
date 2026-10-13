@@ -166,8 +166,9 @@ export function Portals({ portals, portalDomain }: { portals: Portal[]; portalDo
   const [editing, setEditing] = useState<Portal | "new" | null>(() =>
     freshBrand || fresh === "portal" ? "new" : (asked && portals.find((x) => x.id === asked)) || null,
   );
-  // A built site, made or deployed to (components/site-deployments.tsx); ?new=site opens a new one.
-  const [building, setBuilding] = useState<Portal | "new" | null>(() => (fresh === "site" ? "new" : null));
+  // A built site, made or deployed to (components/site-deployments.tsx); ?new=site opens a new one, ?deployments={id} one's deployments (the re-check's email).
+  const deployed = params.get("deployments");
+  const [building, setBuilding] = useState<Portal | "new" | null>(() => (fresh === "site" ? "new" : (deployed && portals.find((x) => x.id === deployed)) || null));
   // Arriving from a request's email: its requests, open, once.
   const opened = params.get("open");
   const [requests, setRequests] = useState<Portal | null>(() => (opened && portals.find((x) => x.id === opened)) || null);
