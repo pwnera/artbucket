@@ -8,7 +8,7 @@ import { can } from "@/lib/permissions";
 import { shownVersion } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
 import { getBody, whoami } from "@/lib/sidebar";
-import { builderPath, guidelinesPath, type PageView } from "@/lib/site";
+import { formerBuilderPath, guidelinesPath, type PageView } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -31,18 +31,19 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 /**
  * A brand's Guidelines tab: its pages as its readers see them, read-only,
  * under the brand's header and tabs; `?focus=1`, the same pages alone, the
- * app's sidebar folded. Edit, in the header, opens the builder at
- * /brands/{slug}/guidelines/edit. The draft or the live release, as
- * lib/readiness.ts shownVersion picks. This was the builder's address, so
- * an editor's `?git=` (back from the Git integration) or `?panel=` still
- * goes on to it; proxy.ts sends /pages and ?view=read here.
+ * app's sidebar folded. For editors, Edit opens the ways to change the pages
+ * (`?ways=1`: an agent, Git, Eject to code), and Comments the review threads
+ * (`?comments=1`). The draft or the live release, as lib/readiness.ts
+ * shownVersion picks. This was the builder's address once, so an editor's
+ * `?git=` or `?panel=` goes where that work is now; proxy.ts sends /pages and
+ * ?view=read here.
  */
 export default async function GuidelinesPage({ params, searchParams }: Props) {
   const [{ slug }, q] = await Promise.all([params, searchParams]);
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
   const edit = can(me, "brand.edit");
-  if (edit && (q.git || q.panel)) redirect(builderPath(slug, q));
+  if (edit && (q.git || q.panel)) redirect(formerBuilderPath(slug, q));
   const version = shownVersion(q.version, { edit, publish: head.status?.publish ?? "never", live: head.status?.live ?? null });
   const read = await viewOf(slug, { ...q, version });
   if (!read) notFound();
@@ -56,8 +57,7 @@ export default async function GuidelinesPage({ params, searchParams }: Props) {
       embed={q.focus === "1" ? undefined : { head: { brand, origin: env.APP_URL, rules, status, release } }}
       status={status}
       version={version}
-      // The builder read-only: Edit opens the three ways to change the pages instead (`?ways=1`).
-      ways={edit && env.BUILDER === "read-only" ? { mcp: `${env.APP_URL}/api/v1/mcp`, git: env.GIT_CONNECT_URL ? gitLink(env.GIT_CONNECT_URL, slug) : null } : undefined}
+      ways={edit ? { mcp: `${env.APP_URL}/api/v1/mcp`, git: env.GIT_CONNECT_URL ? gitLink(env.GIT_CONNECT_URL, slug) : null } : undefined}
     />
   );
 }

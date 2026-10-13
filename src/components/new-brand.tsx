@@ -44,8 +44,8 @@ const brief = (name: string, site: string) =>
   ].join("\n");
 
 /**
- * A new brand, three ways: laid out by hand in the builder (from nothing, or
- * from a showcase brand to edit), by an agent, given the one prompt to paste
+ * A new brand, three ways: made here (from nothing, a domain's brand.json,
+ * or a showcase brand to edit), by an agent, given the one prompt to paste
  * once it is connected, or from a Git repository (brand as code): where the
  * server has a Git integration (me.git, GIT_CONNECT_URL), brought in from
  * files already there or made here and kept there as it grows; elsewhere,
@@ -139,7 +139,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <DialogDescription>A draft until you release it.</DialogDescription>
               </DialogHeader>
               <div className={cn("grid gap-3", bookImport ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")} role="radiogroup" aria-label="How to set it up">
-                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Build it in the builder" text="Lay out the pages yourself, blank or from a template.">
+                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Start here" text="Blank, from your domain or from a template, then filled in on its Rules tab.">
                   <BuilderArt />
                 </Choice>
                 <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
@@ -168,7 +168,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           {step === "builder" && (
             <form onSubmit={create} className="grid min-w-0 gap-4">
               <DialogHeader>
-                <DialogTitle>Build it in the builder</DialogTitle>
+                <DialogTitle>Start here</DialogTitle>
                 <DialogDescription>Start blank, from a domain or from a template.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3" role="radiogroup" aria-label="Start from">
@@ -296,7 +296,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
             <div className="grid min-w-0 gap-4">
               <DialogHeader>
                 <DialogTitle>From a Git repository</DialogTitle>
-                <DialogDescription>Edit in pull requests, with a preview, or in the builder. Synced both ways.</DialogDescription>
+                <DialogDescription>Edit in pull requests, with a preview, or in Artbucket. Synced both ways.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
                 <a
@@ -466,7 +466,7 @@ function Choice({
   );
 }
 
-/** A builder window, drawn in the theme's own greys. */
+/** An app window, drawn in the theme's own greys. */
 function BuilderArt() {
   return (
     <div className="bg-background w-full max-w-60 overflow-hidden rounded-t-md border border-b-0 shadow-sm">

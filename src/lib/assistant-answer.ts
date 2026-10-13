@@ -124,7 +124,7 @@ export function placePath(spec: string): string | null {
   if (p[0] === "brand" && SLUG.test(p[1] || "")) {
     if (p.length === 2 || (p.length === 3 && p[2] === "overview")) return `/brands/${p[1]}`;
     if (p.length === 4 && p[2] === "guidelines" && SLUG.test(p[3])) return `/brands/${p[1]}/guidelines?page=${p[3]}`;
-    if (p.length === 5 && p[2] === "guidelines" && SLUG.test(p[3]) && p[4] === "edit") return `/brands/${p[1]}/guidelines/edit?page=${p[3]}`;
+    if (p.length === 5 && p[2] === "guidelines" && SLUG.test(p[3]) && p[4] === "edit") return `/brands/${p[1]}/guidelines?page=${p[3]}&ways=1`;
     if (p.length === 3 && TABS.includes(p[2])) return `/brands/${p[1]}/${p[2]}`;
     return null;
   }

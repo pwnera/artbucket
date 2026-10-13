@@ -538,14 +538,6 @@ html[data-loading]::before {
   transition: opacity 150ms var(--ease-out);
 }
 
-/* A score that just rose (builder/top-bar.tsx ScoreTick): green for a moment, then its own color again. */
-@keyframes score-rose {
-  from { color: var(--success); }
-}
-.score-rose {
-  animation: score-rose 1.4s var(--ease-out), enter 200ms var(--ease-out);
-}
-
 /*
  * Charts (components/analytics.tsx): a chart draws in from its start, and a
  * breakdown's bars grow from theirs, as they appear. Still with less motion.

@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { inkOn } from "@/lib/color";
 import type { Audience } from "@/lib/pages";
 import type { PortalSite } from "@/lib/portal";
-import { builderPath, canonicalPath, type PageView } from "@/lib/site";
+import { canonicalPath, guidelinesPath, type PageView } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { shake } from "@/lib/motion";
 
@@ -460,7 +460,7 @@ export function PortalView({
       {editor && mode !== "book" && (
         <FloatingEdit
           always
-          href={editor.app + builderPath(brand, { page: view.page?.slug, context: view.context, project: editor.project })}
+          href={editor.app + guidelinesPath(brand, { page: view.page?.slug, context: view.context, project: editor.project, ways: "1" })}
         />
       )}
     </Shell>

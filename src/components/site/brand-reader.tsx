@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandHeader, type BrandHeaderProps } from "@/components/brand-header";
 import { EditWays, type Ways } from "@/components/edit-ways";
 import { BrandTabMenu } from "@/components/brand-tabs";
-import { Can } from "@/components/can";
+import { Can, useCan } from "@/components/can";
 import { FloatingEdit } from "@/components/floating-edit";
+import { IconMessageCircle } from "@/components/icons";
 import { AppHeader } from "@/components/page";
 import { useSqueeze } from "@/components/shell";
+import { ReaderComments } from "@/components/site/reader-comments";
 import { SiteView } from "@/components/site/site-view";
 import { ThemePanel } from "@/components/theme-panel";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ import type { Status } from "@/components/builder/use-status";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { liveLine } from "@/lib/readiness";
 import { contextLabel } from "@/lib/rules";
-import { brandPath, builderPath, guidelinesPath, type PageView } from "@/lib/site";
+import { brandPath, guidelinesPath, type PageView } from "@/lib/site";
 
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
@@ -36,7 +37,7 @@ export type BrandReaderProps = {
   status: Pick<Status, "publish" | "live"> | null;
   /** What it shows when the address doesn't say (`?version=`): lib/readiness.ts shownVersion. */
   version: "draft" | "live";
-  /** The builder read-only (BUILDER=read-only): the ways to edit, open while the address says `?ways=1`. */
+  /** For editors: the ways to change the pages (an agent, Git, Eject to code), open while the address says `?ways=1`. */
   ways?: Ways;
 };
 
@@ -61,6 +62,7 @@ const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.bran
 export function BrandReader({ initial, embed, status, version: fallback, ways }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
+  const can = useCan();
   const [theming, setTheming] = useState(false);
   const slug = initial.brand.slug;
   const focus = !embed;
@@ -125,6 +127,22 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
     [router, slug, focus],
   );
 
+  // The ways to edit and the comments open over the page while the address says so (`?ways=1`, `?comments=1`).
+  const setOpen = (key: "ways" | "comments", open: boolean) => {
+    const q = new URLSearchParams(params);
+    if (open) q.set(key, "1");
+    else q.delete(key);
+    router.replace(`${location.pathname}${q.size ? `?${q}` : ""}${location.hash}`, { scroll: false });
+  };
+  // A page's address with one of them open: rendered on the server too, so from what the view says, never `location`.
+  const also = (page: string | null, key: "ways" | "comments") => guidelinesPath(slug, { page, context, lang, version: asked, focus: focus ? "1" : null, [key]: "1" });
+  const commenting = can("brand.comment");
+  const commentsButton = commenting && (
+    <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setOpen("comments", true)}>
+      <IconMessageCircle aria-hidden /> Comments
+    </Button>
+  );
+
   const contexts = view.contexts.length > 0 && (
     <Select value={context ?? "*"} onValueChange={(c) => navigate(at(view.page?.slug ?? null, { context: c === "*" ? null : c, lang, version: asked }))}>
       <SelectTrigger size="sm" aria-label="Read the rules for a context" className="min-w-0 shrink!">
@@ -145,6 +163,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: view.brand.name, href: brandPath(slug) }, { label: "Guidelines" }]}>
         <Showing view={view} status={status} onPick={(v) => navigate(at(view.page?.slug ?? null, { context, lang, version: v }) + location.hash)} />
         {contexts}
+        {commentsButton}
       </AppHeader>
       <BrandHeader {...embed.head} at="guidelines" compact />
     </>
@@ -158,13 +177,14 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
       }
     >
       {contexts}
+      {commentsButton}
       {/* On a phone they don't fit beside the brand's menu: the floating Edit, there from the start, has both. */}
       <Can do="brand.edit">
         <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setTheming(true)}>
           Theme
         </Button>
-        <Button variant="outline" size="sm" className="max-md:hidden" asChild>
-          <Link href={builderPath(slug, { page: view.page?.slug, context })}>Edit</Link>
+        <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setOpen("ways", true)}>
+          Edit
         </Button>
       </Can>
     </AppHeader>
@@ -174,7 +194,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
     <>
       <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
       <Can do="brand.edit">
-        <FloatingEdit href={builderPath(slug, { page: view.page?.slug, context })} onTheme={() => setTheming(true)} always={focus && mobile} />
+        <FloatingEdit href={also(view.page?.slug ?? null, "ways")} onTheme={() => setTheming(true)} always={focus && mobile} />
         {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
         <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
       </Can>
@@ -183,12 +203,15 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
           brand={slug}
           ways={ways}
           open={params.get("ways") === "1"}
-          onOpenChange={(open) => {
-            const q = new URLSearchParams(params);
-            if (open) q.set("ways", "1");
-            else q.delete("ways");
-            router.replace(`${location.pathname}${q.size ? `?${q}` : ""}${location.hash}`, { scroll: false });
-          }}
+          onOpenChange={(open) => setOpen("ways", open)}
+        />
+      )}
+      {commenting && (
+        <ReaderComments
+          view={view}
+          open={params.get("comments") === "1"}
+          onOpenChange={(open) => setOpen("comments", open)}
+          onPage={(page) => navigate(also(page, "comments"))}
         />
       )}
     </>
