@@ -57,6 +57,8 @@ test("a landing page: the release's text escaped, its logo copied in, its look f
   assert.match(html, /<title>Rockets, &#60;delivered&#62;\. · Acme &#38; Co<\/title>/);
   assert.match(html, /<nav><\/nav>/);
   assert.ok(site.has(`assets/${LOGO}.svg`));
+  // The starter's MIT notice comes with every site made from it.
+  assert.match(readFileSync(join(site.dir, "LICENSE"), "utf8"), /^MIT License\n\nCopyright \(c\) 2026 Artbucket contributors/);
   const look = site.read("look.css");
   assert.match(look, /--accent: #e11d48;/);
   assert.match(look, /--paper: #fffbf5;/);

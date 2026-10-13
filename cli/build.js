@@ -7,6 +7,6 @@ const at = (path) => new URL(path, import.meta.url);
 const source = readFileSync(at("../bin/artbucket.ts"), "utf8").replace(/^#!.*/, "#!/usr/bin/env node");
 writeFileSync(at("artbucket.js"), stripTypeScriptTypes(source), { mode: 0o755 });
 copyFileSync(at("../LICENSE"), at("LICENSE"));
-// The starters `site new` copies (MIT-0, their own LICENSE), beside artbucket.js.
+// The starters `site new` copies (MIT, their own LICENSE), beside artbucket.js.
 rmSync(at("starters"), { recursive: true, force: true });
 cpSync(at("../starters"), at("starters"), { recursive: true });
