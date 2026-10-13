@@ -3,7 +3,8 @@ name: Release
 # A tag like v1.0.0 publishes the image to ghcr.io/pwnera/artbucket, for
 # amd64 and arm64, as 1.0.0, 1.0, 1 and latest: pin a major to take fixes
 # and additions, never a break (docs: developers/stability). It also
-# publishes the CLI to npm as artbucket, at the tag's version (cli/), and
+# publishes the CLI to npm as artbucket, at the tag's version (cli/), the kit beside it
+# (@artbucket/brand and @artbucket/ui, kit/), and
 # as an image, ghcr.io/pwnera/artbucket/cli, tagged the same way.
 #
 # Only the newest release moves latest, the newest of a major moves {{major}},
@@ -214,3 +215,17 @@ jobs:
           fi
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           npm publish --provenance --access public --tag "$NPM_TAG"
+      # The kit (kit/, MIT), at the same version: what sites made with `site new` or `site eject` install.
+      - if: env.NODE_AUTH_TOKEN != ''
+        run: |
+          for dir in kit/brand kit/ui; do
+            name=$(node -p "require('./$dir/package.json').name")
+            if [ "$(npm view "$name@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+              echo "$name@$VERSION is already on npm."
+              continue
+            fi
+            # Publishing under @artbucket takes the npm organization artbucket, with NPM_TOKEN's user in it:
+            # until then the CLI still ships, and this says what is missing.
+            (cd "$dir" && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm publish --provenance --access public --tag "$NPM_TAG") ||
+              echo "::warning::$name@$VERSION wasn't published: the npm organization artbucket must exist, with NPM_TOKEN's user allowed to publish in it. Then run this workflow again with the tag."
+          done

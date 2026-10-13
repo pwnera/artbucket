@@ -1,0 +1,100 @@
+---
+title: The kit
+description: "@artbucket/brand and @artbucket/ui: read a brand's release at build time and draw its rules, in any framework. MIT."
+---
+
+A site built anywhere (Next.js, Astro, Vite, plain HTML) stays on brand with
+two small packages. Both are MIT, unlike the AGPL core, so they go in client
+code with no copyleft obligation.
+
+```bash
+npm install @artbucket/brand @artbucket/ui
+npx artbucket brand export .brand --brand acme
+```
+
+## @artbucket/brand
+
+Reads one release of a brand, as [`artbucket brand
+export`](/guides/sites#start-from-a-starter) wrote it, at build time and
+offline. It notes every rule and file the build asks for, and writes the
+manifest a deployment reads: the site's lineage, its use check, and which
+releases [rebuild it](/guides/sites#built-again-when-the-brand-is-released).
+
+```js
+import { loadBrand } from "@artbucket/brand";
+
+const brand = await loadBrand(".brand");
+brand.value("color.primary");          // "#6d4aff"
+brand.text("brand.headline", "Hello"); // a text rule's words, or the fallback
+brand.rules("color.*");                // a group's rules
+brand.pick("font", ["head", "display"]); // the face whose key says one of the words
+brand.file(logo.assets[0]);            // "assets/{id}.svg", copied by copyFiles
+brand.liveUrl(id, "w_800,f_webp");     // /c/: the asset's current version, public assets only
+
+await brand.copyFiles("dist");
+await brand.writeManifest("dist");     // dist/artbucket.site.json
+```
+
+The manifest names the rules read (`color.primary`, or `color.*` for a group
+read whole), so a release that changes none of them calls no rebuild.
+`all()` and `tokensCss()` read every rule.
+
+## @artbucket/ui
+
+Draws a brand's rules with its own values: the palette (each color with the
+ink that reads on it, its RGB, HSL and CMYK, and its contrast on white and
+black), the type specimen, the logos, dos and don'ts, the other rules and one
+rule's value. The color math is the one Artbucket's own palettes use.
+
+As HTML strings, for any framework, on the server or in the browser:
+
+```js
+import { palette, typeSpecimen, logoGrid, ruleList, ruleValue, doDont } from "@artbucket/ui/html";
+
+palette(brand.rules("color.*"));
+logoGrid(brand.rules("logo.*"), { src: (a) => `/${brand.file(a)}` });
+```
+
+As web components, reading a `brand.json` served beside its files:
+
+```html
+<link rel="stylesheet" href="/kit.css">  <!-- @artbucket/ui/ui.css -->
+<ab-palette src="/brand/brand.json" keys="color.*"></ab-palette>
+<ab-rule src="/brand/brand.json" key="color.primary"></ab-rule>
+<script type="module">
+  import { define } from "@artbucket/ui/elements";
+  define();
+</script>
+```
+
+`<ab-type>`, `<ab-logos>` and `<ab-rules>` work the same way; `context`
+picks a context's values (`dark-background`). In React:
+
+```jsx
+import { Palette, LogoGrid } from "@artbucket/ui/react";
+
+<Palette rules={brand.rules("color.*")} />
+```
+
+`@artbucket/ui/ui.css` styles them; its colors follow the page unless
+`--ab-line`, `--ab-tile`, `--ab-do` and `--ab-dont` say otherwise.
+
+## Eject to code
+
+`artbucket site eject` turns a brand's pages, as readers see them in its
+release, into a guidelines site of its own, built with the kit:
+
+```bash
+npx artbucket site eject acme-guidelines --brand acme --create
+cd acme-guidelines
+npm install
+npm run deploy
+```
+
+Each page becomes `src/pages/{page}.html` (the home page `index.html`), in
+the brand's order (`src/pages/order.txt`). Its sections keep their words, and
+the rules they show become the kit's drawings (`{{palette:color.primary}}`,
+`{{logos:logo.*}}`), filled from the release at each build. The pictures they
+show are copied into `src/public/assets`. A section the kit has no drawing
+for yet (a chart, a diagram, a pattern) is kept as its words, with a note in
+the file. The pages in Artbucket stay as they are.
