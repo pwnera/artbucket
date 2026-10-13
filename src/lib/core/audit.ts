@@ -46,6 +46,7 @@ export type AuditAction =
   | "portal.request_removed"
   | "site.deployed"
   | "site.problems"
+  | "site.held"
   | "brand.published"
   | "brand.public"
   | "brand.private"

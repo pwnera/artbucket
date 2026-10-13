@@ -204,6 +204,8 @@ const schema = z.object({
   EMAIL_FROM: z.string().optional(),
   EMAIL_REPLY_TO: z.email().optional(),
   EMAIL_API_KEY: z.string().optional(),
+  /** Where a build held for review (LIMIT_SITE_REVIEW, lib/core/sites.ts) is reported, through the server's email. */
+  SITE_REVIEW_EMAIL: z.email().optional(),
   /** The operator's terms and privacy policy: wherever an account is made, it says that going on agrees to them. The privacy policy is linked from portals, share links and BrandHub too. */
   TERMS_URL: z.url().optional(),
   PRIVACY_URL: z.url().optional(),

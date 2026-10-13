@@ -33,8 +33,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** Renditions the bucket still keeps (lib/storage.ts expires them). */
 const kept = gt(renditions.createdAt, sql`now() - make_interval(days => ${RENDITION_DAYS})`);
 
-/** Deployments whose files are kept: the live one at each path and the few replaced kept to restore (lib/core/sites.ts). */
-const keptBuild = inArray(siteDeployments.state, ["live", "replaced"]);
+/** Deployments whose files are kept: the live one at each path, the few replaced kept to restore, and any held for review (lib/core/sites.ts). */
+const keptBuild = inArray(siteDeployments.state, ["live", "replaced", "held"]);
 
 /**
  * Bytes of the organization's assets, of the renditions made of them, and of
@@ -414,7 +414,7 @@ export async function usageOf(caller: Caller) {
         name: projects.name,
         storage: sql<number>`(coalesce((select sum(a.size) from ${assets} a where a.project_id = ${projects.id} and a.deleted_at is null), 0)
           + coalesce((select sum(r.bytes) from ${renditions} r where r.project_id = ${projects.id} and r.created_at > now() - make_interval(days => ${RENDITION_DAYS})), 0)
-          + coalesce((select sum(d.bytes) from ${siteDeployments} d join ${portals} s on s.id = d.site_id where s.project_id = ${projects.id} and d.state in ('live', 'replaced')), 0))::float8`,
+          + coalesce((select sum(d.bytes) from ${siteDeployments} d join ${portals} s on s.id = d.site_id where s.project_id = ${projects.id} and d.state in ('live', 'replaced', 'held')), 0))::float8`,
         requests: sql<number>`coalesce(sum(${traffic.requests}), 0)::int`,
         bytes: sql<number>`coalesce(sum(${traffic.bytes}), 0)::float8`,
       })

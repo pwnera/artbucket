@@ -1,19 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, portals, siteDeployments } from "@/lib/db/schema";
+import { assets, brands, portals, siteDeployments } from "@/lib/db/schema";
 import { projectById, type Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
 import { appUrlFor, portalNamed } from "@/lib/core/domains";
 import { adminsOf, enterPortal, type Pass } from "@/lib/core/portals";
-import { sendAs, siteProblemsEmail } from "@/lib/core/mail";
+import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
 import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
+import { signLines, signsIn, type Sign } from "@/lib/site-safety";
 import { putObject, sizeOf } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
 
@@ -45,6 +46,7 @@ const present = (d: Deployment) => ({
   manifest: d.manifest,
   uses: d.uses ?? [],
   problems: d.problems,
+  flags: d.flags,
   checkedAt: d.checkedAt,
   createdBy: d.createdBy,
   createdAt: d.createdAt,
@@ -74,11 +76,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * What a build's files point at in the library, gathered as they are read:
  * the hash of every file, the `/a/` and `/c/` addresses in its text, and
- * what its manifest names. Nothing is trusted to declare itself: a zip
+ * what its manifest names; and the signs it is phishing or malware
+ * (lib/site-safety.ts), which its project's own brands don't count toward. Nothing is trusted to declare itself: a zip
  * downloaded from Lovable carries no manifest, and a logo copied into it is
  * still that logo.
  */
-export function buildScan() {
+export function buildScan(ownBrands: string[] = []) {
+  const signs: Sign[] = [];
   const hashes = new Map<string, string[]>();
   const pinned = new Map<string, string[]>();
   const current = new Map<string, string[]>();
@@ -89,11 +93,15 @@ export function buildScan() {
     pinned,
     current,
     declared,
+    signs,
     /** A file of the build, by the name it is served at. */
     add(name: string, data: Uint8Array) {
       note(hashes, createHash("sha256").update(data).digest("hex"), name);
+      let decoded: string | null = null;
+      const content = () => (decoded ??= new TextDecoder().decode(data));
+      signs.push(...signsIn(name, content, ownBrands));
       if (!readsLinks(name, data.length)) return;
-      const found = assetAddresses(new TextDecoder().decode(data));
+      const found = assetAddresses(content());
       for (const id of found.pinned) note(pinned, id, name);
       for (const id of found.current) note(current, id, name);
     },
@@ -218,6 +226,28 @@ export async function problemsWith(uses: SiteUse[], date = today()) {
   return out;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** A deployment made the live one at its path: the one live there kept as replaced, the oldest replaced past KEEP_REPLACED gone. */
+async function makeLive(tx: Tx, siteId: string, path: string, id: string, set: Partial<typeof siteDeployments.$inferInsert> = {}) {
+  await tx
+    .update(siteDeployments)
+    .set({ state: "replaced" })
+    .where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.path, path), eq(siteDeployments.state, "live")));
+  // A few replaced kept to restore; older ones go, and the sweep (lib/core/sweep.ts) takes their files.
+  const old = await tx
+    .select({ id: siteDeployments.id })
+    .from(siteDeployments)
+    .where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.path, path), eq(siteDeployments.state, "replaced")))
+    .orderBy(desc(siteDeployments.createdAt))
+    .offset(KEEP_REPLACED);
+  if (old.length) await tx.delete(siteDeployments).where(inArray(siteDeployments.id, old.map((o) => o.id)));
+  return tx.update(siteDeployments).set({ ...set, state: "live" }).where(eq(siteDeployments.id, id)).returning();
+}
+
+/** The brands' names in a project, which a build may look like without impersonating anyone. */
+const brandNames = async (projectId: string) => (await db.select({ name: brands.name, slug: brands.slug }).from(brands).where(eq(brands.projectId, projectId))).flatMap((b) => [b.name, b.slug]);
+
 /**
  * Deploy a zip to a site at a mount path: refused outright when it can't
  * serve (no index.html, a name outside the site, too big); otherwise
@@ -257,7 +287,7 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
   try {
     let bytes = 0;
     let manifest: Manifest | null = null;
-    const scan = buildScan();
+    const scan = buildScan(await brandNames(site.projectId));
     const list = [...files];
     // ponytail: 16 uploads at a time, the zip held in memory; a streaming unpack when deployments grow past MAX_SITE_BYTES.
     for (let i = 0; i < list.length; i += 16) {
@@ -276,24 +306,19 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
     const { uses, unknown } = await resolveUses(site.projectId, scan);
     const problems = [...unknown, ...(await problemsWith(uses))];
     if (problems.length) throw new AssetError("invalid", `It uses what may not be used: ${problems.join("; ")}`);
-    const [live] = await db.transaction(async (tx) => {
+    const flags = signLines(scan.signs);
+    const held = flags.length > 0 && limits.siteReview;
+    const kept = { files: files.size, bytes, manifest, uses, flags, problems: [], checkedAt: new Date() };
+    const [row] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
-      await tx
-        .update(siteDeployments)
-        .set({ state: "replaced" })
-        .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, path), eq(siteDeployments.state, "live")));
-      // A few replaced kept to restore; older ones go, and the sweep (lib/core/sweep.ts) takes their files.
-      const old = await tx
-        .select({ id: siteDeployments.id })
-        .from(siteDeployments)
-        .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, path), eq(siteDeployments.state, "replaced")))
-        .orderBy(desc(siteDeployments.createdAt))
-        .offset(KEEP_REPLACED);
-      if (old.length) await tx.delete(siteDeployments).where(inArray(siteDeployments.id, old.map((o) => o.id)));
-      return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest, uses, problems: [], checkedAt: new Date() }).where(eq(siteDeployments.id, id)).returning();
+      if (!held) return makeLive(tx, site.id, path, id, kept);
+      const why = `Held for review: ${flags.join("; ")}. Whoever runs this server looks at it, and it goes live if it is what it seems`;
+      return tx.update(siteDeployments).set({ ...kept, state: "held", error: why }).where(eq(siteDeployments.id, id)).returning();
     });
-    await recordAudit(caller, "site.deployed", site.slug, { path, kind, files: files.size }, { projectId: site.projectId });
-    return present(live);
+    await recordAudit(caller, held ? "site.held" : "site.deployed", site.slug, { path, kind, files: files.size, ...(flags.length ? { flags } : {}) }, { projectId: site.projectId });
+    if (held && env.SITE_REVIEW_EMAIL)
+      await sendAs(null, siteHeldEmail(env.SITE_REVIEW_EMAIL, { organization: caller.project.organization.slug, site: site.slug, path, deployment: id, flags }), { capped: false });
+    return present(row);
   } catch (err) {
     const why = err instanceof Error ? err.message : "It could not be stored";
     await db.update(siteDeployments).set({ state: "failed", error: why }).where(eq(siteDeployments.id, id));
@@ -319,7 +344,7 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   if (!files || !files.size) throw new AssetError("invalid", files ? "That zip holds no files" : "A file in the zip names a path outside the site");
   if (files.size > MAX_SITE_FILES) throw new AssetError("invalid", `A build holds ${MAX_SITE_FILES} files at most`);
   const byName = new Map(entries.map((e) => [e.name, e]));
-  const scan = buildScan();
+  const scan = buildScan(await brandNames(caller.project.id));
   let bytes = 0;
   for (const [served, name] of files) {
     const data = await byName.get(name)!.read();
@@ -335,7 +360,7 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   }
   const { uses, unknown } = await resolveUses(caller.project.id, scan);
   const problems = [...unknown, ...(await problemsWith(uses))];
-  return { allowed: !problems.length, files: files.size, uses, problems };
+  return { allowed: !problems.length, files: files.size, uses, problems, flags: signLines(scan.signs) };
 }
 
 /**

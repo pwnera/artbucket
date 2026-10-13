@@ -48678,7 +48678,7 @@
     ],
     "get": {
       "summary": "A site's deployments",
-      "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.\n\nScope: `write`.",
+      "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.\n\nScope: `write`.",
       "x-scope": "write",
       "responses": {
         "200": {
@@ -48717,8 +48717,10 @@
                             "checking",
                             "live",
                             "failed",
-                            "replaced"
-                          ]
+                            "replaced",
+                            "held"
+                          ],
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                         },
                         "files": {
                           "type": "integer",
@@ -48743,7 +48745,7 @@
                           ]
                         },
                         "error": {
-                          "description": "Why it failed",
+                          "description": "Why it failed, or why it is held",
                           "type": [
                             "string",
                             "null"
@@ -48808,6 +48810,13 @@
                           },
                           "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
                         },
+                        "flags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                        },
                         "checkedAt": {
                           "description": "When it was last checked",
                           "type": [
@@ -48835,6 +48844,7 @@
                         "manifest",
                         "uses",
                         "problems",
+                        "flags",
                         "checkedAt",
                         "createdBy",
                         "createdAt"
@@ -48965,8 +48975,10 @@
                           "checking",
                           "live",
                           "failed",
-                          "replaced"
-                        ]
+                          "replaced",
+                          "held"
+                        ],
+                        "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                       },
                       "files": {
                         "type": "integer",
@@ -48991,7 +49003,7 @@
                         ]
                       },
                       "error": {
-                        "description": "Why it failed",
+                        "description": "Why it failed, or why it is held",
                         "type": [
                           "string",
                           "null"
@@ -49056,6 +49068,13 @@
                         },
                         "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
                       },
+                      "flags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                      },
                       "checkedAt": {
                         "description": "When it was last checked",
                         "type": [
@@ -49083,6 +49102,7 @@
                       "manifest",
                       "uses",
                       "problems",
+                      "flags",
                       "checkedAt",
                       "createdBy",
                       "createdAt"
@@ -49212,13 +49232,21 @@
                           "type": "string"
                         },
                         "description": "Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"
+                      },
+                      "flags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
                       }
                     },
                     "required": [
                       "allowed",
                       "files",
                       "uses",
-                      "problems"
+                      "problems",
+                      "flags"
                     ],
                     "additionalProperties": false
                   }
@@ -49338,8 +49366,10 @@
                           "checking",
                           "live",
                           "failed",
-                          "replaced"
-                        ]
+                          "replaced",
+                          "held"
+                        ],
+                        "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                       },
                       "files": {
                         "type": "integer",
@@ -49364,7 +49394,7 @@
                         ]
                       },
                       "error": {
-                        "description": "Why it failed",
+                        "description": "Why it failed, or why it is held",
                         "type": [
                           "string",
                           "null"
@@ -49429,6 +49459,13 @@
                         },
                         "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
                       },
+                      "flags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                      },
                       "checkedAt": {
                         "description": "When it was last checked",
                         "type": [
@@ -49456,6 +49493,7 @@
                       "manifest",
                       "uses",
                       "problems",
+                      "flags",
                       "checkedAt",
                       "createdBy",
                       "createdAt"

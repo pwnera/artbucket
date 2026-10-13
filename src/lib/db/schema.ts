@@ -1132,12 +1132,14 @@ export const siteDeployments = pgTable(
     uses: jsonb("uses").$type<SiteUse[] | null>(),
     /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */
     problems: jsonb("problems").$type<string[]>().notNull().default([]),
+    /** Signs it looks like phishing or malware (lib/site-safety.ts), one line each: held for the operator, or live with them noted. */
+    flags: jsonb("flags").$type<string[]>().notNull().default([]),
     /** When a live deployment was last checked again. */
     checkedAt: timestamp("checked_at", { withTimezone: true }),
     /** Where it came from, when a build says: a commit and its ref. */
     commit: text("commit"),
     ref: text("ref"),
-    /** Why the check failed, in words. */
+    /** Why the check failed, or why it is held, in words. */
     error: text("error"),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1145,7 +1147,7 @@ export const siteDeployments = pgTable(
   (t) => [
     index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
     uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
-    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced')`),
+    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held')`),
     check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
 );

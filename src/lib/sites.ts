@@ -22,7 +22,8 @@ export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   storybook: "Storybook",
 };
 
-export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced"] as const;
+/** `held`: it looks like phishing or malware and waits for the operator (lib/site-safety.ts), its files kept but not served. */
+export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced", "held"] as const;
 export type DeploymentState = (typeof DEPLOYMENT_STATES)[number];
 
 /**

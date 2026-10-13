@@ -790,6 +790,10 @@ async function main() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw failed(res, json, "site push");
+      if (json.data.state === "held") {
+        process.exitCode = 1;
+        return out(json, () => json.data.error);
+      }
       return out(json, () => `Live: ${site.url}${json.data.path === "/" ? "" : json.data.path} (${files} files)`);
     }
     case "sites": {

@@ -152,6 +152,19 @@ export function siteProblemsEmail(to: string, s: { site: string; path: string; p
   };
 }
 
+/** To the operator (SITE_REVIEW_EMAIL): a build that looks like phishing or malware waits, not served, for a person to decide. */
+export function siteHeldEmail(to: string, h: { organization: string; site: string; path: string; deployment: string; flags: string[] }): Draft {
+  return {
+    to,
+    subject: `A build waits for review: ${h.organization}, ${h.site}`,
+    lines: [
+      `A build deployed by ${h.organization} to the site ${h.site}, at ${h.path}, looks like phishing or malware, and is held:`,
+      ...h.flags,
+      `Its deployment is ${h.deployment}. Release it, or refuse it, as the Sites guide says under "Held for review".`,
+    ],
+  };
+}
+
 /** To whoever asked: yes, and their own link. */
 export function portalAccessEmail(to: string, a: { portal: string; organization: string; url: string; until: Date }): Draft {
   return {

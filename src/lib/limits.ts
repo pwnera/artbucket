@@ -57,6 +57,12 @@ export const Limits = z.object({
   /** Nothing changes: every caller is held to read. */
   readOnly: z.boolean(),
   /**
+   * A build that looks like phishing or malware (lib/site-safety.ts) waits
+   * for the operator instead of going live: for organizations nobody vouches
+   * for yet, such as a free tier with open sign-up. Unset in a row: off.
+   */
+  siteReview: z.boolean().default(false),
+  /**
    * Suspended by the operator, and why (`true` gives no reason): nothing of it
    * reaches the public, and it is read-only. Only ever in the database.
    */
@@ -76,6 +82,7 @@ export const UNLIMITED: Limits = {
   emails: null,
   features: null,
   readOnly: false,
+  siteReview: false,
   suspended: null,
 };
 
@@ -84,13 +91,14 @@ export const held = (l: Limits): Limits => (l.suspended ? { ...l, readOnly: true
 
 type Env = Record<string, string | undefined>;
 
-/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_PROJECTS, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_EMAILS, LIMIT_FEATURES=agents,shares (or none): every organization's. */
+/** LIMIT_STORAGE=10GB, LIMIT_EDITORS=5, LIMIT_PROJECTS, LIMIT_BRANDS, LIMIT_DOMAINS, LIMIT_EMAILS, LIMIT_FEATURES=agents,shares (or none), LIMIT_SITE_REVIEW=true: every organization's. */
 export function limitsFromEnv(env: Env): Limits | null {
   const out: Record<string, unknown> = {};
   if (env.LIMIT_STORAGE?.trim()) out.storage = env.LIMIT_STORAGE.trim();
   for (const [k, name] of [["editors", "LIMIT_EDITORS"], ["projects", "LIMIT_PROJECTS"], ["brands", "LIMIT_BRANDS"], ["domains", "LIMIT_DOMAINS"], ["emails", "LIMIT_EMAILS"]] as const) {
     if (env[name]?.trim()) out[k] = Number(env[name]);
   }
+  if (env.LIMIT_SITE_REVIEW?.trim()) out.siteReview = /^(true|1|on|yes)$/i.test(env.LIMIT_SITE_REVIEW.trim());
   const f = env.LIMIT_FEATURES?.trim();
   if (f) out.features = f === "none" ? [] : f.split(",").map((s) => s.trim()).filter(Boolean);
   return Object.keys(out).length ? Limits.parse({ ...UNLIMITED, ...out }) : null;

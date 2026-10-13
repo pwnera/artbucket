@@ -121,6 +121,48 @@ which file and what replaced it. A read key is enough.
 `POST /api/v1/sites/check` takes the same zip, and answers `allowed`,
 `uses` and `problems`.
 
+## Held for review
+
+A static site has no server of its own to sign anyone in, take a payment or
+ship software. So a page that asks for a password, card details or a
+wallet's recovery phrase, or a program to download, is what phishing looks
+like on a free host, and every deployment is read for those signs. A page
+that looks like another company's sign-in (Microsoft, Google, PayPal, and
+others phishing copies most) says whose, unless the project holds a brand of
+that name.
+
+Where the server's operator reviews (`siteReview` in the organization's
+[limits](/configuration/limits)), a build with any sign is **held**: its
+files are kept, nothing is served, and the deployment says why. A newsletter
+form, a page about signing in, or a component library's bundle is not a
+sign. Elsewhere it goes live, and the signs stay on the deployment as
+`flags`.
+
+The operator hears of it at `SITE_REVIEW_EMAIL`, and decides in the database:
+
+```sql
+-- What waits
+select d.id, o.slug as organization, p.slug as site, d.path, d.flags, d.prefix, d.created_at
+from site_deployments d
+join portals p on p.id = d.site_id
+join projects w on w.id = p.project_id
+join organizations o on o.id = w.organization_id
+where d.state = 'held' order by d.created_at;
+
+-- Release one: the build live at its path, if any, is replaced by it
+begin;
+update site_deployments set state = 'replaced'
+  where state = 'live' and (site_id, path) = (select site_id, path from site_deployments where id = '{id}' and state = 'held');
+update site_deployments set state = 'live', error = null where id = '{id}' and state = 'held';
+commit;
+
+-- Refuse one: its files go with the next sweep
+update site_deployments set state = 'failed', error = 'Refused in review: {why}' where id = '{id}' and state = 'held';
+```
+
+For a build that is plainly abuse, [suspend the organization](/configuration/limits#suspending-an-organization)
+as well.
+
 ## Checked again, every day
 
 A build checked once can go wrong later: a photo's license ends, a logo is

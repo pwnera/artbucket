@@ -18,7 +18,7 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced" | "held"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
 
 /** "uses 3 assets", from what the check found in its files: the library it reaches. */
 const usesLine = (d: Deployment) => {
@@ -26,7 +26,7 @@ const usesLine = (d: Deployment) => {
   return n ? ` · uses ${n} asset${n === 1 ? "" : "s"}` : "";
 };
 
-const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline" };
+const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline", held: "secondary" };
 
 /**
  * A built site (PRD part 2): made with a name, an address and a kind, then
@@ -222,9 +222,9 @@ function Deployments({ site }: { site: Portal }) {
                     </Button>
                   )}
                 </span>
-                {d.error && <span className="text-destructive text-xs">{d.error}</span>}
+                {d.error && <span className={cn("text-xs", d.state === "held" ? "text-warning" : "text-destructive")}>{d.error}</span>}
                 {d.state === "live" &&
-                  d.problems.map((p) => (
+                  [...d.flags, ...d.problems].map((p) => (
                     <span key={p} className="text-warning text-xs">
                       {p}
                     </span>

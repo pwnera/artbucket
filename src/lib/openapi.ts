@@ -120,12 +120,12 @@ const Deployment = z.object({
   id: z.uuid(),
   path: z.string().describe("Where it is mounted"),
   kind: z.enum(["guidelines", "landing", "docs", "storybook"]),
-  state: z.enum(["checking", "live", "failed", "replaced"]),
+  state: z.enum(["checking", "live", "failed", "replaced", "held"]).describe("held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"),
   files: z.number().int(),
   bytes: z.number().int(),
   commit: z.string().nullable(),
   ref: z.string().nullable(),
-  error: z.string().nullable().describe("Why it failed"),
+  error: z.string().nullable().describe("Why it failed, or why it is held"),
   manifest: z.record(z.string(), z.unknown()).nullable().describe("artbucket.site.json, when the zip held one"),
   uses: z
     .array(
@@ -137,6 +137,7 @@ const Deployment = z.object({
     )
     .describe("What it uses of the project's library, found in its files: its lineage"),
   problems: z.array(z.string()).describe("What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"),
+  flags: z.array(z.string()).describe("Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"),
   checkedAt: z.string().nullable().describe("When it was last checked"),
   createdBy: z.string(),
   createdAt: z.string(),
@@ -1532,7 +1533,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "A site's deployments",
           scope: "write",
-          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.",
+          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.",
           ok: [200, "Deployments", data(z.array(Deployment))],
         }),
         post: {
@@ -1576,6 +1577,7 @@ export function openapi(serverUrl: string) {
                   files: z.number().int(),
                   uses: Deployment.shape.uses,
                   problems: z.array(z.string()).describe("Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"),
+                  flags: Deployment.shape.flags,
                 }),
               ),
             ],

