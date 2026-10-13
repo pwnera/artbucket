@@ -4,6 +4,25 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.1.0](https://github.com/pwnera/artbucket/compare/v2.0.0...v2.1.0) (2026-10-13)
+
+
+### Features
+
+* **guidelines:** BUILDER=read-only opens the three ways to edit ([03cf6f1](https://github.com/pwnera/artbucket/commit/03cf6f16f6711f97f183170e24719f7972eff544))
+* **sites:** a release that changes nothing a site reads builds nothing ([adfc2c6](https://github.com/pwnera/artbucket/commit/adfc2c6470abb448e4d2ab29bbc6fe32e24b163e))
+* **sites:** a release that changes nothing a site reads builds nothing ([ecf4e75](https://github.com/pwnera/artbucket/commit/ecf4e75d2b606b27b7bddeb63bafb72166eeb72b))
+* **sites:** BUILD_DOMAIN, builds on a domain of their own ([e378612](https://github.com/pwnera/artbucket/commit/e378612a17a7f52839cfd022c72be07daea027df))
+* **sites:** BUILD_DOMAIN, builds on a domain of their own ([ad45b01](https://github.com/pwnera/artbucket/commit/ad45b0186a2241ea32c902ceb32a929634b157e7))
+* **sites:** pull request previews at their own address ([7d9f627](https://github.com/pwnera/artbucket/commit/7d9f6279ee54b3819b577ed593912b7e34f5f109))
+* **sites:** pull request previews at their own address ([b28ef08](https://github.com/pwnera/artbucket/commit/b28ef08e984f9003d23a3393a3878e1b2c4674f3))
+* **sites:** rebuilding on release is a plan feature (rebuilds) ([469329b](https://github.com/pwnera/artbucket/commit/469329b7e9e82633b0d87a3f260c01738f14f747))
+* **sites:** rebuilding on release is a plan feature (rebuilds) ([89bb78e](https://github.com/pwnera/artbucket/commit/89bb78e75807b75ff41cd322b294c83cfa27a66d))
+* **sites:** signing out closes a members site, approved requests open builds ([d3cf0ad](https://github.com/pwnera/artbucket/commit/d3cf0ad4558df9e94b1a98c40934b25891c58857))
+* **sites:** signing out closes a members site, approved requests open builds ([8c1fa47](https://github.com/pwnera/artbucket/commit/8c1fa474a2969bc664499b3b02b7215ac4d4778a))
+* **sites:** the kit (@artbucket/brand, @artbucket/ui) and Eject to code ([3e61556](https://github.com/pwnera/artbucket/commit/3e61556b63a4111598166c574893fa70579ab853))
+* **sites:** the kit, Eject to code, and the builder read-only switch ([59cef87](https://github.com/pwnera/artbucket/commit/59cef87d5f5e70c1caafa0818218d0b90260c521))
+
 ## [2.0.0](https://github.com/pwnera/artbucket/compare/v1.11.0...v2.0.0) (2026-10-13)
 
 
