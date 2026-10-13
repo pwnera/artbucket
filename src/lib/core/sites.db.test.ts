@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { EventEmitter } from "node:events";
+import https from "node:https";
+import { mock, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets, siteDeployments } from "@/lib/db/schema";
+import { assets, portals, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
-import { createPortal, updatePortal } from "@/lib/core/portals";
+import { createPortal, getPortal, updatePortal } from "@/lib/core/portals";
+import { rebuildSites } from "@/lib/core/rebuild";
+import { resolveBrand } from "@/lib/core/brands";
 import { checkBuild, deploy, HELD_DAYS, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
@@ -259,4 +263,42 @@ test("a check names only what the caller may see: a private asset's copy is not 
   assert.equal((await checkBuild(ada.caller, files)).allowed, false);
   const reader = { ...ada.caller, scope: "read" as const };
   assert.deepEqual(await checkBuild(reader, files), { allowed: true, files: 1, uses: [], problems: [], flags: [] });
+});
+
+test("a release calls the deploy hook of each site built from the brand, and the site says what it answered", async (t) => {
+  const calls: { url: string; body: unknown }[] = [];
+  t.after(() => mock.restoreAll());
+  mock.method(https, "request", (url: URL, _opts: unknown, cb: (res: unknown) => void) => {
+    const req = Object.assign(new EventEmitter(), {
+      end: (data: Buffer) => {
+        calls.push({ url: url.toString(), body: JSON.parse(data.toString()) });
+        queueMicrotask(() => cb(Object.assign(new EventEmitter(), { statusCode: 201, resume() {} })));
+      },
+      destroy() {},
+    });
+    return req;
+  });
+  const hook = "https://api.vercel.com/v1/integrations/deploy/prj_abc/secret123";
+  await assert.rejects(createPortal(ada.caller, { name: "Nope", slug: `nope-${Date.now().toString(36)}`, kind: "docs", rebuild: { url: hook, brand: "no-such" } }), /no brand "no-such"/);
+  const site = await createPortal(ada.caller, { name: "On Vercel", slug: `vercel-${Date.now().toString(36)}`, kind: "docs", rebuild: { url: hook, brand: "default" } });
+  // The URL is the key to start a build: never shown again.
+  assert.deepEqual(site.rebuild, { brand: "default", host: "api.vercel.com", lastAt: null, lastStatus: null });
+  assert.ok(!JSON.stringify(site).includes("secret123"));
+  const [row] = await db.select({ hook: portals.rebuildHook }).from(portals).where(eq(portals.id, site.id));
+  assert.ok(row.hook && !row.hook.includes("secret123"));
+
+  const brand = await resolveBrand(ada.caller.project.id, "default");
+  assert.deepEqual(await rebuildSites(brand.id, { number: 7, note: "Bluer primary" }), [{ site: site.slug, status: "201" }]);
+  assert.deepEqual(calls, [{ url: hook, body: { event: "brand.released", brand: "default", release: 7, note: "Bluer primary", site: site.slug } }]);
+  const after = (await getPortal(ada.caller, site.id))!;
+  assert.equal(after.rebuild?.lastStatus, "201");
+  assert.ok(after.rebuild?.lastAt);
+  // A site on Vercel is in the brand's lineage, though nothing of it is deployed here.
+  const l = (await lineage(ada.caller, brand.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(l.edges.some((e) => e.to === site.id && e.kind === "built"));
+
+  // Cleared: nothing is called, and the lineage forgets it.
+  await updatePortal(ada.caller, site.id, { rebuild: null });
+  assert.deepEqual(await rebuildSites(brand.id, { number: 8 }), []);
+  assert.equal((await getPortal(ada.caller, site.id))!.rebuild, null);
 });

@@ -168,6 +168,30 @@ update site_deployments set state = 'failed', error = 'Refused in review: {why}'
 For a build that is plainly abuse, [suspend the organization](/configuration/limits#suspending-an-organization)
 as well.
 
+## Built again when the brand is released
+
+Assets and tokens on `/c/` already follow a new release without a build. Text
+a build bakes in doesn't: give the site a **deploy hook**, the URL Vercel,
+Netlify, Cloudflare Pages or your CI gives you to start a build, and the brand
+it follows. Each release of that brand POSTs to it:
+
+```json
+{ "event": "brand.released", "brand": "acme", "release": 12, "note": "Bluer primary", "site": "acme-docs" }
+```
+
+Set it in the site's panel in **Sites** (Rebuild on release), or on the API:
+
+```bash
+curl -X PATCH "https://app.example.com/api/v1/sites/{id}" \
+  -H "Authorization: Bearer $ARTBUCKET_KEY" -H "Content-Type: application/json" \
+  -d '{"rebuild": {"url": "https://api.vercel.com/v1/integrations/deploy/...", "brand": "acme"}}'
+```
+
+The URL is kept sealed and never shown again, only its host, with when a
+release last called it and what it answered. A site hosted elsewhere with a
+hook is in the brand's lineage too, so replacing a logo shows it. `null`
+removes it.
+
 ## Checked again, every day
 
 A build checked once can go wrong later: a photo's license ends, a logo is

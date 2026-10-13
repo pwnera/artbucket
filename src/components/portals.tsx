@@ -74,6 +74,8 @@ export type Portal = {
   /** `publishedAt` null: never published, so visitors see nothing of it. */
   brands: { slug: string; name: string; publishedAt: string | null }[];
   site: PortalSite;
+  /** Its deploy hook, called when the brand is released (lib/core/rebuild.ts); the URL itself is never sent back. */
+  rebuild: { brand: string | null; host: string; lastAt: string | null; lastStatus: string | null } | null;
   domain: {
     host: string;
     verified: boolean;

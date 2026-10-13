@@ -1094,6 +1094,16 @@ export const portals = pgTable(
     site: jsonb("site").$type<PortalSite>().notNull().default({}),
     /** What it is (lib/sites.ts): `portal`, managed by Artbucket, or a kind of build served from its deployments. */
     kind: text("kind").$type<SiteKind>().notNull().default("portal"),
+    /**
+     * A deploy hook (Vercel, Netlify, Cloudflare Pages...) called when the brand
+     * named by rebuildBrandId is released, so a site built from it is built again
+     * (lib/core/rebuild.ts). Sealed: the URL is the key to start a build.
+     */
+    rebuildHook: text("rebuild_hook"),
+    rebuildBrandId: uuid("rebuild_brand_id").references((): AnyPgColumn => brands.id, { onDelete: "set null" }),
+    /** The last call, when and what it answered: an HTTP status, or why there was none. */
+    rebuiltAt: timestamp("rebuilt_at", { withTimezone: true }),
+    rebuildStatus: text("rebuild_status"),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1696,5 +1706,7 @@ export const catalogEdges = pgView("catalog_edges", {
     where d.state = 'live' and d.uses is null and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     union all
     select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
-    where d.state = 'live'`,
+    where d.state = 'live'
+    union all
+    select p.rebuild_brand_id, p.id, 'built', null from ${portals} p where p.rebuild_brand_id is not null and p.rebuild_hook is not null`,
 );

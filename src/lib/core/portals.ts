@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { heldBy, hiddenIn, ipOf, projectById, type Caller } from "@/lib/core/access";
+import { resolveBrand } from "@/lib/core/brands";
 import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
 import { listUpdates } from "@/lib/core/brand";
 import { brandOfProject } from "@/lib/core/branding";
@@ -113,7 +114,7 @@ async function brandsOf(portalId: string) {
 }
 
 async function present(p: Row) {
-  const [cols, brandList, d, [{ pending }]] = await Promise.all([
+  const [cols, brandList, d, [{ pending }], [rebuildBrand]] = await Promise.all([
     db
       .select({ id: collections.id, name: collections.name })
       .from(portalCollections)
@@ -123,7 +124,9 @@ async function present(p: Row) {
     brandsOf(p.id),
     domainOf(p.id),
     db.select({ pending: count() }).from(portalRequests).where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.status, "pending"))),
+    p.rebuildBrandId ? db.select({ slug: brands.slug }).from(brands).where(eq(brands.id, p.rebuildBrandId)) : [],
   ]);
+  const hook = p.rebuildHook && unseal(p.rebuildHook, env.BETTER_AUTH_SECRET);
   return {
     id: p.id,
     kind: p.kind,
@@ -137,6 +140,7 @@ async function present(p: Row) {
     presets: p.presets,
     theme: p.theme,
     site: p.site,
+    rebuild: p.rebuildHook ? { brand: rebuildBrand?.slug ?? null, host: hook ? new URL(hook).host : "", lastAt: p.rebuiltAt, lastStatus: p.rebuildStatus } : null,
     collections: cols,
     brands: brandList.map(({ slug, name, publishedAt }) => ({ slug, name, publishedAt })),
     domain: d && { host: d.host, verified: !!d.verifiedAt, record: { type: "TXT" as const, name: challengeName(d.host), value: d.token }, cname: cnameFor(d.host) },
@@ -182,7 +186,18 @@ type Input = {
   brands?: string[];
   domain?: string | null;
   site?: PortalSite;
+  rebuild?: { url: string; brand: string } | null;
 };
+
+/** The columns a rebuild setting writes: the hook sealed, the brand by id in this project. Undefined: left as it is. */
+async function rebuildColumns(caller: Caller, rebuild: Input["rebuild"]) {
+  if (rebuild === undefined) return {};
+  if (rebuild === null) return { rebuildHook: null, rebuildBrandId: null, rebuiltAt: null, rebuildStatus: null };
+  const brand = await resolveBrand(caller.project.id, rebuild.brand).catch(() => {
+    throw new AssetError("invalid", `rebuild.brand: no brand "${rebuild.brand}" in this project`);
+  });
+  return { rebuildHook: seal(rebuild.url, env.BETTER_AUTH_SECRET), rebuildBrandId: brand.id, rebuiltAt: null, rebuildStatus: null };
+}
 
 /** Search engines list a public portal only: behind a door there is nothing for them to read. Visitors' copy masks it too (siteOf). */
 function checkSite(site: PortalSite, access: PortalAccess) {
@@ -311,6 +326,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
       theme,
       site,
       kind,
+      ...(await rebuildColumns(caller, input.rebuild)),
       createdBy: caller.actor,
     })
     .returning();
@@ -354,6 +370,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
       presets: input.presets ?? p.presets,
       theme,
       site,
+      ...(await rebuildColumns(caller, input.rebuild)),
       updatedAt: new Date(),
     })
     .where(eq(portals.id, p.id))
