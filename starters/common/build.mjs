@@ -5,7 +5,7 @@
 // In a page or the layout:
 //   {{title}} {{name}} {{content}} {{nav}}       the page, the brand's name, the layout's slots
 //   {{text:brand.headline}}                      a text rule's value, escaped; {{text:key|fallback}}
-//   {{logo}}                                     the brand's logo as an <img>
+//   {{logo}} {{icon}}                            the brand's logo as an <img>, its mark (or logo) as the tab's icon
 //   {{palette}} {{type}} {{logos}} {{rules}}     the brand's colors, fonts, logos and every other rule
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -65,6 +65,12 @@ const logoTag = () => {
   const a = imageOf(logo);
   return a ? `<img class="logo" src="/${file(a)}" alt="${esc(brand.name)}">` : `<span class="wordmark">${esc(brand.name)}</span>`;
 };
+/** The browser tab's icon: the brand's mark if it has one (a key with mark, icon or symbol), else its logo. */
+const iconTag = () => {
+  const mark = rules.find((r) => /mark|icon|symbol/.test(r.key) && imageOf(r)) ?? logo;
+  const a = imageOf(mark);
+  return a ? `<link rel="icon" href="/${file(a)}">` : "";
+};
 const label = (r) => esc(r.label ?? r.key);
 const palette = () =>
   `<ul class="palette">${rules
@@ -103,6 +109,7 @@ const fill = (html, slots) =>
   html.replace(/\{\{\s*([a-z]+)(?::([^}]+))?\s*\}\}/g, (all, name, arg) => {
     if (name === "text") return text(arg);
     if (name === "logo") return logoTag();
+    if (name === "icon") return iconTag();
     if (name === "palette") return palette();
     if (name === "type") return type();
     if (name === "logos") return logos();

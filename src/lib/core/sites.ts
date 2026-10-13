@@ -1,14 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, domains, portals, siteDeployments } from "@/lib/db/schema";
+import { assets, brands, domains, portalRequests, portals, sessions, siteDeployments, siteTickets } from "@/lib/db/schema";
 import { projectById, type Caller } from "@/lib/core/access";
 import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
 import { appUrlFor, buildsAt, portalNamed } from "@/lib/core/domains";
-import { adminsOf, enterPortal, reader, readerOf, type Pass } from "@/lib/core/portals";
+import { adminsOf, digest, enterPortal, reader, readerOf, type Pass } from "@/lib/core/portals";
 import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
@@ -440,32 +440,48 @@ export async function unlockValue(slug: string) {
  * doesn't reach: a member asked there goes to the app (app/(app)/sites/enter,
  * membersDoor), which, once they are signed in and may read the project,
  * sends them back with a ticket good for ENTER_SECONDS and once (enterSite).
- * The site's host trades it for its door's cookie (letIn), which names them:
- * each file asked checks again that they may still read the project, so
- * someone removed from it is out at once. It lasts MEMBER_HOURS, then the
- * trip to the app runs again, unseen while they are still signed in there.
+ * The site's host trades it for its door's cookie (letIn), which names them
+ * and their session in the app: each file asked checks again that the
+ * session stands and they may still read the project, so signing out of the
+ * app, or being removed from the project, closes the site at once. It lasts
+ * MEMBER_HOURS, then the trip to the app runs again, unseen while they are
+ * still signed in there.
+ *
+ * Someone whose request to get in was approved has a key instead
+ * (portal_requests): its link, `?key=`, is traded for a door cookie of its own
+ * on any site that isn't public (keyDoor), checked against the request each
+ * time, so a request revoked or past its end closes the site.
  */
 export const MEMBER_HOURS = 12;
 const ENTER_SECONDS = 120;
-const enterId = (siteId: string, user: string) => `site-enter:${siteId}:${user}`;
-const memberId = (siteId: string, user: string) => `site-member:${siteId}:${user}`;
-/** `{user}.{exp}.{mac}`: who, in base64url, then lib/signed.ts's signature over them and the site. */
-const personal = (user: string, id: string, until: Date) => `${Buffer.from(user).toString("base64url")}.${signAsset(env.BETTER_AUTH_SECRET, id, until)}`;
-function whoseSigned(value: string, idOf: (user: string) => string) {
-  const dot = value.indexOf(".");
-  if (dot < 1) return null;
-  const user = Buffer.from(value.slice(0, dot), "base64url").toString("utf8");
-  // Spelled exactly as personal() spells it: base64url forgives padding and stray characters, which would make one ticket many.
-  if (!user || Buffer.from(user).toString("base64url") !== value.slice(0, dot)) return null;
-  return signedUntil(env.BETTER_AUTH_SECRET, idOf(user), value.slice(dot + 1)) ? user : null;
-}
+/** A ticket carries a nonce: two asked in the same second would otherwise be one, and the second already traded. */
+type Door = { t: { u: string; s: string; n: string }; m: { u: string; s: string }; k: { r: string } };
 /**
- * Tickets already traded, by their MAC, until they expire: one opens one browser. The MAC is the one part a ticket
- * can't be spelled another way in (lib/signed.ts compares it exactly; an expiry reads the same with a leading 0).
- * ponytail: kept in this process, so with several instances a ticket could be traded once on each within its two
- * minutes; a table of them is the step past that.
+ * A door's value: `{kind}.{subject}.{exp}.{mac}`, the subject as base64url JSON and the MAC (lib/signed.ts) over the
+ * site, the kind and the subject exactly as written, so no other spelling of it is the same door.
  */
-const traded = new Map<string, number>();
+const sealDoor = <K extends keyof Door>(kind: K, siteId: string, subject: Door[K], until: Date) => {
+  const body = Buffer.from(JSON.stringify(subject)).toString("base64url");
+  return `${kind}.${body}.${signAsset(env.BETTER_AUTH_SECRET, `site-${kind}:${siteId}:${body}`, until)}`;
+};
+function openDoor<K extends keyof Door>(kind: K, siteId: string, value: string): Door[K] | null {
+  const [k, body, ...sig] = value.split(".");
+  if (k !== kind || !body || sig.length !== 2 || !signedUntil(env.BETTER_AUTH_SECRET, `site-${kind}:${siteId}:${body}`, sig.join("."))) return null;
+  try {
+    return JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Door[K];
+  } catch {
+    return null;
+  }
+}
+
+/** Whether someone's session in the app still stands and they may still read the project. */
+async function stillMember(projectId: string, { u, s }: { u: string; s: string }) {
+  const [live] = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.id, s), eq(sessions.userId, u), gt(sessions.expiresAt, new Date())));
+  return !!live && (await (await readerOf({ id: u })).reads(projectId));
+}
 
 /** Where a visitor goes to be let into the members site `slug`: the app, which sends them back to `to` once they are in. */
 export async function membersDoor(slug: string, to: string) {
@@ -475,47 +491,93 @@ export async function membersDoor(slug: string, to: string) {
 
 /**
  * For app/(app)/sites/enter, on the app's host: where someone signed in goes
- * to be let into the members site `slug`, with a ticket naming them, or why
- * they can't. `to` is a path of the site; anything else goes to its home.
+ * to be let into the members site `slug`, with a ticket naming them and
+ * their session, or why they can't (`name`: the site's, for asking in). `to`
+ * is a path of the site; anything else goes to its home.
  */
-export async function enterSite(slug: string, headers: Headers, to: string | null): Promise<{ url: string } | { signIn: true } | { refused: string }> {
+export async function enterSite(
+  slug: string,
+  headers: Headers,
+  to: string | null,
+): Promise<{ url: string } | { signIn: true; name: string } | { refused: string; name?: string; email?: string }> {
   const named = await portalNamed(slug);
   const p = named?.p;
   if (!p || p.access !== "members") return { refused: "There is no members site at this address" };
   const at = buildsAt(p, (await db.select().from(domains).where(eq(domains.portalId, p.id)))[0] ?? null);
   if (!at) return { refused: "This site's builds have no address to answer at: give it a domain of its own" };
   const who = await reader(headers);
-  if (!who) return { signIn: true };
-  if (!(await who.reads(p.projectId))) return { refused: `${p.name} is for the people of its project, and ${who.user.email} isn't one of them: ask its team for access` };
-  const ticket = personal(who.user.id, enterId(p.id, who.user.id), new Date(Date.now() + ENTER_SECONDS * 1000));
+  if (!who) return { signIn: true, name: p.name };
+  if (!(await who.reads(p.projectId))) return { refused: `${p.name} is for the people of its project, and ${who.user.email} isn't one of them.`, name: p.name, email: who.user.email };
+  const ticket = sealDoor("t", p.id, { u: who.user.id, s: who.session, n: randomUUID() }, new Date(Date.now() + ENTER_SECONDS * 1000));
   return { url: `${at}${ENTER_PATH}?${new URLSearchParams({ t: ticket, to: localPath(to) ? to : "/" })}` };
 }
 
 /**
  * On the site's own host: the door cookie for the person a ticket names, when
- * it is this site's, unexpired, not traded before, and they still may read
- * its project; null otherwise.
+ * it is this site's, unexpired, never traded before (site_tickets, on every
+ * instance), and they are still a member; null otherwise.
  */
 export async function letIn(slug: string, ticket: string) {
   const p = (await portalNamed(slug))?.p;
   if (!p || p.access !== "members") return null;
-  const user = whoseSigned(ticket, (u) => enterId(p.id, u));
+  const who = openDoor("t", p.id, ticket);
+  if (!who) return null;
+  // The MAC is the one part a ticket can't be spelled another way in: lib/signed.ts compares it exactly.
   const mac = ticket.split(".").at(-1)!;
-  if (!user || traded.has(mac)) return null;
-  const now = Date.now();
-  for (const [t, until] of traded) if (until < now) traded.delete(t);
-  traded.set(mac, now + ENTER_SECONDS * 1000);
-  if (!(await (await readerOf({ id: user })).reads(p.projectId))) return null;
-  return personal(user, memberId(p.id, user), new Date(now + MEMBER_HOURS * 36e5));
+  await db.delete(siteTickets).where(lt(siteTickets.expiresAt, new Date()));
+  const [fresh] = await db
+    .insert(siteTickets)
+    .values({ mac, expiresAt: new Date(Date.now() + ENTER_SECONDS * 1000) })
+    .onConflictDoNothing()
+    .returning();
+  if (!fresh || !(await stillMember(p.projectId, who))) return null;
+  return sealDoor("m", p.id, { u: who.u, s: who.s }, new Date(Date.now() + MEMBER_HOURS * 36e5));
 }
 
-/** Whether a door cookie opens this site: a password site's for its password now, a members site's for someone who may still read its project. */
+/**
+ * The door cookie for an approved request's key, on a site that isn't public:
+ * the key's link opens its builds as it opens the portal's pages. Null when
+ * the key opens nothing here.
+ */
+export async function keyDoor(slug: string, key: string) {
+  const p = (await portalNamed(slug))?.p;
+  if (!p || p.access === "public" || !key) return null;
+  const [r] = await db
+    .select({ id: portalRequests.id, expiresAt: portalRequests.expiresAt })
+    .from(portalRequests)
+    .where(and(eq(portalRequests.portalId, p.id), eq(portalRequests.keyHash, digest(key)), eq(portalRequests.status, "approved")));
+  if (!r || (r.expiresAt && r.expiresAt <= new Date())) return null;
+  const week = new Date(Date.now() + UNLOCK_DAYS * 864e5);
+  return sealDoor("k", p.id, { r: r.id }, r.expiresAt && r.expiresAt < week ? r.expiresAt : week);
+}
+
+/**
+ * Whether a door cookie opens this site: an approved request's while it
+ * stands; a members site's for someone still a member; a password site's for
+ * its password now.
+ */
 async function unlocked(p: typeof portals.$inferSelect, value: string | null | undefined) {
   if (!value) return false;
-  if (p.access === "password") return !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
-  if (p.access !== "members") return false;
-  const user = whoseSigned(value, (u) => memberId(p.id, u));
-  return !!user && (await (await readerOf({ id: user })).reads(p.projectId));
+  const key = openDoor("k", p.id, value);
+  if (key) {
+    const [r] = await db
+      .select({ id: portalRequests.id })
+      .from(portalRequests)
+      .where(
+        and(
+          eq(portalRequests.id, key.r),
+          eq(portalRequests.portalId, p.id),
+          eq(portalRequests.status, "approved"),
+          sql`(${portalRequests.expiresAt} is null or ${portalRequests.expiresAt} > now())`,
+        ),
+      );
+    return !!r;
+  }
+  if (p.access === "members") {
+    const who = openDoor("m", p.id, value);
+    return !!who && (await stillMember(p.projectId, who));
+  }
+  return p.access === "password" && !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
 }
 
 /** Live deployments checked again per run of the sweep (every six hours), the longest unchecked first. */

@@ -82,7 +82,7 @@ type Row = typeof portals.$inferSelect;
 const REQUEST_DAYS = 90;
 /** Old addresses a portal keeps after renames: the latest, so renaming can't hold names without end. */
 const ALIASES = 5;
-const digest = (s: string) => createHash("sha256").update(s).digest("hex");
+export const digest = (s: string) => createHash("sha256").update(s).digest("hex");
 
 async function domainOf(portalId: string) {
   const [d] = await db.select().from(domains).where(eq(domains.portalId, portalId));
@@ -535,7 +535,7 @@ const isMember = (p: Row, headers: Headers | undefined) => readsProject(p.projec
 export async function reader(headers: Headers | undefined) {
   if (!headers) return null;
   const session = await auth.api.getSession({ headers }).catch(() => null);
-  return session && readerOf(session.user);
+  return session && { ...(await readerOf(session.user)), session: session.session.id };
 }
 
 /** The same for a person known by id, without a session here: a members site's door cookie (lib/core/sites.ts) names them. */
