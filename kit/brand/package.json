@@ -1,6 +1,6 @@
 {
   "name": "@artbucket/brand",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "One release of a brand from Artbucket, read at build time, and the manifest of what the site used.",
   "license": "MIT",
   "repository": {
@@ -10,8 +10,18 @@
   },
   "type": "module",
   "exports": {
-    ".": { "types": "./index.d.ts", "default": "./index.js" }
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
   },
-  "files": ["index.js", "index.d.ts", "LICENSE", "README.md"],
-  "engines": { "node": ">=22" }
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }

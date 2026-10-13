@@ -1,6 +1,6 @@
 {
   "name": "@artbucket/ui",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Draw a brand's rules (palette, type, logos, dos and don'ts) from an Artbucket release: HTML strings, web components and React.",
   "license": "MIT",
   "repository": {
@@ -11,14 +11,41 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": { "types": "./index.d.ts", "default": "./index.js" },
-    "./html": { "types": "./html.d.ts", "default": "./html.js" },
-    "./color": { "types": "./color.d.ts", "default": "./color.js" },
-    "./elements": { "types": "./elements.d.ts", "default": "./elements.js" },
-    "./react": { "types": "./react.d.ts", "default": "./react.js" },
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./html": {
+      "types": "./html.d.ts",
+      "default": "./html.js"
+    },
+    "./color": {
+      "types": "./color.d.ts",
+      "default": "./color.js"
+    },
+    "./elements": {
+      "types": "./elements.d.ts",
+      "default": "./elements.js"
+    },
+    "./react": {
+      "types": "./react.d.ts",
+      "default": "./react.js"
+    },
     "./ui.css": "./ui.css"
   },
-  "files": ["*.js", "*.d.ts", "ui.css", "LICENSE", "README.md"],
-  "peerDependencies": { "react": ">=18" },
-  "peerDependenciesMeta": { "react": { "optional": true } }
+  "files": [
+    "*.js",
+    "*.d.ts",
+    "ui.css",
+    "LICENSE",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
 }
