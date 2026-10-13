@@ -45120,6 +45120,57 @@
                           },
                           "additionalProperties": false
                         },
+                        "rebuild": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "brand": {
+                                  "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "description": "The hook's host; the URL itself is never shown"
+                                },
+                                "lastAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "When a release last called it"
+                                },
+                                "lastStatus": {
+                                  "description": "What it answered: an HTTP status, or why there was none",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "brand",
+                                "host",
+                                "lastAt",
+                                "lastStatus"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Its deploy hook, called when the brand is released; null: none"
+                        },
                         "domain": {
                           "anyOf": [
                             {
@@ -45236,6 +45287,7 @@
                         "collections",
                         "brands",
                         "site",
+                        "rebuild",
                         "domain",
                         "url",
                         "pending",
@@ -45528,6 +45580,36 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "rebuild": {
+                  "description": "Build the site again when a brand is released: its hook is called with the release. Kept sealed, never shown again; null: none. Left out, it stays",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2000,
+                          "format": "uri",
+                          "description": "A deploy hook: the URL Vercel, Netlify, Cloudflare Pages or your CI gives you to start a build with a POST"
+                        },
+                        "brand": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "description": "The brand, by slug, whose releases start it"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "brand"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "domain": {
                   "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
@@ -45844,6 +45926,57 @@
                         },
                         "additionalProperties": false
                       },
+                      "rebuild": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "The hook's host; the URL itself is never shown"
+                              },
+                              "lastAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When a release last called it"
+                              },
+                              "lastStatus": {
+                                "description": "What it answered: an HTTP status, or why there was none",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "host",
+                              "lastAt",
+                              "lastStatus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its deploy hook, called when the brand is released; null: none"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -45960,6 +46093,7 @@
                       "collections",
                       "brands",
                       "site",
+                      "rebuild",
                       "domain",
                       "url",
                       "pending",
@@ -46311,6 +46445,57 @@
                         },
                         "additionalProperties": false
                       },
+                      "rebuild": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "The hook's host; the URL itself is never shown"
+                              },
+                              "lastAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When a release last called it"
+                              },
+                              "lastStatus": {
+                                "description": "What it answered: an HTTP status, or why there was none",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "host",
+                              "lastAt",
+                              "lastStatus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its deploy hook, called when the brand is released; null: none"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -46427,6 +46612,7 @@
                       "collections",
                       "brands",
                       "site",
+                      "rebuild",
                       "domain",
                       "url",
                       "pending",
@@ -46717,6 +46903,36 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "rebuild": {
+                  "description": "Build the site again when a brand is released: its hook is called with the release. Kept sealed, never shown again; null: none. Left out, it stays",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2000,
+                          "format": "uri",
+                          "description": "A deploy hook: the URL Vercel, Netlify, Cloudflare Pages or your CI gives you to start a build with a POST"
+                        },
+                        "brand": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "description": "The brand, by slug, whose releases start it"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "brand"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "domain": {
                   "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
@@ -47017,6 +47233,57 @@
                         },
                         "additionalProperties": false
                       },
+                      "rebuild": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "The hook's host; the URL itself is never shown"
+                              },
+                              "lastAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When a release last called it"
+                              },
+                              "lastStatus": {
+                                "description": "What it answered: an HTTP status, or why there was none",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "host",
+                              "lastAt",
+                              "lastStatus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its deploy hook, called when the brand is released; null: none"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -47133,6 +47400,7 @@
                       "collections",
                       "brands",
                       "site",
+                      "rebuild",
                       "domain",
                       "url",
                       "pending",
@@ -47840,6 +48108,57 @@
                         },
                         "additionalProperties": false
                       },
+                      "rebuild": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "The hook's host; the URL itself is never shown"
+                              },
+                              "lastAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When a release last called it"
+                              },
+                              "lastStatus": {
+                                "description": "What it answered: an HTTP status, or why there was none",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "host",
+                              "lastAt",
+                              "lastStatus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its deploy hook, called when the brand is released; null: none"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -47956,6 +48275,7 @@
                       "collections",
                       "brands",
                       "site",
+                      "rebuild",
                       "domain",
                       "url",
                       "pending",
@@ -48307,6 +48627,57 @@
                         },
                         "additionalProperties": false
                       },
+                      "rebuild": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "brand": {
+                                "description": "The brand whose releases call it, by slug; null once that brand is gone",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "host": {
+                                "type": "string",
+                                "description": "The hook's host; the URL itself is never shown"
+                              },
+                              "lastAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When a release last called it"
+                              },
+                              "lastStatus": {
+                                "description": "What it answered: an HTTP status, or why there was none",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "brand",
+                              "host",
+                              "lastAt",
+                              "lastStatus"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Its deploy hook, called when the brand is released; null: none"
+                      },
                       "domain": {
                         "anyOf": [
                           {
@@ -48423,6 +48794,7 @@
                       "collections",
                       "brands",
                       "site",
+                      "rebuild",
                       "domain",
                       "url",
                       "pending",

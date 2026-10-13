@@ -65,7 +65,10 @@ export function BuildSiteDialog({
           </DialogDescription>
         </DialogHeader>
         {shown ? (
-          <Deployments site={shown} />
+          <>
+            <Deployments site={shown} />
+            <RebuildHook site={shown} />
+          </>
         ) : (
           <form
             className="grid gap-4"
@@ -238,5 +241,83 @@ function Deployments({ site }: { site: Portal }) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * A deploy hook called when a brand is released (SITE-14), so a site built
+ * from it, here or on Vercel, Netlify or Cloudflare Pages, is built again.
+ * The URL is a key: once saved it is never shown, only its host.
+ */
+function RebuildHook({ site }: { site: Portal }) {
+  const [rebuild, setRebuild] = useState(site.rebuild);
+  const [brands, setBrands] = useState<{ slug: string; name: string; default: boolean }[]>([]);
+  const [url, setUrl] = useState("");
+  const [brand, setBrand] = useState(site.rebuild?.brand ?? "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void fetch("/api/v1/brands", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((b: { data: { slug: string; name: string; default: boolean }[] }) => {
+        setBrands(b.data);
+        setBrand((now) => now || (b.data.find((x) => x.default) ?? b.data[0])?.slug || "");
+      });
+  }, []);
+  const save = async (next: { url: string; brand: string } | null) => {
+    setBusy(true);
+    const saved: Portal | null = await send("PATCH", `/api/v1/sites/${site.id}`, { rebuild: next });
+    setBusy(false);
+    if (!saved) return;
+    setRebuild(saved.rebuild);
+    setUrl("");
+    toast.success(next ? `It builds again when ${next.brand} is released` : "No longer built again on release");
+  };
+  return (
+    <section aria-label="Rebuild on release" className="grid gap-2 border-t pt-4">
+      <h3 className="text-sm font-medium">Rebuild on release</h3>
+      {rebuild ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            Calls <code className="text-xs">{rebuild.host}</code> when {rebuild.brand ?? "a brand since deleted"} is released.
+          </span>
+          {rebuild.lastAt && (
+            <span className="text-muted-foreground text-xs" suppressHydrationWarning>
+              Last: {rebuild.lastStatus}, {ago(rebuild.lastAt)}
+            </span>
+          )}
+          <Button variant="ghost" size="sm" className="ms-auto h-7" disabled={busy} onClick={() => void save(null)}>
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="grid gap-2 sm:grid-cols-[1fr_10rem_auto]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save({ url, brand });
+          }}
+        >
+          <Input type="url" required pattern="https://.*" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.vercel.com/v1/integrations/deploy/..." aria-label="Deploy hook URL" />
+          <Select value={brand} onValueChange={setBrand}>
+            <SelectTrigger className="w-full" aria-label="Brand">
+              <SelectValue placeholder="Brand" />
+            </SelectTrigger>
+            <SelectContent>
+              {brands.map((b) => (
+                <SelectItem key={b.slug} value={b.slug}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="submit" disabled={!url || !brand || busy}>
+            {busy && <Spinner />} Save
+          </Button>
+          <p className="text-muted-foreground text-xs sm:col-span-3">
+            A deploy hook from Vercel, Netlify, Cloudflare Pages or your CI. Each release of the brand calls it, so text baked into the build follows; assets on /c/ already do.
+          </p>
+        </form>
+      )}
+    </section>
   );
 }

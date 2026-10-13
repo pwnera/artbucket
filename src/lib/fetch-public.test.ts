@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import http from "node:http";
 import { mock, test } from "node:test";
-import { fetchPublic, isPublicAddress, USER_AGENT } from "./fetch-public.ts";
+import { fetchPublic, isPublicAddress, postPublic, USER_AGENT } from "./fetch-public.ts";
 
 test("private, loopback, link-local and special ranges are not public", () => {
   for (const ip of [
@@ -70,4 +70,28 @@ test("a fetch with no signal still ends: a body trickled in forever is cut off",
   });
   await assert.rejects(fetchPublic("http://example.com/a.jpg", { maxBytes: 10 }), /not sent/);
   assert.ok(signal, "a deadline for the whole fetch");
+});
+
+test("a hook is POSTed as JSON, through the same guard, and its status is the answer", async (t) => {
+  await assert.rejects(postPublic("http://127.0.0.1:3000/hook", {}), /public/);
+  await assert.rejects(postPublic("file:///etc/passwd", {}), /http/);
+  let sent: { method?: string; headers?: http.OutgoingHttpHeaders; body?: string } = {};
+  t.after(() => mock.restoreAll());
+  mock.method(http, "request", (_url: URL, opts: http.RequestOptions, cb: (res: unknown) => void) => {
+    sent = { method: opts.method, headers: opts.headers as http.OutgoingHttpHeaders };
+    const req = Object.assign(new EventEmitter(), {
+      end: (data: Buffer) => {
+        sent.body = data.toString();
+        const res = Object.assign(new EventEmitter(), { statusCode: 201, resume() {} });
+        queueMicrotask(() => cb(res));
+      },
+      destroy() {},
+    });
+    return req;
+  });
+  assert.equal(await postPublic("http://example.com/hook", { release: 4 }), 201);
+  assert.equal(sent.method, "POST");
+  assert.equal(sent.headers?.["content-type"], "application/json");
+  assert.equal(sent.headers?.["user-agent"], USER_AGENT);
+  assert.deepEqual(JSON.parse(sent.body!), { release: 4 });
 });
