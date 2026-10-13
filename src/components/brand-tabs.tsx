@@ -13,16 +13,17 @@ type Tab = { id: BrandTab; label: string; href: string };
 
 /**
  * A brand's tabs (PRD section 13, "In the app"), as a repository's are, each
- * at its own address under /brands/{slug}: six, one job each. Overview (what
- * it is and what to do next), Guidelines (its pages), Rules (edited there),
- * Assets, Releases and Sharing (who reads it outside the team).
+ * at its own address under /brands/{slug}: six, one job each, in the order a
+ * brand is made. Overview (what it is and what to do next), Rules (the brand
+ * itself, edited there), Assets (the files they hold), Guidelines (the pages
+ * drawn from both), Releases, and Sharing (who reads it outside the team).
  */
 export function useBrandTabs(brand: { slug: string; name: string }): Tab[] {
   return [
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
-    { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
     { id: "rules", label: "Rules", href: brandPath(brand.slug, "/rules") },
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
+    { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
     { id: "sharing", label: "Sharing", href: brandPath(brand.slug, "/sharing") },
   ];
