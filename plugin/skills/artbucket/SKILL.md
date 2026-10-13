@@ -1,6 +1,6 @@
 ---
 name: artbucket
-description: Use the brand's asset library (artbucket) whenever work touches the brand - making anything with its colors, logo, type or tone, finding or embedding an image, logo or font, generating an image with any model or design tool, or publishing an asset somewhere. Read the brand rules before making anything, file what you generate with its provenance, and check a use before it ships.
+description: Use the brand's asset library (artbucket) whenever work touches the brand - making anything with its colors, logo, type or tone, finding or embedding an image, logo or font, generating an image with any model or design tool, building a landing page, docs or guidelines site, or publishing an asset somewhere. Read the brand rules before making anything, file what you generate with its provenance, and check a use or a build before it ships.
 ---
 
 # artbucket
@@ -126,6 +126,34 @@ Group assets with `create_collection` and `update_collection_assets`; `list_coll
 10. **Comments and history.** Before publishing, `list_comments` for open threads; answer with `add_comment`
    and resolve with `update_comment`. `list_versions` shows the history; `restore_version` undoes a bad change
    as a new version, never losing anything.
+
+## Building a site
+
+A landing page, docs or a guidelines site you build yourself, in any framework that outputs static
+files, is published to a site of its own, or beside a brand portal at a path. Deploying takes a key
+that manages sites; checking, a read key.
+
+1. **Build from the brand.** Read `brand_rules` first, as above. Put assets in by their rendition
+   URLs, `/c/{id}/w_800,f_webp` (from `rendition_url`), not as copied files: `/c/` follows the current
+   version, so a new logo reaches the site with no rebuild. A file you copy in anyway is known by its
+   bytes and checked the same.
+2. **Check it before it ships.** `check_site({"files": [{"path": "index.html", "content": "..."}]})`,
+   with `"base64": true` for images and fonts, answers what the build uses and every problem, each
+   naming the file and what to use instead. Nothing is stored. Fix them all and check again. CLI:
+   `artbucket site check dist`, which exits 1 on a problem. A site hosted elsewhere (Vercel, Netlify,
+   GitHub Pages) stops here: put the CLI check in its CI.
+3. **A site to publish to.** Take one `list_sites` names, or make one:
+   `create_site({"name": "Acme docs", "kind": "docs", "access": "members"})` (`landing`, `docs`,
+   `guidelines` or `storybook`). Members means the people of the project, signed in; make it public
+   or set a password only when the person says so.
+4. **Deploy.** `deploy_site({"address": "acme-docs", "files": [...]})` checks it again, puts it live and
+   answers its `url`; the build before stays to restore. `path` (`"/docs"`) mounts a build beside a
+   brand portal's pages. A refused deployment says why. A `held` one waits for whoever runs the
+   server: tell the person it isn't live yet, and why. CLI: `artbucket site push dist --site acme-docs`.
+5. **Redirects and headers** are files at the build's root, `_redirects` and `_headers`, in the
+   Netlify and Cloudflare Pages format: a single-page app's `/* /index.html 200`, a moved page's 301,
+   a header per path.
+6. **Hand over the `url`**, and say who can open it.
 
 ## A brand kept as files
 
