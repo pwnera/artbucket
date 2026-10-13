@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { rebuildSites } from "@/lib/core/rebuild";
 import { assets, brandRuleAssets, brandRules, brands, brandSources, brandVersions, portalBrands } from "@/lib/db/schema";
 import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
 import { NONE } from "@/lib/access";
@@ -1011,7 +1012,11 @@ export async function publishBrand(caller: Caller, slug: string | undefined, { n
       .returning();
     return { brand: brand.slug, ...meta(row), unchanged: false };
   });
-  if (!out.unchanged) await recordAudit(caller, "brand.published", brand.name, { brand: brand.slug, version: out.number, ...(note && { note }) });
+  if (!out.unchanged) {
+    await recordAudit(caller, "brand.published", brand.name, { brand: brand.slug, version: out.number, ...(note && { note }) });
+    // The sites built from it are built again (lib/core/rebuild.ts), after the release and never in its way.
+    void rebuildSites(brand.id, { number: out.number, note }).catch((err) => console.warn(`[artbucket] Rebuild hooks for ${brand.slug} stopped:`, err instanceof Error ? err.message : err));
+  }
   const hub = await hubOf(brand);
   return { ...out, hub: hub && { visibility: hub.visibility, url: hub.url } };
 }

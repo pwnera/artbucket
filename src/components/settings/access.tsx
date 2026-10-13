@@ -684,6 +684,7 @@ const SAYS: Record<AuditAction, string> = {
   "site.deployed": "deployed to the site",
   "site.problems": "found what a live build may no longer show on",
   "site.held": "deployed, held for review, to the site",
+  "site.rebuilt": "called the deploy hook of the site",
   "domain.added": "added the domain",
   "domain.verified": "verified the domain",
   "domain.unverified": "unverified the domain",

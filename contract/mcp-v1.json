@@ -5068,6 +5068,36 @@
         },
         "additionalProperties": false
       },
+      "rebuild": {
+        "description": "Build the site again when a brand is released: its hook is called with the release. Kept sealed, never shown again; null: none. Left out, it stays",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "maxLength": 2000,
+                "format": "uri",
+                "description": "A deploy hook: the URL Vercel, Netlify, Cloudflare Pages or your CI gives you to start a build with a POST"
+              },
+              "brand": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "The brand, by slug, whose releases start it"
+              }
+            },
+            "required": [
+              "url",
+              "brand"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "domain": {
         "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",
         "anyOf": [
@@ -5317,6 +5347,36 @@
           }
         },
         "additionalProperties": false
+      },
+      "rebuild": {
+        "description": "Build the site again when a brand is released: its hook is called with the release. Kept sealed, never shown again; null: none. Left out, it stays",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "maxLength": 2000,
+                "format": "uri",
+                "description": "A deploy hook: the URL Vercel, Netlify, Cloudflare Pages or your CI gives you to start a build with a POST"
+              },
+              "brand": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "The brand, by slug, whose releases start it"
+              }
+            },
+            "required": [
+              "url",
+              "brand"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "domain": {
         "description": "One of the organization's verified domains (/api/v1/domains), e.g. press.example.com, to serve it at; null: none",

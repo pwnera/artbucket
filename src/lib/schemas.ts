@@ -391,6 +391,14 @@ const portal = {
   collections: z.array(uuid).max(50).optional().describe("Collections it shows, in this order. With brands, at least one of the two"),
   brands: z.array(z.string().min(1).max(64)).max(20).optional().describe("Brands whose guidelines it publishes, by slug, each a tab beside the assets, in this order"),
   site: PortalSite.optional().describe("Its footer, quick grab, terms, and whether search engines may list it (public portals only). Replaces the whole set"),
+  rebuild: z
+    .strictObject({
+      url: z.url({ protocol: /^https$/ }).max(2000).describe("A deploy hook: the URL Vercel, Netlify, Cloudflare Pages or your CI gives you to start a build with a POST"),
+      brand: z.string().min(1).max(64).describe("The brand, by slug, whose releases start it"),
+    })
+    .nullable()
+    .optional()
+    .describe("Build the site again when a brand is released: its hook is called with the release. Kept sealed, never shown again; null: none. Left out, it stays"),
   domain: z
     .string()
     .max(253)
@@ -1391,6 +1399,15 @@ export const Portal = z.object({
     .array(z.object({ slug: z.string(), name: z.string(), publishedAt: date.nullable().describe("Its latest publish; null: never published, so visitors see nothing of it") }))
     .describe("Brands whose guidelines it publishes, in tab order"),
   site: PortalSite,
+  rebuild: z
+    .object({
+      brand: z.string().nullable().describe("The brand whose releases call it, by slug; null once that brand is gone"),
+      host: z.string().describe("The hook's host; the URL itself is never shown"),
+      lastAt: date.nullable().describe("When a release last called it"),
+      lastStatus: z.string().nullable().describe("What it answered: an HTTP status, or why there was none"),
+    })
+    .nullable()
+    .describe("Its deploy hook, called when the brand is released; null: none"),
   domain: domainState.nullable(),
   url: z.url().describe("Where visitors go: its domain once verified, else {slug}.PORTAL_DOMAIN when the server has one (not for a members portal), else /p/{slug}"),
   pending: z.number().int().describe("Access requests waiting"),

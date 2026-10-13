@@ -141,3 +141,35 @@ export async function fetchPublic(
   const mime = (res.headers["content-type"] ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
   return { bytes: Buffer.concat(chunks), mime, url, status };
 }
+
+/**
+ * POST a small JSON body to a URL someone handed us (a deploy hook), with the
+ * same guard as fetchPublic: the address connected to is the address checked.
+ * Redirects are not followed, a POST's meaning doesn't survive one. The
+ * status, whatever it is: the caller says what counts.
+ */
+export async function postPublic(raw: string, body: unknown, { timeoutMs = 10_000, signal = AbortSignal.timeout(30_000) }: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<number> {
+  const url = new URL(raw);
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new FetchError("Only http and https URLs");
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host) && !isPublicAddress(host)) throw new FetchError(`${host} is not a public address`);
+  const data = Buffer.from(JSON.stringify(body));
+  const res = await new Promise<http.IncomingMessage>((resolve, reject) => {
+    const req = (url.protocol === "https:" ? https : http).request(
+      url,
+      {
+        method: "POST",
+        lookup: guardedLookup,
+        timeout: timeoutMs,
+        headers: { "user-agent": USER_AGENT, "content-type": "application/json", "content-length": data.length },
+        signal,
+      },
+      resolve,
+    );
+    req.on("timeout", () => req.destroy(new FetchError("Timed out")));
+    req.on("error", reject);
+    req.end(data);
+  });
+  res.resume();
+  return res.statusCode ?? 0;
+}
