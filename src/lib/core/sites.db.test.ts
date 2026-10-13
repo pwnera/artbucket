@@ -479,3 +479,49 @@ test("a release that changes nothing a site's build reads calls no hook; one tha
   const fourth = await released();
   assert.deepEqual([fourth.status, calls], ["204", [third.number, fourth.number]]);
 });
+
+test("a preview answers at its own address beside the live build, replaced by its name, never live, and swept after its days", async (t) => {
+  const before = env.PORTAL_DOMAIN;
+  env.PORTAL_DOMAIN = "sites.test";
+  t.after(() => void (env.PORTAL_DOMAIN = before));
+  const site = await createPortal(ada.caller, { name: "Previewed", slug: `prev-${Date.now().toString(36)}`, kind: "docs" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "live" }));
+  const first = (await deploy(ada.caller, site.id, pack({ "index.html": "pr one" }), { preview: "pr-12" }))!;
+  assert.equal(first.state, "preview");
+  assert.equal(first.preview, "pr-12");
+  assert.equal(first.url, `http://pr-12--${site.slug}.sites.test:3000/`);
+  // The live build stays live; the preview answers only when asked by its name.
+  const keyOf = async (preview?: string) => {
+    const f = await siteFile(site.slug, {}, "/", null, preview);
+    return f && "key" in f ? f.key : null;
+  };
+  assert.ok((await keyOf())!.includes((await listDeployments(ada.caller, site.id))!.find((d) => d.state === "live")!.id));
+  assert.ok((await keyOf("pr-12"))!.includes(first.id));
+  assert.equal(await keyOf("pr-13"), null);
+
+  // The same name again replaces it; another name stands beside it.
+  const second = (await deploy(ada.caller, site.id, pack({ "index.html": "pr one, again" }), { preview: "pr-12" }))!;
+  await deploy(ada.caller, site.id, pack({ "index.html": "pr two" }), { preview: "pr-13" });
+  const list = (await listDeployments(ada.caller, site.id))!;
+  // An earlier build of a preview isn't kept to restore: it goes.
+  assert.equal(list.find((d) => d.id === first.id), undefined);
+  assert.deepEqual(list.filter((d) => d.state === "preview").map((d) => d.preview).sort(), ["pr-12", "pr-13"]);
+  assert.ok((await keyOf("pr-12"))!.includes(second.id));
+  assert.equal(list.filter((d) => d.state === "live").length, 1);
+
+  // Names an address can't hold are refused.
+  for (const bad of ["PR-1", "pr--1", "-pr", "x".repeat(31)]) await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": "x" }), { preview: bad }), /preview/, bad);
+
+  // A members site's door sends its visitors back to the preview's own host.
+  await updatePortal(ada.caller, site.id, { access: "members" });
+  assert.match(await membersDoor(site.slug, "/", "pr-12"), /preview=pr-12/);
+  const went = await enterSite(site.slug, new Headers({ cookie: ada.cookie }), "/", "pr-12");
+  assert.ok("url" in went && new URL(went.url).origin === `http://pr-12--${site.slug}.sites.test:3000`);
+  await updatePortal(ada.caller, site.id, { access: "public" });
+
+  // Past its days, a preview goes.
+  await db.update(siteDeployments).set({ createdAt: new Date(Date.now() - 31 * 864e5) }).where(eq(siteDeployments.id, second.id));
+  await recheckSites();
+  assert.equal(await keyOf("pr-12"), null);
+  assert.ok(await keyOf("pr-13"));
+});

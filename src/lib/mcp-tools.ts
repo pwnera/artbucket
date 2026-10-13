@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BUILD_KINDS } from "./sites.ts";
+import { BUILD_KINDS, PREVIEW_NAME } from "./sites.ts";
 import { ThemePatch } from "./brand-theme.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
@@ -584,6 +584,11 @@ export const TOOL_INPUTS = {
     files: siteFiles,
     path: z.string().max(200).optional().describe("Where it is mounted: / (the default), or a path such as /docs beside a brand portal's pages"),
     kind: z.enum(BUILD_KINDS).optional().describe("What it is; the site's own kind when left out, docs beside a brand portal"),
+    preview: z
+      .string()
+      .regex(PREVIEW_NAME)
+      .optional()
+      .describe("A preview's name, such as pr-12: checked, then served at an address of its own for people to look at, never live"),
   }),
 
   close_site: z.object({ address }),

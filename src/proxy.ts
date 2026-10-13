@@ -122,6 +122,14 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   const slug = asked ?? onApp?.[1];
   if (!slug) return null;
   const rest = onApp ? (onApp[2] ?? "") : pathname === "/" ? "" : pathname;
+  // A preview's host (pr-12--acme-docs): every path is its build's, behind the site's own door. Never the app's host.
+  if (asked && target?.preview) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/sitefiles/${asked}~${target.preview}${rest || "/"}`;
+    const res = NextResponse.rewrite(url, init);
+    builds.add(res);
+    return res;
+  }
   const home = await portalHome(slug).catch(() => null);
   // A members site's builds, and the door its members come back through (lib/core/sites.ts enterSite), answer only where its builds
   // do, never at /p/ on the app's host. A brand portal's own pages stay at /p/, where its members sign in; a site that is all

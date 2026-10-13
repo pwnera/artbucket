@@ -7,13 +7,13 @@ import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
-import { appUrlFor, buildsAt, portalNamed } from "@/lib/core/domains";
+import { appUrlFor, buildsAt, portalNamed, previewAt } from "@/lib/core/domains";
 import { adminsOf, digest, enterPortal, reader, readerOf, type Pass } from "@/lib/core/portals";
 import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
-import { assetAddresses, BUILD_KINDS, ENTER_PATH, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
+import { assetAddresses, BUILD_KINDS, ENTER_PATH, PREVIEW_NAME, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { signLines, signsIn, type Sign } from "@/lib/site-safety";
 import { headersFor, HEADERS, parseHeaders, parseRedirects, redirectFor, REDIRECTS, type SiteRules } from "@/lib/site-rules";
@@ -36,11 +36,14 @@ type Deployment = typeof siteDeployments.$inferSelect;
 /** Replaced deployments kept per path, to restore: their files count as storage until a newer one pushes them out. */
 export const KEEP_REPLACED = 3;
 
-const present = (d: Deployment) => ({
+/** `url`: where a preview answers (previewAt), given for a preview only. */
+const present = (d: Deployment, url?: string | null) => ({
   id: d.id,
   path: d.path,
   kind: d.kind,
   state: d.state,
+  preview: d.preview,
+  ...(d.preview && { url: url ?? null }),
   files: d.files,
   bytes: d.bytes,
   commit: d.commit,
@@ -67,9 +70,10 @@ async function siteOf(caller: Caller, id: string) {
 /** The site's deployments, newest first. Null: no such site here. */
 export async function listDeployments(caller: Caller, siteId: string) {
   mayDeploy(caller);
-  if (!(await siteOf(caller, siteId))) return null;
+  const site = await siteOf(caller, siteId);
+  if (!site) return null;
   const rows = await db.select().from(siteDeployments).where(eq(siteDeployments.siteId, siteId)).orderBy(desc(siteDeployments.createdAt)).limit(50);
-  return rows.map(present);
+  return rows.map((d) => present(d, previewUrl(site.slug, d)));
 }
 
 type Manifest = { release?: number; assets?: string[]; rules?: string[] };
@@ -262,6 +266,26 @@ async function makeLive(tx: Tx, siteId: string, path: string, id: string, set: P
   return tx.update(siteDeployments).set({ ...set, state: "live" }).where(eq(siteDeployments.id, id)).returning();
 }
 
+/** A preview's address, at its mount: null for anything else. */
+const previewUrl = (slug: string, d: Pick<Deployment, "preview" | "path">) => {
+  const at = d.preview ? previewAt(slug, d.preview) : null;
+  return at && `${at}${d.path === "/" ? "/" : `${d.path}/`}`;
+};
+
+/**
+ * A pull request's build kept as the preview of its name at its mount: an
+ * earlier build of the same preview there goes (the sweep takes its files),
+ * the live one stays as it is. Previews are swept PREVIEW_DAYS after they
+ * were made.
+ */
+async function makePreview(tx: Tx, siteId: string, path: string, name: string, id: string, set: Partial<typeof siteDeployments.$inferInsert> = {}) {
+  await tx
+    .delete(siteDeployments)
+    .where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.path, path), eq(siteDeployments.preview, name), eq(siteDeployments.state, "preview")));
+  return tx.update(siteDeployments).set({ ...set, state: "preview", preview: name }).where(eq(siteDeployments.id, id)).returning();
+}
+export const PREVIEW_DAYS = 30;
+
 /** The brands' names in a project, which a build may look like without impersonating anyone. */
 const brandNames = async (projectId: string) => (await db.select({ name: brands.name, slug: brands.slug }).from(brands).where(eq(brands.projectId, projectId))).flatMap((b) => [b.name, b.slug]);
 
@@ -271,12 +295,22 @@ const brandNames = async (projectId: string) => (await db.select({ name: brands.
  * recorded, and failed with the reason when its manifest names an asset that
  * may not be used. Live once every file is stored.
  */
-export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o: { path?: string | null; kind?: string | null; commit?: string | null; ref?: string | null } = {}) {
+export async function deploy(
+  caller: Caller,
+  siteId: string,
+  zip: Uint8Array,
+  o: { path?: string | null; kind?: string | null; commit?: string | null; ref?: string | null; preview?: string | null } = {},
+) {
   mayDeploy(caller);
   const site = await siteOf(caller, siteId);
   if (!site) return null;
   const path = mountPath(o.path ?? "/");
   if (!path) throw new AssetError("invalid", "path: / or lowercase segments, such as /docs");
+  const preview = o.preview || null;
+  if (preview !== null) {
+    if (!PREVIEW_NAME.test(preview)) throw new AssetError("invalid", "preview: lowercase letters, digits and single dashes, 30 at most, such as pr-12");
+    if (!previewAt(site.slug, preview)) throw new AssetError("invalid", env.PORTAL_DOMAIN ? `preview: ${preview}--${site.slug} is too long for an address: pick a shorter name` : "Previews answer at {name}--{site}.PORTAL_DOMAIN: this server has none");
+  }
   if (site.kind === "portal" && path === "/") throw new AssetError("invalid", "A brand portal's root is drawn by Artbucket: mount a build at a path, such as /docs");
   const kind = (o.kind ?? (site.kind === "portal" ? null : site.kind)) as BuildKind | null;
   if (!kind || !BUILD_KINDS.includes(kind)) throw new AssetError("invalid", `kind: one of ${BUILD_KINDS.join(", ")}`);
@@ -329,17 +363,20 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
     if (problems.length) throw new AssetError("invalid", `It uses what may not be used: ${problems.join("; ")}`);
     const flags = signLines(scan.signs);
     const held = flags.length > 0 && limits.siteReview;
+    // A preview is never held for the operator: one that looks like phishing isn't served at all.
+    if (held && preview) throw new AssetError("invalid", `A preview isn't served when it looks like phishing: ${flags.join("; ")}. Deploy it to the site to have it looked at`);
     const kept = { files: files.size, bytes, manifest, uses, rules, flags, problems: [], checkedAt: new Date() };
     const [row] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
+      if (preview) return makePreview(tx, site.id, path, preview, id, kept);
       if (!held) return makeLive(tx, site.id, path, id, kept);
       const why = `Held for review: ${flags.join("; ")}. Whoever runs this server looks at it, and it goes live if it is what it seems`;
       return tx.update(siteDeployments).set({ ...kept, state: "held", error: why }).where(eq(siteDeployments.id, id)).returning();
     });
-    await recordAudit(caller, held ? "site.held" : "site.deployed", site.slug, { path, kind, files: files.size, ...(flags.length ? { flags } : {}) }, { projectId: site.projectId });
+    await recordAudit(caller, held ? "site.held" : "site.deployed", site.slug, { path, kind, files: files.size, ...(preview ? { preview } : {}), ...(flags.length ? { flags } : {}) }, { projectId: site.projectId });
     if (held && env.SITE_REVIEW_EMAIL)
       await sendAs(null, siteHeldEmail(env.SITE_REVIEW_EMAIL, { organization: caller.project.organization.slug, site: site.slug, path, deployment: id, flags }), { capped: false });
-    return present(row);
+    return present(row, previewUrl(site.slug, row));
   } catch (err) {
     const why = err instanceof Error ? err.message : "It could not be stored";
     await db.update(siteDeployments).set({ state: "failed", error: why }).where(eq(siteDeployments.id, id));
@@ -484,9 +521,9 @@ async function stillMember(projectId: string, { u, s }: { u: string; s: string }
 }
 
 /** Where a visitor goes to be let into the members site `slug`: the app, which sends them back to `to` once they are in. */
-export async function membersDoor(slug: string, to: string) {
+export async function membersDoor(slug: string, to: string, preview?: string | null) {
   const named = await portalNamed(slug);
-  return `${await appUrlFor(named?.organizationId ?? null)}/sites/enter?${new URLSearchParams({ site: slug, to })}`;
+  return `${await appUrlFor(named?.organizationId ?? null)}/sites/enter?${new URLSearchParams({ site: slug, to, ...(preview && { preview }) })}`;
 }
 
 /**
@@ -499,11 +536,14 @@ export async function enterSite(
   slug: string,
   headers: Headers,
   to: string | null,
+  preview?: string | null,
 ): Promise<{ url: string } | { signIn: true; name: string } | { refused: string; name?: string; email?: string }> {
   const named = await portalNamed(slug);
   const p = named?.p;
   if (!p || p.access !== "members") return { refused: "There is no members site at this address" };
-  const at = buildsAt(p, (await db.select().from(domains).where(eq(domains.portalId, p.id)))[0] ?? null);
+  // Back to the preview's own host when one was asked: its door's cookie is that host's alone.
+  const at =
+    preview && PREVIEW_NAME.test(preview) ? previewAt(p.slug, preview) : buildsAt(p, (await db.select().from(domains).where(eq(domains.portalId, p.id)))[0] ?? null);
   if (!at) return { refused: "This site's builds have no address to answer at: give it a domain of its own" };
   const who = await reader(headers);
   if (!who) return { signIn: true, name: p.name };
@@ -636,6 +676,8 @@ export async function recheckSites(date = today()) {
     const url = `${await appUrlFor(ws?.organizationId ?? null)}/sites?deployments=${site.id}`;
     for (const to of await adminsOf(site)) await sendAs(ws?.organizationId ?? null, siteProblemsEmail(to, { site: site.name, path: d.path, problems, url }), { capped: false });
   }
+  // Previews past PREVIEW_DAYS go: their pull requests are long merged or closed, and the sweep takes their files.
+  await db.delete(siteDeployments).where(and(eq(siteDeployments.state, "preview"), lt(siteDeployments.createdAt, new Date(Date.now() - PREVIEW_DAYS * 864e5))));
   // A build held for review that nobody released in HELD_DAYS is refused, so its files stop counting and the sweep takes them.
   await db
     .update(siteDeployments)
@@ -669,7 +711,7 @@ const HIDDEN = new Set([MANIFEST, REDIRECTS, HEADERS]);
  * file the path names wins over a redirect unless it is forced (!); a miss
  * answers the build's 404.html.
  */
-export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null): Promise<SiteAnswer | null> {
+export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null, preview?: string | null): Promise<SiteAnswer | null> {
   const { p } = await enterPortal(slug, pass).catch(async (err) => {
     // Its door's cookie stands for the password. Still the portal's own checks first: closed, suspended, gone.
     const p = err instanceof AssetError && err.code === "password" ? (await portalNamed(slug))?.p : null;
@@ -679,7 +721,7 @@ export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: 
   const live = await db
     .select({ path: siteDeployments.path, prefix: siteDeployments.prefix, rules: siteDeployments.rules })
     .from(siteDeployments)
-    .where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live")));
+    .where(and(eq(siteDeployments.siteId, p.id), preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
   const mount = live.sort((a, b) => b.path.length - a.path.length).find((m) => underMount(rest, m.path));
   if (!mount) return null;
   const inner = mount.path === "/" ? rest || "/" : rest.slice(mount.path.length);

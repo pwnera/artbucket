@@ -58,8 +58,13 @@ artbucket sites
 artbucket site new acme-docs --brand acme --kind docs --create
 artbucket site push dist --site acme-docs
 artbucket site push storybook-static --site acme --path /storybook --kind storybook
+artbucket site push dist --site acme-docs --preview pr-12
 artbucket site check dist
 ```
+
+`--preview pr-12` keeps the build as a preview at its own address, printed
+when it is up, and leaves the live one alone ([Preview a pull
+request](/guides/sites#preview-a-pull-request)).
 
 `site new` starts a site from the brand (`landing`, `docs` or `guidelines`),
 wired to deploy with `npm run deploy`; `brand export` writes the release

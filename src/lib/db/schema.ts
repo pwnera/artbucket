@@ -1144,6 +1144,8 @@ export const siteDeployments = pgTable(
     path: text("path").notNull().default("/"),
     kind: text("kind").$type<BuildKind>().notNull(),
     state: text("state").$type<DeploymentState>().notNull().default("checking"),
+    /** A preview's name (pr-12), when it is one: served at {name}--{site}.PORTAL_DOMAIN, never live. */
+    preview: text("preview"),
     /** Storage prefix of its files. */
     prefix: text("prefix").notNull(),
     files: integer("files").notNull().default(0),
@@ -1170,7 +1172,7 @@ export const siteDeployments = pgTable(
   (t) => [
     index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
     uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
-    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held')`),
+    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held', 'preview')`),
     check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
 );

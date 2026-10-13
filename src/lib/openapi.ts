@@ -120,7 +120,11 @@ const Deployment = z.object({
   id: z.uuid(),
   path: z.string().describe("Where it is mounted"),
   kind: z.enum(["guidelines", "landing", "docs", "storybook"]),
-  state: z.enum(["checking", "live", "failed", "replaced", "held"]).describe("held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"),
+  state: z
+    .enum(["checking", "live", "failed", "replaced", "held", "preview"])
+    .describe("held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"),
+  preview: z.string().nullable().describe("A preview's name, such as pr-12; null for any other deployment"),
+  url: z.string().nullable().optional().describe("Where a preview answers: {name}--{site}.{PORTAL_DOMAIN}, at its mount. Given for previews only"),
   files: z.number().int(),
   bytes: z.number().int(),
   commit: z.string().nullable(),
@@ -1535,7 +1539,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "A site's deployments",
           scope: "write",
-          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.",
+          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced, held, preview), its files and why one failed or is held; a preview's address.",
           ok: [200, "Deployments", data(z.array(Deployment))],
         }),
         post: {
@@ -1554,6 +1558,11 @@ export function openapi(serverUrl: string) {
               kind: { schema: { type: "string", enum: ["guidelines", "landing", "docs", "storybook"] }, description: "What it is; the site's own kind when left out" },
               commit: { schema: str, description: "The commit it was built from, when a build says" },
               ref: { schema: str, description: "The branch or tag of that commit" },
+              preview: {
+                schema: str,
+                description:
+                  "A preview's name, such as pr-12: the build is checked as any deployment is, then served at {name}--{site}.{PORTAL_DOMAIN} behind the site's own door, never live. A later build of the same preview replaces it; previews go 30 days after they were made",
+              },
             },
             ok: [201, "The deployment", data(Deployment)],
           }),
