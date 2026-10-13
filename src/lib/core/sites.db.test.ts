@@ -8,7 +8,7 @@ import { assets, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, updatePortal } from "@/lib/core/portals";
-import { checkBuild, deploy, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, HELD_DAYS, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -215,4 +215,48 @@ test("a build that looks like phishing is held where the operator reviews, live 
     await tx.execute(sql`update site_deployments set state = 'live', error = null where id = ${held.id} and state = 'held'`);
   });
   assert.equal((await siteFile(site.slug, {}, "/"))?.status, 200);
+});
+
+test("a copy of a draft is the site's own; a restored build is checked as it comes back; a held one nobody reviews is refused", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const bytes = await png("#77aa11");
+  const draft = (await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "wip.png" })).asset;
+  await db.update(assets).set({ status: "draft" }).where(eq(assets.id, draft.id));
+  const site = await createPortal(ada.caller, { name: "Drafty", slug: `drafty-${Date.now().toString(36)}`, kind: "landing" });
+  const first = (await deploy(ada.caller, site.id, zip([{ name: "index.html", data: text("hi") }, { name: "wip.png", data: bytes }])))!;
+  assert.equal(first.state, "live");
+  // A link to it is the library's word, though: refused.
+  await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": `<img src="/a/${draft.id}">` })), /wip\.png isn't approved/);
+
+  // Replaced by a second build, then the library archives a photo the first one copied: restoring it says so at once.
+  const photo = (await ingestBytes(ada.caller, { bytes: await png("#1188aa"), mime: "image/png", filename: "team.png" })).asset;
+  const one = (await deploy(ada.caller, site.id, zip([{ name: "index.html", data: text("v1") }, { name: "team.png", data: await png("#1188aa") }])))!;
+  await deploy(ada.caller, site.id, pack({ "index.html": "v2" }));
+  await db.update(assets).set({ status: "archived" }).where(eq(assets.id, photo.id));
+  const back = (await restoreDeployment(ada.caller, site.id, one.id))!;
+  assert.equal(back.state, "live");
+  assert.deepEqual(back.problems, ["team.png is archived: team.png is a copy of it"]);
+
+  // Held past HELD_DAYS: refused by the re-check, its files no longer kept.
+  const eve = await signUp("Heldlong");
+  await plan(eve.caller.project.organizationId, { siteReview: true });
+  const shady = await createPortal(eve.caller, { name: "Shady", slug: `shady-${Date.now().toString(36)}`, kind: "landing" });
+  const held = (await deploy(eve.caller, shady.id, pack({ "index.html": `<input type="password">` })))!;
+  assert.equal(held.state, "held");
+  await db.update(siteDeployments).set({ createdAt: new Date(Date.now() - (HELD_DAYS + 1) * 864e5) }).where(eq(siteDeployments.id, held.id));
+  await recheckSites();
+  const [after] = (await listDeployments(eve.caller, shady.id))!;
+  assert.equal(after.state, "failed");
+  assert.match(after.error!, /Not reviewed within 14 days/);
+});
+
+test("a check names only what the caller may see: a private asset's copy is not theirs to hear about", async () => {
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#33aa77" } }).png().toBuffer();
+  const secret = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "unannounced.png" })).asset;
+  await db.update(assets).set({ private: true, status: "archived" }).where(eq(assets.id, secret.id));
+  const files = zip([{ name: "x.png", data: png }]);
+  // An admin hears about it; a reader of the project, for whom it is private, gets nothing of it back.
+  assert.equal((await checkBuild(ada.caller, files)).allowed, false);
+  const reader = { ...ada.caller, scope: "read" as const };
+  assert.deepEqual(await checkBuild(reader, files), { allowed: true, files: 1, uses: [], problems: [], flags: [] });
 });

@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, brands, portals, siteDeployments } from "@/lib/db/schema";
 import { projectById, type Caller } from "@/lib/core/access";
+import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
@@ -150,9 +151,11 @@ function barred(a: UseRow, date: string) {
  * What a scanned build uses of this project's library, each found by its
  * bytes, its addresses or its manifest; and the ids its manifest names that
  * are no asset here. An address of another project's asset, or another
- * server's, is left alone: it may well be public.
+ * server's, is left alone: it may well be public. `only` narrows the assets
+ * matched to what a caller may see (checkBuild), so a check never names one
+ * they may not.
  */
-async function resolveUses(projectId: string, scan: BuildScan) {
+async function resolveUses(projectId: string, scan: BuildScan, only?: SQL) {
   const ids = [...new Set([...scan.pinned.keys(), ...scan.current.keys(), ...scan.declared])];
   const shas = [...scan.hashes.keys()];
   const rows = (
@@ -160,7 +163,7 @@ async function resolveUses(projectId: string, scan: BuildScan) {
       ? await db
           .select(useColumns)
           .from(assets)
-          .where(and(eq(assets.projectId, projectId), or(ids.length ? inArray(assets.id, ids) : sql`false`, shas.length ? inArray(assets.sha256, shas) : sql`false`)))
+          .where(and(eq(assets.projectId, projectId), only, or(ids.length ? inArray(assets.id, ids) : sql`false`, shas.length ? inArray(assets.sha256, shas) : sql`false`)))
       : []
   ) as UseRow[];
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -209,6 +212,10 @@ export async function problemsWith(uses: SiteUse[], date = today()) {
       out.push(`An asset it used is gone from the library: ${where}`);
       continue;
     }
+    // A copy of a file someone has since put in the library as a draft or a proposal, or deleted, is
+    // still the site's own: only a library that says "not this one" (replaced, refused, archived, out of
+    // license) refuses it. A link or a name is the library's word, so any of it counts.
+    if (use.how === "copy" && (a.deletedAt || a.status === "draft" || a.status === "proposed")) continue;
     if (use.how === "current") {
       const now = await currentOf(a);
       const no = barred(now, date);
@@ -347,7 +354,12 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   const scan = buildScan(await brandNames(caller.project.id));
   let bytes = 0;
   for (const [served, name] of files) {
-    const data = await byName.get(name)!.read();
+    const data = await byName
+      .get(name)!
+      .read()
+      .catch(() => {
+        throw new AssetError("invalid", `${served} can't be unpacked`);
+      });
     bytes += data.length;
     if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A build is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
     if (served !== MANIFEST) scan.add(served, data);
@@ -358,7 +370,7 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
         throw new AssetError("invalid", `${MANIFEST} isn't JSON`);
       }
   }
-  const { uses, unknown } = await resolveUses(caller.project.id, scan);
+  const { uses, unknown } = await resolveUses(caller.project.id, scan, visible(caller));
   const problems = [...unknown, ...(await problemsWith(uses))];
   return { allowed: !problems.length, files: files.size, uses, problems, flags: signLines(scan.signs) };
 }
@@ -378,12 +390,14 @@ export async function restoreDeployment(caller: Caller, siteId: string, deployme
     .where(and(eq(siteDeployments.id, deploymentId), eq(siteDeployments.siteId, site.id), inArray(siteDeployments.state, ["live", "replaced"])));
   if (!d) return null;
   if (d.state === "live") return present(d);
+  // Checked again as it comes back, so what may no longer be shown says so at once rather than at the next re-check.
+  const problems = await problemsWith(usesOf(d));
   const [live] = await db.transaction(async (tx) => {
     await tx
       .update(siteDeployments)
       .set({ state: "replaced" })
       .where(and(eq(siteDeployments.siteId, site.id), eq(siteDeployments.path, d.path), eq(siteDeployments.state, "live")));
-    return tx.update(siteDeployments).set({ state: "live" }).where(eq(siteDeployments.id, d.id)).returning();
+    return tx.update(siteDeployments).set({ state: "live", problems, checkedAt: new Date() }).where(eq(siteDeployments.id, d.id)).returning();
   });
   await recordAudit(caller, "site.deployed", site.slug, { path: d.path, kind: d.kind, files: d.files, restored: d.id }, { projectId: site.projectId });
   return present(live);
@@ -415,6 +429,15 @@ async function unlocked(slug: string, value: string | null | undefined) {
 /** Live deployments checked again per run of the sweep (every six hours), the longest unchecked first. */
 const RECHECK_PER_RUN = 200;
 const RECHECK_EVERY_MS = 20 * 60 * 60 * 1000;
+/** Days a held build waits for the operator before it is refused. */
+export const HELD_DAYS = 14;
+
+/** What a deployment uses, as kept; for one made before uses were kept, what its manifest named. */
+const usesOf = (d: Deployment): SiteUse[] =>
+  d.uses ??
+  (Array.isArray(d.manifest?.assets) ? (d.manifest.assets as unknown[]) : [])
+    .filter((id): id is string => typeof id === "string" && UUID.test(id))
+    .map((asset) => ({ asset, how: "declared" as const, file: null }));
 
 /**
  * Live builds checked again for what they show, as a deployment is
@@ -426,19 +449,30 @@ const RECHECK_EVERY_MS = 20 * 60 * 60 * 1000;
  * and how many have problems.
  */
 export async function recheckSites(date = today()) {
-  const due = await db
-    .select({ d: siteDeployments, site: { id: portals.id, name: portals.name, slug: portals.slug, projectId: portals.projectId } })
-    .from(siteDeployments)
-    .innerJoin(portals, eq(portals.id, siteDeployments.siteId))
-    .where(and(eq(siteDeployments.state, "live"), or(isNull(siteDeployments.checkedAt), lt(siteDeployments.checkedAt, new Date(Date.now() - RECHECK_EVERY_MS)))))
-    .orderBy(sql`${siteDeployments.checkedAt} asc nulls first`)
-    .limit(RECHECK_PER_RUN);
+  // Claimed in one statement, the checked time moved on as they are taken: two instances sweeping at once (a deploy
+  // boots several) never check, or mail about, the same build twice. What the rows held before comes back with them.
+  const claimed = await db.execute<{ id: string }>(sql`
+    update ${siteDeployments} set checked_at = now()
+    where id in (
+      select id from ${siteDeployments}
+      where state = 'live' and (checked_at is null or checked_at < now() - make_interval(secs => ${RECHECK_EVERY_MS / 1000}))
+      order by checked_at asc nulls first
+      limit ${RECHECK_PER_RUN}
+      for update skip locked
+    )
+    returning id`);
+  const ids = claimed.map((r) => r.id);
+  const due = ids.length
+    ? await db
+        .select({ d: siteDeployments, site: { id: portals.id, name: portals.name, slug: portals.slug, projectId: portals.projectId } })
+        .from(siteDeployments)
+        .innerJoin(portals, eq(portals.id, siteDeployments.siteId))
+        .where(inArray(siteDeployments.id, ids))
+    : [];
   let troubled = 0;
   for (const { d, site } of due) {
-    // Deployments from before uses were kept: what their manifest named.
-    const uses = d.uses ?? (Array.isArray(d.manifest?.assets) ? (d.manifest.assets as unknown[]) : []).filter((id): id is string => typeof id === "string" && UUID.test(id)).map((asset) => ({ asset, how: "declared" as const, file: null }));
-    const problems = await problemsWith(uses, date);
-    await db.update(siteDeployments).set({ problems, checkedAt: new Date() }).where(eq(siteDeployments.id, d.id));
+    const problems = await problemsWith(usesOf(d), date);
+    await db.update(siteDeployments).set({ problems }).where(eq(siteDeployments.id, d.id));
     if (!problems.length) continue;
     troubled++;
     const fresh = problems.filter((p) => !d.problems.includes(p));
@@ -448,6 +482,11 @@ export async function recheckSites(date = today()) {
     const url = `${await appUrlFor(ws?.organizationId ?? null)}/sites?deployments=${site.id}`;
     for (const to of await adminsOf(site)) await sendAs(ws?.organizationId ?? null, siteProblemsEmail(to, { site: site.name, path: d.path, problems, url }), { capped: false });
   }
+  // A build held for review that nobody released in HELD_DAYS is refused, so its files stop counting and the sweep takes them.
+  await db
+    .update(siteDeployments)
+    .set({ state: "failed", error: `Not reviewed within ${HELD_DAYS} days: deploy it again, or ask whoever runs this server` })
+    .where(and(eq(siteDeployments.state, "held"), lt(siteDeployments.createdAt, new Date(Date.now() - HELD_DAYS * 864e5))));
   return { checked: due.length, troubled };
 }
 

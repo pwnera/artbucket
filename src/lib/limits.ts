@@ -59,7 +59,9 @@ export const Limits = z.object({
   /**
    * A build that looks like phishing or malware (lib/site-safety.ts) waits
    * for the operator instead of going live: for organizations nobody vouches
-   * for yet, such as a free tier with open sign-up. Unset in a row: off.
+   * for yet, such as a free tier with open sign-up. A row that leaves it out
+   * takes the server's (LIMIT_SITE_REVIEW), as every limit does: a plan's
+   * row sets it false to turn it off.
    */
   siteReview: z.boolean().default(false),
   /**

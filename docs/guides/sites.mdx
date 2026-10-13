@@ -80,7 +80,9 @@ live, with nothing for the build to declare:
   whatever its name.
 - **Its addresses**: every `/a/{id}` and `/c/{id}` in its HTML, CSS and
   JavaScript, on the app's host or relative. `/a/` pins a version; `/c/`
-  follows the current one, so it is weighed on the version it serves.
+  follows the current one, so it is weighed on the version it serves. Files
+  over 2 MB, such as a large bundle, are matched by their bytes but not read
+  for addresses.
 - **Its manifest**, when it has one: `artbucket.site.json` at its root.
 
 ```json
@@ -90,8 +92,10 @@ live, with nothing for the build to declare:
 }
 ```
 
-A copy or a pinned link of a replaced, unapproved, archived or expired asset
-fails the deployment, and says which file and what replaced it:
+A pinned link to a replaced, unapproved, archived or expired asset fails the
+deployment, and so does a copy of one the library says not to use (replaced,
+refused in review, archived, out of license); a copy of a draft or a deleted
+asset doesn't. The message says which file and what replaced it:
 
 ```
 logo-2024.png was replaced by logo-2026.png (use 9f1e0d2c-...): img/logo.png is a copy of it
@@ -126,7 +130,8 @@ which file and what replaced it. A read key is enough.
 A static site has no server of its own to sign anyone in, take a payment or
 ship software. So a page that asks for a password, card details or a
 wallet's recovery phrase, or a program to download, is what phishing looks
-like on a free host, and every deployment is read for those signs. A page
+like on a free host, and every deployment's pages are read for those signs
+(not its scripts: a component library holds login forms legitimately). A page
 that looks like another company's sign-in (Microsoft, Google, PayPal, and
 others phishing copies most) says whose, unless the project holds a brand of
 that name.
@@ -136,7 +141,7 @@ Where the server's operator reviews (`siteReview` in the organization's
 files are kept, nothing is served, and the deployment says why. A newsletter
 form, a page about signing in, or a component library's bundle is not a
 sign. Elsewhere it goes live, and the signs stay on the deployment as
-`flags`.
+`flags`. A held build nobody releases within 14 days is refused.
 
 The operator hears of it at `SITE_REVIEW_EMAIL`, and decides in the database:
 

@@ -31,3 +31,12 @@ test("a brand's site is not: a newsletter form, docs about signing in with Googl
   assert.deepEqual(signsIn("logo.png", page("")), []);
   assert.deepEqual(signLines([{ file: "a.html", why: "asks for a password" }]), ["a.html asks for a password"]);
 });
+
+test("a page of unclosed tags is read in linear time", () => {
+  for (const unit of ["<input ", "<script ", "<style ", "<"]) {
+    const page = unit.repeat(300_000);
+    const t = Date.now();
+    signsIn("a.html", () => page);
+    assert.ok(Date.now() - t < 1500, `${unit.trim()}: ${Date.now() - t} ms`);
+  }
+});

@@ -144,6 +144,7 @@ function Deployments({ site }: { site: Portal }) {
     setSending(false);
     await load();
     if (!res.ok) return toast.error(body?.error?.message ?? "It couldn't be deployed");
+    if (body.data.state === "held") return toast.warning("Held for review", { description: body.data.error });
     toast.success(`Live at ${site.url}${path === "/" ? "" : path}`, { description: `${body.data.files} files` });
   };
 
