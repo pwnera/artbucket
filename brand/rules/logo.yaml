@@ -1,26 +1,26 @@
 logo.primary:
   type: text
   label: App icon
-  value: The white mark on a Violet rounded square.
-  usage: The default. Favicons, avatars, the app's corner.
-  assets: [assets/icon.svg]
+  value: "The mark on a rounded tile in this week's accent: ink on Volt, Signal and Moss, white on Iris, Tide and Fuchsia."
+  usage: The default. Favicons, avatars, the app's corner. The weekly release redraws the tile in the new accent; where a copy can't follow the week (GitHub, social profiles, app stores), use the Iris tile.
+  assets: [5bda5006-f6b8-4402-a71e-fa67b3241a3a]
 logo.mark:
   type: text
   label: Mark in black
   value: "The mark alone in #111111: a tipped paint bucket, a paint line, one drop."
-  usage: On light grounds where Violet can't go, like one-color print.
+  usage: On light grounds and one-color print.
   assets: [assets/mark-black.svg]
 logo.markWhite:
   type: text
   label: Mark in white
   value: The mark alone in white.
-  usage: On Violet, on Night, and on photographs dark enough to hold it.
+  usage: On Night, on the accents that take white, and on photographs dark enough to hold it.
   assets: [assets/mark-white.svg]
 logo.always:
   type: list
   value:
-    - "Always one color: white on Violet, all black, or all white."
-    - Set the wordmark in Funnel Display Bold beside the mark, a quarter of the mark's height apart.
+    - "Always one color: the week's tile file, all black, or all white."
+    - Set the wordmark in Funnel Display Medium beside the mark, a quarter of the mark's height apart.
 logo.neverDo:
   type: list
   value:

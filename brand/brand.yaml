@@ -11,7 +11,7 @@ theme:
   body: type.body
   logo: logo.primary
   device: assets/mark-white.svg
-  radius: 16
+  radius: 12
   width: wide
   density: normal
   scale: 1.25

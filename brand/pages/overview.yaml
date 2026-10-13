@@ -4,7 +4,7 @@ layout: landing
 sections:
   - template: cover
     eyebrow: The Artbucket brand
-    title: Where brands live.
+    title: Change your brand once.
     lede: Including ours. The mark, the colors, the type and the words.
     props:
       mark: always
@@ -32,17 +32,17 @@ sections:
 
       [Meet the mark](/logo)
     items:
-      - at: [38, 40]
+      - title: The bucket
         text: Tipped on purpose. Never right it.
-        title: The bucket
-      - at: [52, 58]
+        at: [38, 40]
+      - title: The paint line
         text: One wave. Work in progress.
-        title: The paint line
-      - at: [74, 68]
+        at: [52, 58]
+      - title: The drop
         text: Just one. Check it at actual size.
-        title: The drop
+        at: [74, 68]
     props:
-      image: assets/icon.svg
+      image: 5bda5006-f6b8-4402-a71e-fa67b3241a3a
     tone: panel
     size: large
   - id: the-type
@@ -60,15 +60,15 @@ sections:
   - id: the-palette
     template: palette
     eyebrow: 03 / Color · Choose
-    title: Violet leads. Lime marks.
-    lede: White gives the work room. Violet draws the eye. A little lime picks out what matters.
+    title: One accent a week. Ink holds it.
+    lede: Paper gives the work room. Ink does the talking. This week's accent picks out what matters.
     body: |-
-      Lime is a highlight. Not a background.
+      The accent is a fill. Never text.
 
       [Explore the full palette](/color)
     keys:
       - color.primary
-      - color.highlight
+      - color.onPrimary
       - color.background
       - color.panel
       - color.ink
@@ -96,24 +96,24 @@ sections:
       Don't just read it.
       Make something.
     items:
-      - link: /logo
+      - title: Use the mark
         text: Three approved files, and what to leave alone.
-        title: Use the mark
-      - link: /color
-        text: Violet, lime and the neutrals that give them room.
-        title: Choose your colors
-      - link: /type
+        link: /logo
+      - title: Choose your colors
+        text: This week's accent and the neutrals that hold it.
+        link: /color
+      - title: Set the words
         text: Three faces, one measured scale.
-        title: Set the words
-      - link: /voice
+        link: /type
+      - title: Sound like Artbucket
         text: Habits, examples and copy to paste.
-        title: Sound like Artbucket
-      - link: /playground
+        link: /voice
+      - title: Try the system
         text: Space, corners and motion, drawn.
-        title: Try the system
-      - link: /resources
+        link: /playground
+      - title: Get the originals
         text: Every file, and a way to ask for more.
-        title: Get the originals
+        link: /resources
     size: large
   - id: resources
     template: links
@@ -122,18 +122,18 @@ sections:
     body: Start with the approved logo files. The logo guide covers grounds and placement.
     keys: [logo.primary, logo.mark, logo.markWhite]
     items:
-      - link: https://artbucket.io/
+      - title: Artbucket
         text: See the brand at work.
+        link: https://artbucket.io/
         label: Visit the website
-        title: Artbucket
-      - link: https://docs.artbucket.io/
+      - title: Documentation
         text: Put the catalog to work.
+        link: https://docs.artbucket.io/
         label: Read the docs
-        title: Documentation
-      - link: https://github.com/pwnera/artbucket
+      - title: Open source
         text: The core, in the open.
+        link: https://github.com/pwnera/artbucket
         label: See the code
-        title: Open source
     tone: panel
     columns: 3
     size: large
