@@ -38,12 +38,15 @@ const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive"
 export function BuildSiteDialog({
   open,
   site,
+  buildUrl,
   onClose,
   onSaved,
 }: {
   open: boolean;
   /** null: a new built site. */
   site: Portal | null;
+  /** The server's build integration (SITE_BUILD_URL), {site} standing for the address. */
+  buildUrl?: string;
   onClose: () => void;
   onSaved: (site: Portal) => void;
 }) {
@@ -68,6 +71,7 @@ export function BuildSiteDialog({
         {shown ? (
           <>
             <Deployments site={shown} />
+            {buildUrl && <BuildFromGit site={shown} template={buildUrl} />}
             {shown.kind !== "portal" && (
               <WhoGetsIn
                 site={shown}
@@ -259,6 +263,23 @@ function Deployments({ site }: { site: Portal }) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * The server's build integration (SITE_BUILD_URL): it builds the site from a
+ * repository on each push and previews pull requests, deploying here as
+ * `site push` does. Its own pages say what is connected; this only leads there.
+ */
+function BuildFromGit({ site, template }: { site: Portal; template: string }) {
+  return (
+    <section aria-label="Build from GitHub" className="grid gap-2 border-t pt-4">
+      <h3 className="text-sm font-medium">Build from GitHub</h3>
+      <p className="text-muted-foreground text-sm">Built here on each push, a preview for each pull request, and again when the brand is released.</p>
+      <Button asChild variant="outline" size="sm" className="justify-self-start">
+        <a href={template.replaceAll("{site}", encodeURIComponent(site.slug))}>{site.rebuild?.host && template.includes(site.rebuild.host) ? "Builds and settings" : "Connect a repository"}</a>
+      </Button>
+    </section>
   );
 }
 

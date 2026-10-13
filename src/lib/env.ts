@@ -62,6 +62,14 @@ const schema = z.object({
    */
   GIT_CONNECT_URL: z.string().url().optional(),
   /**
+   * Where a built site gets connected to a repository by this server's build
+   * integration, {site} standing for the site's address: it builds the site
+   * on each push and previews pull requests (PRD part 2, SITE-14). A built
+   * site's Deployments link there. Unset: sites are pushed (`site push`, a
+   * zip, a deploy hook) as they are everywhere.
+   */
+  SITE_BUILD_URL: z.string().url().optional(),
+  /**
    * The guidelines builder: `on`, or `read-only`, where Edit opens the pages
    * as readers see them with the three ways to change them (an agent over
    * MCP, Git, Eject to code). The pages API and MCP write pages either way.
