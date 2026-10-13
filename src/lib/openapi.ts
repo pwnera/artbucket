@@ -136,6 +136,8 @@ const Deployment = z.object({
       }),
     )
     .describe("What it uses of the project's library, found in its files: its lineage"),
+  problems: z.array(z.string()).describe("What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"),
+  checkedAt: z.string().nullable().describe("When it was last checked"),
   createdBy: z.string(),
   createdAt: z.string(),
 });

@@ -48801,6 +48801,20 @@
                           },
                           "description": "What it uses of the project's library, found in its files: its lineage"
                         },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                        },
+                        "checkedAt": {
+                          "description": "When it was last checked",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "createdBy": {
                           "type": "string"
                         },
@@ -48820,6 +48834,8 @@
                         "error",
                         "manifest",
                         "uses",
+                        "problems",
+                        "checkedAt",
                         "createdBy",
                         "createdAt"
                       ],
@@ -49033,6 +49049,20 @@
                         },
                         "description": "What it uses of the project's library, found in its files: its lineage"
                       },
+                      "problems": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                      },
+                      "checkedAt": {
+                        "description": "When it was last checked",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "createdBy": {
                         "type": "string"
                       },
@@ -49052,6 +49082,8 @@
                       "error",
                       "manifest",
                       "uses",
+                      "problems",
+                      "checkedAt",
                       "createdBy",
                       "createdAt"
                     ],
@@ -49257,6 +49289,20 @@
                         },
                         "description": "What it uses of the project's library, found in its files: its lineage"
                       },
+                      "problems": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                      },
+                      "checkedAt": {
+                        "description": "When it was last checked",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "createdBy": {
                         "type": "string"
                       },
@@ -49276,6 +49322,8 @@
                       "error",
                       "manifest",
                       "uses",
+                      "problems",
+                      "checkedAt",
                       "createdBy",
                       "createdAt"
                     ],

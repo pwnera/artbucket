@@ -18,7 +18,7 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; createdBy: string; createdAt: string };
 
 /** "uses 3 assets", from what the check found in its files: the library it reaches. */
 const usesLine = (d: Deployment) => {
@@ -223,6 +223,12 @@ function Deployments({ site }: { site: Portal }) {
                   )}
                 </span>
                 {d.error && <span className="text-destructive text-xs">{d.error}</span>}
+                {d.state === "live" &&
+                  d.problems.map((p) => (
+                    <span key={p} className="text-warning text-xs">
+                      {p}
+                    </span>
+                  ))}
               </li>
             ))}
           </ul>

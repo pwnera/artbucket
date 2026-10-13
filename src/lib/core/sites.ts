@@ -1,13 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, portals, siteDeployments } from "@/lib/db/schema";
-import type { Caller } from "@/lib/core/access";
+import { projectById, type Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { checkLimit, claimStorage, limitsOf } from "@/lib/core/usage";
 import { AssetError } from "@/lib/core/errors";
-import { portalNamed } from "@/lib/core/domains";
-import { enterPortal, type Pass } from "@/lib/core/portals";
+import { appUrlFor, portalNamed } from "@/lib/core/domains";
+import { adminsOf, enterPortal, type Pass } from "@/lib/core/portals";
+import { sendAs, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
@@ -43,6 +44,8 @@ const present = (d: Deployment) => ({
   error: d.error,
   manifest: d.manifest,
   uses: d.uses ?? [],
+  problems: d.problems,
+  checkedAt: d.checkedAt,
   createdBy: d.createdBy,
   createdAt: d.createdAt,
 });
@@ -287,7 +290,7 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
         .orderBy(desc(siteDeployments.createdAt))
         .offset(KEEP_REPLACED);
       if (old.length) await tx.delete(siteDeployments).where(inArray(siteDeployments.id, old.map((o) => o.id)));
-      return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest, uses }).where(eq(siteDeployments.id, id)).returning();
+      return tx.update(siteDeployments).set({ state: "live", files: files.size, bytes, manifest, uses, problems: [], checkedAt: new Date() }).where(eq(siteDeployments.id, id)).returning();
     });
     await recordAudit(caller, "site.deployed", site.slug, { path, kind, files: files.size }, { projectId: site.projectId });
     return present(live);
@@ -345,6 +348,45 @@ async function unlocked(slug: string, value: string | null | undefined) {
   if (!value) return false;
   const p = (await portalNamed(slug))?.p;
   return !!p && p.access === "password" && !!signedUntil(env.BETTER_AUTH_SECRET, unlockId(p), value);
+}
+
+/** Live deployments checked again per run of the sweep (every six hours), the longest unchecked first. */
+const RECHECK_PER_RUN = 200;
+const RECHECK_EVERY_MS = 20 * 60 * 60 * 1000;
+
+/**
+ * Live builds checked again for what they show, as a deployment is
+ * (problemsWith): a license that ended since, a logo replaced since, an
+ * asset unapproved or archived since. Each is checked about once a day.
+ * Problems are kept on the deployment, shown in the app and the API, and
+ * mailed to the site's admins when there is something new to say. The build
+ * stays live: taking a page down is a person's call. How many were checked
+ * and how many have problems.
+ */
+export async function recheckSites(date = today()) {
+  const due = await db
+    .select({ d: siteDeployments, site: { id: portals.id, name: portals.name, slug: portals.slug, projectId: portals.projectId } })
+    .from(siteDeployments)
+    .innerJoin(portals, eq(portals.id, siteDeployments.siteId))
+    .where(and(eq(siteDeployments.state, "live"), or(isNull(siteDeployments.checkedAt), lt(siteDeployments.checkedAt, new Date(Date.now() - RECHECK_EVERY_MS)))))
+    .orderBy(sql`${siteDeployments.checkedAt} asc nulls first`)
+    .limit(RECHECK_PER_RUN);
+  let troubled = 0;
+  for (const { d, site } of due) {
+    // Deployments from before uses were kept: what their manifest named.
+    const uses = d.uses ?? (Array.isArray(d.manifest?.assets) ? (d.manifest.assets as unknown[]) : []).filter((id): id is string => typeof id === "string" && UUID.test(id)).map((asset) => ({ asset, how: "declared" as const, file: null }));
+    const problems = await problemsWith(uses, date);
+    await db.update(siteDeployments).set({ problems, checkedAt: new Date() }).where(eq(siteDeployments.id, d.id));
+    if (!problems.length) continue;
+    troubled++;
+    const fresh = problems.filter((p) => !d.problems.includes(p));
+    if (!fresh.length) continue;
+    await recordAudit({ actor: "server" }, "site.problems", site.slug, { path: d.path, problems }, { projectId: site.projectId });
+    const ws = await projectById(site.projectId);
+    const url = `${await appUrlFor(ws?.organizationId ?? null)}/sites?open=${site.id}`;
+    for (const to of await adminsOf(site)) await sendAs(ws?.organizationId ?? null, siteProblemsEmail(to, { site: site.name, path: d.path, problems, url }), { capped: false });
+  }
+  return { checked: due.length, troubled };
 }
 
 /** The live mount paths of a site, longest first: where its builds answer. For src/proxy.ts. */

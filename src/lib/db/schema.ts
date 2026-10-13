@@ -1130,6 +1130,10 @@ export const siteDeployments = pgTable(
     manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
     /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
     uses: jsonb("uses").$type<SiteUse[] | null>(),
+    /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */
+    problems: jsonb("problems").$type<string[]>().notNull().default([]),
+    /** When a live deployment was last checked again. */
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
     /** Where it came from, when a build says: a commit and its ref. */
     commit: text("commit"),
     ref: text("ref"),

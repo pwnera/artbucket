@@ -102,3 +102,12 @@ project's asset, or another server's, is left alone: it may well be public.
 Once live, what the build uses shows in the [catalog](/guides/catalog)'s
 lineage of each asset and of the brand, as `built`, so you see every site a
 logo reaches before you replace it. The deployment lists it as `uses`.
+
+## Checked again, every day
+
+A build checked once can go wrong later: a photo's license ends, a logo is
+replaced. Live builds are checked again about once a day, the same way. What
+may no longer be shown is listed on the deployment, in **Sites** and as
+`problems` in the API, and the site's admins get an email when there is
+something new. The build stays live: deploy one without it, or restore one
+that has none.

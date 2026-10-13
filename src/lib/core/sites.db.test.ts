@@ -4,11 +4,11 @@ import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets } from "@/lib/db/schema";
+import { assets, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, updatePortal } from "@/lib/core/portals";
-import { deploy, KEEP_REPLACED, listDeployments, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { deploy, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -137,4 +137,31 @@ test("an address of an asset that isn't the project's is left alone", async () =
   const d = (await deploy(ada.caller, site.id, pack({ "index.html": `<img src="https://other.example/a/0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f">` })))!;
   assert.equal(d.state, "live");
   assert.deepEqual(d.uses, []);
+});
+
+test("live builds are checked again: a license that ended since shows on the deployment, and clears once fixed", async () => {
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#5a5a10" } }).png().toBuffer();
+  const photo = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "campaign.png" })).asset;
+  const rights = (expires: string) => ({ license: "RM", territories: [], channels: [], embargo: null, expires, modelRelease: null });
+  await db.update(assets).set({ rights: rights("2099-01-01") }).where(eq(assets.id, photo.id));
+  const site = await createPortal(ada.caller, { name: "Campaign", slug: `campaign-${Date.now().toString(36)}`, kind: "landing" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": `<img src="/a/${photo.id}/w_800">` })))!;
+  assert.deepEqual(d.problems, []);
+
+  // The license ends; the next re-check of a build due for one says so, and the build stays live.
+  await db.update(assets).set({ rights: rights("2026-01-01") }).where(eq(assets.id, photo.id));
+  await db.update(siteDeployments).set({ checkedAt: null }).where(eq(siteDeployments.id, d.id));
+  const run = await recheckSites("2026-06-01");
+  assert.ok(run.checked >= 1 && run.troubled >= 1);
+  const [after] = (await listDeployments(ada.caller, site.id))!;
+  assert.equal(after.state, "live");
+  assert.deepEqual(after.problems, ["campaign.png can't be used: License expired after 2026-01-01: index.html links it"]);
+
+  // Renewed, the next re-check clears it; one checked lately waits its turn.
+  await db.update(assets).set({ rights: rights("2099-01-01") }).where(eq(assets.id, photo.id));
+  await recheckSites("2026-06-01");
+  assert.equal((await listDeployments(ada.caller, site.id))![0].problems.length, 1);
+  await db.update(siteDeployments).set({ checkedAt: null }).where(eq(siteDeployments.id, d.id));
+  await recheckSites("2026-06-01");
+  assert.deepEqual((await listDeployments(ada.caller, site.id))![0].problems, []);
 });
