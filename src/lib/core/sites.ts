@@ -16,6 +16,7 @@ import { can } from "@/lib/permissions";
 import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { signLines, signsIn, type Sign } from "@/lib/site-safety";
+import { headersFor, HEADERS, parseHeaders, parseRedirects, redirectFor, REDIRECTS, type SiteRules } from "@/lib/site-rules";
 import { putObject, sizeOf } from "@/lib/storage";
 import { unzip } from "@/lib/zip";
 
@@ -233,6 +234,14 @@ export async function problemsWith(uses: SiteUse[], date = today()) {
   return out;
 }
 
+/** A build's _redirects and _headers, read as it deploys: its rules, or why they can't be (each error at its line). */
+function rulesOf(texts: Map<string, string>): { rules: SiteRules | null; errors: string[] } {
+  const r = texts.has(REDIRECTS) ? parseRedirects(texts.get(REDIRECTS)!) : { redirects: [], errors: [] };
+  const h = texts.has(HEADERS) ? parseHeaders(texts.get(HEADERS)!) : { headers: [], errors: [] };
+  const errors = [...r.errors, ...h.errors];
+  return { rules: r.redirects.length || h.headers.length ? { redirects: r.redirects, headers: h.headers } : null, errors };
+}
+
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** A deployment made the live one at its path: the one live there kept as replaced, the oldest replaced past KEEP_REPLACED gone. */
@@ -295,6 +304,7 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
     let bytes = 0;
     let manifest: Manifest | null = null;
     const scan = buildScan(await brandNames(site.projectId));
+    const ruleTexts = new Map<string, string>();
     const list = [...files];
     // ponytail: 16 uploads at a time, the zip held in memory; a streaming unpack when deployments grow past MAX_SITE_BYTES.
     for (let i = 0; i < list.length; i += 16) {
@@ -304,18 +314,21 @@ export async function deploy(caller: Caller, siteId: string, zip: Uint8Array, o:
           bytes += data.length;
           if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A deployment is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
           if (served === MANIFEST) manifest = JSON.parse(new TextDecoder().decode(data)) as Manifest;
+          else if (served === REDIRECTS || served === HEADERS) ruleTexts.set(served, new TextDecoder().decode(data));
           else scan.add(served, data);
           await putObject(prefix + served, Buffer.from(data), contentTypeOf(served));
         }),
       );
     }
     if (manifest) scan.declare(manifest);
+    const { rules, errors: ruleErrors } = rulesOf(ruleTexts);
+    if (ruleErrors.length) throw new AssetError("invalid", `Its rules can't be read: ${ruleErrors.join("; ")}`);
     const { uses, unknown } = await resolveUses(site.projectId, scan);
     const problems = [...unknown, ...(await problemsWith(uses))];
     if (problems.length) throw new AssetError("invalid", `It uses what may not be used: ${problems.join("; ")}`);
     const flags = signLines(scan.signs);
     const held = flags.length > 0 && limits.siteReview;
-    const kept = { files: files.size, bytes, manifest, uses, flags, problems: [], checkedAt: new Date() };
+    const kept = { files: files.size, bytes, manifest, uses, rules, flags, problems: [], checkedAt: new Date() };
     const [row] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
       if (!held) return makeLive(tx, site.id, path, id, kept);
@@ -352,6 +365,7 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   if (files.size > MAX_SITE_FILES) throw new AssetError("invalid", `A build holds ${MAX_SITE_FILES} files at most`);
   const byName = new Map(entries.map((e) => [e.name, e]));
   const scan = buildScan(await brandNames(caller.project.id));
+  const ruleTexts = new Map<string, string>();
   let bytes = 0;
   for (const [served, name] of files) {
     const data = await byName
@@ -362,7 +376,8 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
       });
     bytes += data.length;
     if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A build is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
-    if (served !== MANIFEST) scan.add(served, data);
+    if (served === REDIRECTS || served === HEADERS) ruleTexts.set(served, new TextDecoder().decode(data));
+    else if (served !== MANIFEST) scan.add(served, data);
     else
       try {
         scan.declare(JSON.parse(new TextDecoder().decode(data)) as Manifest);
@@ -371,7 +386,7 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
       }
   }
   const { uses, unknown } = await resolveUses(caller.project.id, scan, visible(caller));
-  const problems = [...unknown, ...(await problemsWith(uses))];
+  const problems = [...rulesOf(ruleTexts).errors, ...unknown, ...(await problemsWith(uses))];
   return { allowed: !problems.length, files: files.size, uses, problems, flags: signLines(scan.signs) };
 }
 
@@ -498,19 +513,31 @@ export async function liveMounts(siteId: string) {
 
 export const underMount = (rest: string, mount: string) => mount === "/" || rest === mount || rest.startsWith(`${mount}/`);
 
+/** What a request to a site's build gets: a folder's slash, a redirect, or a stored file with its status and the build's headers. */
+export type SiteAnswer =
+  | { slash: true }
+  | { redirect: string; status: number; headers: [string, string][] }
+  | { key: string; contentType: string; status: number; open: boolean; headers: [string, string][] };
+
+/** A build's own files that are read, never served. */
+const HIDDEN = new Set([MANIFEST, REDIRECTS, HEADERS]);
+
 /**
  * The stored file a request to a site asks for, as this visitor may see it
  * (the portal's own gate: a password or members site refuses here), or null
- * when no live build holds the path. A miss answers the build's 404.html.
+ * when no live build holds the path: a folder's slash, a redirect of the
+ * build's _redirects, or a file with its status and the build's _headers. A
+ * file the path names wins over a redirect unless it is forced (!); a miss
+ * answers the build's 404.html.
  */
-export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null) {
+export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: string | null): Promise<SiteAnswer | null> {
   const { p } = await enterPortal(slug, pass).catch(async (err) => {
     // Its door's cookie stands for the password. Still the portal's own checks first: closed, suspended, gone.
     if (err instanceof AssetError && err.code === "password" && (await unlocked(slug, unlock))) return { p: (await portalNamed(slug))!.p };
     throw err;
   });
   const live = await db
-    .select({ path: siteDeployments.path, prefix: siteDeployments.prefix })
+    .select({ path: siteDeployments.path, prefix: siteDeployments.prefix, rules: siteDeployments.rules })
     .from(siteDeployments)
     .where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live")));
   const mount = live.sort((a, b) => b.path.length - a.path.length).find((m) => underMount(rest, m.path));
@@ -518,11 +545,34 @@ export async function siteFile(slug: string, pass: Pass, rest: string, unlock?: 
   const inner = mount.path === "/" ? rest || "/" : rest.slice(mount.path.length);
   // A folder asked without its slash gets one, as static hosts do: its page's relative links resolve under it.
   if (!inner) return { slash: true as const };
-  for (const name of candidates(inner)) {
-    const key = mount.prefix + name;
-    if ((await sizeOf(key)) === null) continue;
-    if (name.endsWith("index.html") && !inner.endsWith("/")) return { slash: true as const };
-    return { key, contentType: contentTypeOf(name), status: name === "404.html" && !inner.endsWith("404.html") ? 404 : 200, open: p.access === "public" };
+  const open = p.access === "public";
+  const headers = headersFor(mount.rules?.headers ?? [], inner);
+  // The file a path names, else none: what a redirect that isn't forced gives way to. Its rules files are never served.
+  // A rewrite serves the file it names as it is: no slash added for a folder's index.
+  const fileAt = async (path: string, rewrite = false): Promise<{ slash: true } | { key: string; contentType: string } | null> => {
+    for (const name of candidates(path)) {
+      if (name === "404.html" || HIDDEN.has(name)) continue;
+      if ((await sizeOf(mount.prefix + name)) === null) continue;
+      if (!rewrite && name.endsWith("index.html") && !path.endsWith("/")) return { slash: true as const };
+      return { key: mount.prefix + name, contentType: contentTypeOf(name) };
+    }
+    return null;
+  };
+  const notFound = async (): Promise<SiteAnswer | null> => {
+    const key = mount.prefix + "404.html";
+    return (await sizeOf(key)) === null ? null : { key, contentType: contentTypeOf("404.html"), status: 404, open, headers };
+  };
+  const rule = redirectFor(mount.rules?.redirects ?? [], inner);
+  const found = rule?.force ? null : await fileAt(inner);
+  if (found) return "slash" in found ? found : { ...found, status: 200, open, headers };
+  if (!rule) return notFound();
+  if (rule.status === 200 || rule.status === 404) {
+    // Served from the build itself: a single-page app's index for every path, or a page of its own for a miss.
+    const target = await fileAt(rule.to, true);
+    if (!target || "slash" in target) return notFound();
+    return { ...target, status: rule.status, open, headers };
   }
-  return null;
+  // A path of the build is under its mount; a URL goes where it says.
+  const to = rule.to.startsWith("/") ? `${mount.path === "/" ? "" : mount.path}${rule.to}` : rule.to;
+  return { redirect: to, status: rule.status, headers };
 }
