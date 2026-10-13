@@ -124,7 +124,8 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   const rest = onApp ? (onApp[2] ?? "") : pathname === "/" ? "" : pathname;
   const home = await portalHome(slug).catch(() => null);
   // A members site's builds, and the door its members come back through (lib/core/sites.ts enterSite), answer only where its builds
-  // do, never at /p/ on the app's host; its own pages stay at /p/, where its members sign in.
+  // do, never at /p/ on the app's host. A brand portal's own pages stay at /p/, where its members sign in; a site that is all
+  // build has none, so every path of it goes to its host.
   if (home?.access === "members" && home.builds && (servesBuild(home, rest) || rest === ENTER_PATH)) {
     const elsewhere = asked !== home.slug || new URL(home.builds).host !== host;
     const url = req.nextUrl.clone();

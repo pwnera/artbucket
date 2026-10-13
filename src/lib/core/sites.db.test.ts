@@ -340,8 +340,9 @@ test("a build's _redirects and _headers: redirects, a single-page app's rewrite,
 });
 
 test("a members site's builds open on its own host for someone who may read the project, let in from the app with a ticket used once", async (t) => {
+  const before = env.PORTAL_DOMAIN;
   env.PORTAL_DOMAIN = "sites.test";
-  t.after(() => void (env.PORTAL_DOMAIN = undefined));
+  t.after(() => void (env.PORTAL_DOMAIN = before));
   const club = await createPortal(ada.caller, { name: "Club", slug: `club-${Date.now().toString(36)}`, kind: "docs", access: "members" });
   await deploy(ada.caller, club.id, pack({ "index.html": "inside" }));
   // A members site that is all build answers where its builds do.
@@ -365,9 +366,18 @@ test("a members site's builds open on its own host for someone who may read the 
   const cookie = await letIn(club.slug, ticket);
   assert.ok(cookie);
   assert.equal(await letIn(club.slug, ticket), null);
+  // Nor spelled another way: padded, a stray character, the expiry with a leading 0.
+  const [who, exp, mac] = ticket.split(".");
+  for (const again of [`${who}=.${exp}.${mac}`, `${who}$.${exp}.${mac}`, `${who}.0${exp}.${mac}`]) assert.equal(await letIn(club.slug, again), null, again);
   assert.equal(statusOf(await siteFile(club.slug, {}, "/", cookie)), 200);
   await assert.rejects(siteFile(other.slug, {}, "/", cookie), /for members/);
   await assert.rejects(siteFile(club.slug, {}, "/", `${cookie!.split(".")[0]}.9999999999.forged`), /for members/);
+  // A password site's door opens no members site.
+  const shut = await createPortal(ada.caller, { name: "Shut too", slug: `shut2-${Date.now().toString(36)}`, kind: "docs", access: "password", password: "open sesame 3" });
+  await updatePortal(ada.caller, shut.id, { access: "members" });
+  const theirs = await unlockValue(shut.slug);
+  await deploy(ada.caller, shut.id, pack({ "index.html": "x" }));
+  await assert.rejects(siteFile(shut.slug, {}, "/", theirs), /for members/);
 
   // Someone outside the project is told so; someone let in and then removed is out at once.
   const bob = await signUp("Sitesbob");

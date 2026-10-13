@@ -455,11 +455,15 @@ function whoseSigned(value: string, idOf: (user: string) => string) {
   const dot = value.indexOf(".");
   if (dot < 1) return null;
   const user = Buffer.from(value.slice(0, dot), "base64url").toString("utf8");
-  return user && signedUntil(env.BETTER_AUTH_SECRET, idOf(user), value.slice(dot + 1)) ? user : null;
+  // Spelled exactly as personal() spells it: base64url forgives padding and stray characters, which would make one ticket many.
+  if (!user || Buffer.from(user).toString("base64url") !== value.slice(0, dot)) return null;
+  return signedUntil(env.BETTER_AUTH_SECRET, idOf(user), value.slice(dot + 1)) ? user : null;
 }
 /**
- * Tickets already traded, until they expire: one opens one browser. ponytail: kept in this process, so with several
- * instances a ticket could be traded once on each within its two minutes; a table of them is the step past that.
+ * Tickets already traded, by their MAC, until they expire: one opens one browser. The MAC is the one part a ticket
+ * can't be spelled another way in (lib/signed.ts compares it exactly; an expiry reads the same with a leading 0).
+ * ponytail: kept in this process, so with several instances a ticket could be traded once on each within its two
+ * minutes; a table of them is the step past that.
  */
 const traded = new Map<string, number>();
 
@@ -496,10 +500,11 @@ export async function letIn(slug: string, ticket: string) {
   const p = (await portalNamed(slug))?.p;
   if (!p || p.access !== "members") return null;
   const user = whoseSigned(ticket, (u) => enterId(p.id, u));
-  if (!user || traded.has(ticket)) return null;
+  const mac = ticket.split(".").at(-1)!;
+  if (!user || traded.has(mac)) return null;
   const now = Date.now();
   for (const [t, until] of traded) if (until < now) traded.delete(t);
-  traded.set(ticket, now + ENTER_SECONDS * 1000);
+  traded.set(mac, now + ENTER_SECONDS * 1000);
   if (!(await (await readerOf({ id: user })).reads(p.projectId))) return null;
   return personal(user, memberId(p.id, user), new Date(now + MEMBER_HOURS * 36e5));
 }
