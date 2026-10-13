@@ -1,19 +1,19 @@
 brand.tagline:
   type: text
-  value: All your brand. None of the busywork.
+  value: Change your brand once. It's right everywhere.
   usage: The line under the name, on the site, the README and the cover.
   spec:
     copy: true
 brand.description:
   type: text
-  value: "The open-source DAM and brand manager: your assets, guidelines and portals in one connected home, for your team and your AI agents."
+  value: "Brand ops for brand, marketing and agency teams: one source of truth for your logos, colors and rules, and every change rolled out to your sites, portals and AI tools. Open source."
   usage: Where one sentence has to say what Artbucket is.
   spec:
     copy: true
 brand.headline:
   type: text
   label: The headline
-  value: Where brands live.
+  value: Change your brand once.
   usage: The short introduction on a cover, website or presentation.
   spec:
     max: 40
@@ -21,7 +21,7 @@ brand.headline:
 brand.intro:
   type: text
   label: The short introduction
-  value: Assets, guidelines and portals in one catalog. One answer for people and agents.
+  value: Artbucket keeps every logo, color and photo your team, agencies and AI tools use current and cleared.
   usage: When the headline needs one more sentence.
   spec:
     max: 120

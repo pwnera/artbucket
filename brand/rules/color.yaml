@@ -1,71 +1,123 @@
 color.primary:
   type: color
-  label: Violet
-  value: "#6d4aff"
-  usage: The mark's tile, primary buttons, focus rings. A fill, rarely text.
+  label: Volt
+  value: "#c6f432"
+  usage: "This week's accent, the only color the weekly release changes. A fill: eyebrow marks, highlights, the icon's tile, the halo around the primary button. Never text."
   spec:
-    pair: color.background
+    pair: color.onPrimary
     group: Signature
     tints: [80, 60, 40, 20]
-    weight: 20
-color.primaryInk:
+    weight: 10
+color.onPrimary:
   type: color
-  label: Violet ink
-  value: "#5b38f0"
-  usage: Violet as text and icons on light grounds, where Violet itself is too light.
+  label: On accent
+  value: "#16152a"
+  usage: Text and the mark on this week's accent. Ink on Volt, Signal and Moss; white on Iris, Tide and Fuchsia.
   spec:
-    group: Primary
-  contexts:
-    dark-background:
-      value: "#a592ff"
-color.highlight:
-  type: color
-  label: Lime
-  value: "#e1eea1"
-  usage: A highlight behind a word or a badge, never a fill for large areas.
-  spec:
-    pair: color.ink
+    pair: color.primary
     group: Signature
-    weight: 3
 color.ink:
   type: color
   label: Ink
-  value: "#20241f"
-  usage: Text on light grounds.
+  value: "#16152a"
+  usage: Text and primary buttons on Paper and Mist.
   spec:
     pair: color.background
     group: Neutrals
-    weight: 7
+    weight: 10
+  contexts:
+    dark-background:
+      value: "#f2f1f7"
+color.muted:
+  type: color
+  label: Muted
+  value: "#5e5d73"
+  usage: Secondary text, captions and the edges of inputs.
+  spec:
+    pair: color.background
+    group: Neutrals
+  contexts:
+    dark-background:
+      value: "#a3a2b8"
 color.background:
   type: color
   label: Paper
   value: "#ffffff"
-  usage: The page. Leave enough of it empty for the work to stand out.
+  usage: The page. Leave most of it empty.
   spec:
     pair: color.ink
     group: Neutrals
-    weight: 50
+    weight: 55
 color.panel:
   type: color
   label: Mist
-  value: "#f4f4f7"
-  usage: Panels, secondary buttons and muted grounds.
+  value: "#f5f4f8"
+  usage: Demo frames, secondary buttons and muted grounds.
   spec:
     pair: color.ink
     group: Neutrals
-    weight: 20
+    weight: 15
 color.border:
   type: color
   label: Line
-  value: "#eae8eb"
-  usage: Hairlines and card borders.
+  value: "#e6e5ee"
+  usage: Hairlines of grids, tables and cards. Never the only edge of a control.
   spec:
     group: Neutrals
 color.dark:
   type: color
   label: Night
-  value: "#141414"
-  usage: The dark ground. Neutral grey, since tinted neutrals turn muddy near black.
+  value: "#0f0e1c"
+  usage: The one dark band per page, code and recorded demos.
   spec:
     pair: color.background
     group: Neutrals
+    weight: 10
+color.volt:
+  type: color
+  label: Volt
+  value: "#c6f432"
+  usage: Week 1 of the rotation. Ink on it.
+  spec:
+    pair: color.ink
+    group: Weekly accents
+color.iris:
+  type: color
+  label: Iris
+  value: "#6b4dff"
+  usage: Week 2, the old Artbucket violet. White on it. Also the icon wherever a copy can't follow the week (GitHub, social profiles).
+  spec:
+    group: Weekly accents
+color.signal:
+  type: color
+  label: Signal
+  value: "#ff5b1f"
+  usage: Week 3. Ink on it.
+  spec:
+    pair: color.ink
+    group: Weekly accents
+color.tide:
+  type: color
+  label: Tide
+  value: "#2f62ff"
+  usage: Week 4. White on it.
+  spec:
+    group: Weekly accents
+color.moss:
+  type: color
+  label: Moss
+  value: "#14a874"
+  usage: Week 5. Ink on it.
+  spec:
+    pair: color.ink
+    group: Weekly accents
+color.fuchsia:
+  type: color
+  label: Fuchsia
+  value: "#c92a72"
+  usage: Week 6. White on it.
+  spec:
+    group: Weekly accents
+color.pairings:
+  type: list
+  value: [Ink on Paper, Ink on the accent, White on Night]

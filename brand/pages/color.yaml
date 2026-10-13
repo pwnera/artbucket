@@ -1,5 +1,5 @@
 title: Color
-lede: Violet does the talking. The neutrals give it room.
+lede: One accent a week. Ink and paper hold it steady.
 layout: landing
 sections:
   - template: cover
@@ -7,20 +7,28 @@ sections:
     title: |-
       A little color.
       A lot of character.
-    lede: Violet leads. Lime picks out a detail. Light and dark set the pace.
+    lede: This week's accent leads. Ink and paper set the pace.
     props:
       mark: never
       strip: true
       titleSize: huge
   - template: palette
-    title: Start with the signature.
-    lede: Copy the values. Try the tints. Check each pairing.
-    keys: [color.primary, color.highlight]
+    title: Start with this week's accent.
+    lede: A fill, never text. Copy the values. Check the pairing.
+    keys: [color.primary, color.onPrimary]
     props:
       ase: true
       show: [hex, rgb, hsl, css]
       simulate: true
     columns: 2
+  - id: rotation
+    template: palette
+    title: Six accents, one a week.
+    lede: Volt, Iris, Signal, Tide, Moss, Fuchsia, then again. Every Monday the release changes the accent, and every site follows.
+    keys: [color.volt, color.iris, color.signal, color.tide, color.moss, color.fuchsia]
+    props:
+      show: [hex]
+    columns: 3
   - id: rest
     template: statement
     title: The empty space is part of the palette.
@@ -34,6 +42,7 @@ sections:
       - color.background
       - color.panel
       - color.ink
+      - color.muted
       - color.dark
       - color.border
     props:
@@ -44,9 +53,9 @@ sections:
     lede: Compare text and background pairs before you use them.
     keys:
       - color.primary
-      - color.primaryInk
-      - color.highlight
+      - color.onPrimary
       - color.ink
+      - color.muted
       - color.background
     props:
       show: [hex]
@@ -56,11 +65,11 @@ sections:
   - id: contexts
     template: palette
     title: The same intent, after dark.
-    body: Violet ink gets lighter on dark backgrounds. Choose the context to see the value change.
-    keys: [color.primaryInk]
+    body: Ink and Muted get lighter on dark backgrounds. Choose the context to see the value change.
+    keys: [color.ink, color.muted]
     props:
       show: [hex, css]
-    columns: 1
+    columns: 2
     contexts: [default, dark-background]
   - id: next
     template: pages
