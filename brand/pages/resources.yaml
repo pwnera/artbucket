@@ -21,14 +21,14 @@ sections:
     template: faq
     title: Before you make it.
     items:
-      - title: Which mark belongs on a dark background?
-        text: Use the white mark on Night. On the accent, use the week's tile file. Check the [logo guide](/logo) before placing it on a photo.
-      - title: Can the mark be recolored?
-        text: Keep it white or black. The app icon is the mark on a tile in this week's accent, in ink or white. Do not add a gradient or change the silhouette.
-      - title: Where are the font specimens and embed code?
-        text: Open [Type](/type). Try your own words, inspect the characters and copy the font-loading code.
-      - title: How should I describe Artbucket?
-        text: Use the copyable lines on [Voice](/voice). Keep the description concrete and the sentences short.
+      - text: Use the white mark on Night. On the accent, use the week's tile file. Check the [logo guide](/logo) before placing it on a photo.
+        title: Which mark belongs on a dark background?
+      - text: Keep it white or black. The app icon is the mark on a tile in this week's accent, in ink or white. Do not add a gradient or change the silhouette.
+        title: Can the mark be recolored?
+      - text: Open [Type](/type). Try your own words, inspect the characters and copy the font-loading code.
+        title: Where are the font specimens and embed code?
+      - text: Use the copyable lines on [Voice](/voice). Keep the description concrete and the sentences short.
+        title: How should I describe Artbucket?
     tone: panel
   - template: request
     title: Missing something?
@@ -40,16 +40,16 @@ sections:
     template: links
     title: Take it further.
     items:
-      - title: See the brand at work
+      - link: https://artbucket.io/
         text: Artbucket's home on the web.
-        link: https://artbucket.io/
         label: Visit Artbucket
-      - title: Build with the catalog
+        title: See the brand at work
+      - link: https://docs.artbucket.io/
         text: Guides for people and tools.
-        link: https://docs.artbucket.io/
         label: Open the docs
-      - title: Back to the beginning
+        title: Build with the catalog
+      - link: /overview
         text: The whole identity at a glance.
-        link: /overview
         label: Explore the brand
+        title: Back to the beginning
     columns: 3

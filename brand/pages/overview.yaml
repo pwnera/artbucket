@@ -32,17 +32,17 @@ sections:
 
       [Meet the mark](/logo)
     items:
-      - title: The bucket
+      - at: [38, 40]
         text: Tipped on purpose. Never right it.
-        at: [38, 40]
-      - title: The paint line
+        title: The bucket
+      - at: [52, 58]
         text: One wave. Work in progress.
-        at: [52, 58]
-      - title: The drop
+        title: The paint line
+      - at: [74, 68]
         text: Just one. Check it at actual size.
-        at: [74, 68]
+        title: The drop
     props:
-      image: 5bda5006-f6b8-4402-a71e-fa67b3241a3a
+      image: assets/icon.svg
     tone: panel
     size: large
   - id: the-type
@@ -96,24 +96,24 @@ sections:
       Don't just read it.
       Make something.
     items:
-      - title: Use the mark
+      - link: /logo
         text: Three approved files, and what to leave alone.
-        link: /logo
-      - title: Choose your colors
+        title: Use the mark
+      - link: /color
         text: This week's accent and the neutrals that hold it.
-        link: /color
-      - title: Set the words
+        title: Choose your colors
+      - link: /type
         text: Three faces, one measured scale.
-        link: /type
-      - title: Sound like Artbucket
+        title: Set the words
+      - link: /voice
         text: Habits, examples and copy to paste.
-        link: /voice
-      - title: Try the system
+        title: Sound like Artbucket
+      - link: /playground
         text: Space, corners and motion, drawn.
-        link: /playground
-      - title: Get the originals
+        title: Try the system
+      - link: /resources
         text: Every file, and a way to ask for more.
-        link: /resources
+        title: Get the originals
     size: large
   - id: resources
     template: links
@@ -122,18 +122,18 @@ sections:
     body: Start with the approved logo files. The logo guide covers grounds and placement.
     keys: [logo.primary, logo.mark, logo.markWhite]
     items:
-      - title: Artbucket
+      - link: https://artbucket.io/
         text: See the brand at work.
-        link: https://artbucket.io/
         label: Visit the website
-      - title: Documentation
+        title: Artbucket
+      - link: https://docs.artbucket.io/
         text: Put the catalog to work.
-        link: https://docs.artbucket.io/
         label: Read the docs
-      - title: Open source
+        title: Documentation
+      - link: https://github.com/pwnera/artbucket
         text: The core, in the open.
-        link: https://github.com/pwnera/artbucket
         label: See the code
+        title: Open source
     tone: panel
     columns: 3
     size: large

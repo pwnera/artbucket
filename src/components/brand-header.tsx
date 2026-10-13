@@ -50,7 +50,7 @@ import { logoOf } from "@/lib/hub";
 import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness";
 import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
-import { brandPath, builderPath } from "@/lib/site";
+import { brandPath, guidelinesPath } from "@/lib/site";
 import { LinkIcon } from "@/components/link-pending";
 import { usePins } from "@/components/sidebar-prefs";
 import { IconButton } from "@/components/icon-button";
@@ -90,8 +90,8 @@ export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(und
 export function BrandHeader({ brand, origin, rules, status, release, at, compact }: BrandHeaderProps) {
   const can = useCan();
   const params = useSearchParams();
-  // Edit opens where you are: the page on show, the rules in the builder's Rules panel, else the builder.
-  const editing = at === "guidelines" ? { page: params.get("page"), context: params.get("context") } : at === "rules" ? { panel: "rules" } : {};
+  // Edit opens the ways to change the pages (an agent, Git, Eject to code) over the page on show, else the first.
+  const editing = at === "guidelines" ? { page: params.get("page"), context: params.get("context"), ways: "1" } : { ways: "1" };
   const hub = status?.hub ?? null;
   const logo = logoOf(rules.map((r) => ({ ...r, assets: r.assets.map((a) => ({ ...a, mime: a.mime ?? "" })) })));
   const live = status ? liveLine(status.publish, release?.number ?? null) : release ? `@${release.number} live` : "Never released";
@@ -125,7 +125,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
-          <Link href={builderPath(brand.slug, editing)}>
+          <Link href={guidelinesPath(brand.slug, editing)}>
             <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
           </Link>
         </Button>

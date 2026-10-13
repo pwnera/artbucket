@@ -25,15 +25,10 @@ sections:
     template: palette
     title: Six accents, one a week.
     lede: Volt, Iris, Signal, Tide, Moss, Fuchsia, then again. Every Monday the release changes the accent, and every site follows.
-    keys:
-      - color.volt
-      - color.iris
-      - color.signal
-      - color.tide
-      - color.moss
-      - color.fuchsia
+    keys: [color.volt, color.iris, color.signal, color.tide, color.moss, color.fuchsia]
     props:
       show: [hex]
+    columns: 3
   - id: rest
     template: statement
     title: The empty space is part of the palette.
@@ -80,21 +75,21 @@ sections:
     template: pages
     title: Keep exploring.
     items:
-      - title: 01 / The mark
+      - link: /logo
         text: Explore its anatomy. Find the right version. Download the originals.
-        link: /logo
-      - title: 02 / The palette
+        title: 01 / The mark
+      - link: /color
         text: Copy a color. Compare contrast. Try another view.
-        link: /color
-      - title: 03 / The words
+        title: 02 / The palette
+      - link: /type
         text: Type your own specimen and explore the scale.
-        link: /type
-      - title: 04 / The voice
+        title: 03 / The words
+      - link: /voice
         text: See the rewrites. Borrow a line. Make it yours.
-        link: /voice
-      - title: 05 / The playground
+        title: 04 / The voice
+      - link: /playground
         text: Pattern, spacing and motion. The identity in action.
-        link: /playground
-      - title: 06 / The essentials
+        title: 05 / The playground
+      - link: /resources
         text: Current files, useful links and a way to ask.
-        link: /resources
+        title: 06 / The essentials

@@ -253,3 +253,28 @@ test("TypeScript: a key that is another's prefix keeps its value under $value, a
   // A one-word key sits at the top, as DTCG puts it.
   assert.deepEqual(run([{ key: "radius", type: "number", value: 4, usage: null, assets: [] }]), { radius: 4 });
 });
+
+test("Claude design system: lists the page reads, fonts to fetch in meta", () => {
+  const out = JSON.parse(
+    TOKEN_FORMATS.designsystem.render(
+      [...RULES, { key: "shape.radius", type: "number", value: 6, usage: "Cards", assets: [], spec: { unit: "px" } }, { key: "layout.gap", type: "number", value: 16, usage: null, assets: [], spec: { unit: "px" } }],
+      { origin: "https://dam.example", title: "acme design tokens, from Artbucket." },
+    ),
+  );
+  assert.equal(out.name, "acme");
+  assert.deepEqual(out.meta.brand, "acme");
+  assert.deepEqual(out.color.themes, [{ id: "default", name: "Default" }]);
+  assert.deepEqual(out.color.tokens[0], { name: "primary", value: "#0f62fe", usage: "Buttons and links */ body{}" });
+  assert.deepEqual(out.radius.tokens, [{ name: "shape-radius", value: "6px", usage: "Cards" }]);
+  assert.deepEqual(out.spacing.tokens, [{ name: "layout-gap", value: "16px" }]);
+  assert.deepEqual(out.logo.tokens, [{ name: "logo-min-size", value: "24" }]);
+  assert.deepEqual(out.type.families, { headings: '"IBM Plex Sans", sans-serif' });
+  assert.deepEqual(out.type.fonts[0], { family: "IBM Plex Sans", file: "fonts/IBMPlexSans-Bold.ttf", weight: "700", style: "normal" });
+  assert.deepEqual(out.meta.files[1], { path: "fonts/IBMPlexSans-Italic.ttf", url: "https://dam.example/a/a2" });
+  const styles = out.type.groups[0].styles.map((s: { name: string; fontSize: string }) => `${s.name} ${s.fontSize}`);
+  assert.deepEqual(styles, ["headings 32px", "scale-1 12px", "scale-2 16px", "scale-3 24px"]);
+  // Every name the page reads: one namespace, its grammar.
+  const names = Object.entries(out).flatMap(([k, v]) => (k !== "type" && (v as { tokens?: { name: string }[] })?.tokens ? (v as { tokens: { name: string }[] }).tokens.map((t) => t.name) : []));
+  assert.equal(new Set(names).size, names.length);
+  for (const n of names) assert.match(n, /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/);
+});

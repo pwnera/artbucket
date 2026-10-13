@@ -77,7 +77,7 @@ import { ExternalLink } from "@/components/external-link";
 import { canFollow } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
-import { builderPath } from "@/lib/site";
+import { rulesPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
@@ -1916,7 +1916,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
       <PopoverContent align="start" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
-            const href = `${builderPath(r.brand!)}#rule-${r.key}`;
+            const href = rulesPath(r.brand!, r.key);
             return (
               <li key={r.id}>
                 <Link

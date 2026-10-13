@@ -38,22 +38,9 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["G", "S"], sequence: true, label: "Settings", group: "Go to", href: "/settings" },
   { keys: ["mod", "A"], label: "Select every asset", group: "Explore" },
   { keys: ["Esc"], label: "Clear the selection", group: "Explore" },
-  // Bound by the builder (components/builder/builder.tsx); J, K, [ and ] by the reader too (site/site-view.tsx).
-  { keys: ["mod", "Z"], label: "Undo", group: "Guidelines" },
-  { keys: ["mod", "⇧", "Z"], label: "Redo", group: "Guidelines" },
-  { keys: ["P"], label: "Preview as readers see it", group: "Guidelines" },
-  { keys: ["H"], label: "History", group: "Guidelines" },
-  { keys: ["T"], label: "Tokens", group: "Guidelines" },
-  { keys: ["Esc"], label: "Leave the preview, or deselect: the item, then its section", group: "Guidelines" },
-  { keys: ["⇧", "Click"], label: "Add a section to the ones picked", group: "Guidelines" },
-  { keys: ["Enter"], label: "Go into the picked section's items", group: "Guidelines" },
-  { keys: ["Tab"], label: "Next item (Shift+Tab: the one before)", group: "Guidelines" },
+  // Bound by the reader (site/site-view.tsx).
   { keys: ["J"], label: "Next section", group: "Guidelines" },
   { keys: ["K"], label: "Previous section", group: "Guidelines" },
-  { keys: ["⌫"], label: "Delete the picked item, else the sections picked", group: "Guidelines" },
-  { keys: ["mod", "D"], label: "Duplicate the picked item, else the section", group: "Guidelines" },
-  { keys: ["⌥", "↑"], label: "Move the picked item or section up", group: "Guidelines" },
-  { keys: ["⌥", "↓"], label: "Move the picked item or section down", group: "Guidelines" },
   { keys: ["["], label: "Previous page", group: "Guidelines" },
   { keys: ["]"], label: "Next page", group: "Guidelines" },
 ];

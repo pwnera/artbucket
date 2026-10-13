@@ -18,17 +18,17 @@ sections:
     title: Every part earns its place.
     lede: Explore the shape before you put it to work.
     items:
-      - title: The tipped bucket
+      - at: [37, 24]
         text: The angle is part of the mark. Keep it exactly as supplied.
-        at: [37, 24]
-      - title: The paint line
+        title: The tipped bucket
+      - at: [44, 55]
         text: The curved cutout gives the solid shape its character. Never fill it in.
-        at: [44, 55]
-      - title: The last drop
+        title: The paint line
+      - at: [75, 70]
         text: Small, but essential. Check that it stays visible at the size you use.
-        at: [75, 70]
+        title: The last drop
     props:
-      image: 5bda5006-f6b8-4402-a71e-fa67b3241a3a
+      image: assets/icon.svg
     tone: panel
   - template: logos
     title: The right mark for the ground.
@@ -42,12 +42,12 @@ sections:
     items:
       - key: color.dark
         asset: assets/mark-black.svg
-        verdict: dont
         caption: The black mark disappears on Night. Use white.
+        verdict: dont
       - key: color.primary
         asset: assets/mark-white.svg
-        verdict: dont
         caption: White disappears on Volt. Use the week's tile file.
+        verdict: dont
     props:
       ask: false
       kit: true
@@ -78,21 +78,21 @@ sections:
     template: pages
     title: Keep exploring.
     items:
-      - title: 01 / The mark
+      - link: /logo
         text: Explore its anatomy. Find the right version. Download the originals.
-        link: /logo
-      - title: 02 / The palette
+        title: 01 / The mark
+      - link: /color
         text: Copy a color. Compare contrast. Try another view.
-        link: /color
-      - title: 03 / The words
+        title: 02 / The palette
+      - link: /type
         text: Type your own specimen and explore the scale.
-        link: /type
-      - title: 04 / The voice
+        title: 03 / The words
+      - link: /voice
         text: See the rewrites. Borrow a line. Make it yours.
-        link: /voice
-      - title: 05 / The playground
+        title: 04 / The voice
+      - link: /playground
         text: Pattern, spacing and motion. The identity in action.
-        link: /playground
-      - title: 06 / The essentials
+        title: 05 / The playground
+      - link: /resources
         text: Current files, useful links and a way to ask.
-        link: /resources
+        title: 06 / The essentials

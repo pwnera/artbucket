@@ -10,10 +10,10 @@ import { DOCS_URL } from "@/lib/branding";
 export type Ways = { mcp: string; git: string | null };
 
 /**
- * The three ways a brand's pages are edited once the builder is read-only
- * (BUILDER=read-only, PRD part 2 SITE-12): by an agent over MCP, in Git
- * (brand as code), or ejected into a site of their own. Edit opens it over
- * the pages as readers see them.
+ * The three ways a brand's pages are edited, now that the guidelines builder
+ * is retired (PRD part 2 SITE-12): by an agent over MCP, in Git (brand as
+ * code), or ejected into a site of their own. Edit opens it over the pages
+ * as readers see them.
  */
 export function EditWays({ brand, ways, open, onOpenChange }: { brand: string; ways: Ways; open: boolean; onOpenChange: (open: boolean) => void }) {
   const prompt = `Add a do and don't section about the logo to the ${brand} brand's Logo page.`;

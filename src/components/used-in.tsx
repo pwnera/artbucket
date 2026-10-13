@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Fold } from "@/components/fields";
 import { ExternalLink } from "@/components/external-link";
 import { contextLabel, ruleLabel } from "@/lib/rules";
-import { builderPath, guidelinesPath } from "@/lib/site";
+import { guidelinesPath, rulesPath } from "@/lib/site";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RetryLine } from "@/components/retry-line";
 
@@ -87,7 +87,7 @@ export function UsedIn({ assetId, leave }: { assetId: string; leave: (next: () =
       {got.rules.length > 0 && (
         <Part title="Rules">
           {got.rules.map((r) => {
-            const href = `${builderPath(r.brand)}#rule-${r.key}`;
+            const href = rulesPath(r.brand, r.key);
             return (
               <li key={`${r.brand}/${r.key}/${r.context}`}>
                 <Link href={href} onClick={go(href)} className="hover:underline">

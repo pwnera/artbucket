@@ -14,7 +14,7 @@ import { hubBase, hubBrand, hubViewer, starred } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { env } from "@/lib/env";
 import { ago, hubPath, parseRef } from "@/lib/hub";
-import { builderPath } from "@/lib/site";
+import { brandPath } from "@/lib/site";
 
 type Props = { params: Promise<{ org: string; brand: string }> };
 
@@ -272,7 +272,7 @@ export default async function HubListing(props: Props) {
           )}
         </aside>
       </div>
-      {edit && <FloatingEdit always label="Edit this brand" href={env.APP_URL + builderPath(b.brand, { project: b.projectId })} />}
+      {edit && <FloatingEdit always label="Edit this brand" href={`${env.APP_URL}${brandPath(b.brand)}?${new URLSearchParams({ project: b.projectId })}`} />}
     </>
   );
 }

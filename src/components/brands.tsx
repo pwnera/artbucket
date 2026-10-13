@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { ExternalLink } from "@/components/external-link";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
-import { builderPath } from "@/lib/site";
+import { brandPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { transition } from "@/lib/motion";
 
@@ -231,8 +231,8 @@ export function BrandsPage({
         onClose={() => setCreating(false)}
         onDone={(b) => {
           setCreating(false);
-          // A new brand starts from its setup, in the guidelines; the sidebar's list of brands gets it too.
-          router.push(builderPath(b.slug));
+          // A new brand starts on its Overview, whose next steps say what to add; the sidebar's list of brands gets it too.
+          router.push(brandPath(b.slug));
           router.refresh();
         }}
       />

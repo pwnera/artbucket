@@ -9,12 +9,20 @@ import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ExternalLink } from "@/components/external-link";
-import { builderPath } from "@/lib/site";
+import { brandPath, guidelinesPath, rulesPath } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-/** Where a step is taken in the app. */
+/** Where a step is taken in the app: rules on the Rules tab, the look on Theme, pages by the ways to change them. */
 const whereTo = (slug: string, id: Status["steps"][number]["id"]) =>
-  id === "portal" ? `/sites?${new URLSearchParams({ new: slug })}` : id === "publish" ? `/brands/${encodeURIComponent(slug)}/releases/new` : builderPath(slug);
+  id === "portal"
+    ? `/sites?${new URLSearchParams({ new: slug })}`
+    : id === "publish"
+      ? brandPath(slug, "/releases/new")
+      : id === "look"
+        ? brandPath(slug, "/theme")
+        : id === "pages"
+          ? guidelinesPath(slug, { ways: "1" })
+          : rulesPath(slug);
 
 /** A prompt for an agent connected over MCP: the fixes worth the most, each as the agent takes it (the step's `agent`). */
 function prompt(name: string, slug: string, fixes: Status["steps"]) {
