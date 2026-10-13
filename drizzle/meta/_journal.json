@@ -505,6 +505,13 @@
       "when": 1791880230961,
       "tag": "0071_site_rebuild",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1791881249611,
+      "tag": "0072_site_rules",
+      "breakpoints": true
     }
   ]
 }

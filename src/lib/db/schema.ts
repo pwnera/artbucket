@@ -34,6 +34,7 @@ import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
 import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
+import type { SiteRules } from "@/lib/site-rules";
 
 export type AssetStatus = Status;
 
@@ -1138,6 +1139,8 @@ export const siteDeployments = pgTable(
     files: integer("files").notNull().default(0),
     bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
     manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    /** Its own redirects and headers, from _redirects and _headers at its root (lib/site-rules.ts); null when it has neither. */
+    rules: jsonb("rules").$type<SiteRules | null>(),
     /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
     uses: jsonb("uses").$type<SiteUse[] | null>(),
     /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */

@@ -20,23 +20,25 @@ import { zip } from "@/lib/zip";
 const ada = await signUp("Sitesada");
 const text = (s: string) => new TextEncoder().encode(s);
 const pack = (files: Record<string, string>) => zip(Object.entries(files).map(([name, s]) => ({ name, data: text(s) })));
+/** The status a request to a build answers with, if it answers one. */
+const statusOf = (a: Awaited<ReturnType<typeof siteFile>>) => (a && "status" in a ? a.status : undefined);
 const docs = await createPortal(ada.caller, { name: "Docs", slug: `docs-${Date.now().toString(36)}`, kind: "docs" });
 
 test("a zip goes live at its mount, and a request finds its file, its .html, then the 404 page", async () => {
   const d = (await deploy(ada.caller, docs.id, pack({ "dist/index.html": "home", "dist/guide.html": "guide", "dist/start/index.html": "start", "dist/404.html": "lost", "dist/app.js": "1" })))!;
   assert.equal(d.state, "live");
   assert.equal(d.files, 5);
-  assert.equal((await siteFile(docs.slug, {}, "/"))?.status, 200);
+  assert.equal(statusOf(await siteFile(docs.slug, {}, "/")), 200);
   const file = async (rest: string) => {
     const f = await siteFile(docs.slug, {}, rest);
-    return f && !("slash" in f) ? f : null;
+    return f && "key" in f ? f : null;
   };
   assert.match((await file("/guide"))!.key, /guide\.html$/);
   // A folder keeps its slash, so its page's relative links resolve under it.
   assert.deepEqual(await siteFile(docs.slug, {}, "/start"), { slash: true });
   assert.match((await file("/start/"))!.key, /start\/index\.html$/);
   assert.equal((await file("/app.js"))?.contentType, "text/javascript; charset=utf-8");
-  assert.equal((await siteFile(docs.slug, {}, "/nowhere"))?.status, 404);
+  assert.equal(statusOf(await siteFile(docs.slug, {}, "/nowhere")), 404);
 });
 
 test("a new deployment replaces the live one, which stays to restore", async () => {
@@ -54,7 +56,7 @@ test("a password site's builds open with the door's cookie, until the password c
   await deploy(ada.caller, shut.id, pack({ "index.html": "secret" }));
   await assert.rejects(siteFile(shut.slug, {}, "/"), /needs a password/);
   const cookie = await unlockValue(shut.slug);
-  assert.equal((await siteFile(shut.slug, {}, "/", cookie))?.status, 200);
+  assert.equal(statusOf(await siteFile(shut.slug, {}, "/", cookie)), 200);
   await assert.rejects(siteFile(shut.slug, {}, "/", "123.forged"), /needs a password/);
   await updatePortal(ada.caller, shut.id, { password: "open sesame 2" });
   await assert.rejects(siteFile(shut.slug, {}, "/", cookie), /needs a password/);
@@ -70,7 +72,7 @@ test("what can't serve is refused, and a brand portal's root stays Artbucket's",
   // Beside it, at a path, a build answers there and the portal keeps the rest.
   await deploy(ada.caller, press.id, pack({ "index.html": "docs" }), { path: "/docs", kind: "docs" });
   assert.deepEqual(await siteFile(press.slug, {}, "/docs"), { slash: true });
-  assert.equal((await siteFile(press.slug, {}, "/docs/"))?.status, 200);
+  assert.equal(statusOf(await siteFile(press.slug, {}, "/docs/")), 200);
   assert.equal(await siteFile(press.slug, {}, "/"), null);
 });
 
@@ -82,7 +84,7 @@ test("a build whose manifest names a replaced asset fails, and says which", asyn
   await assert.rejects(deploy(ada.caller, docs.id, pack({ "index.html": "x", "artbucket.site.json": JSON.stringify({ assets: [old.id] }) })), /old-logo\.png was replaced/);
   assert.equal((await listDeployments(ada.caller, docs.id))![0].state, "failed");
   // The one live before is still what answers.
-  assert.equal((await siteFile(docs.slug, {}, "/"))?.status, 200);
+  assert.equal(statusOf(await siteFile(docs.slug, {}, "/")), 200);
 });
 
 test("a live build's manifest is its lineage: the assets it names and its brand flow into the site", async () => {
@@ -218,7 +220,7 @@ test("a build that looks like phishing is held where the operator reviews, live 
       where state = 'live' and (site_id, path) = (select site_id, path from site_deployments where id = ${held.id} and state = 'held')`);
     await tx.execute(sql`update site_deployments set state = 'live', error = null where id = ${held.id} and state = 'held'`);
   });
-  assert.equal((await siteFile(site.slug, {}, "/"))?.status, 200);
+  assert.equal(statusOf(await siteFile(site.slug, {}, "/")), 200);
 });
 
 test("a copy of a draft is the site's own; a restored build is checked as it comes back; a held one nobody reviews is refused", async () => {
@@ -301,4 +303,36 @@ test("a release calls the deploy hook of each site built from the brand, and the
   await updatePortal(ada.caller, site.id, { rebuild: null });
   assert.deepEqual(await rebuildSites(brand.id, { number: 8 }), []);
   assert.equal((await getPortal(ada.caller, site.id))!.rebuild, null);
+});
+
+test("a build's _redirects and _headers: redirects, a single-page app's rewrite, files first unless forced, its headers, at its mount", async () => {
+  const site = await createPortal(ada.caller, { name: "Ruled", slug: `ruled-${Date.now().toString(36)}`, kind: "landing" });
+  const redirects = ["/signup https://app.example.com/signup 302", "/old /new.html", "/about.html /elsewhere", "/pricing.html /plans 301!", "/app/* /index.html 200"].join("\n");
+  const headers = "/*\n  X-Frame-Options: DENY\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable";
+  await deploy(ada.caller, site.id, pack({ "index.html": "home", "new.html": "new", "about.html": "about", "pricing.html": "pricing", "assets/a.js": "1", _redirects: redirects, _headers: headers }));
+
+  assert.deepEqual(await siteFile(site.slug, {}, "/signup"), { redirect: "https://app.example.com/signup", status: 302, headers: [["X-Frame-Options", "DENY"]] });
+  assert.equal(((await siteFile(site.slug, {}, "/old")) as { redirect: string }).redirect, "/new.html");
+  // A file the path names wins over a rule, unless the rule is forced.
+  assert.equal(((await siteFile(site.slug, {}, "/about.html")) as { key: string }).key.endsWith("about.html"), true);
+  assert.equal(((await siteFile(site.slug, {}, "/pricing.html")) as { redirect: string }).redirect, "/plans");
+  // A rewrite serves the build's own file, at the path asked.
+  const spa = (await siteFile(site.slug, {}, "/app/settings/profile")) as { key: string; status: number };
+  assert.ok(spa.key.endsWith("index.html") && spa.status === 200);
+  assert.deepEqual(((await siteFile(site.slug, {}, "/assets/a.js")) as { headers: unknown }).headers, [
+    ["X-Frame-Options", "DENY"],
+    ["Cache-Control", "public, max-age=31536000, immutable"],
+  ]);
+  // The rules are read, never served.
+  assert.equal(await siteFile(site.slug, {}, "/_redirects"), null);
+
+  // Mounted beside a portal, a path of the build is under its mount.
+  const logos = await createCollection(ada.caller, { name: `Logos ${Date.now()}` });
+  const press = await createPortal(ada.caller, { name: "Press 2", slug: `press2-${Date.now().toString(36)}`, collections: [logos.id] });
+  await deploy(ada.caller, press.id, pack({ "index.html": "docs", _redirects: "/start /guide/" }), { path: "/docs", kind: "docs" });
+  assert.equal(((await siteFile(press.slug, {}, "/docs/start")) as { redirect: string }).redirect, "/docs/guide/");
+
+  // What can't be read is refused, at its line.
+  await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": "x", _redirects: "/a /b\n/c" })), /_redirects:2: a rule is a path/);
+  await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": "x", _headers: "/*\n  Set-Cookie: a=b" })), /_headers:2: Set-Cookie is the server's to set/);
 });

@@ -37,18 +37,18 @@ export async function GET(req: Request, ctx: Params) {
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     // Relative to the address asked: /guide to guide/.
     if ("slash" in f) return new Response(null, { status: 308, headers: { Location: `${path.at(-1) ?? ""}/${new URL(req.url).search}` } });
+    if ("redirect" in f) {
+      // The query goes along unless the target has its own, as Netlify does.
+      const search = new URL(req.url).search;
+      const headers = own(f.headers, false);
+      headers.set("Location", f.redirect.includes("?") ? f.redirect : `${f.redirect}${search}`);
+      return new Response(null, { status: f.status, headers });
+    }
     const { body, length } = await getStream(f.key);
-    return new Response(body, {
-      status: f.status,
-      headers: {
-        "Content-Type": f.contentType,
-        "Content-Length": String(length),
-        "Cache-Control": f.open ? "public, max-age=60" : "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "frame-ancestors 'self'",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
-      },
-    });
+    const headers = own(f.headers, f.open);
+    headers.set("Content-Type", f.contentType);
+    headers.set("Content-Length", String(length));
+    return new Response(body, { status: f.status, headers });
   } catch (err) {
     if (err instanceof AssetError && err.code === "password") return door(err, rest);
     return handle(err);
@@ -75,6 +75,30 @@ export async function POST(req: Request, ctx: Params) {
       "Set-Cookie": `${unlockCookie(https)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${UNLOCK_DAYS * 86400}${https ? "; Secure" : ""}`,
     },
   });
+}
+
+/**
+ * The headers a build's answer carries: the server's own, then its _headers
+ * (lib/site-rules.ts), added beside them. Its own Content-Security-Policy is
+ * sent beside the server's frame-ancestors, so both hold. A site behind a
+ * door is never made cacheable by its rules.
+ */
+function own(rules: [string, string][], open: boolean) {
+  const headers = new Headers({
+    "Cache-Control": open ? "public, max-age=60" : "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "frame-ancestors 'self'",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  });
+  for (const [name, value] of rules) {
+    const lower = name.toLowerCase();
+    if (lower === "cache-control") {
+      if (open) headers.set(name, value);
+    } else if (lower === "content-security-policy") headers.append(name, value);
+    else if (lower === "x-content-type-options") continue;
+    else headers.set(name, value);
+  }
+  return headers;
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);

@@ -56,6 +56,45 @@ session. It sends its own headers, not the app's: its scripts run, and it may
 be framed by itself only. A server without `PORTAL_DOMAIN` and without a
 verified domain for the site stores deployments but can't show them.
 
+## Redirects and headers
+
+A build carries its own, in the format Netlify and Cloudflare Pages read, so
+a site moving here keeps them: a `_redirects` file and a `_headers` file at
+its root.
+
+```
+# _redirects: from, to, status (301 when left out)
+/signup     https://app.example.com/signup   302
+/blog/*     /news/:splat
+/team/:name /people/:name   308
+/app/*      /app/index.html 200
+/pricing    /plans          301!
+```
+
+A rule applies when no file of the build answers the path, or always with
+`!`. A `200` serves the build's own file at the path asked (a single-page
+app), a `404` serves a page of its own with a 404; the others redirect,
+keeping the query. `:name` matches one segment and `*` the rest, given to the
+target as `:splat`. Under a mount such as `/docs`, a rule's paths are the
+build's own and stay under the mount. Conditions on the query, country,
+language or role aren't read: a rule with one is refused.
+
+```
+# _headers: a path, then its headers, indented
+/*
+  Content-Security-Policy: default-src 'self'
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+```
+
+Every block whose path matches adds its headers, in the file's order. A
+`Content-Security-Policy` is sent beside the server's `frame-ancestors`, so
+both hold; `Cache-Control` applies to a public site only. Cookies and the
+headers that frame the answer (length, encoding, connection, location) are
+the server's: a build that sets them is refused. Up to 1,000 redirects and
+200 header paths; a file that can't be read fails the deployment, naming the
+line. Neither file is served.
+
 ## Beside a brand portal
 
 A brand portal's pages stay Artbucket's, and a build mounts beside them at a

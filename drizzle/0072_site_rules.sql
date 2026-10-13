@@ -1,0 +1,1 @@
+ALTER TABLE "site_deployments" ADD COLUMN "rules" jsonb;
