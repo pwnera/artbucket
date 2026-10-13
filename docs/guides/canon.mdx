@@ -60,7 +60,12 @@ click a value to change it, press `/` to add a rule from named building blocks
 (brand color, clear space, logo don'ts, type scale, words to avoid), give it
 context versions, a spec and files, drag to reorder or use a rule's menu (Move
 up, Move down, Duplicate, Delete, with Undo). `/brands/{slug}/rules#rule-{key}`
-opens that rule there. Colors show their contrast on white and black, a numeric `type.scale`
+opens that rule there. Colors are a table, by their spec's group: each token's
+light value beside its dark one (its `dark-background` version, or the brand's own
+`dark` context; **Inherits Light** without one, and **A dark value** in its
+details adds it). Text colors (`ink`, `muted`, `nightInk`, or a color's `pair`)
+show their contrast on their group's ground (`paper`, `surface`, `night`) in
+both themes. Opened, a color shows its contrast on white and black; a numeric `type.scale`
 renders as a specimen. An attached asset can name a rendition (`w_512,f_png`):
 agents then get that exact URL.
 

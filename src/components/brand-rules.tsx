@@ -5,10 +5,12 @@ import { IconCode, IconDownload } from "@/components/icons";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { InfoTip } from "@/components/info-tip";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
+import { ColorCells, ColorHead } from "@/components/color-table";
 import { FileThumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
+import { colorTable, darkContext } from "@/lib/color-table";
 import { contextLabel, fontLabel, fontValue, ruleLabel, ruleName, section, type Rule, type RuleValue } from "@/lib/rules";
 import { TOKEN_FORMAT_IDS, TOKEN_FORMATS } from "@/lib/tokens";
 
@@ -68,40 +70,84 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
             <h2 id={`rules-${s}`} className="border-b px-4 py-3 font-medium">
               {ruleLabel(s)}
             </h2>
-            <ul className="divide-y">
-              {own
-                .filter((r) => section(r.key) === s)
-                .map((r) => (
-                  <li key={r.key} className="grid gap-2 px-4 py-3 sm:grid-cols-[14rem_minmax(0,1fr)]">
-                    <div className="grid content-start gap-0.5">
-                      <span className="text-sm font-medium">{ruleName(r)}</span>
-                      <code className="text-muted-foreground font-mono text-xs">{r.key}</code>
-                    </div>
-                    <div className="grid min-w-0 gap-1.5">
-                      <Value rule={r} />
-                      {variants(r.key).map((v) => (
-                        <div key={v.context} className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">{contextLabel(v.context!)}</Badge>
-                          <Value rule={v} />
-                        </div>
-                      ))}
-                      {r.usage && <p className="text-muted-foreground text-sm">{r.usage}</p>}
-                      {r.assets.length > 0 && (
-                        <ul className="flex flex-wrap gap-2">
-                          {r.assets.map((a) => (
-                            <li key={`${a.id}/${a.rendition}`} className="bg-checker relative size-16 overflow-hidden rounded-md border" title={a.title ?? a.filename}>
-                              <FileThumb file={a} src={`/a/${a.id}/w_128,f_webp`} alt={a.title ?? a.filename ?? ""} className="p-1" />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </li>
-                ))}
-            </ul>
+            {s === "color" ? (
+              <Colors rules={rules} />
+            ) : (
+              <ul className="divide-y">
+                {own
+                  .filter((r) => section(r.key) === s)
+                  .map((r) => (
+                    <li key={r.key} className="grid gap-2 px-4 py-3 sm:grid-cols-[14rem_minmax(0,1fr)]">
+                      <div className="grid content-start gap-0.5">
+                        <span className="text-sm font-medium">{ruleName(r)}</span>
+                        <code className="text-muted-foreground font-mono text-xs">{r.key}</code>
+                      </div>
+                      <div className="grid min-w-0 gap-1.5">
+                        <Value rule={r} />
+                        {variants(r.key).map((v) => (
+                          <div key={v.context} className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary">{contextLabel(v.context!)}</Badge>
+                            <Value rule={v} />
+                          </div>
+                        ))}
+                        {r.usage && <p className="text-muted-foreground text-sm">{r.usage}</p>}
+                        {r.assets.length > 0 && (
+                          <ul className="flex flex-wrap gap-2">
+                            {r.assets.map((a) => (
+                              <li key={`${a.id}/${a.rendition}`} className="bg-checker relative size-16 overflow-hidden rounded-md border" title={a.title ?? a.filename}>
+                                <FileThumb file={a} src={`/a/${a.id}/w_128,f_webp`} alt={a.title ?? a.filename ?? ""} className="p-1" />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            )}
           </section>
         ))
       )}
+    </div>
+  );
+}
+
+/**
+ * The color section as a token table: a table per group, light beside dark
+ * (lib/color-table.ts), each row's other versions and note under it.
+ */
+function Colors({ rules }: { rules: Rule[] }) {
+  const dark = darkContext(rules.map((r) => r.context));
+  const groups = colorTable(rules, dark);
+  const named = groups.some((g) => g.group);
+  return (
+    <div className="grid gap-6 py-3">
+      {groups.map(({ group, rows }) => (
+        <div key={group} className="grid gap-2">
+          {named && <h3 className="px-4 pt-1 text-sm font-medium">{group || "Other"}</h3>}
+          <div className="border-b px-4 pb-2">
+            <ColorHead />
+          </div>
+          <ul className="divide-y">
+            {rows.map((row) => {
+              const r = rules.find((x) => x.key === row.key && !x.context)!;
+              const others = rules.filter((x) => x.key === row.key && x.context && x.context !== dark);
+              return (
+                <li key={row.key} className="grid gap-2 px-4 py-2">
+                  <ColorCells row={row} label={r.label} />
+                  {others.map((v) => (
+                    <div key={v.context} className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{contextLabel(v.context!)}</Badge>
+                      <Value rule={v} />
+                    </div>
+                  ))}
+                  {r.usage && <p className="text-muted-foreground text-sm">{r.usage}</p>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
