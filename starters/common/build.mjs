@@ -80,6 +80,18 @@ const others = () =>
     .map((r) => `<dt>${label(r)}</dt><dd>${esc(Array.isArray(r.value) ? r.value.join(", ") : typeof r.value === "object" ? JSON.stringify(r.value) : r.value)}${r.usage ? `<p>${esc(r.usage)}</p>` : ""}</dd>`)
     .join("")}</dl>`;
 
+/** A heading's text: what is outside its tags, with no angle bracket at all. */
+const textOf = (html) => {
+  let out = "";
+  let tag = false;
+  for (const c of html) {
+    if (c === "<") tag = true;
+    else if (c === ">") tag = false;
+    else if (!tag) out += c;
+  }
+  return out.trim();
+};
+
 const fill = (html, slots) =>
   html.replace(/\{\{\s*([a-z]+)(?::([^}]+))?\s*\}\}/g, (all, name, arg) => {
     if (name === "text") return text(arg);
@@ -100,8 +112,8 @@ const names = (await readdir("src/pages")).filter((n) => n.endsWith(".html")).so
 const pages = await Promise.all(
   names.map(async (n) => {
     const html = fill(await readFile(join("src/pages", n), "utf8"), {});
-    // Already HTML: the brand's text in it is escaped once, as filled. Its tags go, and any angle bracket left with them.
-    const title = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1].replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim() || esc(n);
+    // Already HTML: the brand's text in it is escaped once, as filled.
+    const title = textOf(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "") || esc(n);
     return { n, html, title, href: n === "index.html" ? "/" : `/${n.replace(/\.html$/, "")}` };
   }),
 );
