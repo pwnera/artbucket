@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { fontRoles } from "./brand-theme.ts";
 import { inkOn, rgb } from "./color.ts";
 import { fontFace, fontStyle, isFont } from "./font.ts";
+import { kebab as kitKebab } from "../../kit/ui/swatch.js";
 import { type COLOR_SPEC, fontLabel, fontValue, listStyle, type Rule, section } from "./rules.ts";
 
 /**
@@ -22,8 +23,8 @@ import { type COLOR_SPEC, fontLabel, fontValue, listStyle, type Rule, section } 
 export type TokenRule = Pick<Rule, "key" | "type" | "value" | "usage" | "assets" | "spec">;
 type Opts = { origin: string; title: string };
 
-/** `logo.minClearSpace` is `--logo-min-clear-space`. */
-export const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/\./g, "-").toLowerCase();
+/** `logo.minClearSpace` is `--logo-min-clear-space`: as the kit names them (kit/ui/swatch.js). */
+export const kebab: (key: string) => string = kitKebab;
 /** A number's unit, from its spec. */
 const unitOf = (r: TokenRule) => (r.spec as { unit?: string } | null | undefined)?.unit;
 /** A number as CSS reads it, with its unit: 24px, 1.5rem, 200ms. "x" (so many times something) has no CSS form, so it stays bare. */

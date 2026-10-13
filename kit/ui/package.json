@@ -23,6 +23,10 @@
       "types": "./color.d.ts",
       "default": "./color.js"
     },
+    "./swatch": {
+      "types": "./swatch.d.ts",
+      "default": "./swatch.js"
+    },
     "./elements": {
       "types": "./elements.d.ts",
       "default": "./elements.js"

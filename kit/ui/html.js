@@ -1,7 +1,8 @@
 // @artbucket/ui: a brand's rules drawn as HTML, from a release as `artbucket brand export` writes it
 // (or the rules of /api/v1/brand/rules). Plain strings, so they work in any framework, at build time
 // or in the browser; ui.css styles them. MIT License, see LICENSE.
-import { contrast, grade, hsl, inkOn, isHex, rgb, toCmyk } from "./color.js";
+import { contrast, grade, isHex } from "./color.js";
+import { colorValues, swatchInk } from "./swatch.js";
 
 /** Text made safe for HTML, in an element or an attribute. */
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -31,8 +32,9 @@ export function textOf(r) {
 }
 
 /**
- * The colors, each a chip in its color with its values and how it reads on
- * white and on black (WCAG 2), as the app's palette shows them.
+ * The colors, each a chip in its color with the text the brand sets on it, its
+ * values for screen and print (swatch.js, as a portal's palette shows them) and
+ * how it reads on white and on black (WCAG 2).
  * `keys` narrows it (`color.primary`, `color.*`); `context` picks a context's values.
  */
 export function palette(rules, o = {}) {
@@ -45,8 +47,13 @@ export function palette(rules, o = {}) {
         const ratio = contrast(hex, bg);
         return `${ratio.toFixed(1)}:1 ${grade(ratio)}`;
       };
-      const [h, s, l] = hsl(rgb(hex));
-      return `<li><span class="ab-chip" style="background:${hex};color:${inkOn(hex)}">Aa</span><b>${label(r)}</b><code>${hex}</code><dl class="ab-values"><dt>RGB</dt><dd>${rgb(hex).join(", ")}</dd><dt>HSL</dt><dd>${h}, ${s}%, ${l}%</dd><dt>CMYK</dt><dd>${toCmyk(hex).join(", ")}</dd><dt>On white</dt><dd>${on("#ffffff")}</dd><dt>On black</dt><dd>${on("#000000")}</dd></dl>${usage(r)}</li>`;
+      // The context's own colors: a pair names one of them.
+      const { ink, partner, ratio, grade: g } = swatchInk({ ...r, value: hex }, only(rules, undefined, o.context));
+      const values = colorValues(r, ["rgb", "hsl", "token", "cmyk", "pantone", "ral"])
+        .map((v) => `<dt>${v.label}</dt><dd>${esc(v.text)}${v.converted ? " (converted)" : ""}</dd>`)
+        .join("");
+      const text = `<dt>Text in ${partner ? label(partner) : ink === "#ffffff" ? "white" : "black"}</dt><dd>${ratio.toFixed(1)}:1 ${g}</dd>`;
+      return `<li><span class="ab-chip" style="background:${hex};color:${ink}">Aa</span><b>${label(r)}</b><code>${hex}</code><dl class="ab-values">${values}${text}<dt>On white</dt><dd>${on("#ffffff")}</dd><dt>On black</dt><dd>${on("#000000")}</dd></dl>${usage(r)}</li>`;
     })
     .join("")}</ul>`;
 }

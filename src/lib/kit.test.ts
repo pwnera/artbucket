@@ -81,3 +81,21 @@ test("the brand SDK notes what the build reads: a key, a group, every rule; the 
   assert.equal(new Brand({ slug: "x", rules: [] }).release, null);
   assert.ok(!existsSync(join(dir, "nowhere")));
 });
+
+test("swatch: a color's values and the text set on it, as a portal's palette and the kit's both show them", async () => {
+  const { colorValues, swatchInk, kebab } = await import("../../kit/ui/swatch.js");
+  const violet = { key: "color.primaryDark", type: "color", value: "#6d4aff80", spec: { pair: "color.ink", token: "Violet-700", pantone: ["2725 C", "2725 U"], ral: "4005" } };
+  const ink = { key: "color.ink", type: "color", value: "#111111" };
+  assert.deepEqual(
+    colorValues(violet).map((v) => `${v.label}: ${v.text}${v.converted ? " (converted)" : ""}`),
+    ["HEX: #6d4aff80", "RGB: rgb(109 74 255 / 50%)", "HSL: hsl(252 100% 65%)", "Token: Violet-700", "CSS: var(--color-primary-dark)", "CMYK: C57 M71 Y0 K0 (converted)", "Pantone: 2725 C", "Pantone: 2725 U", "RAL: RAL 4005"],
+  );
+  assert.deepEqual(colorValues({ ...violet, spec: { cmyk: [60, 70, 0, 0] } }, ["cmyk"]), [{ label: "CMYK", text: "C60 M70 Y0 K0", converted: false }], "the book's own CMYK");
+  const paired = swatchInk(violet, [violet, ink]);
+  assert.equal(paired.ink, "#111111");
+  assert.equal(paired.partner, ink);
+  assert.equal(paired.ratio, contrast("#111111", "#6d4aff"));
+  const alone = swatchInk({ ...violet, spec: {} });
+  assert.deepEqual([alone.ink, alone.partner], [inkOn("#6d4aff"), null], "no pair: black or white, whichever reads");
+  assert.equal(kebab("logo.minClearSpace"), "logo-min-clear-space");
+});

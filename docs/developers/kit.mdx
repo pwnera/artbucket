@@ -42,9 +42,11 @@ read whole), so a release that changes none of them calls no rebuild.
 ## @artbucket/ui
 
 Draws a brand's rules with its own values: the palette (each color with the
-ink that reads on it, its RGB, HSL and CMYK, and its contrast on white and
-black), the type specimen, the logos, dos and don'ts, the other rules and one
-rule's value. The color math is the one Artbucket's own palettes use.
+text the brand sets on it, its values for screen and print, and its contrast
+on white and black), the type specimen, the logos, dos and don'ts, the other
+rules and one rule's value. A color's values and the text set on it come from
+`@artbucket/ui/swatch`, the same functions a portal's palette draws with, so a
+built site and a portal show the same numbers.
 
 As HTML strings, for any framework, on the server or in the browser:
 
@@ -75,6 +77,21 @@ import { Palette, LogoGrid } from "@artbucket/ui/react";
 
 <Palette rules={brand.rules("color.*")} />
 ```
+
+For a palette of your own design, the values without the markup:
+
+```js
+import { colorValues, swatchInk } from "@artbucket/ui/swatch";
+
+colorValues(rule, ["hex", "cmyk", "pantone"]); // [{ label: "HEX", text: "#e11d48" }, { label: "CMYK", text: "C0 M87 Y68 K12", converted: true }, ...]
+swatchInk(rule, brand.rules("color.*"));       // { ink: "#ffffff", partner: null, ratio: 4.7, grade: "AA" }
+```
+
+`colorValues` gives `hex`, `rgb`, `hsl`, `token`, `css` (its custom
+property), `cmyk` (converted from the hex unless the rule's spec states it,
+and marked so), `pantone` and `ral`, those the color has. `swatchInk` takes
+the color the rule's spec pairs with it (`pair`), else black or white,
+whichever reads.
 
 `@artbucket/ui/ui.css` styles them; its colors follow the page unless
 `--ab-line`, `--ab-tile`, `--ab-do` and `--ab-dont` say otherwise.
