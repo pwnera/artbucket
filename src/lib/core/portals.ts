@@ -246,7 +246,7 @@ async function checkTheme(caller: Caller, theme: Partial<PortalTheme>, was: Port
  * already held keeps working; a refused one answers at /p/{slug} only.
  */
 async function slugFree(slug: string, except?: string, subdomain = true) {
-  const refused = env.PORTAL_DOMAIN && subdomain && subdomainRefusal(slug);
+  const refused = (env.PORTAL_DOMAIN || env.BUILD_DOMAIN) && subdomain && subdomainRefusal(slug);
   if (refused) throw new AssetError("invalid", refused);
   const named = await portalNamed(slug);
   if (named && named.p.id !== except) throw new AssetError("conflict", `${slug} is taken: pick another address`);

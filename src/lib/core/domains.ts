@@ -29,8 +29,14 @@ import { PREVIEW_NAME, previewLabel } from "@/lib/sites";
 const appHost = new URL(env.APP_URL).host.replace(/:\d+$/, "");
 const scheme = new URL(env.APP_URL).protocol;
 
-/** `preview`: the host is a preview's (pr-12--acme-docs), its builds served instead of the live ones. */
-type Target = { organizationId: string; portal: string | null; app: boolean; primary: boolean; preview?: string };
+/**
+ * `preview`: the host is a preview's (pr-12--acme-docs), its builds served instead of the live ones.
+ * `builds`: the host is under BUILD_DOMAIN, where a site's builds answer and nothing else of it.
+ */
+type Target = { organizationId: string; portal: string | null; app: boolean; primary: boolean; preview?: string; builds?: boolean };
+
+/** Where builds and previews answer: BUILD_DOMAIN, else PORTAL_DOMAIN. Read when asked, as tests set it. */
+export const buildDomain = () => env.BUILD_DOMAIN ?? env.PORTAL_DOMAIN;
 
 // ponytail: per process, a minute stale at most: a domain verified on another instance takes that long to answer there.
 let hostCache: { at: number; map: Map<string, Target> } | null = null;
@@ -55,22 +61,24 @@ export async function hostTarget(rawHost: string): Promise<Target | null> {
   if (!host) return null;
   const t = (await verified()).get(host);
   if (t) return t;
-  const slug = slugAtHost(host, env.PORTAL_DOMAIN);
+  const builds = !!env.BUILD_DOMAIN && slugAtHost(host, env.BUILD_DOMAIN) !== null;
+  const slug = slugAtHost(host, env.PORTAL_DOMAIN) ?? (env.BUILD_DOMAIN ? slugAtHost(host, env.BUILD_DOMAIN) : null);
   // Not cached: a portal made or renamed on another instance answers at once.
   const named = slug ? await portalNamed(slug) : null;
-  if (named) return { organizationId: named.organizationId, portal: slug, app: false, primary: false };
+  if (named) return { organizationId: named.organizationId, portal: slug, app: false, primary: false, ...(builds && { builds }) };
   // A preview's host, pr-12--acme-docs: the site's current address only, never one from before a rename.
-  const at = previewAtHost(host, env.PORTAL_DOMAIN, (s) => PREVIEW_NAME.test(s));
+  const at = previewAtHost(host, buildDomain(), (s) => PREVIEW_NAME.test(s));
   const site = at && (await portalNamed(at.slug));
-  return site && site.p.slug === at.slug ? { organizationId: site.organizationId, portal: at.slug, app: false, primary: false, preview: at.preview } : null;
+  return site && site.p.slug === at.slug ? { organizationId: site.organizationId, portal: at.slug, app: false, primary: false, preview: at.preview, ...(env.BUILD_DOMAIN && { builds: true }) } : null;
 }
 
-/** Where a site's preview answers: {name}--{slug}.PORTAL_DOMAIN, or null without PORTAL_DOMAIN or when it can't be one label. */
+/** Where a site's preview answers: {name}--{slug}.BUILD_DOMAIN (else PORTAL_DOMAIN), or null without one or when it can't be one label. */
 export function previewAt(slug: string, name: string) {
   const label = previewLabel(slug, name);
-  if (!env.PORTAL_DOMAIN || !label || subdomainRefusal(slug)) return null;
+  const domain = buildDomain();
+  if (!domain || !label || subdomainRefusal(slug)) return null;
   const app = new URL(env.APP_URL);
-  return `${app.protocol}//${label}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
+  return `${app.protocol}//${label}.${domain}${app.port ? `:${app.port}` : ""}`;
 }
 
 /** The portal a slug names, now or before a rename (portal_aliases), with its organization. */
@@ -93,7 +101,8 @@ type PortalRef = { slug: string; access: string; projectId: string; kind?: strin
  * answers where its builds do (buildsAt), its members let in there.
  */
 export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: Date | null } | null) {
-  const at = own?.verifiedAt || p.access !== "members" || (p.kind && p.kind !== "portal") ? buildsAt(p, own) : null;
+  const allBuild = !!p.kind && p.kind !== "portal";
+  const at = allBuild ? buildsAt(p, own) : own?.verifiedAt || p.access !== "members" ? subdomainAt(p, own, env.PORTAL_DOMAIN) : null;
   if (at) return at;
   const [ws] = await db.select({ organizationId: projects.organizationId }).from(projects).where(eq(projects.id, p.projectId));
   return `${await appUrlFor(ws?.organizationId ?? null)}/p/${p.slug}`;
@@ -101,15 +110,18 @@ export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: D
 
 /**
  * The origin a site's builds answer at, or null when it has none: its own
- * domain once verified, else {slug}.PORTAL_DOMAIN when the server has one
- * and the slug may be a subdomain. Never the app's host: customer JavaScript
+ * domain once verified, else {slug}.BUILD_DOMAIN, else {slug}.PORTAL_DOMAIN,
+ * when the server has one and the slug may be a subdomain. Never the app's host: customer JavaScript
  * runs only on a site's own. A members site's too, where its members are let
  * in from the app (lib/core/sites.ts enterSite).
  */
-export function buildsAt(p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null) {
+export const buildsAt = (p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null) => subdomainAt(p, own, buildDomain());
+
+/** Its own domain once verified, else {slug}.{domain} when there is one and the slug may be a subdomain. */
+function subdomainAt(p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null, domain: string | undefined) {
   const app = new URL(env.APP_URL);
   if (own?.verifiedAt) return `${app.protocol}//${own.host}`;
-  if (env.PORTAL_DOMAIN && !subdomainRefusal(p.slug)) return `${app.protocol}//${p.slug}.${env.PORTAL_DOMAIN}${app.port ? `:${app.port}` : ""}`;
+  if (domain && !subdomainRefusal(p.slug)) return `${app.protocol}//${p.slug}.${domain}${app.port ? `:${app.port}` : ""}`;
   return null;
 }
 
@@ -188,6 +200,9 @@ export async function claimable(raw: string) {
   if (host === appHost) throw new AssetError("invalid", "That is this server's own address");
   if (underDomain(host, env.PORTAL_DOMAIN)) {
     throw new AssetError("invalid", `${env.PORTAL_DOMAIN} is this server's: every portal already answers at {address}.${env.PORTAL_DOMAIN}`);
+  }
+  if (underDomain(host, env.BUILD_DOMAIN)) {
+    throw new AssetError("invalid", `${env.BUILD_DOMAIN} is this server's: every site's builds already answer at {address}.${env.BUILD_DOMAIN}`);
   }
   const stale = and(eq(domains.host, host), isNull(domains.verifiedAt), lt(domains.createdAt, sql`now() - make_interval(days => ${CLAIM_DAYS})`));
   await db.delete(domains).where(stale);
