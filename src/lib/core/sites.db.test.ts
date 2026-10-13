@@ -13,6 +13,7 @@ import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, decideRequest, getPortal, listRequests, requestAccess, updatePortal } from "@/lib/core/portals";
 import { rebuildSites } from "@/lib/core/rebuild";
+import { addDomain, hostTarget, portalHome } from "@/lib/core/domains";
 import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
 import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
@@ -538,4 +539,32 @@ test("rebuilding on release is a plan's: without `rebuilds` a hook is refused, a
   // Clearing it is always allowed.
   await updatePortal(cara.caller, site.id, { rebuild: null });
   assert.equal((await getPortal(cara.caller, site.id))!.rebuild, null);
+});
+
+test("with BUILD_DOMAIN, builds and previews answer there and portals stay on PORTAL_DOMAIN", async (t) => {
+  const before = [env.PORTAL_DOMAIN, env.BUILD_DOMAIN];
+  env.PORTAL_DOMAIN = "portals.test";
+  env.BUILD_DOMAIN = "builds.test";
+  t.after(() => void ([env.PORTAL_DOMAIN, env.BUILD_DOMAIN] = before));
+  const site = await createPortal(ada.caller, { name: "Own domain", slug: `bd-${Date.now().toString(36)}`, kind: "docs" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": "pr" }), { preview: "pr-3" }))!;
+  assert.equal(d.url, `http://pr-3--${site.slug}.builds.test:3000/`);
+  const home = (await portalHome(site.slug))!;
+  assert.equal(home.builds, `http://${site.slug}.builds.test:3000`);
+  // A site that is all build answers where its builds do.
+  assert.equal(home.url, home.builds);
+  assert.deepEqual(await hostTarget(`${site.slug}.builds.test`), { organizationId: ada.caller.project.organizationId, portal: site.slug, app: false, primary: false, builds: true });
+  assert.equal((await hostTarget(`pr-3--${site.slug}.builds.test`))?.preview, "pr-3");
+  // Its address on PORTAL_DOMAIN still names it, and the proxy sends it on; previews answer on BUILD_DOMAIN only.
+  assert.equal((await hostTarget(`${site.slug}.portals.test`))?.builds, undefined);
+  assert.equal(await hostTarget(`pr-3--${site.slug}.portals.test`), null);
+  assert.equal(await hostTarget("nobody-here.builds.test"), null);
+  // A brand portal's own pages stay on PORTAL_DOMAIN; its builds go to BUILD_DOMAIN.
+  const logos = await createCollection(ada.caller, { name: "Bd logos" });
+  const press = await createPortal(ada.caller, { name: "Bd press", slug: `bdp-${Date.now().toString(36)}`, collections: [logos.id] });
+  const p = (await portalHome(press.slug))!;
+  assert.equal(p.url, `http://${press.slug}.portals.test:3000`);
+  assert.equal(p.builds, `http://${press.slug}.builds.test:3000`);
+  // Nobody claims a name under it.
+  await assert.rejects(addDomain(ada.caller, "x.builds.test"), /builds\.test is this server.s/);
 });

@@ -82,7 +82,8 @@ building again; older ones, and failed ones, are deleted with their files.
 ## Preview a pull request
 
 A deployment named as a preview is kept beside the live one, never in its
-place: it answers at `{name}--{address}.PORTAL_DOMAIN` (`pr-12--acme-docs`),
+place: it answers at `{name}--{address}.PORTAL_DOMAIN` (`pr-12--acme-docs`;
+`BUILD_DOMAIN` when the server has one),
 behind the site's own door, with `X-Robots-Tag: noindex` so search engines
 leave it out. A name is lowercase letters, digits and single dashes, 30 at
 most. Deploying the same name again replaces that preview; a preview is
@@ -133,6 +134,13 @@ or a [domain of its own](/guides/portals#a-domain-of-its-own), never under
 session. It sends its own headers, not the app's: its scripts run, and it may
 be framed by itself only. A server without `PORTAL_DOMAIN` and without a
 verified domain for the site stores deployments but can't show them.
+
+With `BUILD_DOMAIN` set, builds answer at `{address}.BUILD_DOMAIN` instead
+(previews at `{name}--{address}.BUILD_DOMAIN`), and `PORTAL_DOMAIN` keeps the
+portals' own pages: a build runs its owner's scripts, and on another
+registrable domain they can't set cookies a portal reads. A build's path asked
+at the portal's address goes there, and any other path at the build's
+address goes to the portal.
 
 ## Redirects and headers
 
