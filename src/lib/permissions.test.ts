@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ACTIONS, can, needs, type Who } from "./permissions.ts";
+import { ACTIONS, ADMIN_KEY, can, keyLacks, needs, type Who } from "./permissions.ts";
 
 const none = { collections: {}, assets: {}, brands: {} };
 const base = { hidden: [] as string[] };
@@ -65,6 +65,13 @@ test("private things turn the project scope away, except an admin's", () => {
 
 test("every action reads as a sentence", () => {
   for (const a of Object.keys(ACTIONS) as (keyof typeof ACTIONS)[]) assert.match(needs(a), /^(read|propose|write|admin) (on|somewhere)/);
+});
+
+test("a key refused admin is told signing in never gives it, not to sign in again", () => {
+  assert.equal(keyLacks("write", "key.manage"), `This key's scope is write; this needs admin on the project. ${ADMIN_KEY}`);
+  assert.match(ADMIN_KEY, /never gives admin.*Connections/);
+  assert.equal(keyLacks("propose", "asset.edit"), "This key's scope is propose; this needs write on this asset");
+  assert.equal(keyLacks(null, "asset.read"), "This key's scope is none; this needs read on this asset");
 });
 
 test("a brand: the project's role, or a grant on it; a private one turns the project's away", () => {

@@ -59,7 +59,7 @@ import { hasPreview } from "@/lib/preview";
 import { env } from "@/lib/env";
 import { TOOL_INPUTS, toolSchemas, type ToolName } from "@/lib/mcp-tools";
 import { fetchUrl, outsideReach, outsideUrl } from "@/lib/core/outside";
-import { ACTIONS, can, needs, type Action } from "@/lib/permissions";
+import { ACTIONS, ADMIN_KEY, can, needs, type Action } from "@/lib/permissions";
 import { allows } from "@/lib/scopes";
 import { refusedValue } from "@/lib/refused";
 import { normalizeTags } from "@/lib/search";
@@ -1793,7 +1793,7 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
           : null;
       if (!can(caller, t.action, brand)) {
         called("refused");
-        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}${brand ? " on this brand" : ""}` }, true));
+        return result(id, toolResult({ error: `This key's scope is ${caller.scope ?? "none"}; ${params.name} needs ${needs(t.action)}${brand ? " on this brand" : ""}${ACTIONS[t.action].scope === "admin" ? `. ${ADMIN_KEY}` : ""}` }, true));
       }
       const args = t.input.safeParse(rest);
       // An argument the tool doesn't take is a mistake, not a no-op: set_rules({ rules: [...] }) would answer

@@ -308,11 +308,27 @@ async function api(method: string, path: string, body?: unknown) {
   return json;
 }
 
+/** Admin never comes from signing in (the server's lib/oauth.ts grants up to write): only a key an admin makes. As the server says it (ADMIN_KEY). */
+const ADMIN = "Signing in never gives admin: use a key an admin makes in Connections (API keys)";
+
+/**
+ * What to do about a key from `login` whose scope can't do this ("This key's
+ * scope is propose; this needs write on ..."): log in again asking for what it
+ * needs, unless that is admin. An older server's 403 doesn't say where admin
+ * comes from, so the CLI does.
+ */
+const scopeHint = (message: string) => {
+  const need = /^This key's scope is \w+; this needs (\w+)/.exec(message)?.[1];
+  if (!need) return "";
+  if (need === "admin") return `${message.includes(ADMIN) ? "" : `. ${ADMIN}`}, as ARTBUCKET_KEY`;
+  return `. Log in again with --scope ${need}: artbucket login --scope ${need}`;
+};
+
 /** An API error as a person reads it: a key from `login` that can't do this can be swapped for one that can. */
 const failed = (res: Response, json: { error?: { message?: string } } | null, what: string) =>
   new Error(
     (json?.error?.message ?? `${what}: ${res.status}`) +
-      (res.status === 403 && !process.env.ARTBUCKET_KEY && /^This key's scope/.test(json?.error?.message ?? "") ? `. Log in again with --scope write: artbucket login --scope write` : ""),
+      (res.status === 403 && !process.env.ARTBUCKET_KEY ? scopeHint(json?.error?.message ?? "") : ""),
   );
 
 type Asset = { id: string; filename: string; status: string; width: number | null; height: number | null; tags: string[]; proposedTags: string[] };
@@ -929,6 +945,9 @@ async function oauth(path: string, body: Record<string, unknown>) {
  * in the browser, poll until they do. What comes back is a key bound to them.
  */
 async function login() {
+  // The server would take admin, or a scope it doesn't know, as propose: say so before the browser opens.
+  if (opt.scope === "admin") throw new Error(`${ADMIN}, as ARTBUCKET_KEY. login --scope write asks for the most it can give.`);
+  if (opt.scope && !["read", "propose", "write"].includes(opt.scope)) throw new Error(`--scope is read, propose or write; got "${opt.scope}"`);
   const client = await oauth("/api/v1/oauth/register", {
     client_name: `Artbucket CLI on ${hostname()}`,
     grant_types: ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],

@@ -19,7 +19,9 @@ long as you use it within 90 days), with that server as the default: later comma
 what an agent gets by default: uploads wait for a person to approve them.
 Pushing a brand edits it and `--publish` releases it, so that takes
 `--scope write`; `--scope read` asks for less, and the consent screen never
-offers more than you have. Disconnect it from Connections. Or set `ARTBUCKET_KEY`. From a
+offers more than you have. Signing in never gives admin (`keys`, `invite`,
+`members`): those take a key an admin makes in Connections (API keys), as
+`ARTBUCKET_KEY`. Disconnect it from Connections. Or set `ARTBUCKET_KEY`. From a
 clone, `pnpm artbucket` runs the same CLI, and `pnpm link --global` puts it
 on your path.
 
