@@ -31,6 +31,8 @@ const file = (a) => {
   return a.file;
 };
 const fontOf = (r) => (r ? (typeof r.value === "string" ? r.value : (r.value?.family ?? r.label ?? r.key)) : null);
+/** A family as a CSS string: its quotes and backslashes escaped, so a name can't end the declaration. */
+const cssFamily = (r) => JSON.stringify(String(fontOf(r)));
 const imageOf = (r) => r?.assets.find((a) => a.mime?.startsWith("image/"));
 
 // The site's look, from the brand's rules: its colors, its faces, its logo.
@@ -45,14 +47,19 @@ const look = [
   accent && `--accent: ${accent.value};`,
   ink && `--ink: ${ink.value};`,
   paper && `--paper: ${paper.value};`,
-  head && `--font-head: "${fontOf(head)}", system-ui, sans-serif;`,
-  body && `--font-body: "${fontOf(body)}", system-ui, sans-serif;`,
+  head && `--font-head: ${cssFamily(head)}, system-ui, sans-serif;`,
+  body && `--font-body: ${cssFamily(body)}, system-ui, sans-serif;`,
 ].filter(Boolean);
 
 const text = (spec) => {
   const [key, fallback = ""] = spec.split("|");
   const r = rules.find((x) => x.key === key && x.type === "text");
-  return esc(r ? r.value : fallback);
+  // A file the text links to was exported beside it (assets/...): copied in too, and linked from the site's root.
+  return esc(r ? r.value : fallback).replace(/(^|[^/\w])(assets\/[\w.-]+)/g, (all, before, path) => {
+    if (!brand.files?.[path]) return all;
+    used.add(brand.files[path]);
+    return `${before}/${path}`;
+  });
 };
 const logoTag = () => {
   const a = imageOf(logo);
@@ -67,7 +74,7 @@ const palette = () =>
 const type = () =>
   `<ul class="type">${rules
     .filter((r) => r.type === "font")
-    .map((r) => `<li style="font-family:'${esc(fontOf(r))}'"><span class="sample">Aa</span><b>${label(r)}</b><span>${esc(fontOf(r))}</span>${r.usage ? `<p>${esc(r.usage)}</p>` : ""}</li>`)
+    .map((r) => `<li style="font-family:${esc(cssFamily(r))}"><span class="sample">Aa</span><b>${label(r)}</b><span>${esc(fontOf(r))}</span>${r.usage ? `<p>${esc(r.usage)}</p>` : ""}</li>`)
     .join("")}</ul>`;
 const logos = () =>
   `<ul class="logos">${rules

@@ -10,7 +10,7 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { hostname, homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -507,45 +507,65 @@ async function brandExport(dir: string) {
     api("GET", "/api/v1/brands"),
   ]);
   const out = resolve(dir);
-  // A new export replaces the last one, and nothing else: a folder holding anything but an export is left alone.
+  // A new export replaces the last one, and nothing else: a file, or a folder holding anything but an export, is left alone.
+  const there = await stat(out).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
+  if (there && !there.isDirectory()) throw new Error(`${dir} is a file: pick a folder (.brand by default)`);
   const was = await readFile(join(out, "brand.json"), "utf8").then((t) => JSON.parse(t).exportedAt, () => undefined);
-  if (!was && (await readdir(out).catch(() => [])).length) throw new Error(`${dir} isn't empty and holds no export: pick another folder (.brand by default)`);
-  await rm(out, { recursive: true, force: true });
-  await mkdir(join(out, "assets"), { recursive: true });
-  // Each file once, by the path it is fetched at: an asset as itself, or one of its renditions.
-  const files: Record<string, string> = {};
-  const fetched = new Map<string, Promise<string>>();
-  const local = (id: string, rendition: string | null) => {
-    const path = `/a/${id}${rendition ? `/${rendition}` : ""}`;
-    if (!fetched.has(path)) {
-      fetched.set(
-        path,
-        (async () => {
-          const res = await fetch(`${BASE}${path}`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
-          if (!res.ok) throw new Error(`Couldn't fetch ${path}: ${res.status}`);
-          const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-          const name = `assets/${id}${rendition ? `-${rendition.replace(/[^a-z0-9_-]+/gi, "-")}` : ""}.${EXTENSIONS[type] ?? "bin"}`;
-          await writeFile(join(out, name), Buffer.from(await res.arrayBuffer()));
-          files[name] = id;
-          return name;
-        })(),
-      );
-    }
-    return fetched.get(path)!;
-  };
-  type Exported = { assets: { id: string; rendition: string | null; file?: string }[] };
-  for (const r of rules as Exported[]) for (const a of r.assets) a.file = await local(a.id, a.rendition);
-  // tokens.css names the server's /a/ URLs (@font-face, a logo), on its own address, which may not be the one asked: the same files, here.
-  const pattern = /https?:\/\/[^/"')\s]+\/a\/([0-9a-f-]{36})(?:\/([a-z0-9_,.]+))?(?:\?[^"')\s]*)?/gi;
-  const found = [...tokens.matchAll(pattern)];
-  const names = await Promise.all(found.map((m) => local(m[1], m[2] ?? null)));
-  let css = tokens;
-  found.forEach((m, i) => (css = css.replace(m[0], names[i])));
-  const name = (brands as { slug: string; name: string }[]).find((b) => b.slug === slug)?.name ?? slug;
-  await writeFile(join(out, "tokens.css"), css);
-  await writeFile(join(out, "brand.json"), JSON.stringify({ slug, name, release, server: BASE, exportedAt: new Date().toISOString(), contexts, rules, files }, null, 2) + "\n");
-  const n = Object.keys(files).length;
-  return `Exported ${name}${release ? ` release ${release.number}` : " (no history yet: as it stands)"} into ${dir}/: ${rules.length} rules, ${n} file${n === 1 ? "" : "s"}`;
+  if (there && !was && (await readdir(out)).length) throw new Error(`${dir} isn't empty and holds no export: pick another folder (.brand by default)`);
+  // Written beside it, then swapped in whole: an export that fails halfway leaves the last one as it was.
+  const tmp = `${out}.partial`;
+  await rm(tmp, { recursive: true, force: true });
+  await mkdir(join(tmp, "assets"), { recursive: true });
+  try {
+    // Each file once, by the path it is fetched at: an asset as itself, or one of its renditions.
+    const files: Record<string, string> = {};
+    const fetched = new Map<string, Promise<string>>();
+    const local = (id: string, rendition: string | null) => {
+      if (!/^[0-9a-f-]{36}$/i.test(id) || (rendition !== null && !/^[a-z0-9_,.]+$/i.test(rendition))) throw new Error(`Not a file of the library: ${id}${rendition ? `/${rendition}` : ""}`);
+      const path = `/a/${id}${rendition ? `/${rendition}` : ""}`;
+      if (!fetched.has(path)) {
+        fetched.set(
+          path,
+          (async () => {
+            const res = await fetch(`${BASE}${path}`, { headers: KEY ? { authorization: `Bearer ${KEY}` } : {} });
+            if (!res.ok) throw new Error(`Couldn't fetch ${path}: ${res.status}`);
+            const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+            const name = `assets/${id}${rendition ? `-${rendition.replace(/[^a-z0-9_-]+/gi, "-")}` : ""}.${EXTENSIONS[type] ?? "bin"}`;
+            await writeFile(join(tmp, name), Buffer.from(await res.arrayBuffer()));
+            files[name] = id;
+            return name;
+          })(),
+        );
+      }
+      return fetched.get(path)!;
+    };
+    type Exported = { assets: { id: string; rendition: string | null; file?: string }[] };
+    for (const r of rules as Exported[]) for (const a of r.assets) a.file = await local(a.id, a.rendition);
+    // The server's /a/ URLs, signed for a day, on its own address (which may not be the one asked): in tokens.css
+    // (@font-face, a logo) and in rules' text alike, the same files here, so the built site never points at a link that lapses.
+    const pattern = /https?:\/\/[^/"')\s\\]+\/a\/([0-9a-f-]{36})(?:\/([a-z0-9_,.]+))?(?:\?[^"')\s\\]*)?/gi;
+    const localized = async (text: string) => {
+      const found = [...text.matchAll(pattern)];
+      const names = await Promise.all(found.map((m) => local(m[1], m[2] ?? null)));
+      let i = 0;
+      return text.replace(pattern, () => names[i++]);
+    };
+    const css = await localized(tokens);
+    const ruled = JSON.parse(await localized(JSON.stringify(rules)));
+    const name = (brands as { slug: string; name: string }[]).find((b) => b.slug === slug)?.name ?? slug;
+    await writeFile(join(tmp, "tokens.css"), css);
+    await writeFile(join(tmp, "brand.json"), JSON.stringify({ slug, name, release, server: BASE, exportedAt: new Date().toISOString(), contexts, rules: ruled, files }, null, 2) + "\n");
+    await rm(out, { recursive: true, force: true });
+    await rename(tmp, out);
+    const n = Object.keys(files).length;
+    return `Exported ${name}${release ? ` release ${release.number}` : " (no history yet: as it stands)"} into ${dir}/: ${rules.length} rules, ${n} file${n === 1 ? "" : "s"}`;
+  } catch (err) {
+    await rm(tmp, { recursive: true, force: true });
+    throw err;
+  }
 }
 
 const SITE_KINDS = ["landing", "docs", "guidelines"];
@@ -582,13 +602,15 @@ async function siteNew(dir: string) {
   if ((await readdir(target).catch(() => [])).length) throw new Error(`${dir} isn't empty: pick a new folder`);
   const slug = await brandSlug();
   const address = opt.site ?? basename(target).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
-  const sites = (await api("GET", "/api/v1/sites")).data as { slug: string; kind: string; url: string }[];
+  // Reading the sites takes a key that manages them; without one, the site is just not known yet.
+  const sites = ((await api("GET", "/api/v1/sites").catch(() => ({ data: [] }))).data ?? []) as { slug: string; kind: string; url: string }[];
   let site = sites.find((x) => x.slug === address);
   if (!site && opt.create) site = (await api("POST", "/api/v1/sites", { name: basename(target), slug: address, kind, access: "members" })).data;
   const root = await starters();
   const own = JSON.parse(await readFile(new URL("../package.json", root), "utf8").catch(() => readFile(new URL("./package.json", import.meta.url), "utf8")));
-  const fill = (text: string) =>
-    text.replaceAll("__NAME__", basename(target)).replaceAll("__KIND__", kind).replaceAll("__BRAND__", slug).replaceAll("__SITE__", address).replaceAll("__SERVER__", BASE.replace(/^https:\/\//, ""));
+  const words: Record<string, string> = { NAME: basename(target), KIND: kind, BRAND: slug, SITE: address, SERVER: BASE.replace(/^https:\/\//, "") };
+  // A function, not a string: a folder named a$'b stays a$'b.
+  const fill = (text: string) => text.replace(/__(NAME|KIND|BRAND|SITE|SERVER)__/g, (_, w: string) => words[w]);
   for (const from of [new URL("common/", root), new URL(`${kind}/`, root)]) {
     for (const rel of await filesIn(from)) {
       // npm leaves .gitignore out of a package: the starter keeps it as gitignore.

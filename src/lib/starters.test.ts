@@ -85,7 +85,7 @@ test("guidelines: the palette, faces, logos and every other rule, from the relea
   const site = built("guidelines");
   const html = site.read("index.html");
   assert.match(html, /<span class="swatch" style="background:#e11d48"><\/span><b>color\.primary<\/b><code>#e11d48<\/code>/);
-  assert.match(html, /font-family:'Acme Sans'/);
+  assert.match(html, /font-family:&#34;Acme Sans&#34;/);
   assert.match(html, new RegExp(`<img src="/assets/${LOGO}.svg" alt="logo.primary">`));
   assert.match(html, /<dt>tone\.avoid<\/dt><dd>jargon, hype<\/dd>/);
 });
@@ -102,4 +102,25 @@ test("a page's title in the menu and <title> is its heading's text, with no tag 
   const title = html.match(/<title>(.*?)<\/title>/)![1];
   assert.doesNotMatch(title, /[<>]/);
   assert.match(title, /^Odd scriptalert\(1\)\/script heading/);
+});
+
+test("a font's name stays a CSS string, whatever it holds", () => {
+  const evil = 'X"; } body { background: url(//evil.example) } :root { --a: "';
+  const site = built("guidelines", {
+    rules: [{ key: "type.heading", type: "font", value: { family: evil }, context: null, label: null, usage: null, spec: null, assets: [] }],
+    files: {},
+  });
+  assert.match(site.read("look.css"), /--font-head: "X\\"; } body \{ background: url\(\/\/evil\.example\) \} :root \{ --a: \\"", system-ui/);
+  assert.doesNotMatch(site.read("index.html"), /font-family:[^"]*"; }/);
+  assert.match(site.read("index.html"), /font-family:&#34;X\\&#34;; \} body/);
+});
+
+test("a file a text rule links to is copied in, and linked from the site's root", () => {
+  const site = built("landing", {
+    rules: [{ key: "brand.headline", type: "text", value: `See assets/${LOGO}.svg for the mark`, context: null, label: null, usage: null, spec: null, assets: [] }],
+    files: { [`assets/${LOGO}.svg`]: LOGO },
+  });
+  assert.match(site.read("index.html"), new RegExp(`<h1>See /assets/${LOGO}.svg for the mark</h1>`));
+  assert.ok(site.has(`assets/${LOGO}.svg`));
+  assert.deepEqual(JSON.parse(site.read("artbucket.site.json")).assets, [LOGO]);
 });
