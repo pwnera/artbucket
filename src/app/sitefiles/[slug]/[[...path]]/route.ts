@@ -1,7 +1,8 @@
 import { handle } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
 import { enterPortal, passOf } from "@/lib/core/portals";
-import { siteFile, UNLOCK_COOKIE, unlockValue } from "@/lib/core/sites";
+import { siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
+import { unlockCookie } from "@/lib/sites";
 import { getStream } from "@/lib/storage";
 
 /**
@@ -19,6 +20,9 @@ async function asked(req: Request, { params }: Params) {
   return { slug, path, rest: `/${path.join("/")}${new URL(req.url).pathname.endsWith("/") && path.length ? "/" : ""}` };
 }
 
+/** Whether the visitor came over HTTPS, here or at the proxy in front: the door's cookie is then `__Host-` and Secure. */
+const secure = (req: Request) => new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+
 const cookieOf = (req: Request, name: string) =>
   req.headers
     .get("cookie")
@@ -29,7 +33,7 @@ const cookieOf = (req: Request, name: string) =>
 export async function GET(req: Request, ctx: Params) {
   const { slug, path, rest } = await asked(req, ctx);
   try {
-    const f = await siteFile(slug, passOf(req), rest, cookieOf(req, UNLOCK_COOKIE));
+    const f = await siteFile(slug, passOf(req), rest, cookieOf(req, unlockCookie(secure(req))));
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
     // Relative to the address asked: /guide to guide/.
     if ("slash" in f) return new Response(null, { status: 308, headers: { Location: `${path.at(-1) ?? ""}/${new URL(req.url).search}` } });
@@ -63,12 +67,12 @@ export async function POST(req: Request, ctx: Params) {
     return handle(err);
   }
   const value = await unlockValue(slug);
-  const secure = new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+  const https = secure(req);
   return new Response(null, {
     status: 303,
     headers: {
       Location: `${rest}${new URL(req.url).search}`,
-      "Set-Cookie": `${UNLOCK_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 86400}${secure ? "; Secure" : ""}`,
+      "Set-Cookie": `${unlockCookie(https)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${UNLOCK_DAYS * 86400}${https ? "; Secure" : ""}`,
     },
   });
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILD_KINDS, candidates, contentTypeOf, mountPath, servesBuild, siteFiles } from "./sites.ts";
+import { BUILD_KINDS, candidates, contentTypeOf, mountPath, servesBuild, siteFiles, unlockCookie } from "./sites.ts";
 
 test("a mount path is / or lowercase segments, no trailing slash", () => {
   assert.equal(mountPath("/"), "/");
@@ -38,4 +38,9 @@ test("a site's own address serves its build where one is mounted, and the portal
   assert.equal(servesBuild(press, "/docs/start"), true);
   assert.equal(servesBuild(press, "/docsy"), false);
   assert.equal(servesBuild({ kind: "docs", mounts: [] }, ""), true);
+});
+
+test("the door's cookie is host-only over HTTPS, so a sibling site can't set or shadow it", () => {
+  assert.equal(unlockCookie(true), "__Host-ab_site");
+  assert.equal(unlockCookie(false), "ab_site");
 });

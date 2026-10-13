@@ -105,3 +105,12 @@ export function candidates(rest: string): string[] {
  */
 export const servesBuild = (site: { kind: string; mounts: string[] }, rest: string) =>
   site.kind !== "portal" || site.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`)));
+
+/**
+ * The name of a password site's door cookie (lib/core/sites.ts). Over HTTPS
+ * it carries the `__Host-` prefix: the browser takes it only from the site's
+ * own host, never with a Domain, so another site under PORTAL_DOMAIN, whose
+ * scripts run on a sibling host of the same domain, can neither set it nor
+ * shadow it. Plain HTTP, in development, can't carry the prefix.
+ */
+export const unlockCookie = (secure: boolean) => (secure ? "__Host-ab_site" : "ab_site");

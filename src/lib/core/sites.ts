@@ -195,11 +195,11 @@ export async function restoreDeployment(caller: Caller, siteId: string, deployme
 /**
  * A password site's builds are pages a browser asks for, with no header to
  * carry the password the portal's own pages send: the door (app/sitefiles)
- * sets this cookie, on the site's own host, for a week. It names the
- * password's hash, so a new password shuts every door opened with the old.
+ * sets a cookie (lib/sites.ts unlockCookie), on the site's own host, for a
+ * week. It names the password's hash, so a new password shuts every door
+ * opened with the old.
  */
-export const UNLOCK_COOKIE = "ab_site";
-const UNLOCK_DAYS = 7;
+export const UNLOCK_DAYS = 7;
 const unlockId = (p: { id: string; passwordHash: string | null }) => `site:${p.id}:${(p.passwordHash ?? "").slice(-16)}`;
 
 /** The cookie for a site whose password was just given. */
