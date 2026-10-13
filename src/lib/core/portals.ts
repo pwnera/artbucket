@@ -193,6 +193,7 @@ type Input = {
 async function rebuildColumns(caller: Caller, rebuild: Input["rebuild"]) {
   if (rebuild === undefined) return {};
   if (rebuild === null) return { rebuildHook: null, rebuildBrandId: null, rebuiltAt: null, rebuildStatus: null };
+  await checkLimit(caller.project.organizationId, "rebuilds");
   const brand = await resolveBrand(caller.project.id, rebuild.brand).catch(() => {
     throw new AssetError("invalid", `rebuild.brand: no brand "${rebuild.brand}" in this project`);
   });

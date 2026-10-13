@@ -12,8 +12,8 @@ import { z } from "zod";
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
 
-/** What can be switched off for an organization. Off, nobody there can make new ones, or set it up. */
-export const FEATURES = ["agents", "shares", "sso", "branding", "domains"] as const;
+/** What can be switched off for an organization. Off, nobody there can make new ones, or set it up. `rebuilds`: a site's deploy hook called on each brand release. */
+export const FEATURES = ["agents", "shares", "sso", "branding", "domains", "rebuilds"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };

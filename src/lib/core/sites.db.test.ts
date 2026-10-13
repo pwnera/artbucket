@@ -527,6 +527,20 @@ test("a preview answers at its own address beside the live build, replaced by it
   assert.ok(await keyOf("pr-13"));
 });
 
+test("rebuilding on release is a plan's: without `rebuilds` a hook is refused, and one already set is kept but not called", async () => {
+  const cara = await signUp("Rebuildcara");
+  const hook = "https://api.netlify.com/build_hooks/abc123";
+  const site = await createPortal(cara.caller, { name: "On Netlify", slug: `netlify-${Date.now().toString(36)}`, kind: "docs", rebuild: { url: hook, brand: "default" } });
+  await plan(cara.caller.project.organizationId, { features: ["agents", "shares", "domains"] });
+  const brand = await resolveBrand(cara.caller.project.id, "default");
+  assert.deepEqual(await rebuildSites(brand.id, { number: 3 }), [{ site: site.slug, status: "skipped: rebuilding on release isn't in this organization's plan" }]);
+  assert.equal((await getPortal(cara.caller, site.id))!.rebuild?.lastStatus, "skipped: rebuilding on release isn't in this organization's plan");
+  await assert.rejects(updatePortal(cara.caller, site.id, { rebuild: { url: hook, brand: "default" } }), /Rebuilding sites when a brand is released is off/);
+  // Clearing it is always allowed.
+  await updatePortal(cara.caller, site.id, { rebuild: null });
+  assert.equal((await getPortal(cara.caller, site.id))!.rebuild, null);
+});
+
 test("with BUILD_DOMAIN, builds and previews answer there and portals stay on PORTAL_DOMAIN", async (t) => {
   const before = [env.PORTAL_DOMAIN, env.BUILD_DOMAIN];
   env.PORTAL_DOMAIN = "portals.test";
