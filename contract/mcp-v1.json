@@ -5409,6 +5409,108 @@
     ],
     "additionalProperties": false
   },
+  "check_site": {
+    "type": "object",
+    "properties": {
+      "files": {
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "description": "Where it is served, e.g. index.html or assets/logo.svg"
+            },
+            "content": {
+              "type": "string",
+              "maxLength": 5000000,
+              "description": "The file: text as it is, or base64 with base64: true"
+            },
+            "base64": {
+              "description": "content is base64, for a binary file",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ],
+          "additionalProperties": false
+        },
+        "description": "Every file of the build, index.html among them; a larger build goes through the CLI (artbucket site push)"
+      }
+    },
+    "required": [
+      "files"
+    ],
+    "additionalProperties": false
+  },
+  "deploy_site": {
+    "type": "object",
+    "properties": {
+      "address": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "The site's address (slug), as list_sites names it"
+      },
+      "files": {
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "description": "Where it is served, e.g. index.html or assets/logo.svg"
+            },
+            "content": {
+              "type": "string",
+              "maxLength": 5000000,
+              "description": "The file: text as it is, or base64 with base64: true"
+            },
+            "base64": {
+              "description": "content is base64, for a binary file",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ],
+          "additionalProperties": false
+        },
+        "description": "Every file of the build, index.html among them; a larger build goes through the CLI (artbucket site push)"
+      },
+      "path": {
+        "description": "Where it is mounted: / (the default), or a path such as /docs beside a brand portal's pages",
+        "type": "string",
+        "maxLength": 200
+      },
+      "kind": {
+        "description": "What it is; the site's own kind when left out, docs beside a brand portal",
+        "type": "string",
+        "enum": [
+          "guidelines",
+          "landing",
+          "docs",
+          "storybook"
+        ]
+      }
+    },
+    "required": [
+      "address",
+      "files"
+    ],
+    "additionalProperties": false
+  },
   "close_site": {
     "type": "object",
     "properties": {

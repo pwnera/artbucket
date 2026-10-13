@@ -85,6 +85,8 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `create_site` | write, share | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
 | `update_site` | write, share | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
 | `close_site` | write, share | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
+| `check_site` | read | Check a site you built, hosted anywhere, against the library: what it uses, and why any of it may not be shown. Nothing is stored |
+| `deploy_site` | write | Publish a site you built to a site's address, checked first; its files as text, or base64 for the rest |
 | `delete_site` | write, share | Delete a portal; its address and domain stop answering |
 | `list_site_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
 | `decide_site_request` | write, share | Approve or deny a request; approved access gets a link of its own |
