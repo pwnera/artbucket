@@ -73,8 +73,17 @@ address can't share.
 
 ## What it uses
 
-A build that reads from Artbucket says so in `artbucket.site.json` at its
-root:
+Every deployment is checked against the project's library before it goes
+live, with nothing for the build to declare:
+
+- **Its files**, by their bytes: a logo copied into `dist/` is that logo,
+  whatever its name.
+- **Its addresses**: every `/a/{id}` and `/c/{id}` in its HTML, CSS and
+  JavaScript, on the app's host or relative. `/a/` pins a version; `/c/`
+  follows the current one, so it is weighed on the version it serves. Files
+  over 2 MB, such as a large bundle, are matched by their bytes but not read
+  for addresses.
+- **Its manifest**, when it has one: `artbucket.site.json` at its root.
 
 ```json
 {
@@ -83,8 +92,87 @@ root:
 }
 ```
 
-Every asset it names must be the project's, approved, current and unexpired,
-or the deployment fails and says which and why: a build can't ship a replaced
-logo or a lapsed license. Once live, the site shows in the
-[catalog](/guides/catalog)'s lineage of each asset and of the brand, as
-`built`, so you see every site a logo reaches.
+A pinned link to a replaced, unapproved, archived or expired asset fails the
+deployment, and so does a copy of one the library says not to use (replaced,
+refused in review, archived, out of license); a copy of a draft or a deleted
+asset doesn't. The message says which file and what replaced it:
+
+```
+logo-2024.png was replaced by logo-2026.png (use 9f1e0d2c-...): img/logo.png is a copy of it
+```
+
+Every id the manifest names must be the project's. An address of another
+project's asset, or another server's, is left alone: it may well be public.
+Once live, what the build uses shows in the [catalog](/guides/catalog)'s
+lineage of each asset and of the brand, as `built`, so you see every site a
+logo reaches before you replace it. The deployment lists it as `uses`.
+
+## A build hosted anywhere
+
+A site you keep on Vercel, Netlify or GitHub Pages gets the same check from
+its CI, before it deploys there: `artbucket site check` sends the folder,
+stores nothing, and exits 1 when the build uses what may not be shown, saying
+which file and what replaced it. A read key is enough.
+
+```yaml
+# .github/workflows/deploy.yml, after the build step
+- run: npx --yes artbucket site check dist
+  env:
+    ARTBUCKET_URL: https://app.example.com
+    ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+```
+
+`POST /api/v1/sites/check` takes the same zip, and answers `allowed`,
+`uses` and `problems`.
+
+## Held for review
+
+A static site has no server of its own to sign anyone in, take a payment or
+ship software. So a page that asks for a password, card details or a
+wallet's recovery phrase, or a program to download, is what phishing looks
+like on a free host, and every deployment's pages are read for those signs
+(not its scripts: a component library holds login forms legitimately). A page
+that looks like another company's sign-in (Microsoft, Google, PayPal, and
+others phishing copies most) says whose, unless the project holds a brand of
+that name.
+
+Where the server's operator reviews (`siteReview` in the organization's
+[limits](/configuration/limits)), a build with any sign is **held**: its
+files are kept, nothing is served, and the deployment says why. A newsletter
+form, a page about signing in, or a component library's bundle is not a
+sign. Elsewhere it goes live, and the signs stay on the deployment as
+`flags`. A held build nobody releases within 14 days is refused.
+
+The operator hears of it at `SITE_REVIEW_EMAIL`, and decides in the database:
+
+```sql
+-- What waits
+select d.id, o.slug as organization, p.slug as site, d.path, d.flags, d.prefix, d.created_at
+from site_deployments d
+join portals p on p.id = d.site_id
+join projects w on w.id = p.project_id
+join organizations o on o.id = w.organization_id
+where d.state = 'held' order by d.created_at;
+
+-- Release one: the build live at its path, if any, is replaced by it
+begin;
+update site_deployments set state = 'replaced'
+  where state = 'live' and (site_id, path) = (select site_id, path from site_deployments where id = '{id}' and state = 'held');
+update site_deployments set state = 'live', error = null where id = '{id}' and state = 'held';
+commit;
+
+-- Refuse one: its files go with the next sweep
+update site_deployments set state = 'failed', error = 'Refused in review: {why}' where id = '{id}' and state = 'held';
+```
+
+For a build that is plainly abuse, [suspend the organization](/configuration/limits#suspending-an-organization)
+as well.
+
+## Checked again, every day
+
+A build checked once can go wrong later: a photo's license ends, a logo is
+replaced. Live builds are checked again about once a day, the same way. What
+may no longer be shown is listed on the deployment, in **Sites** and as
+`problems` in the API, and the site's admins get an email when there is
+something new. The build stays live: deploy one without it, or restore one
+that has none.

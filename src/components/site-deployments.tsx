@@ -18,9 +18,15 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced"; files: number; bytes: number; error: string | null; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced" | "held"; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
 
-const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline" };
+/** "uses 3 assets", from what the check found in its files: the library it reaches. */
+const usesLine = (d: Deployment) => {
+  const n = new Set(d.uses.map((u) => u.asset)).size;
+  return n ? ` · uses ${n} asset${n === 1 ? "" : "s"}` : "";
+};
+
+const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline", held: "secondary" };
 
 /**
  * A built site (PRD part 2): made with a name, an address and a kind, then
@@ -138,6 +144,7 @@ function Deployments({ site }: { site: Portal }) {
     setSending(false);
     await load();
     if (!res.ok) return toast.error(body?.error?.message ?? "It couldn't be deployed");
+    if (body.data.state === "held") return toast.warning("Held for review", { description: body.data.error });
     toast.success(`Live at ${site.url}${path === "/" ? "" : path}`, { description: `${body.data.files} files` });
   };
 
@@ -205,6 +212,7 @@ function Deployments({ site }: { site: Portal }) {
                   <code className="text-xs">{d.path}</code>
                   <span className="text-muted-foreground text-xs">
                     {SITE_KIND_LABEL[d.kind]} · {d.files} files · {formatSize(d.bytes)}
+                    {usesLine(d)}
                   </span>
                   <span className="text-muted-foreground ms-auto text-xs" suppressHydrationWarning>
                     {d.createdBy}, {ago(d.createdAt)}
@@ -215,7 +223,13 @@ function Deployments({ site }: { site: Portal }) {
                     </Button>
                   )}
                 </span>
-                {d.error && <span className="text-destructive text-xs">{d.error}</span>}
+                {d.error && <span className={cn("text-xs", d.state === "held" ? "text-warning" : "text-destructive")}>{d.error}</span>}
+                {d.state === "live" &&
+                  [...d.flags, ...d.problems].map((p) => (
+                    <span key={p} className="text-warning text-xs">
+                      {p}
+                    </span>
+                  ))}
               </li>
             ))}
           </ul>

@@ -137,6 +137,34 @@ export function portalRequestEmail(to: string, r: { portal: string; who: string;
   };
 }
 
+/** To a site's admins: something a live build shows may no longer be used (lib/core/sites.ts recheckSites). */
+export function siteProblemsEmail(to: string, s: { site: string; path: string; problems: string[]; url: string }): Draft {
+  return {
+    to,
+    subject: `${s.site} shows what may no longer be used`,
+    lines: [
+      `The build live at ${s.path} on ${s.site} was checked again today, and some of what it shows may no longer be used:`,
+      ...s.problems.slice(0, 10),
+      ...(s.problems.length > 10 ? [`And ${s.problems.length - 10} more.`] : []),
+      "It stays live: deploy a build without them, or restore one that has none.",
+    ],
+    action: { label: "Open the site", url: s.url },
+  };
+}
+
+/** To the operator (SITE_REVIEW_EMAIL): a build that looks like phishing or malware waits, not served, for a person to decide. */
+export function siteHeldEmail(to: string, h: { organization: string; site: string; path: string; deployment: string; flags: string[] }): Draft {
+  return {
+    to,
+    subject: `A build waits for review: ${h.organization}, ${h.site}`,
+    lines: [
+      `A build deployed by ${h.organization} to the site ${h.site}, at ${h.path}, looks like phishing or malware, and is held:`,
+      ...h.flags,
+      `Its deployment is ${h.deployment}. Release it, or refuse it, as the Sites guide says under "Held for review".`,
+    ],
+  };
+}
+
 /** To whoever asked: yes, and their own link. */
 export function portalAccessEmail(to: string, a: { portal: string; organization: string; url: string; until: Date }): Draft {
   return {

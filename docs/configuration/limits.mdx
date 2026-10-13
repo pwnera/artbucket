@@ -18,6 +18,7 @@ next to what they use.
 | `emails` | Emails a day: invitations, share links and tests. Sign-up codes, password resets and portal requests to its own admins never count. Counted in each process's memory | One would be sent: an invitation still gives its link to copy, sending a link or a test answers `429` |
 | `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
+| `siteReview` | A built site that looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download) waits for you instead of going live. For organizations nobody vouches for yet, such as a free tier with open sign-up: set `LIMIT_SITE_REVIEW`, and `"siteReview": false` in a plan's row, which would otherwise take the server's. See [Held for review](/guides/sites#held-for-review) | A build is deployed |
 | `suspended` | A reason, or `true`: nothing it serves reaches the public, and it is read-only. Only in the database, see [Suspending an organization](#suspending-an-organization) | Every request |
 
 Past a limit, the request is refused with `403` and the code `limit_reached`
@@ -45,6 +46,7 @@ LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
 LIMIT_EMAILS=50          # a day
 LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso, branding, domains), or none
+LIMIT_SITE_REVIEW=true    # hold built sites that look like phishing for you to review
 ```
 
 ## For every person

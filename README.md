@@ -122,8 +122,13 @@ storage works: AWS S3, Cloudflare R2, Backblaze B2, MinIO, Garage, SeaweedFS.
   release, roll back. Portals and BrandHub show the release.
 - **Access: who may use it.** Grants down to one asset, so an agency sees its
   slice. Single sign-on in every install, and viewers are never counted.
-- **Portals.** A press kit, partner hub or retailer portal on your own domain,
-  plus share and upload links for people without an account.
+- **Portals and sites.** A press kit, partner hub or retailer portal on your
+  own domain, plus share and upload links for people without an account. Or a
+  site you build anywhere (guidelines, docs, a landing page, a Storybook) and
+  deploy as static files: every file is checked against the library before it
+  goes live and again each day, so a replaced logo or an expired photo is
+  refused and named. A build hosted elsewhere gets the same check in CI
+  ([sites]).
 - **Review.** What agents (by default) and contributors upload or suggest
   waits for a person's yes, and nobody approves their own.
 - **Provenance.** C2PA Content Credentials read on ingest and kept, IPTC/XMP
@@ -171,6 +176,7 @@ reserved for commercial code. See [decision 0013].
 
 [Artbucket Cloud]: https://artbucket.io
 [check]: https://docs.artbucket.io/guides/check
+[sites]: https://docs.artbucket.io/guides/sites
 [brand as code]: https://docs.artbucket.io/guides/brand-as-code
 [catalog]: https://docs.artbucket.io/guides/catalog
 [CLI]: https://docs.artbucket.io/developers/cli

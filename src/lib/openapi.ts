@@ -120,13 +120,25 @@ const Deployment = z.object({
   id: z.uuid(),
   path: z.string().describe("Where it is mounted"),
   kind: z.enum(["guidelines", "landing", "docs", "storybook"]),
-  state: z.enum(["checking", "live", "failed", "replaced"]),
+  state: z.enum(["checking", "live", "failed", "replaced", "held"]).describe("held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"),
   files: z.number().int(),
   bytes: z.number().int(),
   commit: z.string().nullable(),
   ref: z.string().nullable(),
-  error: z.string().nullable().describe("Why it failed"),
+  error: z.string().nullable().describe("Why it failed, or why it is held"),
   manifest: z.record(z.string(), z.unknown()).nullable().describe("artbucket.site.json, when the zip held one"),
+  uses: z
+    .array(
+      z.object({
+        asset: z.uuid(),
+        how: z.enum(["copy", "link", "current", "declared"]).describe("copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"),
+        file: z.string().nullable().describe("The build's file it was found in"),
+      }),
+    )
+    .describe("What it uses of the project's library, found in its files: its lineage"),
+  problems: z.array(z.string()).describe("What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"),
+  flags: z.array(z.string()).describe("Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"),
+  checkedAt: z.string().nullable().describe("When it was last checked"),
   createdBy: z.string(),
   createdAt: z.string(),
 });
@@ -1521,7 +1533,7 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "A site's deployments",
           scope: "write",
-          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.",
+          description: "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.",
           ok: [200, "Deployments", data(z.array(Deployment))],
         }),
         post: {
@@ -1532,8 +1544,9 @@ export function openapi(serverUrl: string) {
               "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in " +
               "the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as " +
               "replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip " +
-              "holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails " +
-              "with the reasons. Served on the site's own address only.",
+              "holds artbucket.site.json, every asset it names is checked too. Every file is matched against the project's library, by its " +
+              "bytes and by the /a/ and /c/ addresses in its HTML, CSS and JS: a copy or a pinned link of a replaced, unapproved or expired " +
+              "asset fails the deployment, naming the file and the replacement. Served on the site's own address only.",
             query: {
               path: { schema: str, description: "Where it is mounted: / (the default) or a path such as /docs" },
               kind: { schema: { type: "string", enum: ["guidelines", "landing", "docs", "storybook"] }, description: "What it is; the site's own kind when left out" },
@@ -1541,6 +1554,33 @@ export function openapi(serverUrl: string) {
               ref: { schema: str, description: "The branch or tag of that commit" },
             },
             ok: [201, "The deployment", data(Deployment)],
+          }),
+          requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
+        },
+      },
+      "/api/v1/sites/check": {
+        post: {
+          ...op({
+            summary: "Check a build hosted anywhere",
+            scope: "read",
+            description:
+              "The body is a zip of a built site (`Content-Type: application/zip`), from a CI job that deploys it somewhere else: " +
+              "Vercel, Netlify, GitHub Pages. It is checked as a deployment would be, and nothing is stored: every file matched " +
+              "against the project's library by its bytes, every /a/ and /c/ address in its HTML, CSS and JS read, and the ids " +
+              "artbucket.site.json names. `allowed` is false when any of it may not be shown, with the reasons in `problems`.",
+            ok: [
+              200,
+              "The verdict",
+              data(
+                z.object({
+                  allowed: z.boolean(),
+                  files: z.number().int(),
+                  uses: Deployment.shape.uses,
+                  problems: z.array(z.string()).describe("Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"),
+                  flags: Deployment.shape.flags,
+                }),
+              ),
+            ],
           }),
           requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
         },

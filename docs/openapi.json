@@ -48714,7 +48714,7 @@
       ],
       "get": {
         "summary": "A site's deployments",
-        "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced), its files and why one failed.\n\nScope: `write`.",
+        "description": "Newest first: where each is mounted, its state (checking, live, failed, replaced, held), its files and why one failed or is held.\n\nScope: `write`.",
         "x-scope": "write",
         "responses": {
           "200": {
@@ -48753,8 +48753,10 @@
                               "checking",
                               "live",
                               "failed",
-                              "replaced"
-                            ]
+                              "replaced",
+                              "held"
+                            ],
+                            "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                           },
                           "files": {
                             "type": "integer",
@@ -48779,7 +48781,7 @@
                             ]
                           },
                           "error": {
-                            "description": "Why it failed",
+                            "description": "Why it failed, or why it is held",
                             "type": [
                               "string",
                               "null"
@@ -48800,6 +48802,64 @@
                             ],
                             "description": "artbucket.site.json, when the zip held one"
                           },
+                          "uses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "asset": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "how": {
+                                  "type": "string",
+                                  "enum": [
+                                    "copy",
+                                    "link",
+                                    "current",
+                                    "declared"
+                                  ],
+                                  "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                                },
+                                "file": {
+                                  "description": "The build's file it was found in",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "asset",
+                                "how",
+                                "file"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "What it uses of the project's library, found in its files: its lineage"
+                          },
+                          "problems": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                          },
+                          "flags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                          },
+                          "checkedAt": {
+                            "description": "When it was last checked",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdBy": {
                             "type": "string"
                           },
@@ -48818,6 +48878,10 @@
                           "ref",
                           "error",
                           "manifest",
+                          "uses",
+                          "problems",
+                          "flags",
+                          "checkedAt",
                           "createdBy",
                           "createdAt"
                         ],
@@ -48870,7 +48934,7 @@
       },
       "post": {
         "summary": "Deploy to a site",
-        "description": "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip holds artbucket.site.json, every asset it names must be approved, current and unexpired, or the deployment fails with the reasons. Served on the site's own address only.\n\nScope: `write`.",
+        "description": "The body is a zip of static files (`Content-Type: application/zip`): a built site with index.html at its root, or in the one folder it wraps. It is unpacked, checked and stored, then live at `path`, the deployment there before kept as replaced. A brand portal's root is drawn by Artbucket: mount a build beside it, at a path such as /docs. When the zip holds artbucket.site.json, every asset it names is checked too. Every file is matched against the project's library, by its bytes and by the /a/ and /c/ addresses in its HTML, CSS and JS: a copy or a pinned link of a replaced, unapproved or expired asset fails the deployment, naming the file and the replacement. Served on the site's own address only.\n\nScope: `write`.",
         "x-scope": "write",
         "parameters": [
           {
@@ -48947,8 +49011,10 @@
                             "checking",
                             "live",
                             "failed",
-                            "replaced"
-                          ]
+                            "replaced",
+                            "held"
+                          ],
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                         },
                         "files": {
                           "type": "integer",
@@ -48973,7 +49039,7 @@
                           ]
                         },
                         "error": {
-                          "description": "Why it failed",
+                          "description": "Why it failed, or why it is held",
                           "type": [
                             "string",
                             "null"
@@ -48994,6 +49060,64 @@
                           ],
                           "description": "artbucket.site.json, when the zip held one"
                         },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                        },
+                        "flags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                        },
+                        "checkedAt": {
+                          "description": "When it was last checked",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "createdBy": {
                           "type": "string"
                         },
@@ -49012,8 +49136,153 @@
                         "ref",
                         "error",
                         "manifest",
+                        "uses",
+                        "problems",
+                        "flags",
+                        "checkedAt",
                         "createdBy",
                         "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites/check": {
+      "post": {
+        "summary": "Check a build hosted anywhere",
+        "description": "The body is a zip of a built site (`Content-Type: application/zip`), from a CI job that deploys it somewhere else: Vercel, Netlify, GitHub Pages. It is checked as a deployment would be, and nothing is stored: every file matched against the project's library by its bytes, every /a/ and /c/ address in its HTML, CSS and JS read, and the ids artbucket.site.json names. `allowed` is false when any of it may not be shown, with the reasons in `problems`.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "The verdict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "files": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Why what it uses may not be shown, each naming the file and, for a replaced asset, its replacement"
+                        },
+                        "flags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "files",
+                        "uses",
+                        "problems",
+                        "flags"
                       ],
                       "additionalProperties": false
                     }
@@ -49133,8 +49402,10 @@
                             "checking",
                             "live",
                             "failed",
-                            "replaced"
-                          ]
+                            "replaced",
+                            "held"
+                          ],
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served"
                         },
                         "files": {
                           "type": "integer",
@@ -49159,7 +49430,7 @@
                           ]
                         },
                         "error": {
-                          "description": "Why it failed",
+                          "description": "Why it failed, or why it is held",
                           "type": [
                             "string",
                             "null"
@@ -49180,6 +49451,64 @@
                           ],
                           "description": "artbucket.site.json, when the zip held one"
                         },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                        },
+                        "flags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                        },
+                        "checkedAt": {
+                          "description": "When it was last checked",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "createdBy": {
                           "type": "string"
                         },
@@ -49198,6 +49527,10 @@
                         "ref",
                         "error",
                         "manifest",
+                        "uses",
+                        "problems",
+                        "flags",
+                        "checkedAt",
                         "createdBy",
                         "createdAt"
                       ],

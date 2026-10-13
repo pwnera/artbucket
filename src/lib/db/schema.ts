@@ -33,7 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
-import type { BuildKind, DeploymentState, SiteKind } from "@/lib/sites";
+import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
 
 export type AssetStatus = Status;
 
@@ -1128,10 +1128,18 @@ export const siteDeployments = pgTable(
     files: integer("files").notNull().default(0),
     bytes: bigint("bytes", { mode: "number" }).notNull().default(0),
     manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
+    uses: jsonb("uses").$type<SiteUse[] | null>(),
+    /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */
+    problems: jsonb("problems").$type<string[]>().notNull().default([]),
+    /** Signs it looks like phishing or malware (lib/site-safety.ts), one line each: held for the operator, or live with them noted. */
+    flags: jsonb("flags").$type<string[]>().notNull().default([]),
+    /** When a live deployment was last checked again. */
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
     /** Where it came from, when a build says: a commit and its ref. */
     commit: text("commit"),
     ref: text("ref"),
-    /** Why the check failed, in words. */
+    /** Why the check failed, or why it is held, in words. */
     error: text("error"),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1139,7 +1147,7 @@ export const siteDeployments = pgTable(
   (t) => [
     index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
     uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
-    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced')`),
+    check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held')`),
     check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
 );
@@ -1681,8 +1689,11 @@ export const catalogEdges = pgView("catalog_edges", {
       join ${brands} s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)
     where b.forked_from is not null
     union all
+    select distinct (u ->> 'asset')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(d.uses) u
+    where d.state = 'live' and jsonb_typeof(d.uses) = 'array' and (u ->> 'asset') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    union all
     select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from ${siteDeployments} d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x
-    where d.state = 'live' and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    where d.state = 'live' and d.uses is null and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     union all
     select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
     where d.state = 'live'`,

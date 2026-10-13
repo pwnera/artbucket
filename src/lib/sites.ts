@@ -22,7 +22,8 @@ export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   storybook: "Storybook",
 };
 
-export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced"] as const;
+/** `held`: it looks like phishing or malware and waits for the operator (lib/site-safety.ts), its files kept but not served. */
+export const DEPLOYMENT_STATES = ["checking", "live", "failed", "replaced", "held"] as const;
 export type DeploymentState = (typeof DEPLOYMENT_STATES)[number];
 
 /**
@@ -32,6 +33,37 @@ export type DeploymentState = (typeof DEPLOYMENT_STATES)[number];
 export function mountPath(raw: string): string | null {
   const p = raw.trim().replace(/\/+$/, "") || "/";
   return p === "/" || /^(\/[a-z0-9][a-z0-9-]{0,62}){1,4}$/.test(p) ? p : null;
+}
+
+/**
+ * What a build uses from the library, kept on its deployment (lib/core/sites.ts):
+ * its lineage, and what the daily re-check weighs again.
+ *
+ * - `copy`: a file of the build is the asset's own bytes, so it shows that
+ *   version for as long as the build is live
+ * - `link`: `/a/{id}`, pinned to that version
+ * - `current`: `/c/{id}`, which follows the stack; `asset` is the version
+ *   current when it deployed
+ * - `declared`: named by the build's artbucket.site.json
+ */
+export type SiteUse = { asset: string; how: "copy" | "link" | "current" | "declared"; file: string | null };
+
+const READS = /\.(html?|css|m?js|json|svg|xml|md|txt)$/i;
+/** Files read for the library's addresses: text a browser runs or shows, up to 2 MB (a larger bundle is left out). */
+export const readsLinks = (name: string, size: number) => READS.test(name) && size <= 2_000_000;
+
+const ADDRESS = /\/([ac])\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-z-])/gi;
+
+/**
+ * The library's addresses a text names, on any host or none: `/a/{id}` pins
+ * a version, `/c/{id}` follows the current one. Ids only; whether they are
+ * this project's assets is the database's to say.
+ */
+export function assetAddresses(text: string): { pinned: string[]; current: string[] } {
+  const pinned = new Set<string>();
+  const current = new Set<string>();
+  for (const m of text.matchAll(ADDRESS)) (m[1].toLowerCase() === "a" ? pinned : current).add(m[2].toLowerCase());
+  return { pinned: [...pinned], current: [...current] };
 }
 
 /** A deployment's limits: files in the zip, and bytes once unpacked. */
@@ -105,3 +137,12 @@ export function candidates(rest: string): string[] {
  */
 export const servesBuild = (site: { kind: string; mounts: string[] }, rest: string) =>
   site.kind !== "portal" || site.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`)));
+
+/**
+ * The name of a password site's door cookie (lib/core/sites.ts). Over HTTPS
+ * it carries the `__Host-` prefix: the browser takes it only from the site's
+ * own host, never with a Domain, so another site under PORTAL_DOMAIN, whose
+ * scripts run on a sibling host of the same domain, can neither set it nor
+ * shadow it. Plain HTTP, in development, can't carry the prefix.
+ */
+export const unlockCookie = (secure: boolean) => (secure ? "__Host-ab_site" : "ab_site");

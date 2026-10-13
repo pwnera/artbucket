@@ -7,6 +7,7 @@ import { hostFontsBackfill } from "@/lib/core/brand";
 import { rollUp } from "@/lib/core/events";
 import { sweepTokens } from "@/lib/core/oauth";
 import { reprove } from "@/lib/core/reproof";
+import { recheckSites } from "@/lib/core/sites";
 import { BYTES_LOCK, deleteObject, ensureBucket, listObjects, originalKey, putObject, RENDITION_DAYS } from "@/lib/storage";
 
 /**
@@ -140,9 +141,9 @@ export async function sweep() {
     await deleteObject(o.key);
     removed++;
   }
-  // A deployment's files live under sites/{site}/{deployment}/: kept while it is live, replaced or still landing.
+  // A deployment's files live under sites/{site}/{deployment}/: kept while it is live, replaced, held for review or still landing.
   const builds = new Set(
-    (await db.select({ id: siteDeployments.id }).from(siteDeployments).where(inArray(siteDeployments.state, ["checking", "live", "replaced"]))).map((d) => d.id),
+    (await db.select({ id: siteDeployments.id }).from(siteDeployments).where(inArray(siteDeployments.state, ["checking", "live", "replaced", "held"]))).map((d) => d.id),
   );
   for await (const o of listObjects("sites/")) {
     const deployment = o.key.split("/")[2];
@@ -157,7 +158,8 @@ const EVERY_MS = 6 * 60 * 60 * 1000;
 
 /**
  * At boot, then every six hours, with Insights' daily rollup, the domains'
- * re-check, agents' tokens past renewal (lib/core/oauth.ts sweepTokens) and
+ * re-check, live builds checked again for what they show (lib/core/sites.ts
+ * recheckSites), agents' tokens past renewal (lib/core/oauth.ts sweepTokens) and
  * a batch of the brands still waiting for their Google faces' files
  * (lib/core/brand.ts hostFontsBackfill); a failed run is logged and tried
  * again next time.
@@ -171,6 +173,9 @@ export function scheduleSweep() {
     sweepTokens()
       .then(({ keys, clients }) => (keys || clients) && console.info(`[artbucket] Swept ${keys} agent tokens past renewal and ${clients} unused OAuth clients`))
       .catch((err) => console.warn("[artbucket] Token sweep stopped:", err instanceof Error ? err.message : err));
+    recheckSites()
+      .then(({ checked, troubled }) => troubled && console.info(`[artbucket] Checked ${checked} live builds again: ${troubled} show what may no longer be used`))
+      .catch((err) => console.warn("[artbucket] Site re-check stopped:", err instanceof Error ? err.message : err));
     hostFontsBackfill()
       .then((n) => n && console.info(`[artbucket] Hosted the Google Fonts faces of ${n} brands`))
       .catch((err) => console.warn("[artbucket] Font backfill stopped:", err instanceof Error ? err.message : err));

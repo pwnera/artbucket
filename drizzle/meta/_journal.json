@@ -477,6 +477,27 @@
       "when": 1791716558845,
       "tag": "0067_feature_switches",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1791871312074,
+      "tag": "0068_site_uses",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1791871512407,
+      "tag": "0069_site_rechecks",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1791871973725,
+      "tag": "0070_site_review",
+      "breakpoints": true
     }
   ]
 }

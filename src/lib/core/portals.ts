@@ -1075,8 +1075,8 @@ export async function publicPortalsShowing(ws: string, assetId: string) {
   return showing;
 }
 
-/** Admins who hear about a request: the project's and the organization's. */
-async function adminsOf(p: Row) {
+/** Admins who hear about a portal's requests, or a live build's problems (lib/core/sites.ts): the project's and the organization's. */
+export async function adminsOf(p: Pick<Row, "projectId">) {
   const ws = await projectById(p.projectId);
   if (!ws) return [];
   const rows = await db

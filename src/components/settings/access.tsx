@@ -682,6 +682,8 @@ const SAYS: Record<AuditAction, string> = {
   "portal.request_denied": "turned down for a portal",
   "portal.request_removed": "took portal access from",
   "site.deployed": "deployed to the site",
+  "site.problems": "found what a live build may no longer show on",
+  "site.held": "deployed, held for review, to the site",
   "domain.added": "added the domain",
   "domain.verified": "verified the domain",
   "domain.unverified": "unverified the domain",

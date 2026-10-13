@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BUILD_KINDS, candidates, contentTypeOf, mountPath, servesBuild, siteFiles } from "./sites.ts";
+import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, mountPath, readsLinks, servesBuild, siteFiles, unlockCookie } from "./sites.ts";
 
 test("a mount path is / or lowercase segments, no trailing slash", () => {
   assert.equal(mountPath("/"), "/");
@@ -38,4 +38,19 @@ test("a site's own address serves its build where one is mounted, and the portal
   assert.equal(servesBuild(press, "/docs/start"), true);
   assert.equal(servesBuild(press, "/docsy"), false);
   assert.equal(servesBuild({ kind: "docs", mounts: [] }, ""), true);
+});
+
+test("the door's cookie is host-only over HTTPS, so a sibling site can't set or shadow it", () => {
+  assert.equal(unlockCookie(true), "__Host-ab_site");
+  assert.equal(unlockCookie(false), "ab_site");
+});
+
+test("a build's text names the library by /a/ (pinned) and /c/ (current), on any host or none", () => {
+  const a = "0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f";
+  const c = "9f1e0d2c-3b4a-4c5d-8e6f-7a8b9c0d1e2f";
+  const html = `<img src="https://app.example.com/a/${a}/w_800,f_webp"><img src="/c/${c.toUpperCase()}"><a href="/a/${a}">x</a> url(/media/${a})`;
+  assert.deepEqual(assetAddresses(html), { pinned: [a], current: [c] });
+  assert.deepEqual(assetAddresses(`/a/${a}0`), { pinned: [], current: [] });
+  assert.ok(readsLinks("index.html", 10) && readsLinks("assets/app.mjs", 10) && readsLinks("style.CSS", 10));
+  assert.ok(!readsLinks("logo.png", 10) && !readsLinks("bundle.js", 3_000_000));
 });

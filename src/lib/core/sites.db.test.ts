@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import sharp from "sharp";
-import { signUp } from "@/test/db";
+import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets } from "@/lib/db/schema";
+import { assets, siteDeployments } from "@/lib/db/schema";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, updatePortal } from "@/lib/core/portals";
-import { deploy, KEEP_REPLACED, listDeployments, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, HELD_DAYS, KEEP_REPLACED, listDeployments, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -99,4 +99,164 @@ test("builds count as storage, and only a few replaced are kept per path", async
   const list = (await listDeployments(ada.caller, site.id))!;
   assert.deepEqual(list.map((d) => d.state), ["live", ...Array(KEEP_REPLACED).fill("replaced")]);
   assert.equal((await usageOf(ada.caller)).used.storage - before, (KEEP_REPLACED + 1) * 1000);
+});
+
+test("every file is matched against the library: a copy or a pinned link of a replaced or expired asset fails, with no manifest", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const oldBytes = await png("#a1b2c3");
+  const old = (await ingestBytes(ada.caller, { bytes: oldBytes, mime: "image/png", filename: "logo-2024.png" })).asset;
+  const now = (await ingestBytes(ada.caller, { bytes: await png("#c3b2a1"), mime: "image/png", filename: "logo-2026.png" })).asset;
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const site = await createPortal(ada.caller, { name: "Scanned", slug: `scanned-${Date.now().toString(36)}`, kind: "landing" });
+  const files = (extra: Record<string, Uint8Array | string>) =>
+    zip(Object.entries({ "index.html": "<h1>hi</h1>", ...extra }).map(([name, d]) => ({ name, data: typeof d === "string" ? text(d) : d })));
+
+  // A copied file: refused, naming the file and what replaced it.
+  await assert.rejects(deploy(ada.caller, site.id, files({ "img/logo.png": oldBytes })), (e: Error) => /logo-2024\.png was replaced by logo-2026\.png/.test(e.message) && /img\/logo\.png is a copy of it/.test(e.message) && e.message.includes(now.id));
+  // A pinned link to the old version: refused too.
+  await assert.rejects(deploy(ada.caller, site.id, files({ "index.html": `<img src="/a/${old.id}/w_200">` })), /index\.html links it/);
+  // An expired license, through a link.
+  const photo = (await ingestBytes(ada.caller, { bytes: await png("#0f0f0f"), mime: "image/png", filename: "photo.png" })).asset;
+  await db.update(assets).set({ rights: { license: "RM", territories: [], channels: [], embargo: null, expires: "2020-01-01", modelRelease: null } }).where(eq(assets.id, photo.id));
+  await assert.rejects(deploy(ada.caller, site.id, files({ "about.html": `<img src="https://app.example.com/a/${photo.id}">` })), /photo\.png can't be used: License expired after 2020-01-01: about\.html links it/);
+
+  // /c/ follows the stack, so the old id there shows the new logo: live, and its lineage is the version it serves.
+  const d = (await deploy(ada.caller, site.id, files({ "index.html": `<img src="/c/${old.id}">`, "css/site.css": "body{}" })))!;
+  assert.equal(d.state, "live");
+  assert.deepEqual(d.uses, [{ asset: now.id, how: "current", file: "index.html" }]);
+  const l = (await lineage(ada.caller, now.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(l.edges.some((e) => e.to === site.id && e.kind === "built"));
+
+  // A copy of what may be used goes live, and is lineage too.
+  const ok = (await deploy(ada.caller, site.id, files({ "logo.png": await png("#c3b2a1") })))!;
+  assert.deepEqual(ok.uses, [{ asset: now.id, how: "copy", file: "logo.png" }]);
+});
+
+test("an address of an asset that isn't the project's is left alone", async () => {
+  const site = await createPortal(ada.caller, { name: "Elsewhere", slug: `elsewhere-${Date.now().toString(36)}`, kind: "docs" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": `<img src="https://other.example/a/0b6c2f0e-6a52-4a5e-9d3b-1f1a2c3d4e5f">` })))!;
+  assert.equal(d.state, "live");
+  assert.deepEqual(d.uses, []);
+});
+
+test("live builds are checked again: a license that ended since shows on the deployment, and clears once fixed", async () => {
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#5a5a10" } }).png().toBuffer();
+  const photo = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "campaign.png" })).asset;
+  const rights = (expires: string) => ({ license: "RM", territories: [], channels: [], embargo: null, expires, modelRelease: null });
+  await db.update(assets).set({ rights: rights("2099-01-01") }).where(eq(assets.id, photo.id));
+  const site = await createPortal(ada.caller, { name: "Campaign", slug: `campaign-${Date.now().toString(36)}`, kind: "landing" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": `<img src="/a/${photo.id}/w_800">` })))!;
+  assert.deepEqual(d.problems, []);
+
+  // The license ends; the next re-check of a build due for one says so, and the build stays live.
+  await db.update(assets).set({ rights: rights("2026-01-01") }).where(eq(assets.id, photo.id));
+  await db.update(siteDeployments).set({ checkedAt: null }).where(eq(siteDeployments.id, d.id));
+  const run = await recheckSites("2026-06-01");
+  assert.ok(run.checked >= 1 && run.troubled >= 1);
+  const [after] = (await listDeployments(ada.caller, site.id))!;
+  assert.equal(after.state, "live");
+  assert.deepEqual(after.problems, ["campaign.png can't be used: License expired after 2026-01-01: index.html links it"]);
+
+  // Renewed, the next re-check clears it; one checked lately waits its turn.
+  await db.update(assets).set({ rights: rights("2099-01-01") }).where(eq(assets.id, photo.id));
+  await recheckSites("2026-06-01");
+  assert.equal((await listDeployments(ada.caller, site.id))![0].problems.length, 1);
+  await db.update(siteDeployments).set({ checkedAt: null }).where(eq(siteDeployments.id, d.id));
+  await recheckSites("2026-06-01");
+  assert.deepEqual((await listDeployments(ada.caller, site.id))![0].problems, []);
+});
+
+test("a build hosted elsewhere is checked the same way, and nothing is stored", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const oldBytes = await png("#2b3c4d");
+  const old = (await ingestBytes(ada.caller, { bytes: oldBytes, mime: "image/png", filename: "badge-v1.png" })).asset;
+  const now = (await ingestBytes(ada.caller, { bytes: await png("#4d3c2b"), mime: "image/png", filename: "badge-v2.png" })).asset;
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const files = (f: Record<string, Uint8Array | string>) => zip(Object.entries(f).map(([name, d]) => ({ name, data: typeof d === "string" ? text(d) : d })));
+  const before = (await usageOf(ada.caller)).used.storage;
+
+  const refused = await checkBuild(ada.caller, files({ "out/docs/img/badge.png": oldBytes, "out/docs/page.html": "no index needed" }));
+  assert.equal(refused.allowed, false);
+  assert.equal(refused.files, 2);
+  assert.match(refused.problems[0], /badge-v1\.png was replaced by badge-v2\.png .*docs\/img\/badge\.png is a copy of it/);
+
+  const fine = await checkBuild(ada.caller, files({ "index.html": `<img src="/c/${old.id}">` }));
+  assert.deepEqual(fine, { allowed: true, files: 1, uses: [{ asset: now.id, how: "current", file: "index.html" }], problems: [], flags: [] });
+  await assert.rejects(checkBuild(ada.caller, files({ "artbucket.site.json": "{not json" })), /isn't JSON/);
+  assert.equal((await usageOf(ada.caller)).used.storage, before);
+});
+
+test("a build that looks like phishing is held where the operator reviews, live with its flags elsewhere, and released by the operator", async () => {
+  const fake = `<title>Sign in</title><h1>Microsoft</h1><form action="https://collect.example/p"><input type="email"><input type="password"></form>`;
+  const newsletter = `<h1>Acme docs</h1><form action="https://list.example/subscribe"><input type="email" name="email"></form>`;
+
+  // Here nobody reviews: it goes live, its flags noted.
+  const open = await createPortal(ada.caller, { name: "Open", slug: `open-${Date.now().toString(36)}`, kind: "landing" });
+  const live = (await deploy(ada.caller, open.id, pack({ "index.html": fake })))!;
+  assert.equal(live.state, "live");
+  assert.deepEqual(live.flags, ["index.html asks for a password, on a page that looks like Microsoft's"]);
+
+  // A new organization on a tier the operator reviews.
+  const eve = await signUp("Sitereview");
+  await plan(eve.caller.project.organizationId, { siteReview: true });
+  const site = await createPortal(eve.caller, { name: "Login", slug: `login-${Date.now().toString(36)}`, kind: "landing" });
+  const held = (await deploy(eve.caller, site.id, pack({ "index.html": fake })))!;
+  assert.equal(held.state, "held");
+  assert.match(held.error!, /^Held for review: index\.html asks for a password, on a page that looks like Microsoft's/);
+  assert.equal(await siteFile(site.slug, {}, "/"), null);
+  // A newsletter form is a brand's site like any other.
+  const docs = await createPortal(eve.caller, { name: "News", slug: `news-${Date.now().toString(36)}`, kind: "docs" });
+  assert.equal((await deploy(eve.caller, docs.id, pack({ "index.html": newsletter })))!.state, "live");
+
+  // The operator releases it, with the statements the guide gives.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`update site_deployments set state = 'replaced'
+      where state = 'live' and (site_id, path) = (select site_id, path from site_deployments where id = ${held.id} and state = 'held')`);
+    await tx.execute(sql`update site_deployments set state = 'live', error = null where id = ${held.id} and state = 'held'`);
+  });
+  assert.equal((await siteFile(site.slug, {}, "/"))?.status, 200);
+});
+
+test("a copy of a draft is the site's own; a restored build is checked as it comes back; a held one nobody reviews is refused", async () => {
+  const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
+  const bytes = await png("#77aa11");
+  const draft = (await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "wip.png" })).asset;
+  await db.update(assets).set({ status: "draft" }).where(eq(assets.id, draft.id));
+  const site = await createPortal(ada.caller, { name: "Drafty", slug: `drafty-${Date.now().toString(36)}`, kind: "landing" });
+  const first = (await deploy(ada.caller, site.id, zip([{ name: "index.html", data: text("hi") }, { name: "wip.png", data: bytes }])))!;
+  assert.equal(first.state, "live");
+  // A link to it is the library's word, though: refused.
+  await assert.rejects(deploy(ada.caller, site.id, pack({ "index.html": `<img src="/a/${draft.id}">` })), /wip\.png isn't approved/);
+
+  // Replaced by a second build, then the library archives a photo the first one copied: restoring it says so at once.
+  const photo = (await ingestBytes(ada.caller, { bytes: await png("#1188aa"), mime: "image/png", filename: "team.png" })).asset;
+  const one = (await deploy(ada.caller, site.id, zip([{ name: "index.html", data: text("v1") }, { name: "team.png", data: await png("#1188aa") }])))!;
+  await deploy(ada.caller, site.id, pack({ "index.html": "v2" }));
+  await db.update(assets).set({ status: "archived" }).where(eq(assets.id, photo.id));
+  const back = (await restoreDeployment(ada.caller, site.id, one.id))!;
+  assert.equal(back.state, "live");
+  assert.deepEqual(back.problems, ["team.png is archived: team.png is a copy of it"]);
+
+  // Held past HELD_DAYS: refused by the re-check, its files no longer kept.
+  const eve = await signUp("Heldlong");
+  await plan(eve.caller.project.organizationId, { siteReview: true });
+  const shady = await createPortal(eve.caller, { name: "Shady", slug: `shady-${Date.now().toString(36)}`, kind: "landing" });
+  const held = (await deploy(eve.caller, shady.id, pack({ "index.html": `<input type="password">` })))!;
+  assert.equal(held.state, "held");
+  await db.update(siteDeployments).set({ createdAt: new Date(Date.now() - (HELD_DAYS + 1) * 864e5) }).where(eq(siteDeployments.id, held.id));
+  await recheckSites();
+  const [after] = (await listDeployments(eve.caller, shady.id))!;
+  assert.equal(after.state, "failed");
+  assert.match(after.error!, /Not reviewed within 14 days/);
+});
+
+test("a check names only what the caller may see: a private asset's copy is not theirs to hear about", async () => {
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#33aa77" } }).png().toBuffer();
+  const secret = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "unannounced.png" })).asset;
+  await db.update(assets).set({ private: true, status: "archived" }).where(eq(assets.id, secret.id));
+  const files = zip([{ name: "x.png", data: png }]);
+  // An admin hears about it; a reader of the project, for whom it is private, gets nothing of it back.
+  assert.equal((await checkBuild(ada.caller, files)).allowed, false);
+  const reader = { ...ada.caller, scope: "read" as const };
+  assert.deepEqual(await checkBuild(reader, files), { allowed: true, files: 1, uses: [], problems: [], flags: [] });
 });
