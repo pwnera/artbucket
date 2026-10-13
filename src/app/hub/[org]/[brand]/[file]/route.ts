@@ -17,15 +17,16 @@ import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
  * rule, its files as signed URLs), /llms.txt (the same in words), and
  * /tokens?format=css (lib/tokens.ts, as GET /api/v1/brand/tokens; ?context=
  * resolves for one), and /badge.svg for a README ("Acme | @4", lib/hub.ts hubBadge). Files are
- * signed for a day, so a CDN keeps an answer an hour at most.
+ * signed for a day; a CDN keeps an answer five minutes, so a release reaches
+ * agents and sites that load the tokens within minutes.
  *
  * Each read but the badge's is a `pull` for Insights (lib/core/events.ts): the file, the
  * release it came from, the referrer's host. Nobody signs in here, so the
  * reader is nobody in particular. ponytail: what a CDN answers from its
- * cache never reaches here, so behind one this counts at most one read an
- * hour per URL and edge.
+ * cache never reaches here, so behind one this counts at most one read
+ * every five minutes per URL and edge.
  */
-const BASE = { "Cache-Control": "public, max-age=300, s-maxage=3600", "Access-Control-Allow-Origin": "*" };
+const BASE = { "Cache-Control": "public, max-age=300, s-maxage=300", "Access-Control-Allow-Origin": "*" };
 const missing = (message: string) => Response.json({ error: { code: "not_found", message } }, { status: 404, headers: BASE });
 
 export async function GET(req: Request, { params }: { params: Promise<{ org: string; brand: string; file: string }> }) {
