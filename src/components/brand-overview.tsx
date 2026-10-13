@@ -19,8 +19,8 @@ import { useCountUp } from "@/lib/motion";
  * the prototype's repository page draws it): under the header ((tabs)/layout.tsx), what it is
  * (its line, where it came from), the card readers see
  * (components/brand-card.tsx, BrandHub's) and its latest release with what
- * that changed; beside them the Brand Agent Score and the signals that say
- * it is read.
+ * that changed; beside them its health: the Brand Agent Score and the
+ * signals that say it is read, each opening its own page.
  */
 
 /** GET /api/v1/brands/{slug}/insights, as far as the Overview reads it. */
@@ -94,17 +94,7 @@ export function BrandOverview({ brand, rules, status, release, changes, signals,
         </div>
 
         <aside className="grid content-start gap-4">
-          {status && <AgentScore status={status} slug={brand.slug} />}
-
-          {signals && (
-            <Box title="Signals" icon={<IconChartBar />}>
-              <dl className="grid grid-cols-2 gap-3">
-                <Signal label={`BrandHub pulls, ${signals.days} days`} value={signals.pulls} />
-                <Signal label={`portal page views, ${signals.days} days`} value={signals.views} />
-                {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
-              </dl>
-            </Box>
-          )}
+          {(status || signals) && <Health slug={brand.slug} status={status} signals={signals} />}
         </aside>
       </div>
     </>
@@ -180,24 +170,50 @@ export function nextFixes(status: Pick<Status, "score" | "steps">, n = 2) {
 }
 
 /**
- * The Brand Agent Score (lib/readiness.ts), the brand's health meter in place
- * of the launch checklist: the score as a ring, and what the two fixes worth
- * the most would make it, opening the score's own page.
+ * Is the brand in good shape, and is it read: one box. The Brand Agent Score
+ * (lib/readiness.ts) as a ring with what the two fixes worth the most would
+ * make it, then the signals (Insights' summary), each opening its own page.
  */
-function AgentScore({ status, slug }: { status: Status; slug: string }) {
-  const { fixes, to } = nextFixes(status);
+function Health({ slug, status, signals }: { slug: string; status: Status | null; signals: BrandSignals | null }) {
+  const next = status && nextFixes(status);
+  const link = "text-primary-ink text-sm font-medium hover:underline";
   return (
-    <Link href={brandPath(slug, "/score")} className="bg-card hover:border-foreground/30 flex items-center gap-4 rounded-xl border p-4">
-      <ScoreRing score={status.score} />
-      <div className="grid gap-0.5">
-        <h2 className="flex items-center gap-1.5 font-medium [&_svg]:size-4">
-          <IconRobot aria-hidden /> Brand Agent Score
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          {fixes.length ? `${fixes.length} ${fixes.length === 1 ? "fix" : "fixes"} would get you to ${to}` : "Everything an agent needs is here."}
-        </p>
-      </div>
-    </Link>
+    <section aria-labelledby="health" className="bg-card grid gap-4 rounded-xl border p-4">
+      <h2 id="health" className="font-medium">
+        Health
+      </h2>
+      {status && next && (
+        <div className="flex items-center gap-4">
+          <ScoreRing score={status.score} size={72} />
+          <div className="grid gap-1">
+            <p className="flex items-center gap-1.5 text-sm font-medium [&_svg]:size-4">
+              <IconRobot aria-hidden /> Brand Agent Score
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {next.fixes.length ? `${next.fixes.length} ${next.fixes.length === 1 ? "fix" : "fixes"} would get you to ${next.to}` : "Everything an agent needs is here."}
+            </p>
+            <Link href={brandPath(slug, "/score")} className={link}>
+              Score details
+            </Link>
+          </div>
+        </div>
+      )}
+      {signals && (
+        <div className="grid gap-3 border-t pt-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium [&_svg]:size-4">
+            <IconChartBar aria-hidden /> Read in the last {signals.days} days
+          </p>
+          <dl className="grid grid-cols-2 gap-3">
+            <Signal label="BrandHub pulls" value={signals.pulls} />
+            <Signal label="portal page views" value={signals.views} />
+            {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
+          </dl>
+          <Link href={brandPath(slug, "/insights")} className={link}>
+            All insights
+          </Link>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -33,10 +33,12 @@ link out in a popover (portals only for whoever manages them), and the
 release's note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
 BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand), **Edit** (the
 builder, where you are: at the page on show from Guidelines, in its Rules
-panel from Rules) and, while readers don't see the latest, **Release** beside it. The page is
-read-only, and every tab stays in it, under the same header (folded to one
+panel from Rules) and, while readers don't see the latest, **Release** beside it, the one
+filled button; the rest is in the brand's menu at the header's end (Theme, Insights, Settings,
+Connect Git, pinning it to the sidebar, opening it in the catalog). Every tab stays in the page,
+under the same header (folded to one
 line over Guidelines, the tabs inline or, when narrow, in a menu on the
-brand's name, so the pages get the screen): Overview,
+brand's name, so the pages get the screen). Six tabs, one job each: Overview,
 Guidelines (the brand's pages as readers see them, at `/brands/{slug}/guidelines`:
 the live release, or the draft to whoever may edit it while it has
 unreleased changes, always labeled, with a switch between them),
@@ -46,12 +48,13 @@ tokens in every format above them, at `/brands/{slug}/rules`), Assets (the files
 pages show, at `/brands/{slug}/assets`, from `GET /api/v1/brands/{slug}/assets`),
 Releases, Sharing (who reads it outside the team, at `/brands/{slug}/sharing`:
 BrandHub, public or private, the portals showing it with the one BrandHub
-links as its guidelines, and the addresses agents and code read),
-Insights (at `/brands/{slug}/insights`) and Settings (its name, address and domain,
+links as its guidelines, and the addresses agents and code read). In the menu:
+Theme (the look of its pages, at `/brands/{slug}/theme`), Insights (at `/brands/{slug}/insights`;
+its summary is the Overview's Health) and Settings (its name, address and domain,
 the default, its repository, deleting it, at `/brands/{slug}/settings`). The Overview says what the brand is (its line, the usage terms of
 the portal BrandHub links, the BrandHub brand it started from), its colors,
-its latest release with what it changed, the Brand Agent Score, its signals
-and its typefaces. Its
+its latest release with what it changed, its typefaces, and its Health: the
+Brand Agent Score and the signals that say it is read, each opening its own page. Its
 guidelines, edited in the builder at `/brands/{slug}/guidelines/edit`
 (`?focus=1` on the reader shows the pages on their own), are drawn from those records
 and edited in place:
