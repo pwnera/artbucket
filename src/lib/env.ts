@@ -70,6 +70,13 @@ const schema = z.object({
    */
   SITE_BUILD_URL: z.string().url().optional(),
   /**
+   * Shared with an edge in front of the server (a CDN Worker) that serves
+   * public builds from storage itself: it asks GET /api/v1/sites/edge?host=
+   * with it in X-Edge-Secret. Unset: that endpoint answers 404, and every
+   * build is served through the server.
+   */
+  EDGE_SECRET: z.string().min(32).optional(),
+  /**
    * The guidelines builder: `on`, or `read-only`, where Edit opens the pages
    * as readers see them with the three ways to change them (an agent over
    * MCP, Git, Eject to code). The pages API and MCP write pages either way.

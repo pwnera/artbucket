@@ -4,6 +4,7 @@ import { enterPortal, passOf } from "@/lib/core/portals";
 import { keyDoor, letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
 import { ENTER_PATH, unlockCookie } from "@/lib/sites";
 import { localPath } from "@/lib/markdown";
+import { siteHeaders } from "@/lib/site-serve";
 import { getStream } from "@/lib/storage";
 
 /**
@@ -112,31 +113,8 @@ export async function POST(req: Request, ctx: Params) {
   });
 }
 
-/**
- * The headers a build's answer carries: the server's own, then its _headers
- * (lib/site-rules.ts), added beside them. Its own Content-Security-Policy is
- * sent beside the server's frame-ancestors, so both hold. A site behind a
- * door is never made cacheable by its rules.
- */
-function own(rules: [string, string][], open: boolean, preview: string | null = null) {
-  const headers = new Headers({
-    "Cache-Control": open ? "public, max-age=60" : "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "frame-ancestors 'self'",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-  });
-  // A preview is for its reviewers, not for search engines, whatever its build says.
-  if (preview) headers.set("X-Robots-Tag", "noindex");
-  for (const [name, value] of rules) {
-    const lower = name.toLowerCase();
-    if (lower === "cache-control") {
-      if (open) headers.set(name, value);
-    } else if (lower === "content-security-policy") headers.append(name, value);
-    else if (lower === "x-content-type-options" || (preview && lower === "x-robots-tag")) continue;
-    else headers.set(name, value);
-  }
-  return headers;
-}
+/** The headers a build's answer carries (lib/site-serve.ts, as an edge in front sends them). */
+const own = siteHeaders;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 

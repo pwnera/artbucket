@@ -148,6 +148,18 @@ registrable domain they can't set cookies a portal reads. A build's path asked
 at the portal's address goes there, and any other path at the build's
 address goes to the portal.
 
+### Served at the edge
+
+An edge in front of the server (a CDN Worker) can serve public builds from
+storage itself, so a page view never reaches the server. Set `EDGE_SECRET` on
+both. The edge asks `GET /api/v1/sites/edge?host=` with it in `X-Edge-Secret`
+and gets the site's mounts, where each deployment's files are stored and its
+redirects and headers, good for `ttl` seconds (a minute at most); it then
+answers exactly as the server would, with the same rules (`lib/site-serve.ts`,
+a module with no dependencies an edge can bundle). `data: null` means "pass the
+request on": a site behind a password or for members, a closed one, a host the
+server redirects. The endpoint is not part of the public API.
+
 ## Redirects and headers
 
 A build carries its own, in the format Netlify and Cloudflare Pages read, so

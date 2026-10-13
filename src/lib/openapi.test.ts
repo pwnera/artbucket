@@ -13,11 +13,13 @@ const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"];
  * is BrandHub's, on a host of its own, documented in guides/portals;
  * /sitefiles is a built site's files, reached only on the site's own host,
  * and /sites/enter the way into a members site's, a redirect for browsers.
+ * /api/v1/sites/edge answers an edge in front of the server, behind
+ * EDGE_SECRET (lib/core/sites.ts edgeRoute): not the public API.
  */
 function routes(): [string, string[]][] {
   return readdirSync(APP, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(`${sep}route.ts`) || f === "route.ts")
-    .filter((f) => !f.startsWith(join("api", "auth")) && !f.startsWith(`hub${sep}`) && !f.startsWith(`sitefiles${sep}`) && !f.startsWith(join("(app)", "sites", "enter")))
+    .filter((f) => !f.startsWith(join("api", "auth")) && !f.startsWith(`hub${sep}`) && !f.startsWith(`sitefiles${sep}`) && !f.startsWith(join("(app)", "sites", "enter")) && !f.startsWith(join("api", "v1", "sites", "edge")))
     .map((f) => {
       const dir = relative(APP, join(APP, f, "..")).split(sep);
       const path =

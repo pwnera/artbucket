@@ -16,7 +16,7 @@ import { rebuildSites } from "@/lib/core/rebuild";
 import { addDomain, hostTarget, portalHome } from "@/lib/core/domains";
 import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
-import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, edgeRoute, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -567,4 +567,29 @@ test("with BUILD_DOMAIN, builds and previews answer there and portals stay on PO
   assert.equal(p.builds, `http://${press.slug}.builds.test:3000`);
   // Nobody claims a name under it.
   await assert.rejects(addDomain(ada.caller, "x.builds.test"), /builds\.test is this server.s/);
+});
+
+test("an edge in front serves a public site's builds itself, at their own host; anything else it passes on", async (t) => {
+  const before = [env.PORTAL_DOMAIN, env.BUILD_DOMAIN];
+  env.PORTAL_DOMAIN = "portals.test";
+  env.BUILD_DOMAIN = "builds.test";
+  t.after(() => void ([env.PORTAL_DOMAIN, env.BUILD_DOMAIN] = before));
+  const site = await createPortal(ada.caller, { name: "Edge", slug: `edge-${Date.now().toString(36)}`, kind: "docs" });
+  const d = (await deploy(ada.caller, site.id, pack({ "index.html": "home", "_redirects": "/old /  301" })))!;
+  await deploy(ada.caller, site.id, pack({ "index.html": "pr" }), { preview: "pr-4" });
+  const host = `${site.slug}.builds.test:3000`;
+  const route = (await edgeRoute(host))!;
+  assert.equal(route.slug, site.slug);
+  assert.equal(route.preview, null);
+  assert.equal(route.ttl, 60);
+  assert.deepEqual(route.mounts.map((m) => [m.path, m.rules?.redirects.length]), [["/", 1]]);
+  assert.ok(route.mounts[0].prefix.includes(d.id), "where the live deployment's files are");
+  // Its preview, at the preview's host.
+  assert.equal((await edgeRoute(`pr-4--${site.slug}.builds.test`))?.preview, "pr-4");
+  // Anywhere else the server answers: its PORTAL_DOMAIN address (a redirect), a name nobody holds.
+  assert.equal(await edgeRoute(`${site.slug}.portals.test`), null);
+  assert.equal(await edgeRoute("nobody.builds.test"), null);
+  // Behind a door, the server keeps the gate.
+  await updatePortal(ada.caller, site.id, { access: "password", password: "open sesame" });
+  assert.equal(await edgeRoute(host), null);
 });
