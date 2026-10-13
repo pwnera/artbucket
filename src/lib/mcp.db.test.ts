@@ -139,3 +139,27 @@ test("create_share makes an upload link into a collection named by name, with a 
   const list = (await call("list_shares")) as unknown as { shares: unknown[] };
   assert.equal(list.shares.length, 1);
 });
+
+test("an agent checks a site it built and deploys it, files as text and base64; a replaced logo is refused, naming it", async () => {
+  const old = await upload("logo-old.png");
+  const bytes = await png();
+  const now = (await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "logo-new.png" })).asset;
+  const { db } = await import("@/lib/db");
+  const { assets } = await import("@/lib/db/schema");
+  const { eq } = await import("drizzle-orm");
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const site = await call("create_site", { name: "Agent docs", kind: "docs", access: "public" });
+  const index = { path: "index.html", content: `<h1>Docs</h1><img src="/a/${old.id}">` };
+
+  const refused = await call("check_site", { files: [index] });
+  assert.equal(refused.allowed, false);
+  assert.match((refused.problems as string[])[0], /logo-old\.png was replaced by logo-new\.png .*index\.html links it/);
+  assert.match((await call("deploy_site", { address: site.slug, files: [index] })).error, /logo-old\.png was replaced/);
+
+  const fixed = [{ path: "index.html", content: "<h1>Docs</h1><img src=\"logo.png\">" }, { path: "logo.png", content: bytes.toString("base64"), base64: true }];
+  assert.equal((await call("check_site", { files: fixed })).allowed, true);
+  const live = await call("deploy_site", { address: site.slug, files: fixed });
+  assert.equal(live.state, "live");
+  assert.deepEqual(live.uses, [{ asset: now.id, how: "copy", file: "logo.png" }]);
+  assert.match(live.url as string, /\/$/);
+});

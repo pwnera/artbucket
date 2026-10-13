@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BUILD_KINDS } from "./sites.ts";
 import { ThemePatch } from "./brand-theme.ts";
 import { ASSET_TYPES } from "./filters.ts";
 import { GOOGLE_FAMILY } from "./font.ts";
@@ -60,6 +61,19 @@ const version = z
   .int()
   .min(1)
   .describe("The version's number, from list_versions");
+/** A build's files as an agent holds them: text as it is, anything else (an image, a font) base64. */
+const siteFiles = z
+  .array(
+    z.strictObject({
+      path: z.string().min(1).max(300).describe("Where it is served, e.g. index.html or assets/logo.svg"),
+      content: z.string().max(5_000_000).describe("The file: text as it is, or base64 with base64: true"),
+      base64: z.boolean().optional().describe("content is base64, for a binary file"),
+    }),
+  )
+  .min(1)
+  .max(500)
+  .describe("Every file of the build, index.html among them; a larger build goes through the CLI (artbucket site push)");
+
 const address = z
   .string()
   .min(1)
@@ -561,6 +575,15 @@ export const TOOL_INPUTS = {
       .describe(
         "members: people with access to the project; password: whoever has `password`; public: anyone with the address",
       ),
+  }),
+
+  check_site: z.strictObject({ files: siteFiles }),
+
+  deploy_site: z.strictObject({
+    address,
+    files: siteFiles,
+    path: z.string().max(200).optional().describe("Where it is mounted: / (the default), or a path such as /docs beside a brand portal's pages"),
+    kind: z.enum(BUILD_KINDS).optional().describe("What it is; the site's own kind when left out, docs beside a brand portal"),
   }),
 
   close_site: z.object({ address }),
