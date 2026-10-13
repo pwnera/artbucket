@@ -119,3 +119,10 @@ export const needs = (action: Action) => {
   const { scope, on } = ACTIONS[action];
   return `${scope} ${on === "anywhere" ? "somewhere in the project" : `on ${on === "organization" || on === "project" ? "the" : "this"} ${on}`}`;
 };
+
+/** Where admin comes from, for a key refused it: never from signing in or a consent (lib/oauth.ts), only a key an admin makes. */
+export const ADMIN_KEY = "Signing in never gives admin: use a key an admin makes in Connections (API keys)";
+
+/** A key's 403: its scope, what this needs and, for admin, where a key with it comes from. */
+export const keyLacks = (scope: Scope | null, action: Action) =>
+  `This key's scope is ${scope ?? "none"}; this needs ${needs(action)}${ACTIONS[action].scope === "admin" ? `. ${ADMIN_KEY}` : ""}`;

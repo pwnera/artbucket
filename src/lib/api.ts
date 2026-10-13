@@ -7,7 +7,7 @@ import { OAuthError } from "@/lib/core/oauth";
 import { hasUsers } from "@/lib/core/people";
 import { env } from "@/lib/env";
 import { formFields } from "@/lib/oauth";
-import { ACTIONS, can, needs, type Action } from "@/lib/permissions";
+import { ACTIONS, can, keyLacks, needs, type Action } from "@/lib/permissions";
 import { brandTarget } from "@/lib/core/brands";
 import { refusedValue } from "@/lib/refused";
 
@@ -99,7 +99,7 @@ export async function authorize(req: Request, need: Need): Promise<Caller | Resp
     return fail(403, "forbidden", `You need ${needs(need)} on this brand`);
   }
   if (caller.readOnly) return fail(403, "read_only", "This organization is read-only");
-  if (caller.key) return fail(403, "forbidden", `This key's scope is ${caller.scope}; this needs ${needs(need)}`);
+  if (caller.key) return fail(403, "forbidden", keyLacks(caller.scope, need));
   if (caller.user) return fail(403, "forbidden", `You need ${needs(need)} in ${caller.project.name}`);
   return fail(401, "unauthorized", `Sign in, or send an API key with ${needs(need)}`, undefined, challenge);
 }
