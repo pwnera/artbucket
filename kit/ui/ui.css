@@ -10,8 +10,9 @@
 .ab-sample { font-size: 4.5rem; line-height: 1; }
 .ab-family { opacity: 0.75; }
 .ab-alphabet { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
-.ab-tile { margin: 0; display: grid; place-items: center; height: 9rem; padding: 1.25rem; border-radius: 0.75rem; background: var(--ab-tile, rgb(0 0 0 / 0.04)); }
-.ab-tile img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ab-tile { margin: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); height: 9rem; padding: 1.25rem; border-radius: 0.75rem; background: var(--ab-tile, rgb(0 0 0 / 0.04)); }
+/* An SVG with only a viewBox has no size of its own: fill the tile and keep its shape. */
+.ab-tile img { width: 100%; height: 100%; object-fit: contain; }
 .ab-verdict { font-weight: 700; color: var(--ab-do, #15803d); }
 .ab-dont .ab-verdict { color: var(--ab-dont, #b91c1c); }
 .ab-dodont p { margin: 0; }
