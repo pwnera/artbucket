@@ -100,7 +100,7 @@ function Editor({ brand, init, transport, header, panel: asked }: BuilderProps) 
   useEffect(() => {
     live.current = b;
   });
-  // Arriving from a brand's tab (Tokens and rules, Releases): its panel, open, and the address back to the page alone.
+  // Arriving from a brand's tab (Rules, Releases): its panel, open, and the address back to the page alone.
   useEffect(() => {
     if (!asked) return;
     live.current.setPanel(asked);

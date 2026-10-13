@@ -20,7 +20,7 @@ export function useBrandTabs(brand: { slug: string; name: string }) {
   const tabs: { id: BrandTab; label: string; href: string }[] = [
     { id: "overview", label: "Overview", href: brandPath(brand.slug) },
     { id: "guidelines", label: "Guidelines", href: guidelinesPath(brand.slug) },
-    { id: "rules", label: "Tokens and rules", href: brandPath(brand.slug, "/rules") },
+    { id: "rules", label: "Rules", href: brandPath(brand.slug, "/rules") },
     ...(can("brand.edit") ? [{ id: "theme" as const, label: "Theme", href: brandPath(brand.slug, "/theme") }] : []),
     { id: "assets", label: "Assets", href: brandPath(brand.slug, "/assets") },
     { id: "releases", label: "Releases", href: brandPath(brand.slug, "/releases") },
