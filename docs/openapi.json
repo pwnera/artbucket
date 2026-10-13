@@ -3293,7 +3293,8 @@
                 "mui",
                 "chakra",
                 "json",
-                "designmd"
+                "designmd",
+                "designsystem"
               ],
               "default": "css"
             },

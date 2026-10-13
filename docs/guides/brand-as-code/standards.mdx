@@ -12,6 +12,7 @@ formats other tools already read, so nobody has to copy a hex code by hand:
 | [W3C design tokens](#w3c-design-tokens) (DTCG) | Style Dictionary, Tokens Studio, Figma importers | `?format=json` |
 | [Stylesheets and themes](#token-formats) | CSS, Sass, Less, Tailwind, TypeScript, shadcn/ui, Material UI, Chakra UI | `?format=css`, and the others |
 | [DESIGN.md](#designmd) | Coding agents | `?format=designmd` |
+| [Claude design system](#claude-design-system) | Claude's Design System artifact | `?format=designsystem` |
 | [llms.txt](#llmstxt) | Any agent that reads the web | BrandHub, `/{org}/{brand}/llms.txt` and `/llms.txt` |
 | [rules.json](#rulesjson) | Anything that wants every rule, losslessly | BrandHub, `/{org}/{brand}/rules.json` |
 | [MCP](#mcp) | Agents that ask questions, in chat apps and editors | `/api/v1/mcp` |
@@ -96,6 +97,7 @@ refuse: name one of them otherwise (`color.primaryDark`).
 | `chakra` | `{brand}.chakra-system.ts` | A Chakra UI 3 system over the defaults |
 | `json` | `{brand}.tokens.json` | [W3C design tokens](#w3c-design-tokens) |
 | `designmd` | `DESIGN.md` | [DESIGN.md](#designmd) |
+| `designsystem` | `tokens.json` | [Claude design system](#claude-design-system) |
 
 Names follow keys: `logo.minClearSpace` is `--logo-min-clear-space` in CSS.
 Colors, numbers, fonts (family, size, weight and their files) and type
@@ -130,6 +132,24 @@ agents. It is the one format that carries guidance as well as values:
 - **Prose:** Overview (text and lists of any other group), Colors,
   Typography, Layout, Shapes, and Do's and Don'ts, from lists whose key reads
   as a do or a don't.
+
+## Claude design system
+
+`format=designsystem` is the `tokens.json` of a design system made from
+Claude's Design System artifact: press **Build from connectors** on an empty
+one with Artbucket connected, and Claude builds it from a brand you pick
+(the MCP server tells it how).
+
+- **Colors** in one theme, each with its usage note.
+- **Type:** a family per face, a style per face with a size and per step of
+  a type scale, and each font file as `fonts/{file}`. The files are private,
+  so `meta.files` names where each one is fetched from.
+- **Numbers:** `radius` and `spacing` by name, as in DESIGN.md; any other
+  under its group (`logo.minSize` under `logo`). Gradients under `gradient`.
+- **`meta`:** `source: "artbucket"` and the brand, so a later sync finds it.
+
+Guidance stays out, as in every format but DESIGN.md: Claude writes the
+system's README from the brand's rules.
 
 ## llms.txt
 

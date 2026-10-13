@@ -531,6 +531,74 @@ export function toDesignMd(rules: TokenRule[], { title }: Opts) {
   return [...front, ...body].join("\n");
 }
 
+// ---- Claude design system ------------------------------------------------------
+
+/** Families the design system's tokens.json names itself: a rule's section by one of these names goes under "other". */
+const DS_OWN = new Set(["name", "version", "meta", "color", "type", "spacing", "radius", "shadow", "motion"]);
+
+/**
+ * The tokens.json of a design system made from Claude's Design System
+ * artifact type: every family a list of {name, value, usage}, colors in one
+ * theme, fonts as `fonts/<file>` with where to fetch each in `meta.files`
+ * (the agent uploads them; the files are private), the type as styles.
+ * Usage notes travel, do and don't lists don't: the brand book is the
+ * agent's to write from brand_rules. Numbers go to radius and spacing by
+ * name, the rest under their section ("logo"); gradients under "gradient".
+ */
+export function toDesignSystem(rules: TokenRule[], { origin, title }: Opts) {
+  const name = title.split(" design tokens")[0];
+  const hex = stopHex(rules);
+  const usage = (r: TokenRule) => (r.usage ? { usage: r.usage } : {});
+  const fams: Record<string, { name: string; value: string; usage?: string }[]> = {};
+  const add = (fam: string, t: { name: string; value: string; usage?: string }) => (fams[fam] ??= []).push(t);
+
+  const fontsOut: { family: string; file: string; weight: string; style: string }[] = [];
+  const files: { path: string; url: string }[] = [];
+  const families: Record<string, string> = {};
+  const styles: { name: string; family: string; fontSize: string; fontWeight?: number }[] = [];
+  const familyKey = (r: TokenRule) => local(r.key, "type");
+
+  for (const r of rules) {
+    const g = gradientOf(r);
+    // ponytail: past 12 sections the page drops the rest; group them if a brand gets there.
+    if (g) add("gradient", { name: `${local(r.key, "color")}-gradient`, value: gradientCss(g, hex), ...usage(r) });
+    if (r.type === "color") add("color", { name: local(r.key, "color"), value: String(r.value), ...usage(r) });
+    else if (r.type === "number") {
+      const fam = /radius|round|corner/i.test(r.key) ? "radius" : /spac|gap|gutter|margin|padding/i.test(r.key) ? "spacing" : DS_OWN.has(section(r.key)) ? "other" : section(r.key);
+      add(fam, { name: kebab(r.key), value: cssNumber(r), ...usage(r) });
+    } else if (r.type === "font") {
+      const { family, size, weight } = fontValue(r.value);
+      families[familyKey(r)] = `${str(family)}, sans-serif`;
+      for (const a of fontFiles(r)) {
+        const path = `fonts/${a.filename ?? a.id}`;
+        if (files.some((f) => f.path === path)) continue;
+        const s = fontStyle(a.filename ?? "");
+        fontsOut.push({ family, file: path, weight: String(s.weight), style: s.italic ? "italic" : "normal" });
+        files.push({ path, url: fileUrl(origin)(a.id) });
+      }
+      if (size) styles.push({ name: familyKey(r), family: familyKey(r), fontSize: `${size}px`, ...(weight ? { fontWeight: weight } : {}) });
+    } else if (isScale(r)) {
+      const font = setIn(r, rules) ?? roles(rules).body;
+      (r.value as number[]).forEach((n, i) => styles.push({ name: `${local(r.key, "type")}-${i + 1}`, family: font ? familyKey(font) : "", fontSize: `${n}px` }));
+    }
+  }
+
+  const body = roles(rules).body;
+  const group = body ? familyKey(body) : Object.keys(families)[0];
+  return {
+    name,
+    version: 1,
+    meta: { source: "artbucket", brand: name, origin, note: title, files },
+    color: { themes: [{ id: "default", name: "Default" }], tokens: fams.color ?? [] },
+    type: {
+      fonts: fontsOut,
+      families,
+      groups: styles.length && group ? [{ name: "Text", family: group, styles: styles.map((s) => (s.family ? s : { ...s, family: group })) }] : [],
+    },
+    ...Object.fromEntries(Object.entries(fams).filter(([f]) => f !== "color").map(([f, tokens]) => [f, { tokens }])),
+  };
+}
+
 // ---- formats -----------------------------------------------------------------
 
 export type TokenFormat = {
@@ -632,6 +700,14 @@ export const TOKEN_FORMATS = {
     file: () => "DESIGN.md",
     hint: "Tokens and the brand's guidance in one file for coding agents (Google's DESIGN.md). Put it at your repository's root.",
     render: toDesignMd,
+  },
+  designsystem: {
+    label: "Claude design system",
+    group: "Tools",
+    mime: "application/json",
+    file: () => "tokens.json",
+    hint: "tokens.json for a design system made from Claude's Design System artifact. Its fonts are listed in meta.files.",
+    render: (rules, opts) => `${JSON.stringify(toDesignSystem(rules, opts), null, 2)}\n`,
   },
 } satisfies Record<string, TokenFormat>;
 
