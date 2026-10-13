@@ -1123,6 +1123,16 @@ export const portals = pgTable(
  * before it stay `replaced`, to be restored. The files sit in storage under
  * `prefix`; `manifest` is what the build read (its release, rules, assets).
  */
+/**
+ * A members site's tickets already traded for its door's cookie
+ * (lib/core/sites.ts letIn), by their MAC, until they lapse: one opens one
+ * browser, whichever instance it reaches.
+ */
+export const siteTickets = pgTable("site_tickets", {
+  mac: text("mac").primaryKey(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 export const siteDeployments = pgTable(
   "site_deployments",
   {

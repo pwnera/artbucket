@@ -151,13 +151,13 @@ the site's own address, which the app's session can't reach, so a visitor
 there goes to the app to sign in and comes straight back to the page they
 asked for, let in on that browser for 12 hours; after that the trip runs
 again, unseen while they are still signed in. Each page checks again that
-they may still read the project, so someone removed from it is out at
-once. Signing out of the app doesn't close the site on that browser
-before the 12 hours are up. Anyone else is told they aren't a member and
-whom to ask. A members
-site that is all build answers at `{address}.{PORTAL_DOMAIN}` or its own
-domain; a brand portal's own pages stay at `/p/{address}` on the app's,
-and its builds at its address.
+they may still read the project and that their session in the app stands, so
+someone removed from the project, or who signs out, is out at once. Anyone
+else can ask for access there: the site's admins hear about it, as for a
+portal, and an approval mails a link that opens the site for as long as the
+request stands. A members site that is all build answers at
+`{address}.{PORTAL_DOMAIN}` or its own domain; a brand portal's own pages
+stay at `/p/{address}` on the app's, and its builds at its address.
 
 ## What it uses
 

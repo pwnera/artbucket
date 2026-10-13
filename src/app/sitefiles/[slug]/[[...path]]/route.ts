@@ -1,7 +1,7 @@
 import { handle } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
 import { enterPortal, passOf } from "@/lib/core/portals";
-import { letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
+import { keyDoor, letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
 import { ENTER_PATH, unlockCookie } from "@/lib/sites";
 import { localPath } from "@/lib/markdown";
 import { getStream } from "@/lib/storage";
@@ -38,6 +38,18 @@ const doorCookie = (req: Request, value: string, seconds: number) =>
 export async function GET(req: Request, ctx: Params) {
   const { slug, path, rest } = await asked(req, ctx);
   if (rest === ENTER_PATH) return enter(req, slug);
+  // An approved request's link: its key, traded for the door's cookie, and the same page without it.
+  const key = new URL(req.url).searchParams.get("key");
+  if (key) {
+    const value = await keyDoor(slug, key).catch(() => null);
+    if (value) {
+      const q = new URL(req.url).searchParams;
+      q.delete("key");
+      const headers = new Headers({ Location: `${rest}${q.size ? `?${q}` : ""}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+      headers.set("Set-Cookie", doorCookie(req, value, UNLOCK_DAYS * 86400));
+      return new Response(null, { status: 303, headers });
+    }
+  }
   try {
     const f = await siteFile(slug, passOf(req), rest, cookieOf(req, unlockCookie(secure(req))));
     if (!f) return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });

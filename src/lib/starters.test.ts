@@ -56,6 +56,7 @@ test("a landing page: the release's text escaped, its logo copied in, its look f
   assert.match(html, new RegExp(`<img class="logo" src="/assets/${LOGO}.svg" alt="Acme &#38; Co">`));
   assert.match(html, /<title>Rockets, &#60;delivered&#62;\. · Acme &#38; Co<\/title>/);
   assert.match(html, /<nav><\/nav>/);
+  assert.match(html, new RegExp(`<link rel="icon" href="/assets/${LOGO}.svg">`));
   assert.ok(site.has(`assets/${LOGO}.svg`));
   // The starter's MIT notice comes with every site made from it.
   assert.match(readFileSync(join(site.dir, "LICENSE"), "utf8"), /^MIT License\n\nCopyright \(c\) 2026 Artbucket contributors/);

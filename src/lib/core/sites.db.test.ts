@@ -6,16 +6,16 @@ import { eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets, grants, portals, siteDeployments } from "@/lib/db/schema";
+import { assets, grants, portals, sessions, siteDeployments } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { ENTER_PATH } from "@/lib/sites";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
-import { createPortal, getPortal, updatePortal } from "@/lib/core/portals";
+import { createPortal, decideRequest, getPortal, listRequests, requestAccess, updatePortal } from "@/lib/core/portals";
 import { rebuildSites } from "@/lib/core/rebuild";
 import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
-import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { lineage } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
@@ -352,7 +352,7 @@ test("a members site's builds open on its own host for someone who may read the 
   assert.equal(await membersDoor(club.slug, "/guide?x=1"), `http://localhost:3000/sites/enter?site=${club.slug}&to=%2Fguide%3Fx%3D1`);
 
   // Signed out: sign in first. Signed in: back to the site with a ticket, to the path asked, never another origin.
-  assert.deepEqual(await enterSite(club.slug, new Headers(), "/"), { signIn: true });
+  assert.deepEqual(await enterSite(club.slug, new Headers(), "/"), { signIn: true, name: "Club" });
   const went = await enterSite(club.slug, new Headers({ cookie: ada.cookie }), "//evil.example/x");
   assert.ok("url" in went);
   const back = new URL(went.url);
@@ -360,6 +360,9 @@ test("a members site's builds open on its own host for someone who may read the 
   assert.equal(back.pathname, ENTER_PATH);
   assert.equal(back.searchParams.get("to"), "/");
   const ticket = back.searchParams.get("t")!;
+  // Two asked in the same second are two tickets: a second tab isn't turned away.
+  const twin = await enterSite(club.slug, new Headers({ cookie: ada.cookie }), "/");
+  assert.ok("url" in twin && new URL(twin.url).searchParams.get("t") !== ticket);
 
   // The ticket opens this site once, and no other.
   const other = await createPortal(ada.caller, { name: "Other club", slug: `club2-${Date.now().toString(36)}`, kind: "docs", access: "members" });
@@ -368,11 +371,14 @@ test("a members site's builds open on its own host for someone who may read the 
   assert.ok(cookie);
   assert.equal(await letIn(club.slug, ticket), null);
   // Nor spelled another way: padded, a stray character, the expiry with a leading 0.
-  const [who, exp, mac] = ticket.split(".");
-  for (const again of [`${who}=.${exp}.${mac}`, `${who}$.${exp}.${mac}`, `${who}.0${exp}.${mac}`]) assert.equal(await letIn(club.slug, again), null, again);
+  const [kind, who, exp, mac] = ticket.split(".");
+  for (const again of [`${kind}.${who}=.${exp}.${mac}`, `${kind}.${who}$.${exp}.${mac}`, `${kind}.${who}.0${exp}.${mac}`]) assert.equal(await letIn(club.slug, again), null, again);
   assert.equal(statusOf(await siteFile(club.slug, {}, "/", cookie)), 200);
   await assert.rejects(siteFile(other.slug, {}, "/", cookie), /for members/);
-  await assert.rejects(siteFile(club.slug, {}, "/", `${cookie!.split(".")[0]}.9999999999.forged`), /for members/);
+  await assert.rejects(siteFile(club.slug, {}, "/", `${cookie!.split(".").slice(0, 2).join(".")}.9999999999.forged`), /for members/);
+  // A ticket is no door cookie, nor the other way round.
+  await assert.rejects(siteFile(club.slug, {}, "/", ticket), /for members/);
+  assert.equal(await letIn(club.slug, cookie!), null);
   // A password site's door opens no members site.
   const shut = await createPortal(ada.caller, { name: "Shut too", slug: `shut2-${Date.now().toString(36)}`, kind: "docs", access: "password", password: "open sesame 3" });
   await updatePortal(ada.caller, shut.id, { access: "members" });
@@ -394,6 +400,35 @@ test("a members site's builds open on its own host for someone who may read the 
   assert.equal(statusOf(await siteFile(club.slug, {}, "/", bobs)), 200);
   await db.delete(grants).where(eq(grants.id, grant.id));
   await assert.rejects(siteFile(club.slug, {}, "/", bobs), /for members/);
+
+  // Signing out of the app closes the site too: the cookie names the session.
+  await db.insert(grants).values({ userId: bob.user.id, organizationId: ada.caller.project.organizationId, projectId: ada.caller.project.id, resource: "project", resourceId: ada.caller.project.id, scope: "read" });
+  const again = await enterSite(club.slug, new Headers({ cookie: bob.cookie }), "/");
+  assert.ok("url" in again);
+  const bobsAgain = await letIn(club.slug, new URL(again.url).searchParams.get("t")!);
+  assert.equal(statusOf(await siteFile(club.slug, {}, "/", bobsAgain)), 200);
+  await db.delete(sessions).where(eq(sessions.userId, bob.user.id));
+  await assert.rejects(siteFile(club.slug, {}, "/", bobsAgain), /for members/);
+});
+
+test("an approved request's key opens a site's builds, and stops when the request does", async () => {
+  const shut = await createPortal(ada.caller, { name: "Partners", slug: `partners-${Date.now().toString(36)}`, kind: "docs", access: "members" });
+  await deploy(ada.caller, shut.id, pack({ "index.html": "for partners" }));
+  await requestAccess(shut.slug, { email: "carol@example.com", name: "Carol" }, "203.0.113.9");
+  const [asked] = (await listRequests(ada.caller, shut.id))!;
+  const approved = (await decideRequest(ada.caller, shut.id, asked.id, "approved"))!;
+  const key = new URL(approved.data.url!).searchParams.get("key")!;
+  assert.equal(await keyDoor(shut.slug, "not-the-key"), null);
+  assert.equal(await keyDoor(docs.slug, key), null);
+  const cookie = await keyDoor(shut.slug, key);
+  assert.ok(cookie);
+  assert.equal(statusOf(await siteFile(shut.slug, {}, "/", cookie)), 200);
+  // One site's key opens no other.
+  const elsewhere = await createPortal(ada.caller, { name: "Elsewhere", slug: `elsewhere-${Date.now().toString(36)}`, kind: "docs", access: "members" });
+  await deploy(ada.caller, elsewhere.id, pack({ "index.html": "x" }));
+  await assert.rejects(siteFile(elsewhere.slug, {}, "/", cookie), /for members/);
+  await decideRequest(ada.caller, shut.id, asked.id, "denied");
+  await assert.rejects(siteFile(shut.slug, {}, "/", cookie), /for members/);
 });
 
 test("a release that changes nothing a site's build reads calls no hook; one that does, does", async (t) => {
