@@ -1,13 +1,31 @@
 "use client";
 
-import { CatalogButton } from "@/components/catalog-button";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
-import { IconSparkles, IconChevronDown, IconCircleCheckFilled, IconCopy, IconDownload, IconLock, IconPencil, IconRobot, IconWorld, IconWorldUpload } from "@/components/icons";
+import {
+  IconBrandGit,
+  IconChartBar,
+  IconCheck,
+  IconChevronDown,
+  IconCircleCheckFilled,
+  IconCopy,
+  IconDots,
+  IconDownload,
+  IconLock,
+  IconPalette,
+  IconPencil,
+  IconPin,
+  IconRobot,
+  IconSettings,
+  IconSitemap,
+  IconSparkles,
+  IconWorld,
+  IconWorldUpload,
+} from "@/components/icons";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { BrandTabMenu, BrandTabs, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
+import { BrandTabMenu, BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
@@ -17,6 +35,13 @@ import { AppHeader } from "@/components/page";
 import { TabNav } from "@/components/hub";
 import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { sendResult } from "@/lib/send";
@@ -27,7 +52,8 @@ import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, builderPath } from "@/lib/site";
 import { LinkIcon } from "@/components/link-pending";
-import { PinButton } from "@/components/pin-button";
+import { usePins } from "@/components/sidebar-prefs";
+import { IconButton } from "@/components/icon-button";
 
 /**
  * A brand's header, over every tab of its page (PRD section 12, the brand
@@ -36,10 +62,11 @@ import { PinButton } from "@/components/pin-button";
  * its page there), then how
  * BrandHub names it, what is live, where (BrandHub, its portals: a popover
  * of links out) and whether it is the latest (lib/readiness.ts liveLine,
- * livePlaces), when it was released, and the release's note. Use this brand,
- * Edit (the builder, where you are: the page on show, or its Rules panel
- * from Rules) and Release, while readers don't see the latest, sit
- * at its end, the tabs under it. The brand's page is read-only: Edit is the way into the builder.
+ * livePlaces), when it was released, and the release's note. At its end, few
+ * actions: its repository when it has one, Use this brand, Edit (the page on
+ * show in the builder) and Release, the one filled button, while readers
+ * don't see the latest; the rest in the brand's menu (BrandMenu). The tabs
+ * under it.
  */
 export type BrandHeaderProps = {
   brand: BrandInfo;
@@ -93,19 +120,9 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
   const actions = (
     // Under the name on a phone, the full header's buttons wrap rather than run past the screen's edge.
     <div className={cn("flex shrink-0 items-center gap-2", !compact && "max-w-full flex-wrap")}>
-      <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />
+      {/* Its repository, with whether it is in step: only once there is one. Connecting is in the menu. */}
+      {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
-      {!compact && <PinButton pin={{ id: brand.id, type: "brand", label: brand.name, href: brandPath(brand.slug) }} />}
-      {/* Its lineage, who reaches it and what happened to it: governed in the catalog, with everything else. */}
-      <CatalogButton id={brand.id} name={brand.name} />
-      {/* Pages edited by an agent from here, as the builder retires (PRD part 2): not yet, and said so. */}
-      {can("brand.edit") && (
-        <span title="Edit with AI is coming soon" className="inline-flex">
-          <Button size="sm" variant="outline" disabled aria-label="Edit with AI, coming soon">
-            <IconSparkles aria-hidden /> <span className={word}>Edit with AI</span>
-          </Button>
-        </span>
-      )}
       {can("brand.edit") && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={builderPath(brand.slug, editing)}>
@@ -120,6 +137,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
           </Link>
         </Button>
       )}
+      <BrandMenu brand={brand} at={at} connect={source && !source.source ? source.connect : null} />
     </div>
   );
   // One line over the guidelines: the tabs inline while they fit the header (a container query), else in the menu on the brand's name.
@@ -413,5 +431,68 @@ export function BrandPageHeader({ importing, ...head }: Omit<BrandHeaderProps, "
       <AppHeader trail={[{ label: "Brands", href: "/brands" }, crumb ? { label: name, href: brandPath(slug) } : { label: name }, ...(crumb ? [{ label: crumb }] : [])]} />
       <BrandHeader {...head} at={at} />
     </>
+  );
+}
+
+const MORE_ICON = { theme: IconPalette, insights: IconChartBar, settings: IconSettings } as Partial<Record<BrandTab, typeof IconPalette>>;
+
+/**
+ * The brand's menu, at the end of its header: the pages that aren't tabs
+ * (Theme, Insights, Settings), then what is done to it now and then: keep
+ * it in Git, pin it to the sidebar, open it in the catalog (its lineage and
+ * who reaches it), and Edit with AI, shown and not yet there (SITE-17).
+ */
+function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; connect: string | null | undefined }) {
+  const can = useCan();
+  const more = useBrandMore(brand);
+  const pins = usePins();
+  const pinned = pins.has(brand.id);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton variant="outline" size="icon-sm" label={`More for ${brand.name}`}>
+          <IconDots />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="app-tokens w-60">
+        {more.map((t) => {
+          const Icon = MORE_ICON[t.id];
+          return (
+            <DropdownMenuItem key={t.id} asChild>
+              <Link href={t.href} aria-current={t.id === at ? "page" : undefined}>
+                {Icon && <Icon aria-hidden />} {t.label}
+                {t.id === at && <IconCheck aria-hidden className="ms-auto" />}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+        {more.length > 0 && <DropdownMenuSeparator />}
+        {connect && can("brand.edit") && (
+          <DropdownMenuItem asChild>
+            <a href={connect}>
+              <IconBrandGit aria-hidden /> Connect Git
+            </a>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={() => pins.toggle({ id: brand.id, type: "brand", label: brand.name, href: brandPath(brand.slug) })}>
+          <IconPin aria-hidden /> {pinned ? "Unpin from the sidebar" : "Pin to the sidebar"}
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/catalog?o=${brand.id}`}>
+            <IconSitemap aria-hidden /> Open in the catalog
+          </Link>
+        </DropdownMenuItem>
+        {can("brand.edit") && (
+          <>
+            <DropdownMenuSeparator />
+            {/* Pages edited by an agent from here, as the builder retires (PRD part 2): not yet, and said so. */}
+            <DropdownMenuItem disabled>
+              <IconSparkles aria-hidden /> Edit with AI
+              <span className="text-muted-foreground ms-auto text-xs">Coming soon</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
