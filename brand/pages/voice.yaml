@@ -11,7 +11,6 @@ sections:
       mark: never
       strip: false
       titleSize: huge
-    tone: dark
   - id: text
     template: cards
     title: Three habits. One voice.
@@ -43,7 +42,6 @@ sections:
         verdict: dont
     props:
       layout: pairs
-    tone: panel
   - id: line
     template: statement
     title: |-
@@ -51,6 +49,7 @@ sections:
       Never unkind.
     body: Be direct with the task and generous with the person doing it.
     width: full
+    tone: plain
   - template: copy
     title: Good lines. Ready to borrow.
     keys:
@@ -79,7 +78,6 @@ sections:
         {link}
 
         {detail}
-    tone: panel
     width: wide
   - id: next
     template: pages

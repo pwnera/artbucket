@@ -60,7 +60,6 @@ sections:
       show: [hex]
       matrix: true
       simulate: true
-    tone: panel
   - id: contexts
     template: palette
     title: The same intent, after dark.

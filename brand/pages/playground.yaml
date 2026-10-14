@@ -19,7 +19,6 @@ sections:
     props:
       asset: assets/mark-white.svg
       scales: [0.5, 1, 2]
-    tone: panel
     width: full
     columns: 2
   - id: spacing
@@ -35,7 +34,6 @@ sections:
     keys: [radius.card, radius.stage]
     props:
       kind: radius
-    tone: panel
   - id: motion
     template: specimen
     title: A response, not a performance.
@@ -49,7 +47,6 @@ sections:
     keys: [shadow.panel]
     props:
       kind: shadow
-    tone: panel
   - template: chart
     title: Even the numbers belong.
     body: Sample data, shown as a palette study. Keep labels visible and check neighboring colors for contrast.
