@@ -22987,11 +22987,12 @@
                                   ]
                                 },
                                 "grounds": {
-                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                   "type": "string",
                                   "enum": [
                                     "plain",
-                                    "alternate"
+                                    "alternate",
+                                    "canvas"
                                   ]
                                 },
                                 "languages": {
@@ -28307,11 +28308,12 @@
                               ]
                             },
                             "grounds": {
-                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                               "type": "string",
                               "enum": [
                                 "plain",
-                                "alternate"
+                                "alternate",
+                                "canvas"
                               ]
                             },
                             "languages": {
@@ -29250,11 +29252,12 @@
                   "grounds": {
                     "anyOf": [
                       {
-                        "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                        "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                         "type": "string",
                         "enum": [
                           "plain",
-                          "alternate"
+                          "alternate",
+                          "canvas"
                         ]
                       },
                       {
@@ -29336,7 +29339,7 @@
                     ]
                   },
                   "look": {
-                    "description": "A look sets the layout at once (documentation: dense, quiet, easy to scan; editorial: a book: airy, numbered, big titles; swiss: grid, hairlines, no corners, headlines; bold: every chapter opens on the brand color; cinematic: pictures first, dark, wide, airy; playful: round, warm, alternating grounds); keys named beside it win",
+                    "description": "A look sets the layout at once (documentation: dense, quiet, easy to scan; editorial: a book: airy, numbered, big titles; swiss: grid, hairlines, no corners, headlines; bold: every chapter opens on the brand color; cinematic: pictures first, dark, wide, airy; playful: round, warm, alternating grounds; board: a band of the brand color, then a dotted canvas); keys named beside it win",
                     "type": "string",
                     "enum": [
                       "documentation",
@@ -29344,7 +29347,8 @@
                       "swiss",
                       "bold",
                       "cinematic",
-                      "playful"
+                      "playful",
+                      "board"
                     ]
                   }
                 },
@@ -29609,11 +29613,12 @@
                               ]
                             },
                             "grounds": {
-                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                              "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                               "type": "string",
                               "enum": [
                                 "plain",
-                                "alternate"
+                                "alternate",
+                                "canvas"
                               ]
                             },
                             "languages": {
@@ -31006,11 +31011,12 @@
                                   ]
                                 },
                                 "grounds": {
-                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                  "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                   "type": "string",
                                   "enum": [
                                     "plain",
-                                    "alternate"
+                                    "alternate",
+                                    "canvas"
                                   ]
                                 },
                                 "languages": {
@@ -36783,11 +36789,12 @@
                                       ]
                                     },
                                     "grounds": {
-                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                       "type": "string",
                                       "enum": [
                                         "plain",
-                                        "alternate"
+                                        "alternate",
+                                        "canvas"
                                       ]
                                     },
                                     "languages": {
@@ -44383,11 +44390,12 @@
                                       ]
                                     },
                                     "grounds": {
-                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                       "type": "string",
                                       "enum": [
                                         "plain",
-                                        "alternate"
+                                        "alternate",
+                                        "canvas"
                                       ]
                                     },
                                     "languages": {
@@ -51450,11 +51458,12 @@
                                       ]
                                     },
                                     "grounds": {
-                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                      "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                       "type": "string",
                                       "enum": [
                                         "plain",
-                                        "alternate"
+                                        "alternate",
+                                        "canvas"
                                       ]
                                     },
                                     "languages": {
@@ -53343,11 +53352,12 @@
                                           ]
                                         },
                                         "grounds": {
-                                          "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm",
+                                          "description": "alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered",
                                           "type": "string",
                                           "enum": [
                                             "plain",
-                                            "alternate"
+                                            "alternate",
+                                            "canvas"
                                           ]
                                         },
                                         "languages": {

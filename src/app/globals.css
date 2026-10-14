@@ -307,6 +307,17 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
   }
 }
 
+/*
+ * The canvas (grounds: canvas, lib/brand-theme.ts): a page under its header
+ * on the panel, dotted like a whiteboard in its own ink. A section with a
+ * ground of its own covers it.
+ */
+.ground-canvas {
+  background-color: var(--brand-panel);
+  background-image: radial-gradient(color-mix(in oklab, var(--brand-ink) 16%, transparent) 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+
 /* A transparency checkerboard: logos and cut-outs show their true edges on it. `--checker` inks its squares on a ground of another tone. */
 @utility bg-checker {
   background-color: var(--muted);

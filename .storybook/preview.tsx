@@ -34,7 +34,8 @@ const preview: Preview = {
       const accent = globals.accent === "brand" && loaded.brand ? primaryOf((loaded.brand as Release).rules) : null;
       const css = accentCss(accent);
       return (
-        <ThemeProvider attribute="class" forcedTheme={globals.theme} disableTransitionOnChange>
+        // Remounted per theme, with no system theme: resolvedTheme (what brand sites read for their night look) is the toolbar's, not the OS's.
+        <ThemeProvider key={globals.theme} attribute="class" forcedTheme={globals.theme} defaultTheme={globals.theme} enableSystem={false} disableTransitionOnChange>
           {css && <style>{css}</style>}
           <BrandProvider value={{ ...DEFAULT_BRAND, accent }}>
             <TooltipProvider delayDuration={400}>

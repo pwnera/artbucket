@@ -46,6 +46,8 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
   // Split: the words beside the cover, not over a strip of it. Without a cover it reads as plain.
   const split = view.theme.header === "split" && !!cover?.preview;
   const ground = useGround({ tone: band ? "brand" : "plain" });
+  // A band under huge titles is the page's opening: tall, its title at the foot, a step past the h1.
+  const tall = band && view.theme.titles === "huge";
 
   if (covered && !up.length && tabs.length < 2) return <></>;
   return (
@@ -58,6 +60,7 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
             : "pt-[calc(var(--brand-gap)*4/3)] pb-4 @3xl:pt-[calc(var(--brand-gap)*2)]",
           band &&
             "pb-[calc(var(--brand-gap)*4/3)] @3xl:pb-[calc(var(--brand-gap)*2)]",
+          tall && "flex min-h-[min(70vh,34rem)] flex-col justify-end",
         )}
       >
         {up.length > 0 && (
@@ -101,7 +104,9 @@ export function PageHeader({ page, roots, onNavigate }: PageHeaderProps) {
               <h1
                 className={cn(
                   HEAD,
-                  "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance",
+                  tall
+                    ? "text-[length:min(calc(var(--brand-h1)*1.5),13cqi)] leading-[0.95] text-balance"
+                    : "text-[length:min(var(--brand-h1),10cqi)] leading-[1.1] text-balance",
                 )}
               >
                 {page.title}

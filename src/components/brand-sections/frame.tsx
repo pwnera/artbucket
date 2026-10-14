@@ -162,7 +162,8 @@ export function SectionFrame({
   const tone = useTone(s);
   // The section's own size, else its template's (a statement is a headline), else the theme's `titles`.
   const size = s.size ?? TEMPLATE_INFO[s.template]?.size;
-  const center = s.template === "statement" && s.props.align === "center";
+  // On the canvas (grounds: canvas) a section's heading centers over what it draws; words alone keep their own alignment.
+  const center = (s.template === "statement" && s.props.align === "center") || (view.theme.grounds === "canvas" && tone === "plain" && !WORDS.has(s.template));
   const ground = useGround(useMemo(() => ({ tone, background: s.background }), [tone, s.background]));
   const joined = useJoined(s, tone);
   const id = idOf(s.id);

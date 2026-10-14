@@ -176,7 +176,7 @@ export function readiness({ rules, theme = {}, pages, versions, portals }: Readi
       title: "Look",
       done: looked,
       detail: looked ? "The pages have a look of their own" : "The pages wear the default look, the same as every brand's: pick one that fits how the brand feels.",
-      agent: 'get_theme lists the looks; set_theme with { look: "editorial" } (or documentation, swiss, bold, cinematic, playful), then any setting beside it. Read the playbook first.',
+      agent: 'get_theme lists the looks; set_theme with { look: "editorial" } (or documentation, swiss, bold, cinematic, playful, board), then any setting beside it. Read the playbook first.',
     },
     {
       id: "pages",
