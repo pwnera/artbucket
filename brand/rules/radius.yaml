@@ -8,14 +8,21 @@ radius.small:
 radius.card:
   type: number
   label: Soft edges
-  value: 12
-  usage: Cards and demo frames.
+  value: 18
+  usage: Cards, panels and the frame around a product screenshot.
   spec:
     unit: px
 radius.stage:
   type: number
   label: A larger canvas
   value: 24
-  usage: The dark stage under the hero. Keep the logo tile shape intact.
+  usage: Large panels and the call to action. Keep the logo tile shape intact.
+  spec:
+    unit: px
+radius.pill:
+  type: number
+  label: Buttons are pills
+  value: 999
+  usage: Every button and chip. The primary button is Ink with a 3px halo in this week's accent.
   spec:
     unit: px
