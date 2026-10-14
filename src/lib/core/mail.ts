@@ -282,3 +282,13 @@ export function expiringEmail(to: string, e: { automation: string; asset: string
     action: { label: "Open the asset", url: e.url },
   };
 }
+
+/** An automation's email for any other event: its summary (lib/automations.ts summaryOf) and where to look. */
+export function automationEmail(to: string, e: { automation: string; summary: string; url: string }): Draft {
+  return {
+    to,
+    subject: e.summary,
+    lines: [`${e.summary}.`, `You get this from the automation "${e.automation}".`],
+    action: { label: "Open it", url: e.url },
+  };
+}

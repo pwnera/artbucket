@@ -5,29 +5,33 @@ import { activity, assets, brands, brandVersions, type ActivityVerb } from "@/li
 import type { Caller } from "@/lib/core/access";
 import { visible } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
+import { GOVERNED_VERBS } from "@/lib/automations";
 import { summarize } from "@/lib/history";
 
-type Asset = { id: string; projectId: string; filename: string; metadata: { title?: string } | null };
+type Asset = { id: string; projectId: string; filename: string; metadata: { title?: string } | null; private?: boolean };
 
-/** Note that something happened to an asset. Never fails the change it describes. */
+/**
+ * Note that something happened to an asset. Never fails the change it
+ * describes. A decision (GOVERNED_VERBS) sets off the project's governance
+ * automations as `asset.{verb}`, not waited for; a private asset's doesn't,
+ * as review.waiting leaves them out.
+ */
 export async function record(
   by: { actor: string; key: string | null },
   verb: ActivityVerb,
   asset: Asset,
   detail?: { tags?: string[]; fields?: string[]; note?: string; version?: number },
 ) {
-  await db
+  const label = asset.metadata?.title || asset.filename;
+  const [row] = await db
     .insert(activity)
-    .values({
-      projectId: asset.projectId,
-      actor: by.actor,
-      agent: !!by.key,
-      verb,
-      assetId: asset.id,
-      label: asset.metadata?.title || asset.filename,
-      detail: detail ?? null,
-    })
-    .catch((err) => console.error("activity not recorded", err));
+    .values({ projectId: asset.projectId, actor: by.actor, agent: !!by.key, verb, assetId: asset.id, label, detail: detail ?? null })
+    .returning({ id: activity.id })
+    .catch((err) => (console.error("activity not recorded", err), []));
+  if (row && !asset.private && (GOVERNED_VERBS as readonly string[]).includes(verb))
+    void import("@/lib/core/automations")
+      .then((m) => m.governed(asset.projectId, row.id, { action: `asset.${verb}`, target: label, actor: by.actor, agent: !!by.key, detail, asset: asset.id }))
+      .catch((err) => console.warn("[artbucket] Governance automations stopped:", err instanceof Error ? err.message : err));
 }
 
 export type ActivityItem = {

@@ -27,6 +27,7 @@ import type { CollectionIcon } from "@/lib/collection-icons";
 import type { SnapRule, VersionKind } from "@/lib/history";
 import type { Audience, PageLayout, PageText, RequestKind, Section, SnapPage } from "@/lib/pages";
 import type { Actor, EventKind, Surface } from "@/lib/insights";
+import type { AutomationTrigger, FixKind, WebhookFormat } from "@/lib/automations";
 import type { Origin, Rights } from "@/lib/rights";
 import type { RuleSpec, RuleType, RuleValue } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
@@ -269,9 +270,12 @@ export const savedSearches = pgTable("saved_searches", {
 
 /**
  * When something happens in a project, tell someone (lib/core/automations.ts):
- * a brand released (of `brandId`, or any), or an asset's license ending in
- * `days` days; by email to `emails`, or by a POST to `url` signed with
- * `secret`, sealed at rest like other secrets (lib/settings.ts seal).
+ * a brand released (of `brandId`, or any), an asset's license ending in
+ * `days` days, a governance change (one of `actions`, or any), an asset
+ * refused `times` in `days` days, a Fix opened (of `kind`, or any), or a
+ * proposal waiting `days` days for review; by email to `emails`, or by a POST
+ * to `url` in `format`, signed with `secret`, sealed at rest like other
+ * secrets (lib/settings.ts seal).
  */
 export const automations = pgTable(
   "automations",
@@ -281,12 +285,16 @@ export const automations = pgTable(
       .notNull()
       .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    trigger: text("trigger").$type<"brand.released" | "asset.expiring">().notNull(),
+    trigger: text("trigger").$type<AutomationTrigger>().notNull(),
     brandId: uuid("brand_id").references((): AnyPgColumn => brands.id, { onDelete: "cascade" }),
     days: integer("days"),
+    actions: jsonb("actions").$type<string[]>().notNull().default([]),
+    times: integer("times"),
+    kind: text("kind").$type<FixKind>(),
     action: text("action").$type<"email" | "webhook">().notNull(),
     emails: jsonb("emails").$type<string[]>().notNull().default([]),
     url: text("url"),
+    format: text("format").$type<WebhookFormat>().notNull().default("json"),
     secret: text("secret"),
     enabled: boolean("enabled").notNull().default(true),
     createdBy: text("created_by").notNull(),
@@ -295,7 +303,8 @@ export const automations = pgTable(
   },
   (t) => [
     index("automations_project_idx").on(t.projectId),
-    check("automations_trigger_check", sql`${t.trigger} in ('brand.released', 'asset.expiring')`),
+    check("automations_trigger_check", sql`${t.trigger} in ('brand.released', 'asset.expiring', 'governance', 'check.refused', 'fix.opened', 'review.waiting')`),
+    check("automations_format_check", sql`${t.format} in ('json', 'slack', 'teams')`),
     check("automations_action_check", sql`${t.action} in ('email', 'webhook')`),
   ],
 );
