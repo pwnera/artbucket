@@ -3,8 +3,8 @@ import { findAsset, type Asset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { publishedSource, viewLook } from "@/lib/core/page-view";
 import { renderAsset } from "@/lib/core/renditions";
-import { CARD_TEMPLATES, cardEtag, cardFace, cardLogos, type CardQuery, type CardTemplate } from "@/lib/cards";
-import { contrast, lift, mix } from "@/lib/color";
+import { CARD_TEMPLATES, cardEtag, cardFace, cardField, cardLogos, type CardQuery, type CardTemplate } from "@/lib/cards";
+import { lift, mix } from "@/lib/color";
 import { deliverable } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
 import { hasPreview } from "@/lib/preview";
@@ -65,7 +65,7 @@ export async function brandCard(
   const muted = dark ? t.mutedOnDark : t.muted;
   const accentText = dark ? lift(t.accent, paper, 4.5) : t.accentText;
   // An accent the paper swallows (a white brand on white) is no field: the brand's dark, or a step off a dark card, is.
-  const field = contrast(t.accent, paper) >= 1.5 ? t.accent : dark ? mix(paper, ink, 0.14) : t.dark;
+  const field = cardField(t.accent, paper, dark ? mix(paper, ink, 0.14) : t.dark);
 
   const usable = async (id: string) => {
     const a = await findAsset(id);

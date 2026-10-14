@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CardQuery, cardEtag, cardFace, cardLogos, drawable, isCardTemplate, queryIssues, titleSize } from "./cards.ts";
+import { CardQuery, cardEtag, cardFace, cardField, cardLogos, drawable, isCardTemplate, queryIssues, titleSize } from "./cards.ts";
 
 test("a card's query: a title, trimmed; the rest optional; light unless asked", () => {
   assert.deepEqual(CardQuery.parse({ title: "  Hello  " }), { title: "Hello", theme: "light" });
@@ -58,4 +58,11 @@ test("logos: the theme's on a light card; a reversed one first on a dark card, e
   const noReversed = rules.filter((x) => x.key !== "logo.reversed");
   assert.deepEqual([cardLogos(noReversed, "logo.primary", true)[0]].map((x) => [x.key, x.context]), [["logo.primary", "dark-background"]]);
   assert.deepEqual(cardLogos([r("color.primary")], null, false), []);
+});
+
+test("the field is the accent, a light one too, unless the paper swallows it", () => {
+  assert.equal(cardField("#c6f432", "#ffffff", "#16152a"), "#c6f432");
+  assert.equal(cardField("#6b4dff", "#ffffff", "#16152a"), "#6b4dff");
+  assert.equal(cardField("#f7f7f7", "#ffffff", "#16152a"), "#16152a");
+  assert.equal(cardField("#16152a", "#16152a", "#2a293d"), "#2a293d");
 });
