@@ -4,6 +4,13 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.5.0](https://github.com/pwnera/artbucket/compare/v2.4.0...v2.5.0) (2026-10-14)
+
+
+### Features
+
+* **site:** every look held to the design bar ([#264](https://github.com/pwnera/artbucket/issues/264)) ([8970ca8](https://github.com/pwnera/artbucket/commit/8970ca884bb19ca918001a0dfb2f705ef3bd2e63))
+
 ## [2.4.0](https://github.com/pwnera/artbucket/compare/v2.3.0...v2.4.0) (2026-10-14)
 
 
