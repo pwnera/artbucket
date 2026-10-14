@@ -30,7 +30,7 @@ async function Tab({ params }: Props) {
   if (!head) notFound();
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
-      <BrandAssets assets={files} />
+      <BrandAssets assets={files} rules={head.rules} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { IconBook, IconPalette, IconPhoto, IconTypography } from "@/components/icons";
+import { IconBook, IconDownload, IconPalette, IconPhoto, IconTypography } from "@/components/icons";
 import { LogoWell } from "@/components/hub-client";
 import { withSignature } from "@/lib/asset-url";
 import { inkOn } from "@/lib/color";
@@ -91,7 +91,8 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
 
       {colors.length > 0 && (
         <Section id="colors" title="Colors" icon={IconPalette}>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {/* As many columns as its box takes, not the screen: on the Overview it sits in a column. */}
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
             {colors.map((r) => {
               const hex = String(r.value);
               return (
@@ -139,7 +140,7 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
 
       {logos.length > 0 && (
         <Section id="logos" title="Logos" icon={IconPhoto}>
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
             {logos.flatMap((r) =>
               images(b, r).map((a) => (
                 <li key={`${r.key}:${a.id}`} className="overflow-hidden rounded-lg border">
@@ -147,8 +148,13 @@ export function BrandCard({ brand: b, empty = null }: { brand: CardBrand; empty?
                   <div className="flex items-center justify-between gap-2 p-3">
                     <span className="truncate text-sm font-medium">{ruleName(r)}</span>
                     {!a.kept && (
-                      <a href={fileUrl(b, a.id, "?download")} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline-offset-2 hover:underline">
-                        Download
+                      <a
+                        href={fileUrl(b, a.id, "?download")}
+                        title={`Download ${ruleName(r)}`}
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent -m-1 shrink-0 rounded-md p-1"
+                      >
+                        <IconDownload aria-hidden className="size-4" />
+                        <span className="sr-only">Download {ruleName(r)}</span>
                       </a>
                     )}
                   </div>

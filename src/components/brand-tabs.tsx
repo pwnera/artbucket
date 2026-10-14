@@ -43,9 +43,13 @@ export function useBrandMore(brand: { slug: string }): Tab[] {
   ];
 }
 
-/** The tabs as a row under the brand's header (components/brand-header.tsx), the one on show marked. */
+/**
+ * The tabs as a row under the brand's header (components/brand-header.tsx), the one on show marked. A page from
+ * the menu (Theme, Insights, Settings) joins the row while it is on show, so the row always says where you are.
+ */
 export function BrandTabs({ brand, at }: { brand: { slug: string; name: string }; at: BrandTab }) {
-  const tabs = useBrandTabs(brand);
+  const more = useBrandMore(brand).find((t) => t.id === at);
+  const tabs = [...useBrandTabs(brand), ...(more ? [more] : [])];
   return (
     <div className="mt-4 border-b">
       <TabNav label={`${brand.name}`} items={tabs.map((t) => ({ href: t.href, label: t.label, current: t.id === at }))} className="mx-auto w-full max-w-5xl px-2 md:px-4" />

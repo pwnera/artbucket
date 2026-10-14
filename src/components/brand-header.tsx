@@ -20,12 +20,11 @@ import {
   IconRobot,
   IconSettings,
   IconSitemap,
-  IconSparkles,
   IconWorld,
   IconWorldUpload,
 } from "@/components/icons";
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { BrandTabMenu, BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
+import { BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { CopyButton } from "@/components/copy-button";
@@ -77,7 +76,7 @@ export type BrandHeaderProps = {
   status: Pick<Status, "hub" | "publish" | "portals"> | null;
   release: Release | null;
   at: BrandTab;
-  /** One line (the Guidelines tab, so the pages get the screen): the mark, the name and the tabs inline (in the name's menu when narrow), what is live with where in its popover, and the actions as icons. */
+  /** One line (the Guidelines tab, so the pages get the screen): the mark, the name (when there is room) and the tabs inline, scrolling when narrow, what is live with where in its popover, and the actions as icons. */
   compact?: boolean;
 };
 
@@ -140,20 +139,18 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       <BrandMenu brand={brand} at={at} connect={source && !source.source ? source.connect : null} />
     </div>
   );
-  // One line over the guidelines: the tabs inline while they fit the header (a container query), else in the menu on the brand's name.
+  // One line over the guidelines: the tabs inline, scrolling sideways in what room is left (on a phone, a row of their own); the name only once there is room (container queries).
   if (compact)
     return (
       <header className="@container border-b">
-        <div className="flex h-12 items-center gap-2 px-4 md:px-6">
+        {/* Narrow, the tabs take a row of their own under the mark and the actions, rather than one tab's width between them. */}
+        <div className="flex min-h-12 flex-wrap items-center gap-x-2 px-4 md:px-6 @max-[28rem]:pt-2">
           {mark}
-          <h1 className="font-display sr-only max-w-48 min-w-0 truncate font-semibold tracking-tight @min-[64rem]:not-sr-only">{brand.name}</h1>
-          <div className="min-w-0 @min-[64rem]:hidden">
-            <BrandTabMenu brand={brand} at={at} />
-          </div>
+          <h1 className="font-display sr-only max-w-48 min-w-0 truncate font-semibold tracking-tight @min-[64rem]:not-sr-only @max-[28rem]:not-sr-only">{brand.name}</h1>
           <TabNav
             label={brand.name}
             items={tabs.map((t) => ({ href: t.href, label: t.label, current: t.id === at }))}
-            className="ms-2 hidden self-stretch *:px-2 *:text-[13px] @min-[64rem]:flex"
+            className="min-w-0 flex-1 self-stretch *:px-2 *:text-[13px] @min-[64rem]:ms-2 @max-[28rem]:order-last @max-[28rem]:-mx-2 @max-[28rem]:mt-1 @max-[28rem]:basis-full"
           />
           <div className="ms-auto flex shrink-0 items-center gap-2">
             {/* What is live, short; the popover says the rest and where, BrandHub included. */}
@@ -297,7 +294,16 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
       <Popover>
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" title={compact ? "Use this brand" : undefined}>
-            <IconRobot aria-hidden /> <span className={compact ? "sr-only" : undefined}>Use this brand</span> {!compact && <IconChevronDown aria-hidden />}
+            <IconRobot aria-hidden />{" "}
+            {compact ? (
+              <span className="sr-only">Use this brand</span>
+            ) : (
+              <>
+                {/* "Use" on a phone, so Use, Edit, Release and the menu share one row. */}
+                <span className="sm:hidden">Use</span>
+                <span className="hidden sm:inline">Use this brand</span> <IconChevronDown aria-hidden />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
@@ -440,7 +446,7 @@ const MORE_ICON = { theme: IconPalette, insights: IconChartBar, settings: IconSe
  * The brand's menu, at the end of its header: the pages that aren't tabs
  * (Theme, Insights, Settings), then what is done to it now and then: keep
  * it in Git, pin it to the sidebar, open it in the catalog (its lineage and
- * who reaches it), and Edit with AI, shown and not yet there (SITE-17).
+ * who reaches it).
  */
 function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; connect: string | null | undefined }) {
   const can = useCan();
@@ -482,16 +488,6 @@ function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; con
             <IconSitemap aria-hidden /> Open in the catalog
           </Link>
         </DropdownMenuItem>
-        {can("brand.edit") && (
-          <>
-            <DropdownMenuSeparator />
-            {/* Pages edited by an agent from here, as the builder retires (PRD part 2): not yet, and said so. */}
-            <DropdownMenuItem disabled>
-              <IconSparkles aria-hidden /> Edit with AI
-              <span className="text-muted-foreground ms-auto text-xs">Coming soon</span>
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

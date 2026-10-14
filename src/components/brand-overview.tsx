@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { IconChartBar, IconGitCommit, IconMessage, IconRobot } from "@/components/icons";
 import { BrandCard, type CardBrand } from "@/components/brand-card";
-import { InfoTip } from "@/components/info-tip";
 import type { BrandInfo } from "@/components/brand-switcher";
 import type { Status } from "@/components/builder/use-status";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +66,8 @@ export function BrandOverview({ brand, rules, status, release, changes, signals,
           <section className="bg-card min-w-0 overflow-hidden rounded-xl border">
             <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
               <h2 className="font-medium">{card.live ? "What readers see" : "Draft"}</h2>
-              <span className="text-muted-foreground text-xs">{card.live ? `@${card.live}` : release ? "Unreleased" : "Never released"}</span>
+              {/* Never released: the strip above says so once, with Release. */}
+              {(card.live || release) && <span className="text-muted-foreground text-xs">{card.live ? `@${card.live}` : "Unreleased"}</span>}
             </div>
             <BrandCard
               brand={card.brand}
@@ -75,26 +75,19 @@ export function BrandOverview({ brand, rules, status, release, changes, signals,
             />
           </section>
 
-          <Box title="Latest release" aside={release && <Badge variant="secondary">@{release.number}</Badge>}>
-            {release ? (
-              <>
-                {release.note && <p className="text-sm">{release.note}</p>}
-                <p className="text-muted-foreground text-xs">
-                  {[...(changes ?? []), ago(release.publishedAt)].join(" · ")}
-                </p>
-                {status?.publish === "behind" && <p className="text-muted-foreground text-xs">Unreleased changes.</p>}
-              </>
-            ) : (
-              <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-                Never released
-                <InfoTip>Portals and BrandHub show nothing of it until it is released.</InfoTip>
-              </p>
-            )}
-          </Box>
+          {/* Never released: nothing to say here the strip doesn't. */}
+          {release && (
+            <Box title="Latest release" aside={<Badge variant="secondary">@{release.number}</Badge>}>
+              {release.note && <p className="text-sm">{release.note}</p>}
+              <p className="text-muted-foreground text-xs">{[...(changes ?? []), ago(release.publishedAt)].join(" · ")}</p>
+              {status?.publish === "behind" && <p className="text-muted-foreground text-xs">Unreleased changes.</p>}
+            </Box>
+          )}
         </div>
 
-        <aside className="grid content-start gap-4">
-          {(status || signals) && <Health slug={brand.slug} status={status} signals={signals} />}
+        {/* Stays in view beside the draft, which runs long. */}
+        <aside className="grid content-start gap-4 lg:sticky lg:top-6 lg:self-start">
+          {(status || signals) && <Health slug={brand.slug} status={status} signals={signals} released={!!release} />}
         </aside>
       </div>
     </>
@@ -102,6 +95,17 @@ export function BrandOverview({ brand, rules, status, release, changes, signals,
 }
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** Each step of the score as something to do, and the tab it is done on. */
+const NEXT: Record<string, { label: string; tab: string }> = {
+  colors: { label: "Add the main color", tab: "/rules" },
+  type: { label: "Name the typefaces", tab: "/rules" },
+  logo: { label: "Attach the logo", tab: "/rules" },
+  voice: { label: "Describe the voice", tab: "/rules" },
+  look: { label: "Pick a look", tab: "/theme" },
+  pages: { label: "Fill in the pages", tab: "/guidelines" },
+  portal: { label: "Share it on a portal", tab: "/sharing" },
+};
 
 /**
  * What the team has to do, above the card, one row: changes readers don't
@@ -145,10 +149,19 @@ function TeamStrip({ slug, status, signals, comments, links }: Pick<BrandOvervie
       {status && (
         <li className={item}>
           <IconRobot aria-hidden className="text-muted-foreground" />
-          {/* A step this person can't see through (null) is not a fix to name. */}
-          <Link href={brandPath(slug, "/score")} title={fix?.detail} className={cn(link, "truncate")}>
-            {fix ? `Next fix: ${fix.title}, +${fix.points}` : `Score ${status.score}`}
-          </Link>
+          {/* A step this person can't see through (null) is not a fix to name. It links where the fix is made. */}
+          {fix ? (
+            <>
+              <Link href={brandPath(slug, NEXT[fix.id]?.tab ?? "/score")} title={fix.detail} className={cn(link, "truncate")}>
+                {NEXT[fix.id]?.label ?? fix.title}
+              </Link>
+              <span className="text-muted-foreground shrink-0 tabular-nums">+{fix.points} score</span>
+            </>
+          ) : (
+            <Link href={brandPath(slug, "/score")} className={link}>
+              Agent Score {status.score}
+            </Link>
+          )}
         </li>
       )}
       {adoption && (
@@ -174,7 +187,7 @@ export function nextFixes(status: Pick<Status, "score" | "steps">, n = 2) {
  * (lib/readiness.ts) as a ring with what the two fixes worth the most would
  * make it, then the signals (Insights' summary), each opening its own page.
  */
-function Health({ slug, status, signals }: { slug: string; status: Status | null; signals: BrandSignals | null }) {
+function Health({ slug, status, signals, released }: { slug: string; status: Status | null; signals: BrandSignals | null; released: boolean }) {
   const next = status && nextFixes(status);
   const link = "text-primary-ink text-sm font-medium hover:underline";
   return (
@@ -203,11 +216,15 @@ function Health({ slug, status, signals }: { slug: string; status: Status | null
           <p className="flex items-center gap-1.5 text-sm font-medium [&_svg]:size-4">
             <IconChartBar aria-hidden /> Read in the last {signals.days} days
           </p>
-          <dl className="grid grid-cols-2 gap-3">
-            <Signal label="BrandHub pulls" value={signals.pulls} />
-            <Signal label="portal page views" value={signals.views} />
-            {status?.portals && <Signal label={status.portals.length === 1 ? "portal" : "portals"} value={status.portals.length} />}
-          </dl>
+          {released ? (
+            <dl className="grid grid-cols-2 gap-3">
+              <Signal label="BrandHub pulls" value={signals.pulls} />
+              <Signal label="Portal page views" value={signals.views} />
+              {status?.portals && <Signal label={status.portals.length === 1 ? "Portal" : "Portals"} value={status.portals.length} />}
+            </dl>
+          ) : (
+            <p className="text-muted-foreground text-sm">Nothing to read yet: portals, BrandHub and agents get it from its first release.</p>
+          )}
           <Link href={brandPath(slug, "/insights")} className={link}>
             All insights
           </Link>

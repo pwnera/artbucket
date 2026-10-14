@@ -27,6 +27,9 @@ export type ColorRow = { key: string; group: string; light: Cell; dark: Cell };
 /** The context a color's dark value lives in: the brand's own (`dark`, `dark-mode`), else the one agents know, dark-background. */
 export const darkContext = (contexts: (string | null)[]) => contexts.find((c) => c && /(^|-)dark(-|$)/.test(c)) ?? "dark-background";
 
+/** Whether any color has a dark value: until one does, the table has no Dark column. */
+export const hasDark = (rules: Pick<Rule, "type" | "context">[], dark: string) => rules.some((r) => r.type === "color" && r.context === dark);
+
 const last = (key: string) => key.split(".").pop()!;
 const spec = (r: C) => (r.spec ?? {}) as Spec;
 /** The names deriveTheme reads a surface or a dark ground from (brand-theme.ts). */

@@ -55,7 +55,8 @@ export function BrandInsights({ data }: { data: BrandInsightsData | null }) {
             { id: "answers", label: "Brand answers, this week", value: short(week.answers) },
             { id: "agents", label: "Asked by agents", value: week.answers ? `${Math.round((100 * week.agents) / week.answers)}%` : "0%" },
             { id: "refused", label: "Uses refused", value: short(week.refused) },
-            { id: "share", label: at ? `Fetches on ${at}` : "Never released", value: adoption?.share !== null && adoption?.share !== undefined ? `${adoption.share}%` : "None" },
+            // Never released: no release to fetch, so no tile; the note under them says why.
+            ...(at ? [{ id: "share", label: `Fetches on ${at}`, value: adoption?.share !== null && adoption?.share !== undefined ? `${adoption.share}%` : "None" }] : []),
             { id: "pulls", label: `BrandHub pulls, ${data.days} days`, value: short(data.pulls) },
           ]}
         />

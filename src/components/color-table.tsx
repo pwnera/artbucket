@@ -8,31 +8,37 @@ import { cn } from "@/lib/utils";
  * A row of the Rules tab's color table (lib/color-table.ts): the token's
  * name, its light value and its dark one, each a swatch, its hex and, for
  * text, its contrast on its ground. On a phone the name sits over the two,
- * and a contrast that has no room beside its hex wraps under it.
+ * and a contrast that has no room beside its hex wraps under it. `dark`:
+ * whether the brand has a dark value at all; until it does there is no Dark
+ * column, only a colors' column (A dark value, in a color's details, adds one).
  */
-export const COLOR_COLS = "grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center";
+const cols = (dark: boolean) =>
+  cn(
+    "grid min-w-0 flex-1 gap-x-3 gap-y-1.5 sm:items-center",
+    dark ? "grid-cols-2 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,22rem)]",
+  );
 
 /** The columns' names; each cell also says its own to a screen reader. */
-export function ColorHead() {
+export function ColorHead({ dark }: { dark: boolean }) {
   return (
-    <div aria-hidden className={cn(COLOR_COLS, "text-muted-foreground text-xs font-medium")}>
+    <div aria-hidden className={cn(cols(dark), "text-muted-foreground text-xs font-medium")}>
       <span className="hidden sm:block">Name</span>
-      <span>Light</span>
-      <span>Dark</span>
+      <span className={cn(!dark && "hidden sm:block")}>{dark ? "Light" : "Value"}</span>
+      {dark && <span>Dark</span>}
     </div>
   );
 }
 
 /** `color.nightInk` reads night-ink, as its token does; a heading of its own goes under it. */
-export function ColorCells({ row, label }: { row: ColorRow; label?: string | null }) {
+export function ColorCells({ row, label, dark }: { row: ColorRow; label?: string | null; dark: boolean }) {
   return (
-    <span className={COLOR_COLS}>
-      <span className="col-span-2 grid min-w-0 sm:col-span-1" title={row.key}>
+    <span className={cols(dark)}>
+      <span className="col-span-full grid min-w-0 sm:col-span-1" title={row.key}>
         <code className="truncate font-mono text-sm">{kebab(row.key.slice(row.key.indexOf(".") + 1))}</code>
         {label && <span className="text-muted-foreground truncate text-xs">{label}</span>}
       </span>
-      <Swatch cell={row.light} theme="Light" />
-      <Swatch cell={row.dark} theme="Dark" />
+      <Swatch cell={row.light} theme={dark ? "Light" : "Value"} />
+      {dark && <Swatch cell={row.dark} theme="Dark" />}
     </span>
   );
 }
