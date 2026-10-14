@@ -10,6 +10,7 @@ import {
   IconChartBar,
   IconCirclePlus,
   IconCompass,
+  IconComponents,
   IconFileText,
   IconFolder,
   IconFolderUp,
@@ -390,7 +391,7 @@ function NewMenu({ me }: { me: Me }) {
   );
 }
 
-const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, site: IconWorld, rule: IconListCheck, page: IconFileText } as const;
+const PIN_ICON = { brand: IconPalette, collection: IconFolders, asset: IconPhoto, site: IconWorld, rule: IconListCheck, page: IconFileText, component: IconComponents } as const;
 
 /** What this person starred, from the catalog or a brand's page: the one list the sidebar keeps, because they chose it. */
 function Pinned({ current }: { current: string }) {

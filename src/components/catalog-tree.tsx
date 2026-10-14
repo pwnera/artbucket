@@ -35,7 +35,7 @@ export const LIST: Partial<Record<CatalogType, { href: string; label: string }>>
   asset: { href: "/?browse", label: "Browse the assets in Explore" },
   site: { href: "/sites", label: "Manage sites" },
 };
-const PARTS: CatalogType[] = ["rule", "page"];
+const PARTS: CatalogType[] = ["rule", "page", "component"];
 const KIND_LABEL: Record<AssetType, string> = { image: "Images", video: "Videos", audio: "Audio", font: "Fonts", document: "Documents", other: "Other" };
 
 export function build(projects: TreeProject[], match: (i: CatalogItem) => boolean): Node[] {

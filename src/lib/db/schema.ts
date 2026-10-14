@@ -33,7 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
-import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
+import type { BuildKind, DeploymentState, SiteComponent, SiteKind, SiteUse } from "@/lib/sites";
 import type { SiteRules } from "@/lib/site-rules";
 
 export type AssetStatus = Status;
@@ -1239,6 +1239,8 @@ export const siteDeployments = pgTable(
     rules: jsonb("rules").$type<SiteRules | null>(),
     /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
     uses: jsonb("uses").$type<SiteUse[] | null>(),
+    /** A Storybook's components, from its index.json (lib/sites.ts storybookComponents): catalog parts of its site while it is live. */
+    components: jsonb("components").$type<SiteComponent[] | null>(),
     /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */
     problems: jsonb("problems").$type<string[]>().notNull().default([]),
     /** Signs it looks like phishing or malware (lib/site-safety.ts), one line each: held for the operator, or live with them noted. */
@@ -1721,7 +1723,8 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
 /**
  * Every object a person or an agent can find, in one shape (lib/core/catalog.ts,
  * PRD: Artbucket Catalog): assets, collections, brands and portals, and the
- * parts of a brand (its rules and pages), each with its project, an address
+ * parts of a brand (its rules and pages) and of a site (a live Storybook's
+ * components, by a stable id from where it is mounted), each with its project, an address
  * segment (`slug`), a status on one lifecycle (lib/catalog.ts STATUSES) and a
  * search vector. A view, so nothing is written twice; an asset's vector is its
  * indexed column, the rest are small enough to read as they are.
@@ -1731,9 +1734,9 @@ const slugSql = (name: string) => sql.raw(`trim(both '-' from regexp_replace(low
  */
 export const catalogObjects = pgView("catalog_objects", {
   id: uuid("id").notNull(),
-  type: text("type").$type<"asset" | "collection" | "brand" | "site" | "rule" | "page">().notNull(),
+  type: text("type").$type<"asset" | "collection" | "brand" | "site" | "rule" | "page" | "component">().notNull(),
   projectId: uuid("project_id").notNull(),
-  /** A part's object: a rule's or a page's brand. */
+  /** A part's object: a rule's or a page's brand, a component's site. */
   parentId: uuid("parent_id"),
   slug: text("slug").notNull(),
   name: text("name").notNull(),
@@ -1788,7 +1791,15 @@ export const catalogObjects = pgView("catalog_objects", {
     union all
     select g.id, 'page', b.project_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,
       g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))
-    from ${brandPages} g join ${brands} b on b.id = g.brand_id`,
+    from ${brandPages} g join ${brands} b on b.id = g.brand_id
+    union all
+    select md5(d.site_id::text || d.path || (c ->> 'slug'))::uuid, 'component', p.project_id, p.id, c ->> 'slug', c ->> 'name',
+      (c ->> 'title') || coalesce(': ' || (select string_agg(s, ', ') from jsonb_array_elements_text(c -> 'stories') s), ''),
+      'current', null, null, false, '{}'::uuid[], '[]'::jsonb, d.created_at, d.created_at,
+      to_tsvector('simple', regexp_replace(c ->> 'title', '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c -> 'stories') s), ''))
+    from ${siteDeployments} d join ${portals} p on p.id = d.site_id,
+      jsonb_array_elements(case when jsonb_typeof(d.components) = 'array' then d.components else '[]'::jsonb end) c
+    where d.state = 'live'`,
 );
 
 /**

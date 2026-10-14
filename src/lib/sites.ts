@@ -76,6 +76,42 @@ export const MAX_SITE_BYTES = 200 * 1024 * 1024;
 /** What a build says it read (PRD part 2, the kit's manifest): checked before it goes live, and its lineage. */
 export const MANIFEST = "artbucket.site.json";
 
+/** What `storybook build` writes beside index.html: every story and docs page, by id. */
+export const STORYBOOK_INDEX = "index.json";
+
+/** A component a Storybook documents: one catalog part of its site (the catalog view reads them off the live deployment). */
+export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[] };
+
+const MAX_COMPONENTS = 2000;
+
+/**
+ * A Storybook's components, from its index.json (v4 `stories` or v5
+ * `entries`): one per title ("UI/Button"), named by its last segment,
+ * addressed by Storybook's own id for it (`ui-button`), with its stories in
+ * order. Docs-only entries count only when the title has no story. Anything
+ * that isn't one is none.
+ */
+export function storybookComponents(index: unknown): SiteComponent[] {
+  const i = index as { entries?: unknown; stories?: unknown } | null;
+  const entries = i && typeof i === "object" ? (i.entries ?? i.stories) : null;
+  if (!entries || typeof entries !== "object") return [];
+  const byTitle = new Map<string, SiteComponent>();
+  for (const e of Object.values(entries as Record<string, unknown>)) {
+    const { id, title, name, type } = (e ?? {}) as Record<string, unknown>;
+    if (typeof id !== "string" || typeof title !== "string" || !id.includes("--")) continue;
+    let c = byTitle.get(title);
+    if (!c) {
+      if (byTitle.size >= MAX_COMPONENTS) continue;
+      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [] };
+      byTitle.set(title, c);
+    }
+    if (type === "docs") continue;
+    if (!c.stories.length) c.story = id;
+    if (typeof name === "string") c.stories.push(name);
+  }
+  return [...byTitle.values()];
+}
+
 const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   htm: "text/html; charset=utf-8",

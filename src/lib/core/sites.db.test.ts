@@ -18,7 +18,7 @@ import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
 import { checkBuild, deploy, edgeRoute, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
-import { lineage } from "@/lib/core/catalog";
+import { findObject, lineage, searchCatalog } from "@/lib/core/catalog";
 import { zip } from "@/lib/zip";
 
 const ada = await signUp("Sitesada");
@@ -592,4 +592,26 @@ test("an edge in front serves a public site's builds itself, at their own host; 
   // Behind a door, the server keeps the gate.
   await updatePortal(ada.caller, site.id, { access: "password", password: "open sesame" });
   assert.equal(await edgeRoute(host), null);
+});
+
+test("a live Storybook's components are parts of its site in the catalog, by address and by search, and keep their id across deploys", async () => {
+  const sb = await createPortal(ada.caller, { name: "Storybook", slug: `sb-${Date.now().toString(36)}`, kind: "storybook" });
+  const index = (stories: string[]) =>
+    JSON.stringify({ v: 5, entries: Object.fromEntries(stories.map((s) => [`ui-button--${s.toLowerCase()}`, { type: "story", id: `ui-button--${s.toLowerCase()}`, title: "UI/Button", name: s }])) });
+  await deploy(ada.caller, sb.id, pack({ "index.html": "sb", "index.json": index(["Primary"]) }));
+  const at = `${ada.caller.project.organization.slug}/${ada.caller.project.slug}/site/${sb.slug}/component/ui-button`;
+  const first = (await findObject(ada.caller, at))!;
+  assert.equal(first.type, "component");
+  assert.equal(first.name, "Button");
+  assert.equal(first.parent?.id, sb.id);
+  assert.equal(first.address, at);
+  await deploy(ada.caller, sb.id, pack({ "index.html": "sb", "index.json": index(["Primary", "Ghost"]) }));
+  const again = (await findObject(ada.caller, at))!;
+  assert.equal(again.id, first.id);
+  assert.equal(again.description, "UI/Button: Primary, Ghost");
+  const found = await searchCatalog(ada.caller, { words: "ghost", types: ["component"], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] });
+  assert.ok(JSON.stringify(found).includes(first.id));
+  // A docs build's index.json is only a file.
+  await deploy(ada.caller, docs.id, pack({ "index.html": "d", "index.json": index(["Primary"]) }));
+  assert.equal((await db.select().from(siteDeployments).where(eq(siteDeployments.siteId, docs.id))).find((d) => d.state === "live")?.components, null);
 });

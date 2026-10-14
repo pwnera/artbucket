@@ -9,7 +9,7 @@
 /** Objects: what a grant can be on and the explorer lists. */
 export const OBJECT_TYPES = ["brand", "collection", "asset", "site"] as const;
 /** Parts: addressed inside their object, found by search, governed by it. */
-export const PART_TYPES = ["rule", "page"] as const;
+export const PART_TYPES = ["rule", "page", "component"] as const;
 export const CATALOG_TYPES = [...OBJECT_TYPES, ...PART_TYPES] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export type CatalogType = (typeof CATALOG_TYPES)[number];
@@ -21,6 +21,7 @@ export const TYPE_LABEL: Record<CatalogType, { one: string; many: string }> = {
   site: { one: "Site", many: "Sites" },
   rule: { one: "Rule", many: "Rules" },
   page: { one: "Guideline page", many: "Guideline pages" },
+  component: { one: "Component", many: "Components" },
 };
 
 export const isPart = (t: CatalogType) => (PART_TYPES as readonly string[]).includes(t);
@@ -157,7 +158,7 @@ export function impactLine(name: string, things: number, projects: number) {
 }
 
 /** Where the app shows it, in its own project (the proxy's `?project=` opens that one). */
-export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { slug: string } | null; project: { id: string } }) {
+export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { id: string; slug: string } | null; project: { id: string } }) {
   const w = `project=${item.project.id}`;
   const brand = item.parent?.slug ?? "";
   switch (item.type) {
@@ -173,5 +174,7 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
       return `/brands/${brand}/rules?${w}`;
     case "page":
       return `/brands/${brand}/guidelines?page=${item.slug}&${w}`;
+    case "component":
+      return `/sites?edit=${item.parent?.id ?? ""}&${w}`;
   }
 }

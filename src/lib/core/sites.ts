@@ -13,7 +13,7 @@ import { sendAs, siteHeldEmail, siteProblemsEmail } from "@/lib/core/mail";
 import { env } from "@/lib/env";
 import { signAsset, signedUntil } from "@/lib/signed";
 import { can } from "@/lib/permissions";
-import { assetAddresses, BUILD_KINDS, ENTER_PATH, PREVIEW_NAME, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, type BuildKind, type SiteUse } from "@/lib/sites";
+import { assetAddresses, BUILD_KINDS, ENTER_PATH, PREVIEW_NAME, contentTypeOf, MANIFEST, MAX_SITE_BYTES, MAX_SITE_FILES, mountPath, readsLinks, siteFiles, STORYBOOK_INDEX, storybookComponents, type BuildKind, type SiteComponent, type SiteUse } from "@/lib/sites";
 import { rightsReasons, today, type Rights } from "@/lib/rights";
 import { signLines, signsIn, type Sign } from "@/lib/site-safety";
 import { HEADERS, parseHeaders, parseRedirects, REDIRECTS, type SiteRules } from "@/lib/site-rules";
@@ -339,6 +339,7 @@ export async function deploy(
   try {
     let bytes = 0;
     let manifest: Manifest | null = null;
+    let components: SiteComponent[] | null = null;
     const scan = buildScan(await brandNames(site.projectId));
     const ruleTexts = new Map<string, string>();
     const list = [...files];
@@ -352,6 +353,12 @@ export async function deploy(
           if (served === MANIFEST) manifest = JSON.parse(new TextDecoder().decode(data)) as Manifest;
           else if (served === REDIRECTS || served === HEADERS) ruleTexts.set(served, new TextDecoder().decode(data));
           else scan.add(served, data);
+          if (kind === "storybook" && served === STORYBOOK_INDEX)
+            try {
+              components = storybookComponents(JSON.parse(new TextDecoder().decode(data)));
+            } catch {
+              // An index.json that isn't JSON lists no components; the Storybook is served all the same.
+            }
           await putObject(prefix + served, Buffer.from(data), contentTypeOf(served));
         }),
       );
@@ -366,7 +373,7 @@ export async function deploy(
     const held = flags.length > 0 && limits.siteReview;
     // A preview is never held for the operator: one that looks like phishing isn't served at all.
     if (held && preview) throw new AssetError("invalid", `A preview isn't served when it looks like phishing: ${flags.join("; ")}. Deploy it to the site to have it looked at`);
-    const kept = { files: files.size, bytes, manifest, uses, rules, flags, problems: [], checkedAt: new Date() };
+    const kept = { files: files.size, bytes, manifest, uses, components, rules, flags, problems: [], checkedAt: new Date() };
     const [row] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
       if (preview) return makePreview(tx, site.id, path, preview, id, kept);

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  IconComponents,
   IconFileText,
   IconListCheck,
   IconLock,
@@ -57,6 +58,7 @@ const ICON: Record<CatalogType, React.ComponentType<{ className?: string }>> = {
   site: IconWorld,
   rule: IconListCheck,
   page: IconFileText,
+  component: IconComponents,
 };
 
 export const TypeIcon = ({ type, className }: { type: CatalogType; className?: string }) => {

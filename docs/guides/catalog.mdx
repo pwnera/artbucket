@@ -5,14 +5,15 @@ description: Every asset, collection, brand and portal of an organization in one
 
 The catalog is every object of an organization you can reach, project by
 project: brands (with their rules and guideline pages), collections, assets
-and portals. **Catalog** in the sidebar shows it as a tree; **Explore**
+and portals (with the components their Storybook documents). **Catalog** in the sidebar shows it as a tree; **Explore**
 searches all of it at once.
 
 ## The tree and its pages
 
 Projects, then a folder per type (Brands, Collections, Assets, Portals), then
 the objects; assets fold once more by their type (Images, Videos, Fonts,
-Documents...), and a brand holds its rules and guideline pages. A row opens
+Documents...), a brand holds its rules and guideline pages, and a site holds
+the components of the Storybook live on it. A row opens
 its page; only its chevron folds it. A project's page shows its types and what
 was updated lately, a type's page every object of it, with **New** where it is
 made and a link to where it is managed. An object's page has its **Overview**,
@@ -29,10 +30,14 @@ Every object has one address, accepted anywhere an id is:
 {org}/{project}/{type}/{slug}[@release]
 acme/corporate/asset/logo-primary@4
 acme/corporate/brand/acme/rule/logo.primary
+acme/corporate/site/storybook/component/ui-button
 ```
 
 A brand's slug is unique in its project; an asset's comes from its filename,
-and `@n` picks a version.
+and `@n` picks a version. A component is read from the `index.json` that
+`storybook build` writes, each time a Storybook is deployed: one per title
+(`UI/Button`), at Storybook's own id for it (`ui-button`), with its stories.
+It stays while that deployment is live, under the same id across deploys.
 
 ## Search
 

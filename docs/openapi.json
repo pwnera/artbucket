@@ -15535,7 +15535,8 @@
                 "asset",
                 "site",
                 "rule",
-                "page"
+                "page",
+                "component"
               ]
             },
             "description": "Repeat for several"
@@ -15686,7 +15687,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -15785,7 +15787,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -15973,7 +15976,8 @@
                                     "asset",
                                     "site",
                                     "rule",
-                                    "page"
+                                    "page",
+                                    "component"
                                   ]
                                 },
                                 "slug": {
@@ -16072,7 +16076,8 @@
                                             "asset",
                                             "site",
                                             "rule",
-                                            "page"
+                                            "page",
+                                            "component"
                                           ]
                                         },
                                         "slug": {
@@ -16210,7 +16215,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -16309,7 +16315,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -16461,7 +16468,8 @@
                         "asset",
                         "site",
                         "rule",
-                        "page"
+                        "page",
+                        "component"
                       ]
                     },
                     "slug": {
@@ -16560,7 +16568,8 @@
                                 "asset",
                                 "site",
                                 "rule",
-                                "page"
+                                "page",
+                                "component"
                               ]
                             },
                             "slug": {
@@ -16607,7 +16616,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -16706,7 +16716,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -16963,7 +16974,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -17062,7 +17074,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
