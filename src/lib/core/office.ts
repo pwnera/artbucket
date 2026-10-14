@@ -62,7 +62,7 @@ export async function releasedOffice(ws: string, slug: string | undefined, versi
 }
 
 /** The template as a download, a 304 when the reader has these bytes already. */
-export function officeResponse(req: Request, t: Awaited<ReturnType<typeof officeTemplate>>) {
+export function officeResponse(req: Request, t: { bytes: Uint8Array<ArrayBuffer>; mime: string; filename: string; etag: string }) {
   // Revalidated each time: the bytes hold for the release, but whether its logo may leave can change.
   const headers = { ETag: t.etag, "Cache-Control": "private, no-cache" };
   if (req.headers.get("if-none-match") === t.etag) return new Response(null, { status: 304, headers });

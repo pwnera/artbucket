@@ -3452,6 +3452,300 @@
         }
       }
     },
+    "/api/v1/brand/office/templates": {
+      "get": {
+        "summary": "The brand's own Office templates",
+        "description": "The PowerPoint, Word and Excel files (pptx, potx, docx, dotx, xlsx, xltx) on a release's rules, each at its latest version, approved and usable now, that the caller may see. Put one on a rule (a `templates.slides` rule, say) as a logo is. Each says what in it won't follow the brand: colors and faces written on shapes and runs instead of taken from its theme, and images the library doesn't have.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A brand's slug; the default brand without it"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A release's number; live, the release readers see, without it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "The file's asset id, at its latest version: download it at /api/v1/brand/office/templates/{id}"
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "potx",
+                              "pptx",
+                              "dotx",
+                              "docx",
+                              "xltx",
+                              "xlsx"
+                            ]
+                          },
+                          "app": {
+                            "type": "string",
+                            "enum": [
+                              "PowerPoint",
+                              "Word",
+                              "Excel"
+                            ]
+                          },
+                          "error": {
+                            "description": "Why the file can't be read; null when it can",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "themes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Theme parts in it: none, and only its images follow the brand"
+                          },
+                          "colors": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "value": {
+                                  "type": "string"
+                                },
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "value",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Colors written on shapes or runs that aren't the brand's, most used first"
+                          },
+                          "fonts": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Faces written on shapes or runs that aren't the brand's heading or text family"
+                          },
+                          "images": {
+                            "type": "object",
+                            "properties": {
+                              "total": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "library": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "total",
+                              "library",
+                              "updated"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Its images: how many the library has, and how many a download replaces with a newer version"
+                          },
+                          "follows": {
+                            "type": "boolean",
+                            "description": "Everything in it follows a release: a theme, nothing written outside it, every image the library's"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "filename",
+                          "title",
+                          "kind",
+                          "app",
+                          "error",
+                          "themes",
+                          "colors",
+                          "fonts",
+                          "images",
+                          "follows"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/brand/office/templates/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The template's asset id, as the list gives it",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Download one of the brand's own templates",
+        "description": "The file wearing the release: the theme's twelve colors and its heading and text families in every theme part, and each image that is a library asset replaced by that asset's current version (drawn in the image's format when the new one's differs). Layouts, placeholders, text and effects stay as the designer made them. One release is one file byte for byte: send its ETag back for a 304.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A brand's slug; the default brand without it"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A release's number; live, the release readers see, without it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template (binary)"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/brand/cards/{template}": {
       "parameters": [
         {

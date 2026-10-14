@@ -234,6 +234,40 @@ and LibreOffice Impress opens one too: there is no Slides integration to set up.
 release is one file byte for byte, so a download sends an `ETag` and the same
 copy answers `304`.
 
+### Your own templates
+
+A deck an agency designed, a letterhead, a budget sheet: upload the
+PowerPoint, Word or Excel file (`.potx`, `.pptx`, `.dotx`, `.docx`, `.xltx`,
+`.xlsx`) to the library and put it on one of the brand's rules, as a logo is.
+A `templates.slides` rule that says "Start every deck from this one" is the
+usual place. Once released, it is listed on **Templates** beside the generated
+ones, and each download wears that release:
+
+- every theme part takes the release's colors and its heading and text
+  families, as in the table above; script faces (Japanese, Arabic...) stay
+- each image the library has, matched by its bytes, is replaced by that
+  asset's current version: a new logo reaches every deck without anyone
+  opening it. A replacement in another format is drawn as the image's own
+- nothing else changes: the layouts, placeholders, text and effects stay as
+  the designer made them
+
+The file itself isn't rewritten: like the generated ones, each download is
+made from the release it asks for, so an older release still gives its own.
+The file has to be approved and usable now, and the caller has to be able to
+see it; a new version of the file takes over as soon as it is current.
+
+```bash
+curl "https://assets.example.com/api/v1/brand/office/templates?brand=acme"
+curl -OJ "https://assets.example.com/api/v1/brand/office/templates/{id}?brand=acme"
+```
+
+The list says, for each file, what won't follow a release: colors and fonts
+written on shapes and text instead of taken from the theme (a color of the
+brand's palette counts as the brand's), images the library doesn't have, and
+a file with no theme at all. `follows` is true when there is none of that.
+Ask the designer to use the theme's colors and fonts (Design, Variants in
+PowerPoint; Design, Colors and Fonts in Word) and the library's logo.
+
 ## Brands and history
 
 A project can hold several brands, one of them the default. Every change is

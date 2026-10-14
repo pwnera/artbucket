@@ -164,6 +164,23 @@ export const OfficeQuery = z.object({
   version: ReleaseRef.default("live"),
 });
 
+export const OfficeTemplatesQuery = z.object({ version: ReleaseRef.default("live") });
+export const OfficeTemplate = z.object({
+  id: uuid.describe("The file's asset id, at its latest version: download it at /api/v1/brand/office/templates/{id}"),
+  filename: z.string(),
+  title: z.string().nullable(),
+  kind: z.enum(["potx", "pptx", "dotx", "docx", "xltx", "xlsx"]),
+  app: z.enum(["PowerPoint", "Word", "Excel"]),
+  error: z.string().nullable().describe("Why the file can't be read; null when it can"),
+  themes: z.number().int().describe("Theme parts in it: none, and only its images follow the brand"),
+  colors: z.array(z.object({ value: z.string(), count: z.number().int() })).describe("Colors written on shapes or runs that aren't the brand's, most used first"),
+  fonts: z.array(z.object({ name: z.string(), count: z.number().int() })).describe("Faces written on shapes or runs that aren't the brand's heading or text family"),
+  images: z
+    .object({ total: z.number().int(), library: z.number().int(), updated: z.number().int() })
+    .describe("Its images: how many the library has, and how many a download replaces with a newer version"),
+  follows: z.boolean().describe("Everything in it follows a release: a theme, nothing written outside it, every image the library's"),
+});
+
 export const GoogleFontQuery = z.object({
   q: z.string().max(80).optional().describe("Part of the family name, any case"),
   category: z.enum(FONT_CATEGORIES).optional(),
