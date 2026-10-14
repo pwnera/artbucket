@@ -64,14 +64,34 @@ export function Eyebrow({ className }: { className?: string }) {
 }
 
 /** The section's heading: an h2 under the page's h1, unless a cover opening the page makes it the h1. On the theme's scale, held to the container on a phone. */
-export function Title({ as: H = "h2", className }: { as?: "h1" | "h2" | "h3"; className?: string }) {
+export function Title({
+  as: H = "h2",
+  className,
+  muted,
+}: {
+  as?: "h1" | "h2" | "h3";
+  className?: string;
+  /** Each line after the first, as written, in the ground's quiet ink: a headline and its answer. Plain while it is typed. */
+  muted?: boolean;
+}) {
   const s = useSection();
   const { idOf } = useSite();
   const typing = useWords("title", s.title);
   const heading = { id: titleOf(idOf(s.id)), className: cn(HEAD, "text-[length:min(var(--brand-h2),8cqi)] leading-tight text-balance", className) };
   if (typing) return <Plain as={H} {...heading} {...typing} label="Title" />;
   if (!s.title) return null;
-  return <H {...heading}>{s.title}</H>;
+  const [first, ...rest] = s.title.split("\n");
+  if (!muted || !rest.length) return <H {...heading}>{s.title}</H>;
+  return (
+    <H {...heading}>
+      {first}
+      {rest.map((line, i) => (
+        <span key={i} className="block text-(--brand-muted)">
+          {line}
+        </span>
+      ))}
+    </H>
+  );
 }
 
 /** A line or two under the title, set large. Plain text. */
