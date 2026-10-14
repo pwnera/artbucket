@@ -5,13 +5,14 @@ import { IconCircleCheck, IconCircleX } from "@/components/icons";
 import { CopyButton } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { followingUrl } from "@/lib/asset-url";
 import { CHANNELS } from "@/lib/rights";
 
 /** What a check answers (lib/core/check.ts), as far as a person reads it. */
 type Verdict = {
   allowed: boolean;
   reasons: { code: string; message: string; blocking: boolean }[];
-  suggest: { id: string; title: string; why: string }[];
+  suggest: { id: string; title: string; url: string; why: string }[];
 };
 export type Use = { channel?: string; territory?: string; date?: string; context?: string };
 
@@ -143,8 +144,8 @@ export function CanIUse({ ask, context = false, onOpen }: { ask: (use: Use) => P
                       )}
                       <span className="text-muted-foreground"> · {s.why}</span>
                       </span>
-                      {/* In the app: a link that follows the replacement to its current version (/c/). */}
-                      {onOpen && <CopyButton label={`Copy a link to ${s.title}`} what="the link" text={async () => new URL(`/c/${s.id}`, location.origin).href} />}
+                      {/* In the app: a link that follows the replacement to its current version (/c/), named. */}
+                      {onOpen && <CopyButton label={`Copy a link to ${s.title}`} what="the link" text={async () => new URL(followingUrl(new URL(s.url).pathname), location.origin).href} />}
                     </li>
                   ))}
                 </ul>

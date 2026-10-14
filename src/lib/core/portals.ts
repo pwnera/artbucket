@@ -43,6 +43,7 @@ import { brandLook, challengeName, darkTwin, DEFAULT_PRESETS, PORTAL_SLUG, Porta
 import { limiter } from "@/lib/rate";
 import { prefixQuery } from "@/lib/search";
 import { seal, unseal } from "@/lib/settings";
+import { withName } from "@/lib/asset-url";
 import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
 import { longSig, pagePath, pageSig, byPortal } from "@/lib/core/signing";
 import { signerOpen } from "@/lib/core/signers";
@@ -924,20 +925,21 @@ async function siteOf(p: Row, brandSlugs: string[]): Promise<PortalSite> {
   const parsed = PortalSite.safeParse(p.site);
   const site = parsed.success ? parsed.data : {};
   const ids = (site.quick ?? []).flatMap((q) => q.asset ?? []);
-  const usable = new Set(
+  const usable = new Map(
     ids.length
       ? (
           await db
-            .select({ id: assets.id, mime: assets.mime, filename: assets.filename, rights: assets.rights, origin: assets.origin })
+            .select({ id: assets.id, mime: assets.mime, filename: assets.filename, metadata: assets.metadata, rights: assets.rights, origin: assets.origin })
             .from(assets)
             .where(and(inArray(assets.id, ids), eq(assets.projectId, p.projectId), deliverableSql))
         )
           // A quick grab is a download: a file shown only isn't one.
-          .flatMap((a) => (isDownloadable(a) ? [a.id] : []))
+          .flatMap((a) => (isDownloadable(a) ? [[a.id, a] as const] : []))
       : [],
   );
   const quick = site.quick?.flatMap((q) => {
-    if (q.asset) return usable.has(q.asset) ? [{ ...q, href: pagePath(q.asset, "?download", p.expiresAt, byPortal(p.id)) }] : [];
+    const a = q.asset && usable.get(q.asset);
+    if (q.asset) return a ? [{ ...q, href: pagePath(a.id, withName(a, "?download"), p.expiresAt, byPortal(p.id)) }] : [];
     return q.page && q.brand && !brandSlugs.includes(q.brand) ? [] : [q];
   });
   return { ...site, ...(quick && { quick }), listed: p.access === "public" && !!site.listed };

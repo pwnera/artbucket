@@ -18,6 +18,7 @@ import { repoint } from "@/lib/core/versions";
 import { collectionScope, reach } from "@/lib/access";
 import { can, needs, type Action } from "@/lib/permissions";
 import { linkTitle, previewOf } from "@/lib/core/previews";
+import { assetLink } from "@/lib/asset-url";
 import { env } from "@/lib/env";
 import { fetchPublic, FetchError } from "@/lib/fetch-public";
 import { describeIssues, fieldsValidator, missingRequired, relaxInherited, type FieldValues } from "@/lib/fields";
@@ -1089,6 +1090,8 @@ export async function proposeFields(caller: Caller, id: string, suggested: Recor
  */
 export function describeAsset(asset: Asset) {
   const base = `${env.APP_URL}/a/${asset.id}`;
+  // Named for whoever a link is handed to: /a/{id}/w_800,f_webp/summer-hero.webp (lib/asset-url.ts).
+  const at = (rest = "") => `${env.APP_URL}${assetLink(asset, rest)}`;
   const m = asset.metadata ?? {};
   const renderable = hasPreview(asset);
   return {
@@ -1129,8 +1132,8 @@ export function describeAsset(asset: Asset) {
     public: asset.public,
     downloadable: isDownloadable(asset),
     urls: {
-      original: base,
-      download: `${base}?download`,
+      original: at(),
+      download: at("?download"),
       rendition: renderable ? `${base}/{transform}` : null,
     },
     constraints: renderable
@@ -1146,7 +1149,7 @@ export function describeAsset(asset: Asset) {
           enlarges: isVector(asset.mime),
         }
       : null,
-    alternatives: renderable ? PRESETS.map((p) => ({ name: p.name, url: `${base}/${p.spec}` })) : [],
+    alternatives: renderable ? PRESETS.map((p) => ({ name: p.name, url: at(`/${p.spec}`) })) : [],
   };
 }
 

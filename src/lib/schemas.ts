@@ -1618,7 +1618,7 @@ export const BrandAsset = z.object({
   pages: z.array(z.object({ slug: z.string(), title: z.string() })).describe("The pages that show it"),
 });
 export const SignedUrl = z.object({
-  url: z.url().describe("The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"),
+  url: z.url().describe("The original, its name at the end; add a rendition after the id, /a/{id}/w_800,f_webp/summer-hero.webp?s=..., or ?download"),
   expiresAt: date,
 });
 export const Decided = z.object({ data: PortalRequest, emailed: z.boolean() });

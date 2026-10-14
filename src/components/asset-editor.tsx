@@ -74,11 +74,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
 import { ExternalLink } from "@/components/external-link";
-import { canFollow } from "@/lib/asset-url";
+import { assetLink, canFollow, followingUrl } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { rulesPath } from "@/lib/site";
-import { fileTypeBadge, formatBytes } from "@/lib/filename";
+import { fileTypeBadge, formatBytes, savedName } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { embedUrl, hasPreview, isIcon, isLottie, isMono } from "@/lib/preview";
 import { CHANNELS, isDownloadable } from "@/lib/rights";
@@ -639,10 +639,11 @@ export function AssetEditor({
 
   // Dragged out to Figma, Keynote or the desktop: the original file, not the preview's WebP.
   const dragOut = (e: React.DragEvent) => {
-    const url = new URL(`/a/${asset.id}?download`, location.origin).href;
-    e.dataTransfer.setData("DownloadURL", `${asset.mime}:${asset.filename}:${url}`);
+    const url = new URL(assetLink(asset, "?download"), location.origin).href;
+    e.dataTransfer.setData("DownloadURL", `${asset.mime}:${savedName(asset)}:${url}`);
     // Another app fetches a link without the session, so only a public file's works there; one that follows new versions.
-    if (asset.public) e.dataTransfer.setData("text/uri-list", new URL(`/${canFollow(asset) ? "c" : "a"}/${asset.id}`, location.origin).href);
+    const link = assetLink(asset);
+    if (asset.public) e.dataTransfer.setData("text/uri-list", new URL(canFollow(asset) ? followingUrl(link) : link, location.origin).href);
   };
 
   const field = (name: string) => ({
@@ -843,6 +844,7 @@ export function AssetEditor({
                   id: asset.id,
                   name,
                   public: asset.public,
+                  path: assetLink(asset),
                   shareable: asset.status === "active" && can("asset.share", asset),
                 },
               }}
@@ -869,7 +871,7 @@ export function AssetEditor({
           <IconButton label="Download the original" shortcut={["D"]} asChild>
             <a
               ref={downloadRef}
-              href={`/a/${asset.id}?download`}
+              href={assetLink(asset, "?download")}
               download
               onClick={(e) => {
                 if (e.currentTarget.dataset.flushed) return void delete e.currentTarget.dataset.flushed;

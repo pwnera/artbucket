@@ -500,6 +500,22 @@ async function uncommittedIn(dir: string) {
   return { changed: new Set([...changed, ...staged]), untracked: new Set(untracked) };
 }
 
+/**
+ * A link's name, as the server names its own (src/lib/asset-url.ts withName):
+ * the asset's title or file name, then the extension of the bytes, `format`
+ * for a rendition (null: the file's own format where /a/ renders it, else a
+ * JPEG). The server reads nothing of it, so this copy can only read worse.
+ */
+function linkName(a: { filename: string; mime: string; metadata?: { title?: string | null } | null }, format?: string | null) {
+  const own = a.filename.match(/\.([a-z0-9]{1,10})$/i)?.[1] ?? "";
+  const name = a.metadata?.title || a.filename;
+  const stem = own && name.toLowerCase().endsWith(`.${own.toLowerCase()}`) ? name.slice(0, -own.length - 1) : name;
+  const asIs = a.mime.replace(/^image\//, "");
+  const ext = format === undefined ? own : (format ?? (["png", "webp", "avif"].includes(asIs) ? asIs : "jpeg")).replace("jpeg", "jpg");
+  const slug = stem.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").slice(0, 60).replace(/^-+|-+$/g, "");
+  return slug && ext ? `${slug}.${ext.toLowerCase()}` : null;
+}
+
 /** A file's extension from what the server says it is, for the files a site build copies. */
 const EXTENSIONS: Record<string, string> = {
   "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/avif": "avif", "image/gif": "gif", "image/svg+xml": "svg",
@@ -568,10 +584,11 @@ async function brandExport(dir: string) {
     for (const r of rules as Exported[]) for (const a of r.assets) a.file = await local(a.id, a.rendition);
     // The server's /a/ URLs, signed for a day, on its own address (which may not be the one asked): in tokens.css
     // (@font-face, a logo) and in rules' text alike, the same files here, so the built site never points at a link that lapses.
-    const pattern = /https?:\/\/[^/"')\s\\]+\/a\/([0-9a-f-]{36})(?:\/([a-z0-9_,.]+))?(?:\?[^"')\s\\]*)?/gi;
+    // A rendition and a name (summer-hero.webp, read by nobody: the segment with a dot) may follow the id.
+    const pattern = /https?:\/\/[^/"')\s\\]+\/a\/([0-9a-f-]{36})((?:\/[\w,.%-]+){0,2})(?:\?[^"')\s\\]*)?/gi;
     const localized = async (text: string) => {
       const found = [...text.matchAll(pattern)];
-      const names = await Promise.all(found.map((m) => local(m[1], m[2] ?? null)));
+      const names = await Promise.all(found.map((m) => local(m[1], m[2].split("/").find((s) => s && !s.includes(".")) ?? null)));
       let i = 0;
       return text.replace(pattern, () => names[i++]);
     };
@@ -1031,9 +1048,10 @@ async function main() {
         opt.quality && `q_${opt.quality}`,
         opt.format && `f_${opt.format}`,
       ].filter(Boolean);
-      // Checked against the asset, so a typo'd id fails here, not in someone's page.
-      await api("GET", `/api/v1/assets/${id}`);
-      return console.log(`${BASE}/a/${id}${spec.length ? `/${spec.join(",")}` : ""}`);
+      // Checked against the asset, so a typo'd id fails here, not in someone's page; named after it.
+      const { data: a } = await api("GET", `/api/v1/assets/${id}`);
+      const name = linkName(a, spec.length ? (opt.format ?? (typeof a.probe?.preview === "string" ? "png" : null)) : undefined);
+      return console.log(`${BASE}/a/${id}${spec.length ? `/${spec.join(",")}` : ""}${name ? `/${name}` : ""}`);
     }
     case "ingest": {
       if (!args.length) need(undefined, "a file or URL");

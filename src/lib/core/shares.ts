@@ -1,4 +1,5 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { withName } from "@/lib/asset-url";
 import { db } from "@/lib/db";
 import { assets, collectionAssets, collections, projects, shareLinks, type ShareKind } from "@/lib/db/schema";
 import { hiddenIn, projectById, type Caller } from "@/lib/core/access";
@@ -218,8 +219,9 @@ const shared = (a: typeof assets.$inferSelect, link: Pick<Link, "id" | "expiresA
     size: a.size,
     width: a.width,
     height: a.height,
-    url: at(),
-    download: at("?download"),
+    // Named for whoever holds the link (lib/asset-url.ts).
+    url: at(withName(a)),
+    download: at(withName(a, "?download")),
     // False: shown, not handed out (lib/rights.ts isDownloadable). Its download answers 403, its original opens only in the page.
     downloadable: isDownloadable(a),
     thumbnail: hasPreview(a) ? at("/w_640,f_webp") : null,

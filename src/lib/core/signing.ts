@@ -1,3 +1,4 @@
+import { assetLink } from "@/lib/asset-url";
 import type { Caller } from "@/lib/core/access";
 import { getAsset } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
@@ -56,5 +57,5 @@ export async function makeSignedUrl(caller: Caller, id: string, expiresIn: numbe
   if (!deliverable(asset)) throw new AssetError("invalid", "Only an approved asset, unexpired and out of embargo, can be shared");
   const expiresAt = new Date(Date.now() + expiresIn * 1000);
   await recordAudit(caller, "asset.signed_url", asset.filename, { expiresAt });
-  return { url: withSignature(`${env.APP_URL}/a/${asset.id}${rest}`, signAsset(env.BETTER_AUTH_SECRET, asset.id, expiresAt)), expiresAt };
+  return { url: withSignature(`${env.APP_URL}${assetLink(asset, rest)}`, signAsset(env.BETTER_AUTH_SECRET, asset.id, expiresAt)), expiresAt };
 }

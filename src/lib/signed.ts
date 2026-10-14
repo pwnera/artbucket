@@ -49,10 +49,11 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 /**
  * Every /a/{id} URL in `text` (rich text's images, as HTML or JSON) signed,
- * for the ids `sig` answers; others are left as they are.
+ * for the ids `sig` answers; others are left as they are. A rendition and a
+ * name (lib/asset-url.ts splitLink) may follow the id.
  */
 export function signUrlsIn(text: string, sig: (id: string) => string | null) {
-  return text.replace(new RegExp(`(/a/(${UUID})(?:/[\\w,.]+)?)(\\?[^"'\\s<>\\\\]*)?`, "gi"), (all, path: string, id: string, query = "") => {
+  return text.replace(new RegExp(`(/a/(${UUID})(?:/[\\w,.-]+){0,2})(\\?[^"'\\s<>\\\\]*)?`, "gi"), (all, path: string, id: string, query = "") => {
     const s = sig(id.toLowerCase());
     if (!s || /[?&]s=/.test(query)) return all;
     return `${path}${query ? `${query}&` : "?"}s=${s}`;

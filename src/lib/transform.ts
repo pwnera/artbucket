@@ -164,6 +164,18 @@ export function serializeTransform(t: Transform): string {
   return parts.join(",");
 }
 
+/**
+ * What a rendition comes out as: the format asked, else a PNG of a still
+ * derived at upload (lib/core/previews.ts), else the file's own format where
+ * it is one of FORMATS, else a JPEG.
+ */
+export function outputFormat(t: Transform, a: { mime: string; probe?: Record<string, unknown> | null }): Format {
+  if (t.f) return t.f;
+  if (typeof a.probe?.preview === "string") return "png";
+  const own = a.mime.replace(/^image\//, "");
+  return (FORMATS as readonly string[]).includes(own) ? (own as Format) : "jpeg";
+}
+
 /** sharp's encoder options: the quality asked, else 82. A PNG gets one only when asked: any quality makes sharp quantize it to a palette. */
 export const encodeOptions = (t: Transform, format: Format) => (format === "png" && !t.q ? {} : { quality: t.q ?? 82 });
 

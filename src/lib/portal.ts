@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withSignature } from "./asset-url.ts";
+import { assetLink, withSignature } from "./asset-url.ts";
 import { logoOf, tintOf, type HubRule } from "./hub.ts";
 import { pageSlug } from "./pages.ts";
 
@@ -36,18 +36,24 @@ export type Download = { preset: PortalPreset; label: string; hint: string; url:
  * so it gets its original whatever the presets say. `s` signs them
  * (lib/signed.ts) for a visitor without an account.
  */
-export function downloadsFor(asset: { id: string; filename: string; mime: string }, presets: PortalPreset[], base: string, s?: string): Download[] {
-  const at = `${base}/a/${asset.id}`;
+export function downloadsFor(
+  asset: { id: string; filename: string; mime: string; metadata?: { title?: string | null } | null; probe?: Record<string, unknown> | null },
+  presets: PortalPreset[],
+  base: string,
+  s?: string,
+): Download[] {
+  // Named, for whoever copies the link rather than clicking it (lib/asset-url.ts).
+  const at = (rest: string) => `${base}${assetLink(asset, rest)}`;
   const url = (path: string) => (s ? withSignature(path, s) : path);
   const stem = asset.filename.replace(/\.[^.]+$/, "");
   const { label, hint } = PORTAL_PRESETS.original;
-  const original: Download = { preset: "original", label, hint, url: url(`${at}?download`), filename: asset.filename };
+  const original: Download = { preset: "original", label, hint, url: url(at("?download")), filename: asset.filename };
   if (!asset.mime.startsWith("image/")) return [original];
   const out = presets.flatMap((p): Download[] => {
     const { label, hint, spec } = PORTAL_PRESETS[p];
     if (!spec) return [original];
     const ext = spec.match(/f_(\w+)/)?.[1] === "png" ? "png" : "jpg";
-    return [{ preset: p, label, hint, url: url(`${at}/${spec}`), filename: `${stem}-${p}.${ext}` }];
+    return [{ preset: p, label, hint, url: url(at(`/${spec}`)), filename: `${stem}-${p}.${ext}` }];
   });
   return out.length ? out : [original];
 }

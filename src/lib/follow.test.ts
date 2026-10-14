@@ -8,6 +8,9 @@ test("keeps the rendition and swaps the id", () => {
   assert.equal(followPath("http://x/c/old", to), `/a/${to}`);
   assert.equal(followPath("http://x/c/old/w_800,f_webp", to), `/a/${to}/w_800,f_webp`);
   assert.equal(followPath("http://x/c/old/h_64%2Cf_png", to), `/a/${to}/h_64%2Cf_png`);
+  // A link's name goes along, read by nobody there either (lib/asset-url.ts splitLink).
+  assert.equal(followPath("http://x/c/old/summer-hero.jpg", to), `/a/${to}/summer-hero.jpg`);
+  assert.equal(followPath("http://x/c/old/w_800,f_webp/summer-hero.webp?download", to), `/a/${to}/w_800,f_webp/summer-hero.webp?download`);
 });
 
 test("carries ?download, drops a signature made for another id", () => {

@@ -35,6 +35,9 @@ test("URLs in rich text are signed for the assets asked, once", () => {
   assert.equal(signUrlsIn(out, () => "10.other"), out.replace(`/a/${B}"`, `/a/${B}?s=10.other"`), "never twice");
   assert.deepEqual(assetIdsIn(html), [A, B]);
   assert.equal(withSignature(`/a/${A}?download`, "1.x"), `/a/${A}?download&s=1.x`);
+  // A link's name stays on its path: the signature goes after it.
+  assert.equal(signUrlsIn(`<img src="/a/${A}/w_800,f_webp/summer-hero.webp">`, () => "9.sig"), `<img src="/a/${A}/w_800,f_webp/summer-hero.webp?s=9.sig">`);
+  assert.equal(signUrlsIn(`<a href="/a/${A}/summer-hero.jpg?download">`, () => "9.sig"), `<a href="/a/${A}/summer-hero.jpg?download&s=9.sig">`);
 });
 
 test("a signature can name what handed it out, and that name is signed too", () => {
