@@ -6,6 +6,7 @@ import { contrast, inkOn, mix } from "@/lib/color";
 import { ago, compact, type CardFace } from "@/lib/hub";
 import { cn } from "@/lib/utils";
 import { LinkSpinner } from "@/components/link-pending";
+import { ScrollRow } from "@/components/scroll-row";
 
 /**
  * The BrandHub's pieces (app/hub): a listing's card, the grid of them, who
@@ -230,11 +231,11 @@ export function Cards({ cards, base, className }: { cards: HubCard[]; base: stri
   );
 }
 
-/** A row of underlined tabs, GitHub's: links, the current one marked. */
+/** A row of underlined tabs, GitHub's: links, the current one marked, kept in view when the row scrolls (ScrollRow). */
 export function TabNav({ label, items, className }: { label: string; items: { href: string; label: string; count?: number; current?: boolean }[]; className?: string }) {
   return (
-    // Scrolls sideways when narrow, with no scrollbar drawn under the tabs.
-    <nav aria-label={label} className={cn("-mb-px flex gap-1 overflow-x-auto [scrollbar-width:none]", className)}>
+    // Scrolls sideways when narrow, with no scrollbar drawn under the tabs, and fades where there are more.
+    <ScrollRow label={label} current={items.find((t) => t.current)?.href} className={cn("-mb-px flex gap-1", className)}>
       {items.map((t) => (
         <Link
           key={t.href}
@@ -248,6 +249,6 @@ export function TabNav({ label, items, className }: { label: string; items: { hr
           <LinkSpinner className="absolute end-0.5 top-1/2 size-2.5 -translate-y-1/2" />
         </Link>
       ))}
-    </nav>
+    </ScrollRow>
   );
 }
