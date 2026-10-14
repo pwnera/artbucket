@@ -1,0 +1,73 @@
+---
+title: Share cards
+description: An on-brand Open Graph image for any page, from a URL, restyled by every release.
+---
+
+A brand's **share card** is the picture a link preview shows: 1200x630, a PNG,
+drawn when it is asked for from the brand's latest release. Name it in a page's
+`og:image` and every blog post, doc page or changelog entry gets an image in
+the brand's colors, type and logo, with no design file and no build. Release a
+new look and every card follows it.
+
+```html
+<meta property="og:image" content="https://hub.example.com/acme/acme/og.png?title=Shipping%20faster%20builds&eyebrow=Engineering" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+```
+
+The brand's **Sharing** tab shows its card, tries a title, and copies the tag.
+
+## What it says
+
+| Parameter | |
+|---|---|
+| `title` | Required, up to 140 characters. Set big in the brand's heading face; a long one shrinks, and past three lines ends in an ellipsis |
+| `eyebrow` | A short line above it in capitals, up to 60 characters, in the accent |
+| `subtitle` | A line or two under it, up to 200 characters |
+| `image` | An asset's id: its picture fills the right of the card (below) |
+| `theme` | `light` (the default) or `dark` |
+
+## What it is drawn from
+
+The release, as the brand's pages read it (its **Theme**): the paper and ink,
+the accent as a solid field on the right, the logo up top, and the heading and
+text faces. On a dark card it takes a logo made for dark grounds when the
+brand has one (a `logo.*` rule keyed reversed, white or negative, or the logo
+in a dark context); a logo that still doesn't read sits on a tile. Faces come
+from the brand's own font files when they are TrueType, OpenType or WOFF;
+WOFF2 alone, or no file, and the card is set in Geist. Only files that may be
+used are drawn: an archived or expired logo leaves the card.
+
+`image` is a picture the release holds (an imagery rule's, say), or, on
+BrandHub, one made public; through the API, any the caller may see. Never
+another project's.
+
+## Where
+
+**Public brands**, on BrandHub, keyless, beside the listing's other files:
+
+```
+GET {HUB_URL}/{org}/{brand}/og.png?title=...
+GET {HUB_URL}/{org}/{brand}@4/og.png?title=...   # release 4, for good
+```
+
+It is cached for five minutes (`Cache-Control: public, max-age=300`), so a
+release reaches every card within minutes, and its `ETag` names everything it
+is drawn from: asked again with `If-None-Match`, an unchanged card answers 304
+without being drawn. BrandHub's own listing pages use their card as their
+link preview.
+
+**Any brand**, private ones included, for whoever may read it, with a key:
+
+```bash
+curl -H "Authorization: Bearer $ARTBUCKET_KEY" \
+  "https://artbucket.example.com/api/v1/brand/cards/og?brand=acme&title=Release%20notes" -o og.png
+```
+
+`version` draws a release by its number (`live`, the default, is the latest).
+A crawler sends no key, so a private brand's card is for a build that saves
+it next to the page; make the brand public on BrandHub for a URL any page can
+name.
+
+Cards are drawn on the server, two at a time; a busy server answers 429 for a
+moment rather than queue a crowd.
