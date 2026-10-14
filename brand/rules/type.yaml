@@ -2,8 +2,8 @@ type.heading:
   type: font
   value:
     family: Funnel Display
-    weight: 500
-  usage: Headings and the wordmark, large and medium weight, tracked tight. The size does the work, not the weight.
+    weight: 440
+  usage: "Headings and the wordmark: large, light and tracked tight, so the size does the work. A headline's second line is the same face in Muted, never italic."
   spec:
     url: https://fonts.google.com/specimen/Funnel+Display
     role: headline
@@ -21,17 +21,6 @@ type.body:
     role: body
     source: google
     fallback: system-ui, sans-serif
-type.accent:
-  type: font
-  value:
-    family: Instrument Serif
-    weight: 400
-  usage: In italic, one phrase inside a headline at the headline's size. Never a whole line, never body text.
-  spec:
-    url: https://fonts.google.com/specimen/Instrument+Serif
-    role: display
-    source: google
-    fallback: Georgia, serif
 type.code:
   type: font
   value:
