@@ -45088,8 +45088,8 @@
     "/api/v1/automations": {
       "get": {
         "summary": "The project's automations",
-        "description": "What is sent, by email or a signed webhook, when a brand is released or an asset's license is about to end.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "What is sent, by email or a signed webhook, when a brand is released or an asset's license is about to end: those the caller may manage. An editor of a brand manages its release automations; license dates and any brand's releases take admin on the project.\n\nScope: `write`.",
+        "x-scope": "write",
         "responses": {
           "200": {
             "description": "Automations",
@@ -45273,8 +45273,8 @@
       },
       "post": {
         "summary": "Make an automation",
-        "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. email sends to `emails`; webhook POSTs the run's payload to `url`, signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. email sends to `emails`; webhook POSTs the run's payload to `url`, signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `write`.",
+        "x-scope": "write",
         "requestBody": {
           "required": true,
           "content": {
@@ -45547,8 +45547,8 @@
       ],
       "patch": {
         "summary": "Change an automation",
-        "description": "What is left out stays. Made a webhook, it gets a secret, in this answer only.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "What is left out stays. Made a webhook, it gets a secret, in this answer only.\n\nScope: `write`.",
+        "x-scope": "write",
         "requestBody": {
           "required": true,
           "content": {
@@ -45803,8 +45803,8 @@
       },
       "delete": {
         "summary": "Delete an automation",
-        "description": "Its run log goes with it.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "Its run log goes with it.\n\nScope: `write`.",
+        "x-scope": "write",
         "responses": {
           "200": {
             "description": "Deleted",
@@ -45885,8 +45885,8 @@
       ],
       "get": {
         "summary": "An automation's run log",
-        "description": "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.\n\nScope: `write`.",
+        "x-scope": "write",
         "responses": {
           "200": {
             "description": "Runs",
@@ -46055,8 +46055,8 @@
       ],
       "post": {
         "summary": "Send a test",
-        "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `admin`.",
-        "x-scope": "admin",
+        "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `write`.",
+        "x-scope": "write",
         "responses": {
           "201": {
             "description": "The run, delivered or failed",

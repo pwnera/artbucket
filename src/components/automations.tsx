@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconBolt, IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconSend, IconTrash } from "@/components/icons";
+import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
@@ -49,7 +50,7 @@ type Run = {
   createdAt: string;
   test?: boolean;
 };
-type Brand = { slug: string; name: string };
+type Brand = { id: string; slug: string; name: string; private?: boolean };
 type Made = AutomationRow & { secret?: string };
 
 const ANY = "*";
@@ -154,9 +155,13 @@ function AutomationDialog({
 }) {
   const id = useId();
   const router = useRouter();
+  const can = useCan();
+  // An editor of a brand makes its release automations; license dates and any brand reach what only admins see.
+  const all = can("automation.manage_all");
+  const mine = all ? brands : brands.filter((b) => can("automation.manage", b));
   const [trigger, setTrigger] = useState<AutomationRow["trigger"]>(a?.trigger ?? "brand.released");
   const [action, setAction] = useState<AutomationRow["action"]>(a?.action ?? "email");
-  const [brand, setBrand] = useState(a?.brand ?? ANY);
+  const [brand, setBrand] = useState(a?.brand ?? (all ? ANY : (mine[0]?.slug ?? ANY)));
   const [busy, setBusy] = useState(false);
   // A webhook made before keeps its URL unless a new one is given.
   const keeps = a?.action === "webhook" && action === "webhook";
@@ -202,7 +207,7 @@ function AutomationDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="brand.released">A brand is released</SelectItem>
-                  <SelectItem value="asset.expiring">A license is about to end</SelectItem>
+                  {all && <SelectItem value="asset.expiring">A license is about to end</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -214,8 +219,8 @@ function AutomationDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ANY}>Any brand</SelectItem>
-                    {brands.map((b) => (
+                    {all && <SelectItem value={ANY}>Any brand</SelectItem>}
+                    {mine.map((b) => (
                       <SelectItem key={b.slug} value={b.slug}>
                         {b.name}
                       </SelectItem>
