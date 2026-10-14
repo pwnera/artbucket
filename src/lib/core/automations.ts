@@ -562,7 +562,7 @@ async function sampleOf(caller: Caller, a: Row): Promise<Record<string, unknown>
     const recent = await db.select().from(audit).where(eq(audit.projectId, caller.project.id)).orderBy(desc(audit.at)).limit(100);
     const e = recent.find((r) => takes(a.actions, r.action));
     if (e) return governancePayload({ action: e.action, target: e.target, actor: e.actor, agent: !!e.keyId, detail: e.detail });
-    const action = a.actions.find((x) => !x.endsWith(".*")) ?? a.actions[0]?.replace("*", "created") ?? "share.created";
+    const action = a.actions.find((x) => !x.endsWith(".*")) ?? a.actions[0]?.replace(/\.\*$/, ".created") ?? "share.created";
     return governancePayload({ action, target: "Sample", actor: caller.actor, agent: false });
   }
   if (a.trigger === "fix.opened") {
