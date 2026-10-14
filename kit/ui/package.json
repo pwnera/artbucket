@@ -1,6 +1,6 @@
 {
   "name": "@artbucket/ui",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Draw a brand's rules (palette, type, logos, dos and don'ts) from an Artbucket release: HTML strings, web components and React.",
   "license": "MIT",
   "repository": {
