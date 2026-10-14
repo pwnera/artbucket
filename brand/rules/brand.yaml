@@ -1,9 +1,3 @@
-brand.tagline:
-  type: text
-  value: Change your brand once. It's right everywhere.
-  usage: The line under the name, on the site, the README and the cover.
-  spec:
-    copy: true
 brand.description:
   type: text
   value: "Brand ops for brand, marketing and agency teams: one source of truth for your logos, colors and rules, and every change rolled out to your sites, portals and AI tools. Open source."
@@ -17,6 +11,12 @@ brand.headline:
   usage: The short introduction on a cover, website or presentation.
   spec:
     max: 40
+    copy: true
+brand.tagline:
+  type: text
+  value: Change your brand once. It's right everywhere.
+  usage: The line under the name, on the site, the README and the cover.
+  spec:
     copy: true
 brand.intro:
   type: text
