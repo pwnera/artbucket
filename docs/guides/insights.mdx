@@ -29,6 +29,20 @@ Two of the lists take a button, so a finding becomes something done.
 - **Notify**, on each place in Where from, Old versions: an email to whoever answers for that site or agent, naming each replaced version it still loads and a `/c/{id}` link that always leads to the current version, so the next release reaches it without anyone asking again. Artbucket reaches the people it knows itself: a site or portal of the project goes to the project's admins, an agent to the person who connected it. For anyone else (a site elsewhere, a key an admin made), name them in the dialog. Each version and place is told once: the row then says when ("Notified 2 days ago"), and a second notice for the same version is refused. `POST /api/v1/insights/notices` does the same, with `referrer` or `client`, the replaced `assets` and optional `emails`. It goes through the organization's email and counts toward its daily emails, and the audit log keeps who sent it.
 - **Request it**, on each search in Asked for, Not found: an upload link, named after the search's words, to send to whoever has the file, a teammate or an agency. What they send lands in Review, like any upload link's files, and the gap says it was requested while the link is open.
 
+## Weekly digest
+
+On Mondays, each editor and admin of a project gets an email about the week before, Monday to Sunday (UTC). It only has the sections with something in them, each linking where to act:
+
+- **Brand releases**: each brand released, its version and its release note.
+- **New assets** and **new versions**, counted, with the first few names.
+- **Licenses ending in the next 14 days**, soonest first, with what replaced the asset where something did.
+- **Searches that found nothing** last week, from Insights' search gaps (only where Insights is on).
+- **Waiting for review**: how many assets, or suggestions, wait.
+
+A week with nothing in any of them sends nothing. Each person gets a project's digest once a week, whichever instance runs the sweep, and only what they could open in the app. Viewers and contributors get none.
+
+It goes out with the organization's email, so not at all where the organization can't send (Settings, Email sending), and not from a read-only organization. Anyone turns it off in **Settings, Notifications** (`PATCH /api/v1/me/digest`), or from the **Unsubscribe** link at the bottom of the email, which needs no sign-in.
+
 ## What is recorded
 
 One row per event in the `events` table: a file fetched from `/a/{id}` (the app drawing its own thumbnails is left out), a `check_use` verdict with its reasons and the replacement offered, a search with words, a BrandHub file read, an MCP tool called (its name and whether it worked, never its arguments), and the brand context an agent asked for. Each keeps its kind, surface, whether the actor was a person, an agent or nobody in particular, an agent's key name, the asset or subject, the version, the verdict, the referrer's host, and the day.

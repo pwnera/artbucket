@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { MakeDialog, pickProject, signOut, useGo, type Legal, type Me } from "@/components/account";
 import { BrandMark, useBrand } from "@/components/brand";
 import type { Brand } from "@/lib/branding";
-import { send } from "@/lib/send";
+import { send, sendResult } from "@/lib/send";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -1388,6 +1388,43 @@ export function ResetPassword({ token, invalid }: { token: string | null; invali
           Save new password
         </Button>
       </form>
+    </Card>
+  );
+}
+
+/** The weekly digest's unsubscribe link (lib/core/digest.ts): one button, no sign-in. */
+export function Unsubscribe({ token }: { token: string }) {
+  const [state, setState] = useState<"ask" | "busy" | "done" | "unknown">("ask");
+  if (state === "done") {
+    return (
+      <Card title="You're unsubscribed" lead="No more weekly digest. To get it again, turn it on in Settings, under Notifications.">
+        <Button variant="outline" asChild>
+          <Link href="/settings/account/notifications">Open Settings</Link>
+        </Button>
+      </Card>
+    );
+  }
+  if (state === "unknown") {
+    return (
+      <Card title="This link doesn't work" lead="It may be cut short. Turn the weekly digest off in Settings, under Notifications, instead.">
+        <Button variant="outline" asChild>
+          <Link href="/settings/account/notifications">Open Settings</Link>
+        </Button>
+      </Card>
+    );
+  }
+  return (
+    <Card title="Stop the weekly digest?" lead="You won't get the Monday email about your projects any more. Invitations and other email still arrive.">
+      <Button
+        pending={state === "busy"}
+        onClick={async () => {
+          setState("busy");
+          const r = await sendResult("POST", `/api/v1/unsubscribe/${encodeURIComponent(token)}`);
+          setState(r.ok ? "done" : !r.network && r.status === 404 ? "unknown" : "ask");
+        }}
+      >
+        Unsubscribe
+      </Button>
     </Card>
   );
 }
