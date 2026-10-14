@@ -254,16 +254,27 @@ A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 | `/{org}/{brand}/brand.json` | The brand as an AdCP brand.json: logos, colors, fonts, voice, don'ts ([the mapping](/guides/brand-as-code/brand-json)) |
 | `/{org}/{brand}/rules.json` | Every rule, its files as URLs signed for a day |
 | `/{org}/{brand}/tokens?format=css` | Design tokens, in any format of `GET /api/v1/brand/tokens` ([formats](/guides/brand-as-code/standards)); `&fonts=none` leaves out the `@font-face` rules for a site that serves its own fonts |
+| `/{org}/{brand}/press-kit.zip` | The press kit: every logo (an SVG with a PNG beside it), the palette (`colors.txt`, `colors.ase` for Adobe apps), `tokens.css` and `tokens.json`, the font files their license lets anyone pass on, and a README with the release, its source, each part's use and the brand's do's and don'ts |
 | `/{org}/{brand}/badge.svg` | A README badge in the brand's color, with its mark and name, the release that is live and a check when verified ("Acme @4 ✓"), not counted as a read |
 | `/index.json?q=` | The public brands, or what a search finds |
 | `/llms.txt` | How an agent finds a brand here, and the list |
 
-The last six answer for public brands only. Anyone may make public a brand
-of any name, so a page names who has it. An organization with a verified
-[domain](#a-domain-of-its-own) or a verified GitHub account gets a badge with
-it; any other public brand is a community one, says so, and is kept out of
-search engines (`noindex` on its page, `X-Robots-Tag: noindex` on its files,
-and left out of the sitemap).
+The files answer for public brands only, but the press kit. Anyone may make
+public a brand of any name, so a page names who has it. An organization with
+a verified [domain](#a-domain-of-its-own) or a verified GitHub account gets a
+badge with it; any other public brand is a community one, says so, and is
+kept out of search engines (`noindex` on its page, `X-Robots-Tag: noindex` on
+its files, and left out of the sitemap).
+
+**Download press kit** on a brand's page gets the press kit, and so does a
+private brand's own people, signed in. It holds only what the page shows:
+files that may be used, less those whose owner doesn't hand them out (a
+foundry font, a licensed mark), which its README names instead, as it names
+what would take the zip past 100 MB. A community listing's README says it
+may not come from the brand's owner, with what its first release said of
+where it came from. The kit changes only when the release, a file in it or
+its words do, so it carries an `ETag`, and caches keep it as long as the
+other files.
 
 ### Verified by GitHub
 
