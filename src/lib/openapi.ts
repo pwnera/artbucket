@@ -1324,6 +1324,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "Insights", data(S.Insights)],
         }),
       },
+      "/api/v1/fixes": {
+        get: op({
+          summary: "Fixes: what needs doing",
+          scope: "write",
+          description:
+            "One list of what to act on in the project, from what Insights and the library know: places still loading a replaced version " +
+            "(tell them with POST /api/v1/insights/notices), searches that found nothing (ask for the file with an upload link, POST /api/v1/shares) " +
+            "and approved assets whose license ends within 30 days, with what replaced them. Each says whether it was done; `open` counts the rest.",
+          ok: [200, "Fixes", data(S.Fixes)],
+        }),
+      },
       "/api/v1/insights/notices": {
         post: op({
           summary: "Tell a place it uses an old version",
@@ -1474,6 +1485,18 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description: "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.",
           ok: [200, "Runs", data(z.array(S.AutomationRun))],
+        }),
+      },
+      "/api/v1/automations/{id}/test": {
+        parameters: [path("id", "Automation id")],
+        post: op({
+          summary: "Send a test",
+          scope: "admin",
+          description:
+            "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), " +
+            "for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. " +
+            "One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.",
+          ok: [201, "The run, delivered or failed", data(S.AutomationRun)],
         }),
       },
       "/api/v1/invitations": {

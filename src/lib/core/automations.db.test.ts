@@ -7,7 +7,8 @@ import { eq, sql } from "drizzle-orm";
 import { signUp } from "@/test/db";
 import { db } from "@/lib/db";
 import { assets, automationRuns, automations } from "@/lib/db/schema";
-import { brandReleased, createAutomation, deleteAutomation, deliverDue, listAutomations, listRuns, scanExpiring, updateAutomation } from "@/lib/core/automations";
+import { brandReleased, createAutomation, deleteAutomation, deliverDue, listAutomations, listRuns, scanExpiring, testAutomation, updateAutomation } from "@/lib/core/automations";
+import { publishBrand } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
 import { signHook } from "@/lib/core/features";
 import { updateSetting } from "@/lib/core/settings";
@@ -154,4 +155,62 @@ test("what a trigger and an action need is checked, and only the project's admin
   assert.equal(back.host, null);
   const [row] = await db.select().from(automations).where(eq(automations.id, a.id));
   assert.equal(row.secret, null);
+});
+
+test("a test sends the brand's latest release now, off or on, marked as a test and never tried again", async (t) => {
+  let status = 200;
+  const calls = hooked(t, () => status);
+  const hook = await createAutomation(ada.caller, { name: "Try me", trigger: "brand.released", brand: "default", action: "webhook", url: "https://hooks.example.com/try" });
+  await updateAutomation(ada.caller, hook.id, { enabled: false });
+  const { number } = await publishBrand(ada.caller, undefined, { note: "Warmer greys" });
+
+  const run = await testAutomation(ada.caller, hook.id);
+  assert.equal(run.status, "delivered");
+  assert.equal(run.test, true);
+  assert.equal(calls.length, 1);
+  const payload = JSON.parse(calls[0].body);
+  assert.deepEqual([payload.event, payload.release, payload.note, payload.test, payload.id], ["brand.released", number, "Warmer greys", true, run.id]);
+
+  // A failure is logged, once: no retry waits.
+  status = 500;
+  const failed = await testAutomation(ada.caller, hook.id);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.nextAt, null);
+  assert.equal(failed.attempts.length, 1);
+  assert.deepEqual(await deliverDue(), { delivered: 0, failed: 0 });
+  assert.deepEqual(
+    (await listRuns(ada.caller, hook.id)).map((r) => [r.status, r.test]),
+    [
+      ["failed", true],
+      ["delivered", true],
+    ],
+  );
+  // The real release is still its own: tests took no key from it.
+  await updateAutomation(ada.caller, hook.id, { enabled: true });
+  status = 200;
+  await brandReleased(brand, { number: number + 100 });
+  assert.deepEqual(
+    (await listRuns(ada.caller, hook.id)).map((r) => [r.status, r.test]),
+    [
+      ["delivered", false],
+      ["failed", true],
+      ["delivered", true],
+    ],
+  );
+  await assert.rejects(testAutomation({ ...ada.caller, scope: "write" }, hook.id), /admin on the project/);
+  await deleteAutomation(ada.caller, hook.id);
+});
+
+test("a test of an expiry sends the asset whose license ends soonest", async () => {
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const rights = (expires: string) => ({ license: "RM", territories: [], channels: [], embargo: null, expires, modelRelease: null });
+  const [asset] = await db
+    .insert(assets)
+    .values({ projectId: ada.caller.project.id, sha256: randomBytes(32).toString("hex"), filename: "first-to-go.png", mime: "image/png", size: 1, rights: rights(day(1)) })
+    .returning();
+  const mail = await createAutomation(ada.caller, { name: "Legal", trigger: "asset.expiring", days: 30, action: "email", emails: ["legal@example.com"] });
+  const run = await testAutomation(ada.caller, mail.id);
+  assert.equal(run.status, "delivered");
+  assert.deepEqual([(run.payload.asset as { id: string }).id, run.payload.expires, run.payload.days, run.payload.test], [asset.id, day(1), 1, true]);
+  await deleteAutomation(ada.caller, mail.id);
 });

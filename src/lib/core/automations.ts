@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "@/lib/db";
-import { assets, automationRuns, automations, brands, projects } from "@/lib/db/schema";
+import { assets, automationRuns, automations, brands, brandVersions, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { resolveBrand } from "@/lib/core/brands";
@@ -177,12 +177,22 @@ export async function listRuns(caller: Caller, id: string) {
   manage(caller);
   const a = await automationOf(caller, id);
   const rows = await db.select().from(automationRuns).where(eq(automationRuns.automationId, a.id)).orderBy(desc(automationRuns.createdAt)).limit(RUNS_SHOWN);
-  return rows.map(({ id, status, payload, attempts, nextAt, createdAt }) => ({ id, status, payload, attempts, nextAt, createdAt }));
+  return rows.map(presentRun);
 }
+
+const presentRun = ({ id, status, payload, attempts, nextAt, createdAt }: Run) => ({ id, status, payload, attempts, nextAt, createdAt, test: payload.test === true });
 
 // ---- firing ---------------------------------------------------------------------
 
 type Fired = { automation: Row; project: { id: string; slug: string; name: string } };
+
+/** What a run posts: its id, so a receiver can tell a retry from a second event, then the event, the automation and the project. */
+const bodyOf = (id: string, m: Fired & { payload: Record<string, unknown> }) => ({
+  id,
+  ...m.payload,
+  automation: { id: m.automation.id, name: m.automation.name },
+  project: m.project,
+});
 
 /** A run for each, once per `key`: what was already made for that key is left alone. Their ids. */
 async function enqueue(made: (Fired & { key: string; payload: Record<string, unknown> })[]) {
@@ -192,8 +202,7 @@ async function enqueue(made: (Fired & { key: string; payload: Record<string, unk
     .values(
       made.map((m) => {
         const id = randomUUID();
-        // Its id in the body, so a receiver can tell a retry from a second event.
-        return { id, automationId: m.automation.id, key: m.key, payload: { id, ...m.payload, automation: { id: m.automation.id, name: m.automation.name }, project: m.project } };
+        return { id, automationId: m.automation.id, key: m.key, payload: bodyOf(id, m) };
       }),
     )
     .onConflictDoNothing()
@@ -215,22 +224,27 @@ const enabledIn = (projectId: string, trigger: Row["trigger"]) =>
  */
 export async function brandReleased(brand: { id: string; slug: string; name: string; projectId: string }, release: { number: number; note?: string | null }) {
   const fired = (await enabledIn(brand.projectId, "brand.released")).filter((f) => !f.automation.brandId || f.automation.brandId === brand.id);
-  const ids = await enqueue(
-    fired.map((f) => ({
-      ...f,
-      key: `release:${brand.id}:${release.number}`,
-      payload: {
-        event: "brand.released",
-        brand: { id: brand.id, slug: brand.slug, name: brand.name },
-        release: release.number,
-        note: release.note ?? null,
-        url: `${env.APP_URL}/brands/${brand.slug}`,
-        at: new Date().toISOString(),
-      },
-    })),
-  );
+  const ids = await enqueue(fired.map((f) => ({ ...f, key: `release:${brand.id}:${release.number}`, payload: releasedPayload(brand, release) })));
   return deliverDue(ids);
 }
+
+const releasedPayload = (brand: { id: string; slug: string; name: string }, release: { number: number; note?: string | null }) => ({
+  event: "brand.released",
+  brand: { id: brand.id, slug: brand.slug, name: brand.name },
+  release: release.number,
+  note: release.note ?? null,
+  url: `${env.APP_URL}/brands/${brand.slug}`,
+  at: new Date().toISOString(),
+});
+
+const expiringPayload = (a: { id: string; filename: string; title: string | null; expires: string }, day = today()) => ({
+  event: "asset.expiring",
+  asset: { id: a.id, filename: a.filename, title: a.title ?? null },
+  expires: a.expires,
+  days: Math.round((Date.parse(a.expires) - Date.parse(day)) / 86_400_000),
+  url: `${env.APP_URL}/assets/${a.id}`,
+  at: new Date().toISOString(),
+});
 
 const utcToday = sql`(now() at time zone 'utc')::date`;
 
@@ -268,22 +282,7 @@ export async function scanExpiring() {
       )
       .orderBy(sql`(${expires})::date`)
       .limit(EXPIRING_BATCH);
-    made += (
-      await enqueue(
-        due.map((a) => ({
-          ...f,
-          key: `asset:${a.id}:${a.expires}`,
-          payload: {
-            event: "asset.expiring",
-            asset: { id: a.id, filename: a.filename, title: a.title ?? null },
-            expires: a.expires,
-            days: Math.round((Date.parse(a.expires) - Date.parse(day)) / 86_400_000),
-            url: `${env.APP_URL}/assets/${a.id}`,
-            at: new Date().toISOString(),
-          },
-        })),
-      )
-    ).length;
+    made += (await enqueue(due.map((a) => ({ ...f, key: `asset:${a.id}:${a.expires}`, payload: expiringPayload(a, day) })))).length;
   }
   return made;
 }
@@ -355,6 +354,60 @@ function draftOf(to: string, automation: string, p: Record<string, unknown>) {
   }
   const asset = p.asset as { filename: string; title: string | null };
   return expiringEmail(to, { automation, asset: asset.title ?? asset.filename, expires: p.expires as string, days: p.days as number, url: p.url as string });
+}
+
+// ---- a test --------------------------------------------------------------------
+
+/**
+ * The event a test sends: for a release, its brand's latest (the default
+ * brand's, for any brand), or release 1 of a brand never released; for an
+ * expiry, the approved asset whose license ends soonest, else the newest
+ * approved asset, as if it ended in `days`.
+ */
+async function sampleOf(caller: Caller, a: Row) {
+  if (a.trigger === "brand.released") {
+    const [b] = await db.select().from(brands).where(a.brandId ? eq(brands.id, a.brandId) : and(eq(brands.projectId, caller.project.id), eq(brands.isDefault, true)));
+    if (!b) throw new AssetError("invalid", "There is no brand to send a release of: make one first");
+    const [latest] = await db
+      .select({ number: brandVersions.number, note: brandVersions.note })
+      .from(brandVersions)
+      .where(and(eq(brandVersions.brandId, b.id), sql`${brandVersions.publishedAt} is not null`))
+      .orderBy(desc(brandVersions.number))
+      .limit(1);
+    return releasedPayload(b, latest ?? { number: 1, note: null });
+  }
+  const expires = sql<string | null>`${assets.rights} ->> 'expires'`;
+  const [asset] = await db
+    .select({ id: assets.id, filename: assets.filename, title: sql<string | null>`${assets.metadata} ->> 'title'`, expires })
+    .from(assets)
+    .where(and(eq(assets.projectId, caller.project.id), isNull(assets.deletedAt), eq(assets.status, "active"), or(isNull(assets.stackId), eq(assets.current, true))))
+    // Ending soonest from today first, then the newest of the rest.
+    .orderBy(sql`(${expires})::date >= ${utcToday} desc nulls last`, sql`(${expires})::date`, desc(assets.createdAt))
+    .limit(1);
+  if (!asset) throw new AssetError("invalid", "There is no approved asset to send as a sample: add one first");
+  const day = today();
+  const ends = asset.expires && asset.expires >= day ? asset.expires : new Date(Date.parse(day) + (a.days ?? 0) * 86_400_000).toISOString().slice(0, 10);
+  return expiringPayload({ ...asset, expires: ends }, day);
+}
+
+/**
+ * POST /api/v1/automations/{id}/test: send it now, on or off, with a sample
+ * event (sampleOf), marked `test: true` in what it sends. One attempt, kept
+ * in the run log as a test and never tried again, so a webhook or an inbox
+ * can be checked without releasing anything.
+ */
+export async function testAutomation(caller: Caller, id: string) {
+  manage(caller);
+  const a = await automationOf(caller, id);
+  const runId = randomUUID();
+  const payload = bodyOf(runId, { automation: a, project: { id: caller.project.id, slug: caller.project.slug, name: caller.project.name }, payload: { ...(await sampleOf(caller, a)), test: true } });
+  const attempt = await attemptRun(a, caller.project.organizationId, payload);
+  const [run] = await db
+    .insert(automationRuns)
+    .values({ id: runId, automationId: a.id, key: `test:${runId}`, payload, attempts: [attempt], status: attempt.ok ? "delivered" : "failed", nextAt: null })
+    .returning();
+  await recordAudit(caller, "automation.tested", a.name, { delivered: attempt.ok });
+  return presentRun(run);
 }
 
 /** With the sweep, every few minutes (lib/core/sweep.ts): assets nearing their last day fire, and what is due goes out. */

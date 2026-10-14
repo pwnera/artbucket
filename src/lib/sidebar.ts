@@ -15,6 +15,8 @@ export type SidebarData = {
   searches: SavedSearch[];
   /** What waits in Review. */
   reviewCount: number;
+  /** What isn't done in Fixes. */
+  fixesCount: number;
   me: Me;
 };
 
@@ -88,12 +90,14 @@ export const brands = cache(() => get("brands", data<BrandInfo[]>, []));
 export const sidebarData = cache(async (): Promise<SidebarData> => {
   // Alongside who is looking, not after: none of these needs it, and a redirect from whoami still wins.
   // The shell's extras never take the page down: one that fails shows empty until the next load.
-  const [me, collections, brandList, searches, reviewCount] = await Promise.all([
+  const [me, collections, brandList, searches, reviewCount, fixesCount] = await Promise.all([
     whoami(),
     get("collections", data<Collection[]>, []).catch(() => []),
     brands().catch(() => []),
     get("searches", data<SavedSearch[]>, []).catch(() => []),
     get("assets?review=true&limit=1", (b: { total: number }) => b.total, 0).catch(() => 0),
+    // Asked of whoever may not read it too, and answered no: 0.
+    get("fixes", (b: { data: { open: number } }) => b.data.open, 0).catch(() => 0),
   ]);
-  return { collections, brands: brandList, searches, reviewCount, me };
+  return { collections, brands: brandList, searches, reviewCount, fixesCount, me };
 });

@@ -1369,6 +1369,7 @@ export const AutomationRun = z.object({
   attempts: z.array(AutomationAttempt),
   nextAt: date.nullable(),
   createdAt: date,
+  test: z.boolean().describe("Sent by Send a test (POST /api/v1/automations/{id}/test), with a sample event: its payload says `test: true` too"),
 });
 export const Invitation = z.object({
   id: uuid,
@@ -1573,6 +1574,7 @@ export const Insights = z.object({
         referrer: z.string().nullable().describe("The host that loaded it; null when the request didn't say"),
         client: z.string().nullable().describe("The agent's key name that fetched it; null for a person or nobody in particular"),
         fetches: z.number().int(),
+        first: z.string().describe("The first day it was fetched, within `days`"),
         last: z.string().describe("The last day it was fetched"),
         owners: z.number().int().describe("People this server knows answer for the place (a site of this project's admins, an agent's person): who a notice reaches unasked"),
         notified: z.object({ at: date, by: z.string() }).nullable().describe("When the place was told about this version (POST /api/v1/insights/notices)"),
@@ -1587,6 +1589,7 @@ export const Insights = z.object({
       z.object({
         q: z.string(),
         searches: z.number().int(),
+        first: z.string().describe("The first day it found nothing, within `days`"),
         last: z.string(),
         requested: z.object({ at: date, by: z.string() }).nullable().describe("An open upload link named after the words asks for it"),
       }),
@@ -1626,6 +1629,23 @@ export const Insights = z.object({
       }),
     )
     .describe("Portal pages read, most first"),
+});
+export const Fixes = z.object({
+  days: z.number().int().describe("How far back stale and gaps go"),
+  licenseDays: z.number().int().describe("How far ahead licenses are listed"),
+  open: z.number().int().describe("What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them"),
+  stale: Insights.shape.stale.describe("Places still loading a replaced version, as Insights has them: done once `notified`"),
+  gaps: Insights.shape.gaps.describe("Searches that found nothing, as Insights has them: done once `requested`"),
+  licenses: z
+    .array(
+      z.object({
+        asset: InsightAsset,
+        expires: z.string().describe("Its last day of use, YYYY-MM-DD"),
+        days: z.number().int().describe("Days left until it, 0 on the day"),
+        replacement: InsightAsset.nullable().describe("What replaced it: done, people are sent there"),
+      }),
+    )
+    .describe("Approved assets whose license ends within `licenseDays`, soonest first"),
 });
 export const InsightNotice = z
   .strictObject({

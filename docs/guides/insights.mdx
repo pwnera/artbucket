@@ -24,10 +24,20 @@ Each brand has an **Insights** tab too, at `/brands/{slug}/insights`, from `GET 
 
 ## Acting on what it finds
 
-Two of the lists take a button, so a finding becomes something done.
+Two of the lists take a button, so a finding becomes something done. [Fixes](#fixes) gathers both, with licenses about to end, in one list.
 
 - **Notify**, on each place in Where from, Old versions: an email to whoever answers for that site or agent, naming each replaced version it still loads and a `/c/{id}` link that always leads to the current version, so the next release reaches it without anyone asking again. Artbucket reaches the people it knows itself: a site or portal of the project goes to the project's admins, an agent to the person who connected it. For anyone else (a site elsewhere, a key an admin made), name them in the dialog. Each version and place is told once: the row then says when ("Notified 2 days ago"), and a second notice for the same version is refused. `POST /api/v1/insights/notices` does the same, with `referrer` or `client`, the replaced `assets` and optional `emails`. It goes through the organization's email and counts toward its daily emails, and the audit log keeps who sent it.
 - **Request it**, on each search in Asked for, Not found: an upload link, named after the search's words, to send to whoever has the file, a teammate or an agency. What they send lands in Review, like any upload link's files, and the gap says it was requested while the link is open.
+
+## Fixes
+
+**Fixes**, in the sidebar beside Review for the same people as Insights, is one list of what needs a hand, with the button for each, built from what Insights and the library already know:
+
+- **A place still showing an old version**: a site or an agent from Old versions, one row a place with every replaced version it loads, since the first day it did. **Notify** tells it, as above.
+- **A search that found nothing**, since the first day it did. **Request it** makes the upload link, as above.
+- **A license about to end**: an approved asset whose last day of use is in the next 30 days, soonest first. **Open the asset** to renew or replace it; once something replaces it, the row is done and **Open the replacement** leads there. Renewed or archived, it leaves the list.
+
+What isn't done comes first; what is stays below, saying when ("Notified 2 days ago", "Requested just now"), while it is in Insights' 30 days. The sidebar counts what isn't done. `GET /api/v1/fixes` answers the same lists, with `open`, the count.
 
 ## Weekly digest
 

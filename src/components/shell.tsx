@@ -360,6 +360,7 @@ export function Shell({
           me={sidebar.me}
           searches={searches}
           reviewCount={reviewCount}
+          fixesCount={sidebar.fixesCount}
           openSearch={() => setSearching(true)}
           openShortcuts={() => setHelp(true)}
         />

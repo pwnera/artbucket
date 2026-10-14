@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  IconBolt,
   IconBook,
   IconBookmark,
   IconChartBar,
@@ -30,6 +31,8 @@ import {
   IconSettings,
   IconSitemap,
   IconSparkles,
+  IconTemplate,
+  IconTool,
   IconTypography,
   IconUpload,
   IconWorld,
@@ -67,7 +70,8 @@ export type SavedSearch = { id: string; name: string; query: string };
 
 /**
  * The app's one sidebar, the same on every page: the places (Explore,
- * Catalog, Review, Insights), and at the foot Connections, Settings and
+ * Catalog, Review, Fixes, Insights), the content (Brands, Collections,
+ * Sites, Templates), and at the foot Connections, Automations, Settings and
  * BrandHub, which opens in a new tab. Every item is a link, and every view
  * it links to is a URL.
  *
@@ -81,6 +85,7 @@ export function AppSidebar({
   me,
   searches,
   reviewCount,
+  fixesCount,
   openSearch,
   openShortcuts,
   children,
@@ -88,6 +93,8 @@ export function AppSidebar({
   me: Me;
   searches: SavedSearch[];
   reviewCount: number;
+  /** What isn't done in Fixes. */
+  fixesCount: number;
   openSearch: () => void;
   openShortcuts: () => void;
   children?: React.ReactNode;
@@ -107,6 +114,9 @@ export function AppSidebar({
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
     sites: pathname === "/sites",
     review: pathname === "/review",
+    fixes: pathname === "/fixes",
+    templates: pathname === "/templates",
+    automations: pathname === "/automations",
     // A collection or saved search is its own item, so none of these is lit for one.
     library: inLibrary && !view.collection && !onSearch,
   };
@@ -161,6 +171,17 @@ export function AppSidebar({
                 badge={(can("asset.review") && reviewCount) || undefined}
                 hint={can("asset.review") && reviewCount ? `${reviewCount} waiting` : undefined}
               />
+              {/* What Insights found to act on, in one list: a count of what isn't done, as Review counts what waits. */}
+              {can("insights.read") && (
+                <Place
+                  href="/fixes"
+                  label="Fixes"
+                  icon={<IconTool />}
+                  active={at.fixes}
+                  badge={fixesCount || undefined}
+                  hint={fixesCount ? `${fixesCount} to do` : undefined}
+                />
+              )}
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -174,6 +195,8 @@ export function AppSidebar({
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
               {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
+              {/* What a release makes for people to use elsewhere: share cards, Office templates, the press kit. */}
+              <Place href="/templates" label="Templates" icon={<IconTemplate />} active={at.templates} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -190,6 +213,7 @@ export function AppSidebar({
           <ExpandItem />
           {/* Agents and keys turned off here (Settings, Features): nothing to connect. */}
           {!me.off.includes("agents") && <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />}
+          {can("automation.manage") && <Place href="/automations" label="Automations" icon={<IconBolt />} active={at.automations} />}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">
