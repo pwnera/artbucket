@@ -4,6 +4,64 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.2.0](https://github.com/pwnera/artbucket/compare/v2.1.0...v2.2.0) (2026-10-14)
+
+
+### Features
+
+* **automations:** email or signed webhook on releases and expiries ([#247](https://github.com/pwnera/artbucket/issues/247)) ([e46dc18](https://github.com/pwnera/artbucket/commit/e46dc18b8d4716637efc8ec2bc0fc3c74c44325b))
+* **branding:** the app's accent can follow a brand's releases ([#237](https://github.com/pwnera/artbucket/issues/237)) ([c2e4885](https://github.com/pwnera/artbucket/commit/c2e4885d982777be15b078116cfca8f269199d77))
+* **brand:** lighter headlines, no serif, pill buttons ([48889b4](https://github.com/pwnera/artbucket/commit/48889b4ed3137f28dc91679160c2994ab123dff0))
+* **brand:** lighter headlines, no serif, pill buttons ([30937b0](https://github.com/pwnera/artbucket/commit/30937b0ce2560202a93b4a70f76375d08cd6e3f9))
+* **brand:** PowerPoint and Word templates written from a release ([#254](https://github.com/pwnera/artbucket/issues/254)) ([ae2b76d](https://github.com/pwnera/artbucket/commit/ae2b76d83272a76833be8071d66e9d600f882c07))
+* **brands:** colors as a token table on the Rules tab ([08db368](https://github.com/pwnera/artbucket/commit/08db368ee067a23df96c598a027f61ac796a648e))
+* **brands:** colors as a token table on the Rules tab ([9c39c26](https://github.com/pwnera/artbucket/commit/9c39c269e4bbaf0571da68920feec1f03db8a185)), closes [#228](https://github.com/pwnera/artbucket/issues/228)
+* **brands:** edit rules on the brand's Rules tab (SITE-10) ([f7815d0](https://github.com/pwnera/artbucket/commit/f7815d0263a8158dcab5f71dc8c6c51cf154444c))
+* **brands:** edit rules on the brand's Rules tab (SITE-10) ([c53449a](https://github.com/pwnera/artbucket/commit/c53449a5658f1d33a1556d4207307d81430d31a1))
+* **brand:** share cards, an on-brand Open Graph image from a URL ([#253](https://github.com/pwnera/artbucket/issues/253)) ([fca4ca0](https://github.com/pwnera/artbucket/commit/fca4ca06de869a37c61b15f056378a0079a72549))
+* **brands:** reorder and delete rules from the Rules tab ([#225](https://github.com/pwnera/artbucket/issues/225)) ([20a1735](https://github.com/pwnera/artbucket/commit/20a173523ae217c55437ebe310eff5cf0510524d))
+* **brands:** retire the guidelines builder (SITE-12) ([#229](https://github.com/pwnera/artbucket/issues/229)) ([9134e0b](https://github.com/pwnera/artbucket/commit/9134e0b00181c30676184ca726fb127b3fce022d))
+* **brands:** six tabs, one Release, the rest in the brand's menu ([2338ed1](https://github.com/pwnera/artbucket/commit/2338ed1cf6f0cfe8a49707a5d9a6a3acf2a2c330))
+* **brands:** six tabs, one Release, the rest in the brand's menu ([f9de9dc](https://github.com/pwnera/artbucket/commit/f9de9dc46ba3a4b03483934e22da81dc4b62e23f))
+* **brands:** tabs in the order a brand is made ([a9225e3](https://github.com/pwnera/artbucket/commit/a9225e34b44e286a7421aa24a14558d74debe51e))
+* **brand:** the Artbucket brand on the Board look ([#243](https://github.com/pwnera/artbucket/issues/243)) ([687ac6f](https://github.com/pwnera/artbucket/commit/687ac6f283285bf6e56b9a33b13443f452fd9d1c))
+* **brand:** the new Artbucket brand, with a weekly accent ([77c51ec](https://github.com/pwnera/artbucket/commit/77c51ec83b217a04fe9168d85ed2b888601114bb))
+* **brand:** the new Artbucket brand, with a weekly accent ([735836f](https://github.com/pwnera/artbucket/commit/735836f3a2b09aee3ebb05834a3736479931b750))
+* **brand:** the overview as the prototype draws it, every page on the canvas ([#245](https://github.com/pwnera/artbucket/issues/245)) ([10d40d3](https://github.com/pwnera/artbucket/commit/10d40d3d33476c22fbbe1bfb07fbe496afac1c00))
+* **digest:** a weekly email of the project's week, for editors and admins ([#251](https://github.com/pwnera/artbucket/issues/251)) ([6366912](https://github.com/pwnera/artbucket/commit/636691234308755d64fc45c5429e08dc3bd09435))
+* **hub:** download a listing's press kit ([#248](https://github.com/pwnera/artbucket/issues/248)) ([0776a66](https://github.com/pwnera/artbucket/commit/0776a662f3d4b9d45ad705037c170a0bbcf4fbd6))
+* **insights:** notify old-version hosts and request missing assets ([#249](https://github.com/pwnera/artbucket/issues/249)) ([34df711](https://github.com/pwnera/artbucket/commit/34df7113b00ffd83401e4d1355e164c919d87a6a))
+* **kit:** a palette's values and ink from @artbucket/ui/swatch, in portals too ([9b72a37](https://github.com/pwnera/artbucket/commit/9b72a37a12e14eada36b380b3a7f68fb0c327e34))
+* **kit:** a palette's values and ink from @artbucket/ui/swatch, in portals too ([da0304b](https://github.com/pwnera/artbucket/commit/da0304b5b9622000d43ddfd9dc4b44c1f2343698))
+* links end in the asset's name, and downloads are saved as it ([#252](https://github.com/pwnera/artbucket/issues/252)) ([36c7121](https://github.com/pwnera/artbucket/commit/36c712171075407798324ee56b3cf1518a09569e))
+* **site:** Board covers and swatches as the prototype draws them ([#244](https://github.com/pwnera/artbucket/issues/244)) ([bf28828](https://github.com/pwnera/artbucket/commit/bf288288dac02622d1e8fc732d86b50dd4ec1b04))
+* **sites:** Build from GitHub on a site's Deployments (SITE_BUILD_URL) ([bf21267](https://github.com/pwnera/artbucket/commit/bf21267eca07a51b726e8b20ab0b9bb243a3e7c0))
+* **sites:** Build from GitHub on a site's Deployments (SITE_BUILD_URL) ([394d4c5](https://github.com/pwnera/artbucket/commit/394d4c51d41b65097339d2e3e86a6b32128b13bd))
+* **sites:** serve public builds from an edge in front (EDGE_SECRET) ([34734e5](https://github.com/pwnera/artbucket/commit/34734e5fed58efaabddc7ca557221ac120e65cd0))
+* **sites:** serve public builds from an edge in front (EDGE_SECRET) ([99179a2](https://github.com/pwnera/artbucket/commit/99179a2bac15c3d90815f5d3be1d8b9e2fac7239))
+* **site:** the Board look, a band of the brand color then a dotted canvas ([#242](https://github.com/pwnera/artbucket/issues/242)) ([9194b02](https://github.com/pwnera/artbucket/commit/9194b021ca5a813c370f59da8e0f0b52470e9a45))
+* Storybook for the app's and the brand site's components ([#239](https://github.com/pwnera/artbucket/issues/239)) ([a7e2837](https://github.com/pwnera/artbucket/commit/a7e2837daa51b0fec7a3d24b49e4c741237b8ef7))
+* **tokens:** a designsystem export for Claude's Design System artifact ([441650a](https://github.com/pwnera/artbucket/commit/441650a265d1b888cc705414f3f6b5eddf657767))
+* **tokens:** a designsystem export for Claude's Design System artifact ([e91196b](https://github.com/pwnera/artbucket/commit/e91196bb17ece0dc4d490bd015b8b71ebcf75347))
+* **tokens:** fonts=none leaves out the [@font-face](https://github.com/font-face) rules ([5a0541b](https://github.com/pwnera/artbucket/commit/5a0541b412ca1128604a0e4657b374963729c14c))
+* **tokens:** fonts=none leaves out the [@font-face](https://github.com/font-face) rules ([b73b884](https://github.com/pwnera/artbucket/commit/b73b8844000e1af448a0a4a172d8817f9e4893c3))
+
+
+### Fixes
+
+* **brands:** a brand's page, tab by tab, reads as a user expects ([4c900c3](https://github.com/pwnera/artbucket/commit/4c900c3261d6a6873fd19efcccfef8996d038b72))
+* **brands:** a brand's page, tab by tab, reads as a user expects ([a3b5a58](https://github.com/pwnera/artbucket/commit/a3b5a58c8e6ff39c8c46955d77041e77473c559a))
+* **brands:** no sideways scroll on a brand's pages on a phone ([a2753d9](https://github.com/pwnera/artbucket/commit/a2753d9354dcf8beedd4e8efe5147239b8615597))
+* **brands:** tabs you can find on a phone and on the Guidelines tab ([aef72a0](https://github.com/pwnera/artbucket/commit/aef72a0ff4b1f6372e6187f7e1a6c99a79f59509))
+* **cli:** admin never comes from login, so stop telling people to log in again for it ([18aefda](https://github.com/pwnera/artbucket/commit/18aefdac8da7f8d6ff6106e8920eb960df10aee8))
+* **cli:** admin never comes from login, so stop telling people to log in again for it ([d37f34c](https://github.com/pwnera/artbucket/commit/d37f34c0ddf9a1b2697b72bcae42ab513735b9e8))
+* **hub:** keep listing files five minutes at the edge, not an hour ([cfe4727](https://github.com/pwnera/artbucket/commit/cfe472763dff3d4d2d310945d2d9f5cc93cbcfb2))
+* **hub:** keep listing files five minutes at the edge, not an hour ([af7fb4b](https://github.com/pwnera/artbucket/commit/af7fb4be4655bb29998cbdb5cbbd60b99535a111))
+* **kit:** logos fit their tile when the file has no size of its own ([2e5ebcd](https://github.com/pwnera/artbucket/commit/2e5ebcd330602fd9470bb6b4082bc50a229cd259))
+* **kit:** logos fit their tile when the file has no size of its own ([8470d8d](https://github.com/pwnera/artbucket/commit/8470d8dadf9f5c7304b3eaef118467ba0e13fa63))
+* **site:** Board's muted second line follows the line break, not the wrap ([#246](https://github.com/pwnera/artbucket/issues/246)) ([fa20e81](https://github.com/pwnera/artbucket/commit/fa20e8194d2413aab4137f129b01ba1051fb2704))
+* **site:** tall sections no longer read half faded ([#241](https://github.com/pwnera/artbucket/issues/241)) ([cfcc509](https://github.com/pwnera/artbucket/commit/cfcc5093a2171090f33acf8ea48dcd91b286f8b9))
+
 ## [2.1.0](https://github.com/pwnera/artbucket/compare/v2.0.0...v2.1.0) (2026-10-13)
 
 
