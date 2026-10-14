@@ -1,5 +1,6 @@
 import {
   IconAdjustments,
+  IconBolt,
   IconCreditCard,
   IconChartBar,
   IconBuilding,
@@ -90,6 +91,14 @@ export const SECTIONS: Section[] = [
     icon: IconAdjustments,
     description: "Fields every asset here can carry.",
     action: "field.manage",
+  },
+  {
+    context: "project",
+    id: "automations",
+    label: "Automations",
+    icon: IconBolt,
+    description: "An email or a signed webhook when a brand is released or a license is about to end.",
+    action: "automation.manage",
   },
   {
     context: "organization",

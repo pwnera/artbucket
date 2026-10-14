@@ -1418,6 +1418,46 @@ export function openapi(serverUrl: string) {
           ok: [200, "The group", data(S.GroupInfo)],
         }),
       },
+      "/api/v1/automations": {
+        get: op({
+          summary: "The project's automations",
+          scope: "admin",
+          description: "What is sent, by email or a signed webhook, when a brand is released or an asset's license is about to end.",
+          ok: [200, "Automations", data(z.array(S.Automation))],
+        }),
+        post: op({
+          summary: "Make an automation",
+          scope: "admin",
+          description:
+            "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, " +
+            "`days` before its last day of use, and again for a new date. email sends to `emails`; webhook POSTs the " +
+            "run's payload to `url`, signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of " +
+            '"{t}.{body}"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 ' +
+            "minutes, then an hour later: 3 attempts in all.",
+          body: S.AutomationInput,
+          ok: [201, "Created, with the webhook's secret", data(S.Automation)],
+        }),
+      },
+      "/api/v1/automations/{id}": {
+        parameters: [path("id", "Automation id")],
+        patch: op({
+          summary: "Change an automation",
+          scope: "admin",
+          description: "What is left out stays. Made a webhook, it gets a secret, in this answer only.",
+          body: S.AutomationPatch,
+          ok: [200, "Changed", data(S.Automation)],
+        }),
+        delete: op({ summary: "Delete an automation", scope: "admin", description: "Its run log goes with it.", ok: [200, "Deleted", S.Deleted] }),
+      },
+      "/api/v1/automations/{id}/runs": {
+        parameters: [path("id", "Automation id")],
+        get: op({
+          summary: "An automation's run log",
+          scope: "admin",
+          description: "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.",
+          ok: [200, "Runs", data(z.array(S.AutomationRun))],
+        }),
+      },
       "/api/v1/invitations": {
         post: op({
           summary: "Invite someone",

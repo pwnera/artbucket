@@ -5,6 +5,7 @@ import { assets, grants, instance, invitations, portalRequests, renditions, site
 import { env } from "@/lib/env";
 import { hostFontsBackfill } from "@/lib/core/brand";
 import { rollUp } from "@/lib/core/events";
+import { runAutomations } from "@/lib/core/automations";
 import { sweepTokens } from "@/lib/core/oauth";
 import { reprove } from "@/lib/core/reproof";
 import { recheckSites } from "@/lib/core/sites";
@@ -155,6 +156,8 @@ export async function sweep() {
 }
 
 const EVERY_MS = 6 * 60 * 60 * 1000;
+/** Automations' own beat: retries wait minutes (lib/core/automations.ts BACKOFF), not the sweep's hours. */
+const AUTOMATIONS_EVERY_MS = 5 * 60 * 1000;
 
 /**
  * At boot, then every six hours, with Insights' daily rollup, the domains'
@@ -162,7 +165,8 @@ const EVERY_MS = 6 * 60 * 60 * 1000;
  * recheckSites), agents' tokens past renewal (lib/core/oauth.ts sweepTokens) and
  * a batch of the brands still waiting for their Google faces' files
  * (lib/core/brand.ts hostFontsBackfill); a failed run is logged and tried
- * again next time.
+ * again next time. Automations (assets nearing their last day, deliveries
+ * to retry) every five minutes.
  */
 export function scheduleSweep() {
   const run = () => {
@@ -187,4 +191,10 @@ export function scheduleSweep() {
   };
   void run();
   setInterval(run, EVERY_MS).unref();
+  const automate = () =>
+    runAutomations()
+      .then(({ fired, delivered, failed }) => (fired || failed) && console.info(`[artbucket] Automations: ${fired} fired, ${delivered} delivered, ${failed} failed`))
+      .catch((err) => console.warn("[artbucket] Automations stopped:", err instanceof Error ? err.message : err));
+  void automate();
+  setInterval(automate, AUTOMATIONS_EVERY_MS).unref();
 }

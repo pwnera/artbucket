@@ -146,9 +146,14 @@ export async function fetchPublic(
  * POST a small JSON body to a URL someone handed us (a deploy hook), with the
  * same guard as fetchPublic: the address connected to is the address checked.
  * Redirects are not followed, a POST's meaning doesn't survive one. The
- * status, whatever it is: the caller says what counts.
+ * status, whatever it is: the caller says what counts. `headers` go along (a
+ * signature of the body as JSON.stringify writes it).
  */
-export async function postPublic(raw: string, body: unknown, { timeoutMs = 10_000, signal = AbortSignal.timeout(30_000) }: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<number> {
+export async function postPublic(
+  raw: string,
+  body: unknown,
+  { timeoutMs = 10_000, signal = AbortSignal.timeout(30_000), headers = {} }: { timeoutMs?: number; signal?: AbortSignal; headers?: Record<string, string> } = {},
+): Promise<number> {
   const url = new URL(raw);
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new FetchError("Only http and https URLs");
   const host = url.hostname.replace(/^\[|\]$/g, "");
@@ -161,7 +166,7 @@ export async function postPublic(raw: string, body: unknown, { timeoutMs = 10_00
         method: "POST",
         lookup: guardedLookup,
         timeout: timeoutMs,
-        headers: { "user-agent": USER_AGENT, "content-type": "application/json", "content-length": data.length },
+        headers: { ...headers, "user-agent": USER_AGENT, "content-type": "application/json", "content-length": data.length },
         signal,
       },
       resolve,

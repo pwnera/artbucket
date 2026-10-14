@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { People, type Members } from "@/components/settings/access";
 import { GroupsPanel, type GroupRow } from "@/components/settings/groups";
+import { AutomationsPanel, type AutomationRow } from "@/components/settings/automations";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
 import { FeaturesPanel, type FeatureItem } from "@/components/settings/features";
@@ -36,6 +37,7 @@ const LOADS: Record<string, string> = {
   "project/features": "features?context=project",
   "organization/features": "features?context=organization",
   "project/members": "members?in=project",
+  "project/automations": "automations",
   "organization/usage": "usage",
   "organization/projects": "projects",
   "organization/groups": "groups",
@@ -76,13 +78,14 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
   const forSso = `${context}/${section}` === "organization/sso";
   const forGroups = `${context}/${section}` === "organization/groups";
   const forBranding = `${context}/${section}` === "organization/branding";
+  const forAutomations = `${context}/${section}` === "project/automations";
   const [me, loaded, collections, brandList, reports, domains, offers, spaces] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
     // What a member's access can be scoped to.
     forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
-    // And its brands: what Branding's accent may follow, too.
-    forMembers || forBranding ? get("brands", (b: { data: { id: string; name: string; private?: boolean }[] }) => b.data, []) : [],
+    // And its brands: what Branding's accent may follow, and whose releases an automation follows, too.
+    forMembers || forBranding || forAutomations ? get("brands", (b: { data: { id: string; slug: string; name: string; private?: boolean }[] }) => b.data, []) : [],
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
     // And its domains: a verified one proves its listings as a GitHub account does.
@@ -108,6 +111,8 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
       return <NameForm what="project" url={`/api/v1/projects/${ws.id}`} name={ws.name} />;
     case "project/fields":
       return <FieldsPanel fields={data<FieldDef[]>()} />;
+    case "project/automations":
+      return <AutomationsPanel automations={data<AutomationRow[]>()} brands={brandList} />;
     case "project/features":
     case "organization/features":
       return <FeaturesPanel features={data<FeatureItem[]>()} context={context === "organization" ? "organization" : "project"} upgrade={me.upgrade} />;

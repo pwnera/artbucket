@@ -379,6 +379,25 @@ export const GroupMembersChange = z.strictObject({
 });
 export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
 
+export const AUTOMATION_TRIGGERS = ["brand.released", "asset.expiring"] as const;
+export const AUTOMATION_ACTIONS = ["email", "webhook"] as const;
+const automation = {
+  name: z.string().trim().min(1).max(80),
+  trigger: z.enum(AUTOMATION_TRIGGERS).describe("brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days"),
+  brand: z.string().min(1).max(64).nullable().optional().describe("brand.released: only this brand's releases, by slug; null or left out: any brand's"),
+  days: z.number().int().min(0).max(365).optional().describe("asset.expiring: how many days before its last day of use; 0 is the day itself"),
+  action: z.enum(AUTOMATION_ACTIONS).describe("email: to `emails`. webhook: a signed POST to `url`"),
+  emails: z.array(z.email().max(320)).max(20).optional().describe("email: who it goes to"),
+  url: z
+    .url({ protocol: /^https$/ })
+    .max(2000)
+    .optional()
+    .describe("webhook: where it is posted. Kept sealed, never shown again: the answer gives its host"),
+  enabled: z.boolean().optional().describe("Off: nothing fires, and what waits to be retried waits. On when left out"),
+};
+export const AutomationInput = z.strictObject(automation);
+export const AutomationPatch = z.strictObject({ ...automation, name: automation.name.optional(), trigger: automation.trigger.optional(), action: automation.action.optional() });
+
 export const ShareCreate = z.strictObject({
   kind: z.enum(["view", "upload"]).describe("view: see and download; upload: send files in, as proposals"),
   collection: uuid.optional().describe("The collection it shows, or files uploads into"),
@@ -1311,6 +1330,42 @@ export const GroupInfo = z.object({
   createdAt: date,
   members: z.array(z.object({ id: z.string(), name: z.string(), email: z.string() })),
   grants: z.array(Grant),
+});
+export const AutomationAttempt = z.object({
+  at: z.string(),
+  ok: z.boolean(),
+  code: z.number().int().nullable().describe("The webhook's HTTP status; null for email, or when it didn't answer"),
+  error: z.string().nullable(),
+});
+export const Automation = z.object({
+  id: uuid,
+  name: z.string(),
+  trigger: z.enum(AUTOMATION_TRIGGERS),
+  brand: z.string().nullable().describe("brand.released: the brand it is for, by slug; null: any"),
+  days: z.number().int().nullable(),
+  action: z.enum(AUTOMATION_ACTIONS),
+  emails: z.array(z.string()),
+  host: z.string().nullable().describe("webhook: the URL's host; the URL itself is never shown"),
+  enabled: z.boolean(),
+  last: z
+    .object({ status: z.enum(["pending", "delivered", "failed"]), at: date })
+    .nullable()
+    .describe("Its latest run; null: it never fired"),
+  createdBy: z.string(),
+  createdAt: date,
+  updatedAt: date,
+  secret: z
+    .string()
+    .optional()
+    .describe("webhook: what each POST is signed with (Artbucket-Signature). Given once, when made"),
+});
+export const AutomationRun = z.object({
+  id: uuid,
+  status: z.enum(["pending", "delivered", "failed"]).describe("pending: delivering, or failed and tried again at `nextAt`; failed: after 3 attempts"),
+  payload: z.record(z.string(), z.unknown()).describe("What the webhook posts, and what the email says"),
+  attempts: z.array(AutomationAttempt),
+  nextAt: date.nullable(),
+  createdAt: date,
 });
 export const Invitation = z.object({
   id: uuid,

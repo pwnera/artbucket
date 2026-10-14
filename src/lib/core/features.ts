@@ -444,8 +444,15 @@ const payload = (def: FeatureDef, caller: Who, organization: Org, project: Space
 });
 
 /**
- * POST to the feature's hook, signed as Stripe signs its webhooks:
- * `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}`
+ * `Artbucket-Signature` for a hook's body, as Stripe signs its webhooks: `t={unix seconds},v1={hex HMAC-SHA256 of
+ * "{t}.{body}"}`. The receiver checks it with the secret, and refuses an old `t`. Automations' webhooks too.
+ */
+export function signHook(secret: string, body: string, t = Math.floor(Date.now() / 1000)) {
+  return `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;
+}
+
+/**
+ * POST to the feature's hook, signed as Stripe signs its webhooks (signHook)
  * with the secret its file names. A 2xx is a yes; anything else is a no,
  * with the reason it gives ({ error: { message } } or { message }) or one of
  * our own when it gives none.
@@ -455,11 +462,9 @@ async function callHook(def: FeatureDef, event: Record<string, unknown>) {
   const secret = process.env[hook.secret];
   if (!secret) throw new AssetError("unavailable", `${def.name} isn't set up on this server: ${hook.secret} is missing`);
   const body = JSON.stringify(event);
-  const t = Math.floor(Date.now() / 1000);
-  const signature = createHmac("sha256", secret).update(`${t}.${body}`).digest("hex");
   const res = await fetch(hook.url, {
     method: "POST",
-    headers: { "content-type": "application/json", "artbucket-signature": `t=${t},v1=${signature}` },
+    headers: { "content-type": "application/json", "artbucket-signature": signHook(secret, body) },
     body,
     signal: AbortSignal.timeout(15_000),
   }).catch(() => null);

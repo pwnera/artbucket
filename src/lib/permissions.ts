@@ -81,6 +81,8 @@ export const ACTIONS = {
   "audit.read": { scope: "admin", on: "project" },
   /** What the brand's events say (lib/core/insights.ts): for whoever looks after the project. */
   "insights.read": { scope: "write", on: "project" },
+  /** Automations: emails and webhooks sent when a brand is released or a license ends (lib/core/automations.ts). */
+  "automation.manage": { scope: "admin", on: "project" },
   "project.manage": { scope: "admin", on: "project" },
   "organization.manage": { scope: "admin", on: "organization" },
 } as const satisfies Record<string, { scope: Scope; on: On }>;
