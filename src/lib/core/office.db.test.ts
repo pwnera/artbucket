@@ -36,7 +36,7 @@ test("a release as a .potx: its accent in the theme, its SVG logo drawn as a PNG
   assert.equal(officeResponse(request({ "if-none-match": t.etag }), t).status, 304);
   const res = officeResponse(request(), t);
   assert.equal(res.headers.get("content-type"), "application/vnd.openxmlformats-officedocument.presentationml.template");
-  assert.match(res.headers.get("content-disposition")!, new RegExp(`^attachment; filename\\*=UTF-8''acme-v${release}\\.potx$`));
+  assert.equal(res.headers.get("content-disposition"), `attachment; filename="acme-v${release}.potx"; filename*=UTF-8''acme-v${release}.potx`);
 });
 
 test("a release never made is a 404, and a draft is never a template", async () => {
