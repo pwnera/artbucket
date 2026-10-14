@@ -82,15 +82,7 @@ export const size = (n: number) =>
 /** Parts sent at once. */
 const AT_ONCE = 3;
 
-export function BrandImport({
-  url,
-  onBusy,
-  onStarted,
-}: {
-  url: string;
-  onBusy: (busy: boolean) => void;
-  onStarted: (id: string) => void;
-}) {
+export function BrandImport({ url, onBusy, onStarted }: { url: string; onBusy: (busy: boolean) => void; onStarted: (id: string) => void }) {
   const id = useId();
   const base = url.replace(/\/+$/, "");
   const [start, setStart] = useState<Start | null>(null);
@@ -121,14 +113,8 @@ export function BrandImport({
   function pick(f: File | undefined) {
     if (!f || !start) return;
     setFile(null);
-    if (!/\.(zip|pdf)$/i.test(f.name))
-      return setWrong(
-        "Pick a .zip of your brand's files, or its guidelines as a PDF.",
-      );
-    if (f.size > start.max)
-      return setWrong(
-        `${f.name} is ${size(f.size)}: ${size(start.max)} at most.`,
-      );
+    if (!/\.(zip|pdf)$/i.test(f.name)) return setWrong("Pick a .zip of your brand's files, or its guidelines as a PDF.");
+    if (f.size > start.max) return setWrong(`${f.name} is ${size(f.size)}: ${size(start.max)} at most.`);
     setWrong(null);
     setFile(f);
   }
@@ -145,8 +131,7 @@ export function BrandImport({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ filename: file.name, size: file.size }),
       });
-      if (!made.ok)
-        throw new Error(await refusal(made, "The upload couldn't start"));
+      if (!made.ok) throw new Error(await refusal(made, "The upload couldn't start"));
       const { data } = (await made.json()) as {
         data: { id: string; partSize: number; parts: number };
       };
@@ -161,25 +146,17 @@ export function BrandImport({
               body: blob,
             }).catch(() => null);
             if (res?.ok) break;
-            if (tries >= 3)
-              throw new Error(
-                res
-                  ? await refusal(res, "A part of the file didn't arrive")
-                  : "The connection dropped. Try again.",
-              );
+            if (tries >= 3) throw new Error(res ? await refusal(res, "A part of the file didn't arrive") : "The connection dropped. Try again.");
           }
           done += blob.size;
           setSent(done);
         }
       };
-      await Promise.all(
-        Array.from({ length: Math.min(AT_ONCE, data.parts) }, worker),
-      );
+      await Promise.all(Array.from({ length: Math.min(AT_ONCE, data.parts) }, worker));
       const finished = await fetch(`${base}/${data.id}/complete`, {
         method: "POST",
       });
-      if (!finished.ok)
-        throw new Error(await refusal(finished, "The upload couldn't finish"));
+      if (!finished.ok) throw new Error(await refusal(finished, "The upload couldn't finish"));
       onStarted(data.id);
     } catch (err) {
       setError(reason(err, "The upload failed"));
@@ -192,24 +169,14 @@ export function BrandImport({
         <p className="font-medium">Brand import can&apos;t be reached</p>
         <p className="text-muted-foreground text-sm">Try again in a moment.</p>
         <div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setAttempt((n) => n + 1)}
-          >
+          <Button type="button" size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
             Try again
           </Button>
         </div>
       </Card>
     );
   }
-  if (!start)
-    return (
-      <Card className="text-muted-foreground min-h-48 animate-pulse text-sm">
-        Checking what this project can import…
-      </Card>
-    );
+  if (!start) return <Card className="text-muted-foreground min-h-48 animate-pulse text-sm">Checking what this project can import…</Card>;
   if (start.notice) {
     const n = start.notice;
     return (
@@ -228,20 +195,13 @@ export function BrandImport({
   }
 
   const left = Math.max(start.cap - start.used, 0);
-  const Kind =
-    file && /\.pdf$/i.test(file.name)
-      ? IconFileTypePdf
-      : file
-        ? IconFileZip
-        : IconUpload;
+  const Kind = file && /\.pdf$/i.test(file.name) ? IconFileTypePdf : file ? IconFileZip : IconUpload;
   return (
     <div className="grid gap-5">
       <form onSubmit={upload} className="grid gap-4">
         <p className="text-muted-foreground text-sm">
-          Upload everything {start.project} has: logos, fonts, photos,
-          templates, guidelines. Intelligence sorts it, reads any brand book it
-          finds and proposes brands, collections and guidelines for you to
-          review.
+          Upload everything {start.project} has: logos, fonts, photos, templates, guidelines. Intelligence sorts it, reads any brand book it finds and proposes
+          brands, collections and guidelines for you to review.
         </p>
         {sent === null ? (
           <label
@@ -262,14 +222,8 @@ export function BrandImport({
             )}
           >
             <Kind className={cn("size-7", file && "text-primary-ink")} />
-            <strong className="text-foreground font-medium">
-              {file ? file.name : "Choose a .zip or a PDF"}
-            </strong>
-            <span>
-              {file
-                ? size(file.size)
-                : `or drop it here. Up to ${size(start.max)} and ${start.maxFiles.toLocaleString("en")} files.`}
-            </span>
+            <strong className="text-foreground font-medium">{file ? file.name : "Choose a .zip or a PDF"}</strong>
+            <span>{file ? size(file.size) : `or drop it here. Up to ${size(start.max)} and ${start.maxFiles.toLocaleString("en")} files.`}</span>
             {wrong && <span className="text-destructive">{wrong}</span>}
             <input
               id={`${id}-file`}
@@ -282,9 +236,7 @@ export function BrandImport({
         ) : (
           <Card>
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="truncate font-medium">
-                {error ? "The upload stopped" : `Uploading ${file?.name}`}
-              </span>
+              <span className="truncate font-medium">{error ? "The upload stopped" : `Uploading ${file?.name}`}</span>
               <span className="text-muted-foreground shrink-0 tabular-nums">
                 {size(sent)} of {size(file?.size ?? 0)}
               </span>
@@ -293,29 +245,21 @@ export function BrandImport({
             {error ? (
               <p className="text-destructive text-sm">{error}</p>
             ) : (
-              <p className="text-muted-foreground text-xs">
-                Keep this open until the upload ends. Reading it carries on
-                without you.
-              </p>
+              <p className="text-muted-foreground text-xs">Keep this open until the upload ends. Reading it carries on without you.</p>
             )}
           </Card>
         )}
-        {start.brandRoom && (
-          <p className="text-warning text-xs">{start.brandRoom}</p>
-        )}
+        {start.brandRoom && <p className="text-warning text-xs">{start.brandRoom}</p>}
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={!file || running}>
             {error ? "Try again" : "Upload and read"}
           </Button>
           <span className="text-muted-foreground text-xs">
-            {left.toLocaleString("en")} of {start.cap.toLocaleString("en")}{" "}
-            files left to read this month.
+            {left.toLocaleString("en")} of {start.cap.toLocaleString("en")} files left to read this month.
           </span>
         </div>
       </form>
-      {start.imports.length > 0 && (
-        <Imports base="/imports" imports={start.imports} />
-      )}
+      {start.imports.length > 0 && <Imports base="/imports" imports={start.imports} />}
     </div>
   );
 }
@@ -335,53 +279,31 @@ const STATUS: Record<string, [string, string]> = {
 
 /** An import's status in words, and the colour it is shown in: the stage under way, while one is. */
 export function statusOf(i: Pick<ImportRow, "status" | "label">) {
-  const [label, tone] = STATUS[i.status] ?? [
-    i.status,
-    "bg-muted text-muted-foreground",
-  ];
+  const [label, tone] = STATUS[i.status] ?? [i.status, "bg-muted text-muted-foreground"];
   return { label: i.label ?? label, tone };
 }
 
 /** The project's latest imports, each a link to its page. */
-export function Imports({
-  base,
-  imports,
-}: {
-  base: string;
-  imports: ImportRow[];
-}) {
+export function Imports({ base, imports }: { base: string; imports: ImportRow[] }) {
   return (
     <section className="grid gap-2">
       <div className="flex items-baseline gap-3">
         <h3 className="text-sm font-semibold">Recent imports</h3>
-        <Link
-          href="/imports"
-          className="text-muted-foreground ml-auto text-xs hover:underline"
-        >
+        <Link href="/imports" className="text-muted-foreground ml-auto text-xs hover:underline">
           See all imports
         </Link>
       </div>
       <ul className="divide-y rounded-lg border text-sm">
         {imports.slice(0, 5).map((i) => (
           <li key={i.id}>
-            <Link
-              href={`${base}/${i.id}`}
-              className="hover:bg-accent/50 flex items-center gap-3 px-3 py-2"
-            >
+            <Link href={`${base}/${i.id}`} className="hover:bg-accent/50 flex items-center gap-3 px-3 py-2">
               {/\.pdf$/i.test(i.filename) ? (
                 <IconFileTypePdf className="text-muted-foreground size-4 shrink-0" />
               ) : (
                 <IconFileZip className="text-muted-foreground size-4 shrink-0" />
               )}
               <span className="min-w-0 flex-1 truncate">{i.filename}</span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-xs",
-                  statusOf(i).tone,
-                )}
-              >
-                {statusOf(i).label}
-              </span>
+              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", statusOf(i).tone)}>{statusOf(i).label}</span>
             </Link>
           </li>
         ))}
@@ -390,16 +312,6 @@ export function Imports({
   );
 }
 
-export function Card({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn("bg-card grid gap-3 rounded-xl border p-4", className)}>
-      {children}
-    </div>
-  );
+export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <div className={cn("bg-card grid gap-3 rounded-xl border p-4", className)}>{children}</div>;
 }

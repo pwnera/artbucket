@@ -43,12 +43,8 @@ async function ask() {
   }
   if (!listeners.size) return;
   const busy = (current?.running ?? 0) > 0;
-  const seen =
-    typeof document === "undefined" || document.visibilityState === "visible";
-  timer = setTimeout(
-    () => void ask(),
-    seen ? (busy ? 5_000 : 60_000) : 120_000,
-  );
+  const seen = typeof document === "undefined" || document.visibilityState === "visible";
+  timer = setTimeout(() => void ask(), seen ? (busy ? 5_000 : 60_000) : 120_000);
 }
 
 function subscribe(listener: () => void) {
@@ -89,10 +85,8 @@ export function useImportSignal(url: string | null): ImportSignal | null {
 export function signalHint(s: ImportSignal | null) {
   if (!s) return undefined;
   const parts = [
-    s.running &&
-      `${s.running} ${s.running === 1 ? "import" : "imports"} in progress`,
-    s.waiting &&
-      `${s.waiting} ${s.waiting === 1 ? "plan" : "plans"} waiting for review`,
+    s.running && `${s.running} ${s.running === 1 ? "import" : "imports"} in progress`,
+    s.waiting && `${s.waiting} ${s.waiting === 1 ? "plan" : "plans"} waiting for review`,
     s.stopped && `${s.stopped} stopped`,
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : undefined;

@@ -3,46 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  IconArrowBackUp,
-  IconCheck,
-  IconEye,
-  IconFileTypePdf,
-  IconFileZip,
-  IconPlayerPlay,
-  IconSearch,
-  IconTrash,
-  IconUpload,
-} from "@/components/icons";
-import {
-  BrandImport,
-  Card,
-  size,
-  statusOf,
-  type ImportRow,
-} from "@/components/brand-import";
+import { IconArrowBackUp, IconCheck, IconEye, IconFileTypePdf, IconFileZip, IconPlayerPlay, IconSearch, IconTrash, IconUpload } from "@/components/icons";
+import { BrandImport, Card, size, statusOf, type ImportRow } from "@/components/brand-import";
 import { useCan, useMe } from "@/components/can";
 import { Confirm } from "@/components/confirm";
-import {
-  refreshImportSignal,
-  useImportSignal,
-} from "@/components/import-signal";
+import { refreshImportSignal, useImportSignal } from "@/components/import-signal";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { sendResult } from "@/lib/send";
 import { cn } from "@/lib/utils";
 
@@ -106,8 +77,7 @@ const WARN: Record<
   },
   discard: {
     title: (r) => `Discard ${r.filename}?`,
-    says: () =>
-      "Its plan and the archive's files are deleted, and can't be brought back. It stays in this list as discarded.",
+    says: () => "Its plan and the archive's files are deleted, and can't be brought back. It stays in this list as discarded.",
     action: "Discard",
   },
 };
@@ -119,23 +89,9 @@ const day = (iso: string) =>
   });
 
 /** A choice of a few, as the Brands page draws one. */
-function Segments<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: Record<T, string>;
-  onChange: (v: T) => void;
-}) {
+function Segments<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Record<T, string>; onChange: (v: T) => void }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="bg-muted flex rounded-md p-0.5"
-    >
+    <div role="radiogroup" aria-label={label} className="bg-muted flex rounded-md p-0.5">
       {(Object.keys(options) as T[]).map((o) => (
         <button
           key={o}
@@ -156,10 +112,7 @@ export function ImportsPage() {
   const me = useMe();
   const can = useCan();
   const router = useRouter();
-  const url =
-    me?.brandImport && can("import.read")
-      ? me.brandImport.replace(/\/+$/, "")
-      : null;
+  const url = me?.brandImport && can("import.read") ? me.brandImport.replace(/\/+$/, "") : null;
   const [status, setStatus] = useState<Status>("all");
   const [whose, setWhose] = useState<"everyone" | "mine">("everyone");
   const [typed, setTyped] = useState("");
@@ -250,10 +203,7 @@ export function ImportsPage() {
         <Shell>
           <Card>
             <p className="font-medium">Brand import is off here</p>
-            <p className="text-muted-foreground text-sm">
-              It comes with Intelligence, where it is on in the project, for
-              people who may see imports.
-            </p>
+            <p className="text-muted-foreground text-sm">It comes with Intelligence, where it is on in the project, for people who may see imports.</p>
           </Card>
         </Shell>
       </>
@@ -269,13 +219,7 @@ export function ImportsPage() {
           icon={<IconFileZip />}
           title="Imports"
           description="Every brand import of this project: what it is doing, who started it, what it made."
-          aside={
-            page && (
-              <span className="text-muted-foreground text-sm tabular-nums">
-                {page.total}
-              </span>
-            )
-          }
+          aside={page && <span className="text-muted-foreground text-sm tabular-nums">{page.total}</span>}
         >
           {page?.can.run && (
             <Button size="sm" onClick={() => setStarting(true)}>
@@ -286,10 +230,7 @@ export function ImportsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-48 flex-1">
-            <IconSearch
-              aria-hidden
-              className="text-muted-foreground absolute start-2.5 top-1/2 size-4 -translate-y-1/2"
-            />
+            <IconSearch aria-hidden className="text-muted-foreground absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
             <Input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
@@ -298,18 +239,8 @@ export function ImportsPage() {
               className="h-8 ps-8"
             />
           </div>
-          <Segments
-            label="Status"
-            value={status}
-            options={STATUSES}
-            onChange={setStatus}
-          />
-          <Segments
-            label="Whose"
-            value={whose}
-            options={{ everyone: "Everyone", mine: "Mine" }}
-            onChange={setWhose}
-          />
+          <Segments label="Status" value={status} options={STATUSES} onChange={setStatus} />
+          <Segments label="Whose" value={whose} options={{ everyone: "Everyone", mine: "Mine" }} onChange={setWhose} />
         </div>
 
         {!page ? (
@@ -327,15 +258,9 @@ export function ImportsPage() {
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Archive</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium max-lg:hidden">
-                    Started by
-                  </th>
-                  <th className="px-4 py-2.5 font-medium max-lg:hidden">
-                    Brand
-                  </th>
-                  <th className="px-4 py-2.5 text-end font-medium max-xl:hidden">
-                    Date
-                  </th>
+                  <th className="px-4 py-2.5 font-medium max-lg:hidden">Started by</th>
+                  <th className="px-4 py-2.5 font-medium max-lg:hidden">Brand</th>
+                  <th className="px-4 py-2.5 text-end font-medium max-xl:hidden">Date</th>
                   <th className="px-4 py-2.5 text-end font-medium">Actions</th>
                 </tr>
               </thead>
@@ -358,8 +283,7 @@ export function ImportsPage() {
         {page && rows.length < page.total && (
           <div>
             <Button variant="outline" onClick={() => void showMore()}>
-              Show {Math.min(PAGE, page.total - rows.length).toLocaleString()}{" "}
-              more
+              Show {Math.min(PAGE, page.total - rows.length).toLocaleString()} more
             </Button>
           </div>
         )}
@@ -372,26 +296,14 @@ export function ImportsPage() {
         title={confirming ? WARN[confirming.kind].title(confirming.row) : ""}
         says={confirming ? WARN[confirming.kind].says(confirming.row) : null}
         action={confirming ? WARN[confirming.kind].action : ""}
-        run={() =>
-          confirming
-            ? confirming.kind === "discard"
-              ? discard(confirming.row)
-              : run(confirming.row, confirming.kind)
-            : false
-        }
+        run={() => (confirming ? (confirming.kind === "discard" ? discard(confirming.row) : run(confirming.row, confirming.kind)) : false)}
       />
 
-      <Dialog
-        open={starting}
-        onOpenChange={(o) => !o && !busy && setStarting(false)}
-      >
+      <Dialog open={starting} onOpenChange={(o) => !o && !busy && setStarting(false)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Import your brand</DialogTitle>
-            <DialogDescription>
-              A zip of your brand&apos;s files, or its guidelines PDF. Nothing
-              is added until the plan is applied.
-            </DialogDescription>
+            <DialogDescription>A zip of your brand&apos;s files, or its guidelines PDF. Nothing is added until the plan is applied.</DialogDescription>
           </DialogHeader>
           <BrandImport
             url={url}
@@ -434,14 +346,8 @@ function ImportRowLine({
   const actions = {
     approve: i.status === "ready" && may.apply,
     carryOn: i.status === "failed" && applied && may.apply,
-    undo:
-      (i.status === "applied" ||
-        (i.status === "failed" && applied && !i.undoing)) &&
-      may.undo,
-    discard:
-      ["uploading", "ready", "failed"].includes(i.status) &&
-      !applied &&
-      may.discard,
+    undo: (i.status === "applied" || (i.status === "failed" && applied && !i.undoing)) && may.undo,
+    discard: ["uploading", "ready", "failed"].includes(i.status) && !applied && may.discard,
   };
   // Its brands: those Apply made or changed; before it, those its plan proposes.
   const made = i.brands.map((b) => ({
@@ -449,87 +355,56 @@ function ImportRowLine({
     name: b.created ? b.name : `${b.name} (updated)`,
     href: `/brands/${b.slug}`,
   }));
-  const shown =
-    i.status === "undone"
-      ? []
-      : made.length
-        ? made
-        : i.status === "ready"
-          ? i.proposed.map((name) => ({ key: name, name, href: null }))
-          : [];
+  const shown = i.status === "undone" ? [] : made.length ? made : i.status === "ready" ? i.proposed.map((name) => ({ key: name, name, href: null })) : [];
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
     <tr
       tabIndex={0}
       onClick={() => onOpen(i.id)}
-      onKeyDown={(e) =>
-        e.key === "Enter" && e.target === e.currentTarget && onOpen(i.id)
-      }
+      onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen(i.id)}
       className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
     >
       <td className="w-full max-w-0 min-w-40 px-4 py-2.5 lg:max-w-56 lg:w-auto">
         <span className="flex min-w-0 items-center gap-2.5" title={i.filename}>
           <Kind className="text-muted-foreground size-4 shrink-0" />
           <span className="truncate font-medium">{i.filename}</span>
-          <span className="text-muted-foreground shrink-0 text-xs tabular-nums max-lg:hidden">
-            {size(i.bytes)}
-          </span>
+          <span className="text-muted-foreground shrink-0 text-xs tabular-nums max-lg:hidden">{size(i.bytes)}</span>
         </span>
       </td>
       <td className="px-4 py-2.5 whitespace-nowrap">
         <span className="flex items-center gap-1.5">
-          <Badge
-            variant={VARIANT[i.status] ?? "outline"}
-            className={i.status === "failed" ? "text-destructive" : undefined}
-          >
+          <Badge variant={VARIANT[i.status] ?? "outline"} className={i.status === "failed" ? "text-destructive" : undefined}>
             {s.label}
           </Badge>
           {p && p.total > 0 && AT_WORK.includes(i.status) && (
             <span className="text-muted-foreground text-xs tabular-nums">
-              {Math.min(p.done, p.total).toLocaleString("en")} /{" "}
-              {p.total.toLocaleString("en")}
+              {Math.min(p.done, p.total).toLocaleString("en")} / {p.total.toLocaleString("en")}
             </span>
           )}
         </span>
       </td>
-      <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap max-lg:hidden">
-        {i.startedBy.name ?? "—"}
-      </td>
+      <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap max-lg:hidden">{i.startedBy.name ?? "—"}</td>
       <td className="px-4 py-2.5 whitespace-nowrap max-lg:hidden">
         {i.status === "undone" ? (
           <span className="text-muted-foreground">Taken back</span>
         ) : shown.length ? (
           <span className="flex items-center gap-1.5">
             {shown[0].href ? (
-              <Link
-                href={shown[0].href}
-                onClick={stop}
-                className="truncate hover:underline"
-              >
+              <Link href={shown[0].href} onClick={stop} className="truncate hover:underline">
                 {shown[0].name}
               </Link>
             ) : (
-              <span className="text-muted-foreground truncate">
-                {shown[0].name}
-              </span>
+              <span className="text-muted-foreground truncate">{shown[0].name}</span>
             )}
-            {!made.length && (
-              <span className="text-muted-foreground text-xs">proposed</span>
-            )}
+            {!made.length && <span className="text-muted-foreground text-xs">proposed</span>}
             {shown.length > 1 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge
-                    variant="secondary"
-                    className="cursor-default"
-                    onClick={stop}
-                  >
+                  <Badge variant="secondary" className="cursor-default" onClick={stop}>
                     +{shown.length - 1}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-64">
-                  {shown.map((b) => b.name).join(", ")}
-                </TooltipContent>
+                <TooltipContent className="max-w-64">{shown.map((b) => b.name).join(", ")}</TooltipContent>
               </Tooltip>
             )}
           </span>
@@ -537,9 +412,7 @@ function ImportRowLine({
           <span className="text-muted-foreground">—</span>
         )}
       </td>
-      <td className="text-muted-foreground px-4 py-2.5 text-end whitespace-nowrap tabular-nums max-xl:hidden">
-        {day(i.appliedAt ?? i.at)}
-      </td>
+      <td className="text-muted-foreground px-4 py-2.5 text-end whitespace-nowrap tabular-nums max-xl:hidden">{day(i.appliedAt ?? i.at)}</td>
       <td className="px-4 py-1.5" onClick={stop} onKeyDown={stop}>
         {/* Glued, as one group of icons, each named on hover: what it does here, for this import. */}
         <span
@@ -548,40 +421,22 @@ function ImportRowLine({
           className="bg-background float-end inline-flex divide-x overflow-hidden rounded-md border shadow-xs"
         >
           {actions.approve && (
-            <Act
-              label="Approve: apply its plan without opening it"
-              onClick={onApprove}
-              className="text-primary-ink"
-            >
+            <Act label="Approve: apply its plan without opening it" onClick={onApprove} className="text-primary-ink">
               <IconCheck />
             </Act>
           )}
           {actions.carryOn && (
-            <Act
-              label={
-                i.undoing
-                  ? "Carry on undoing, from where it stopped"
-                  : "Carry on applying, from where it stopped"
-              }
-              onClick={onCarryOn}
-            >
+            <Act label={i.undoing ? "Carry on undoing, from where it stopped" : "Carry on applying, from where it stopped"} onClick={onCarryOn}>
               <IconPlayerPlay />
             </Act>
           )}
           {actions.undo && (
-            <Act
-              label="Undo: remove what it added, put back what it changed"
-              onClick={onUndo}
-            >
+            <Act label="Undo: remove what it added, put back what it changed" onClick={onUndo}>
               <IconArrowBackUp />
             </Act>
           )}
           {actions.discard && (
-            <Act
-              label="Discard its plan and its files"
-              onClick={onDiscard}
-              className="text-destructive"
-            >
+            <Act label="Discard its plan and its files" onClick={onDiscard} className="text-destructive">
               <IconTrash />
             </Act>
           )}
@@ -595,17 +450,7 @@ function ImportRowLine({
 }
 
 /** One action of a row's group: an icon, its meaning said on hover and to screen readers. */
-function Act({
-  label,
-  onClick,
-  className,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
+function Act({ label, onClick, className, children }: { label: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -627,11 +472,7 @@ function Act({
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-      {children}
-    </div>
-  );
+  return <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">{children}</div>;
 }
 
 /** The Brands page's way to its imports: only where brand import is offered, for whoever may see imports. */
@@ -652,20 +493,11 @@ export function ImportsButton() {
 export function ImportsBanner() {
   const me = useMe();
   const can = useCan();
-  const s = useImportSignal(
-    me?.brandImport && can("import.read")
-      ? me.brandImport.replace(/\/+$/, "")
-      : null,
-  );
+  const s = useImportSignal(me?.brandImport && can("import.read") ? me.brandImport.replace(/\/+$/, "") : null);
   if (!s) return null;
   const l = s.latest;
   if (l) {
-    const doing =
-      l.status === "applying"
-        ? "is being applied"
-        : l.status === "undoing"
-          ? "is being undone"
-          : "is being read";
+    const doing = l.status === "applying" ? "is being applied" : l.status === "undoing" ? "is being undone" : "is being read";
     const p = l.progress;
     return (
       <Card className="border-primary/30 bg-primary/5 flex flex-wrap items-center gap-3 sm:flex">
@@ -673,9 +505,7 @@ export function ImportsBanner() {
         <p className="min-w-0 flex-1 text-sm">
           <span className="font-medium">{l.filename}</span> {doing}
           {l.label ? `: ${l.label.toLowerCase()}` : ""}
-          {p && p.total > 0 && l.status !== "processing"
-            ? ` · ${Math.min(p.done, p.total).toLocaleString("en")} of ${p.total.toLocaleString("en")} files`
-            : ""}
+          {p && p.total > 0 && l.status !== "processing" ? ` · ${Math.min(p.done, p.total).toLocaleString("en")} of ${p.total.toLocaleString("en")} files` : ""}
           {s.running > 1 ? ` · ${s.running - 1} more at work` : ""}
         </p>
         <Button asChild size="sm" variant="outline">
@@ -686,10 +516,8 @@ export function ImportsBanner() {
   }
   if (!s.waiting && !s.stopped) return null;
   const what = [
-    s.waiting &&
-      `${s.waiting} ${s.waiting === 1 ? "plan waits" : "plans wait"} to be applied`,
-    s.stopped &&
-      `${s.stopped} ${s.stopped === 1 ? "import" : "imports"} stopped`,
+    s.waiting && `${s.waiting} ${s.waiting === 1 ? "plan waits" : "plans wait"} to be applied`,
+    s.stopped && `${s.stopped} ${s.stopped === 1 ? "import" : "imports"} stopped`,
   ]
     .filter(Boolean)
     .join(", ");

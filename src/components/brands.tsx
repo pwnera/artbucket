@@ -11,6 +11,7 @@ import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub
 import { LinkSpinner } from "@/components/link-pending";
 import { InfoTip } from "@/components/info-tip";
 import { NewBrand } from "@/components/new-brand";
+import { ImportsBanner, ImportsButton } from "@/components/imports-page";
 import { AppHeader, PageHeader } from "@/components/page";
 import { OfferBanners, type HubOffer } from "@/components/hub-offers";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,7 @@ export function BrandsPage({
             </>
           }
         >
+          <ImportsButton />
           {canEdit && (
             <Button size="sm" onClick={() => setCreating(true)}>
               <IconPlus /> New brand
@@ -144,6 +146,7 @@ export function BrandsPage({
           )}
         </PageHeader>
 
+        <ImportsBanner />
         <OfferBanners offers={offers} />
 
         <div className="flex flex-wrap items-center gap-2">
