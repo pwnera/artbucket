@@ -426,7 +426,7 @@ async function importedComponents(dir: string, files: string[], components: Comp
         if (!sources.has(t) && dirname(t) === dirname(story) && (await stat(t).catch(() => null))?.isFile()) sources.set(t, c);
   }
   const used = new Map<Component, string[]>();
-  const use = (c: Component, file: string) => used.set(c, [...new Set([...(used.get(c) ?? []), file])]);
+  const foundIn = (c: Component, file: string) => used.set(c, [...new Set([...(used.get(c) ?? []), file])]);
   const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
   const byName = new Map(components.map((c) => [key(c.name), c]));
   const skipped = new Map<string, { names: Set<string>; files: Set<string>; byPath: boolean }>();
@@ -439,7 +439,7 @@ async function importedComponents(dir: string, files: string[], components: Comp
       const hit = targetsOf(m[1], at).find((t) => sources.has(t));
       // A component's own files importing each other aren't a use of it.
       const c = hit && sources.get(hit);
-      if (c && !sources.has(at)) use(c, file);
+      if (c && !sources.has(at)) foundIn(c, file);
     }
     for (const m of text.matchAll(PACKAGE_IMPORT)) {
       const [, clause, spec] = m;
@@ -450,7 +450,7 @@ async function importedComponents(dir: string, files: string[], components: Comp
       const bySub = sub ? byName.get(key(sub)) : undefined;
       const found = [...names.map((n) => byName.get(key(n))), bySub].filter((c): c is Component => !!c);
       if (!found.length) continue;
-      if (packages.includes(pkg)) for (const c of found) use(c, file);
+      if (packages.includes(pkg)) for (const c of found) foundIn(c, file);
       else {
         const s = skipped.get(pkg) ?? { names: new Set<string>(), files: new Set<string>(), byPath: false };
         for (const c of found) s.names.add(c.name);
