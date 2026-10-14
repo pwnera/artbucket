@@ -77,7 +77,7 @@ export function CoverSection({ section: s }: SectionProps) {
   const echo = spelled && (s.title ?? heading).trim().toLowerCase() === view.brand.name.trim().toLowerCase();
   // On the Board look (grounds: canvas) a two-line headline reads as the brand's: tight, its second line muted.
   const board = view.theme.grounds === "canvas" && !!s.title?.includes("\n");
-  const big = cn(TITLE[p.titleSize ?? "large"], "break-words", board ? "text-(--brand-muted) leading-[0.95] [&::first-line]:text-(--brand-ink)" : "leading-[1.1]");
+  const big = cn(TITLE[p.titleSize ?? "large"], "break-words", board ? "leading-[0.95]" : "leading-[1.1]");
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
 
@@ -111,7 +111,7 @@ export function CoverSection({ section: s }: SectionProps) {
         {mark && <Mark brand={view.brand} rules={view.rules} color={colors[0]?.value as string | undefined} size={p.markSize} bare={p.markFrame === "bare"} />}
         <div className="max-w-full space-y-4">
           <Eyebrow />
-          {s.title ? <Title as={H} className={cn(big, echo && "sr-only")} /> : <H className={cn(HEAD, big, "text-balance", echo && "sr-only")}>{heading}</H>}
+          {s.title ? <Title as={H} muted={board} className={cn(big, echo && "sr-only")} /> : <H className={cn(HEAD, big, "text-balance", echo && "sr-only")}>{heading}</H>}
           <Lede className="max-w-2xl @3xl:text-2xl" />
         </div>
         <Body className="max-w-2xl" />
