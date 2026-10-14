@@ -3,117 +3,50 @@ lede: The Artbucket identity. Our marks, colors, type and words, ready to use.
 sections:
   - template: cover
     eyebrow: The Artbucket brand
-    title: Change your brand once.
-    lede: Including ours. The mark, the colors, the type and the words.
-    props:
-      mark: always
-      align: center
-      strip: true
-      height: screen
-      markSize: large
-      markFrame: bare
-      titleSize: huge
-  - template: statement
-    eyebrow: One catalog. One answer.
-    title: A little order. A lot of possibility.
-    body: Assets, guidelines and portals in one catalog. One answer for people and agents.
-    props:
-      align: center
-    tone: plain
-    size: huge
-  - id: the-mark
-    template: annotated
-    eyebrow: 01 / Mark · Recognize
-    title: Good work starts with a little spill.
-    lede: A tipped paint bucket. A paint line. One drop.
-    body: |-
-      It puts making at the center. Keep its shape, give it room and use the original file.
-
-      [Meet the mark](/logo)
-    items:
-      - at: [38, 40]
-        text: Tipped on purpose. Never right it.
-        title: The bucket
-      - at: [52, 58]
-        text: One wave. Work in progress.
-        title: The paint line
-      - at: [74, 68]
-        text: Just one. Check it at actual size.
-        title: The drop
-    props:
-      image: assets/icon.svg
-    tone: panel
-    size: large
-  - id: the-type
-    template: statement
-    eyebrow: 02 / Type · Set
     title: |-
-      Headlines with character.
-      Reading without fuss.
-    body: |-
-      Funnel Display speaks up. Funnel Sans gets read. Geist Mono handles the code.
-
-      [See the type system](/type)
-    width: full
+      Change your brand once.
+      Including ours.
+    lede: The mark, the colors, the type and the words. Use them as they are here, and they stay right when the brand changes.
+    props:
+      mark: never
+      align: start
+      titleSize: huge
+  - id: chapters
+    template: pages
+    title: Six chapters. One brand.
+    lede: Start with the mark. Everything else follows from it.
+    items:
+      - link: /logo
+        text: Three files, and what to leave alone.
+        title: Logo
+      - link: /color
+        text: This week's accent, and the neutrals that hold it.
+        title: Color
+      - link: /type
+        text: Three faces, one measured scale.
+        title: Type
+      - link: /voice
+        text: Habits, examples and copy to paste.
+        title: Voice
+      - link: /playground
+        text: Space, corners and motion, drawn.
+        title: Space and motion
+      - link: /resources
+        text: Every file, and a way to ask for more.
+        title: Downloads
     size: huge
-  - id: the-palette
+  - id: this-week
     template: palette
-    eyebrow: 03 / Color · Choose
-    title: One accent a week. Ink holds it.
-    lede: Paper gives the work room. Ink does the talking. This week's accent picks out what matters.
-    body: |-
-      The accent is a fill. Never text.
-
-      [Explore the full palette](/color)
-    keys:
-      - color.primary
-      - color.onPrimary
-      - color.background
-      - color.panel
-      - color.ink
-      - color.dark
+    eyebrow: This week
+    title: A new accent every Monday.
+    lede: Volt, Iris, Signal, Tide, Moss, Fuchsia, then again. This site, the app, the docs and the portal all follow on their own.
+    keys: [color.volt, color.iris, color.signal, color.tide, color.moss, color.fuchsia]
     props:
       show: [hex]
-    columns: 2
-    size: large
-  - id: the-voice
-    template: statement
-    eyebrow: 04 / Voice · Write
-    title: |-
-      Say what it does.
-      Then stop.
-    body: |-
-      Plain, exact and a little dry. Less "seamless". More "here you go".
-
-      [Write like Artbucket](/voice)
+    columns: 3
     tone: dark
     width: full
     size: huge
-  - template: pages
-    eyebrow: Six pages. One brand.
-    title: |-
-      Don't just read it.
-      Make something.
-    items:
-      - link: /logo
-        text: Three approved files, and what to leave alone.
-        title: Use the mark
-      - link: /color
-        text: This week's accent and the neutrals that hold it.
-        title: Choose your colors
-      - link: /type
-        text: Three faces, one measured scale.
-        title: Set the words
-      - link: /voice
-        text: Habits, examples and copy to paste.
-        title: Sound like Artbucket
-      - link: /playground
-        text: Space, corners and motion, drawn.
-        title: Try the system
-      - link: /resources
-        text: Every file, and a way to ask for more.
-        title: Get the originals
-    size: large
   - id: resources
     template: links
     eyebrow: Made for people. Ready for agents.
@@ -133,6 +66,5 @@ sections:
         text: The core, in the open.
         label: See the code
         title: Open source
-    tone: panel
     columns: 3
-    size: large
+    size: huge

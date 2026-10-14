@@ -9,7 +9,6 @@ sections:
       mark: never
       strip: false
       titleSize: huge
-    tone: dark
   - id: files
     template: links
     title: Start with the originals.
@@ -28,7 +27,6 @@ sections:
         title: Where are the font specimens and embed code?
       - text: Use the copyable lines on [Voice](/voice). Keep the description concrete and the sentences short.
         title: How should I describe Artbucket?
-    tone: panel
   - template: request
     title: Missing something?
     props:

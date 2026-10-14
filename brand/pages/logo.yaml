@@ -11,7 +11,6 @@ sections:
       mark: never
       strip: false
       titleSize: huge
-    tone: dark
   - id: anatomy
     template: annotated
     title: Every part earns its place.
@@ -28,7 +27,6 @@ sections:
         title: The last drop
     props:
       image: assets/icon.svg
-    tone: panel
   - template: logos
     title: The right mark for the ground.
     lede: Choose a version, inspect its backgrounds, or take the whole kit.
@@ -59,7 +57,6 @@ sections:
     keys: [logo.mark, logo.clearSpace]
     props:
       kind: clearspace
-    tone: panel
   - id: small
     template: diagram
     title: Small should still feel like us.
@@ -72,7 +69,6 @@ sections:
     keys: [logo.always, logo.neverDo]
     props:
       layout: pairs
-    tone: panel
   - id: next
     template: pages
     title: Keep exploring.

@@ -11,7 +11,6 @@ sections:
       mark: never
       strip: false
       titleSize: huge
-    tone: panel
   - template: type
     title: Go on. Type something.
     lede: Replace the sample with your own words and see how each face handles them.
@@ -28,6 +27,7 @@ sections:
       Let the body explain.
     body: Use contrast in size and weight before you reach for another typeface.
     width: full
+    tone: plain
   - id: scale
     template: type
     title: A rhythm you can repeat.
@@ -38,7 +38,6 @@ sections:
         base: 16
         ratio: 1.25
         steps: 7
-    tone: panel
   - id: habits
     template: dodont
     title: Make reading the easy part.
