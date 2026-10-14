@@ -41,6 +41,7 @@ import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { useAssistant } from "@/components/assistant";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
+import { signalHint, useImportSignal } from "@/components/import-signal";
 import { usePins, type Recent } from "@/components/sidebar-prefs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useShell, type AddId } from "@/components/shell";
@@ -103,6 +104,9 @@ export function AppSidebar({
   const pathname = usePathname();
   const params = useSearchParams();
   const inLibrary = pathname === "/";
+  // Brand imports at work, and plans waiting for whoever may apply them: only where Intelligence offers imports.
+  const imports = useImportSignal(me.brandImport && can("import.read") ? me.brandImport.replace(/\/+$/, "") : null);
+  const importCount = (imports?.running ?? 0) + (imports?.waiting ?? 0) + (imports?.stopped ?? 0);
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
@@ -110,7 +114,7 @@ export function AppSidebar({
     catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
     insights: pathname.startsWith("/insights"),
-    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
+    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand" || pathname === "/imports" || pathname.startsWith("/imports/"),
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
     sites: pathname === "/sites",
     review: pathname === "/review",
@@ -192,7 +196,7 @@ export function AppSidebar({
           <SidebarGroupLabel>Content</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
+              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} badge={importCount || undefined} hint={signalHint(imports)} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
               {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
               {/* What a release makes for people to use elsewhere: share cards, Office templates, the press kit. */}

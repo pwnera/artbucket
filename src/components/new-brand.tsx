@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFileTypePdf, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
+import { useRouter } from "next/navigation";
+import { IconArrowLeft, IconArrowUp, IconBrandGit, IconCheck, IconFile, IconFileZip, IconFolder, IconPlus, IconSparkles, IconWorld } from "@/components/icons";
 import { SetupPart, Snippet } from "@/components/agent-access";
 import { AGENTS } from "@/components/agent-catalog";
 import type { BrandInfo } from "@/components/brand-switcher";
@@ -50,13 +51,15 @@ const brief = (name: string, site: string) =>
  * server has a Git integration (me.git, GIT_CONNECT_URL), brought in from
  * files already there or made here and kept there as it grows; elsewhere,
  * made here and pushed from the repository with the CLI (artbucket brand push).
- * Where the server offers a brand book importer (me.brandImport,
- * BRAND_IMPORT_URL), a fourth: from the brand's guidelines as a PDF, drawn
- * here (components/brand-import.tsx), the server making the draft.
+ * Where the server offers a brand importer (me.brandImport,
+ * BRAND_IMPORT_URL), a fourth: from everything the brand has, a zip of its
+ * files or its guidelines PDF, uploaded here (components/brand-import.tsx)
+ * and reviewed as a plan on the import's own page (/imports/{id}).
  */
 export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (b: BrandInfo) => void }) {
   const id = useId();
   const me = useMe();
+  const router = useRouter();
   const git = me?.git ?? null;
   const bookImport = me?.brandImport ?? null;
   const [step, setStep] = useState<Step>("how");
@@ -115,12 +118,11 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
     if (b) onDone(b);
   }
 
-  /** The draft a brand book became: opened as any new brand is. */
-  async function openImported(slug: string) {
-    setBusy(true);
-    const b = (await send("GET", `/api/v1/brands/${encodeURIComponent(slug)}`)) as BrandInfo | null;
-    setBusy(false);
-    if (b) onDone(b);
+  /** An archive uploaded: its plan is reviewed on the import's own page, while it is read. */
+  function openImport(importId: string) {
+    setImporting(false);
+    onClose();
+    router.push(`/imports/${importId}`);
   }
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -149,7 +151,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   <FilesArt />
                 </Choice>
                 {bookImport && (
-                  <Choice selected={how === "book"} onSelect={() => setHow("book")} title="From a brand book" text="Your guidelines PDF, read into a draft to review.">
+                  <Choice selected={how === "book"} onSelect={() => setHow("book")} title="Import your brand" text="A zip of your brand's files, or its guidelines PDF.">
                     <BookArt />
                   </Choice>
                 )}
@@ -280,10 +282,10 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           {step === "book" && bookImport && (
             <div className="grid min-w-0 gap-4">
               <DialogHeader>
-                <DialogTitle>From a brand book</DialogTitle>
-                <DialogDescription>A draft until you release it: you review it first.</DialogDescription>
+                <DialogTitle>Import your brand</DialogTitle>
+                <DialogDescription>Read into a plan you review: nothing is added until you apply it.</DialogDescription>
               </DialogHeader>
-              <BrandImport url={bookImport} onBusy={setImporting} onOpen={(slug) => void openImported(slug)} />
+              <BrandImport url={bookImport} onBusy={setImporting} onStarted={openImport} />
               <DialogFooter className="sm:justify-start">
                 <Button type="button" variant="ghost" disabled={importing || busy} onClick={() => setStep("how")}>
                   <IconArrowLeft /> Back
@@ -528,12 +530,12 @@ function AgentArt() {
   );
 }
 
-/** A brand book's spread: a PDF's pages, the palette and the type on them. */
+/** An archive opened: a brand's files, the palette and the type in them. */
 function BookArt() {
   return (
     <div className="bg-background grid w-full max-w-60 gap-2 rounded-t-md border border-b-0 p-3 shadow-sm">
       <span className="flex items-center gap-1.5 text-xs font-medium">
-        <IconFileTypePdf className="text-primary size-4" /> brand.pdf
+        <IconFileZip className="text-primary size-4" /> brand.zip
       </span>
       <div className="flex gap-1">
         {["bg-foreground/85", "bg-primary/70", "bg-muted", "bg-foreground/30"].map((c) => (

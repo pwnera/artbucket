@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { apiKeys, assets, users, projects } from "@/lib/db/schema";
@@ -7,6 +7,7 @@ import type { Caller } from "@/lib/core/access";
 import { recordAudit } from "@/lib/core/audit";
 import { requireFeature } from "@/lib/core/features";
 import { checkLimit } from "@/lib/core/usage";
+import { AssetError } from "@/lib/core/errors";
 import { can } from "@/lib/permissions";
 import type { Scope } from "@/lib/scopes";
 
@@ -78,5 +79,37 @@ export async function revokeKey(caller: Caller, id: string) {
     .where(and(eq(apiKeys.id, id), eq(apiKeys.projectId, caller.project.id), isNull(apiKeys.feature), mine(caller)))
     .returning({ name: apiKeys.name, scope: apiKeys.scope });
   if (gone) await recordAudit(caller, "key.revoked", gone.name, { scope: gone.scope });
+  return !!gone;
+}
+
+/**
+ * A job token: a feature's background work done as the person who started it (a brand import's Apply, carried on
+ * after they leave the page). Made from their session only, for the feature the request names (Artbucket-Feature,
+ * on in the project), it acts with exactly their access there, in this project only, until it expires or the job
+ * revokes it; turning the feature off revokes it too. It is the feature's, so Connections doesn't list it.
+ */
+export async function createJobToken(caller: Caller, input: { name: string; minutes: number }) {
+  if (!caller.user || caller.key) throw new AssetError("forbidden", "A job token is made from a signed-in person's session");
+  if (!caller.feature) throw new AssetError("forbidden", "A job token is made for a feature: send Artbucket-Feature");
+  const secret = `ab_${randomBytes(32).toString("base64url")}`;
+  const expiresAt = new Date(Date.now() + input.minutes * 60_000);
+  const name = `${caller.actor} · ${input.name}`.slice(0, 120);
+  // "admin" caps nothing: a key with a person is held to what they can do (lib/core/access.ts), no more.
+  const [row] = await db
+    .insert(apiKeys)
+    .values({ name, scope: "admin", projectId: caller.project.id, userId: caller.user.id, feature: caller.feature, prefix: secret.slice(0, 10), hash: hashKey(secret), expiresAt })
+    .returning({ id: apiKeys.id });
+  await recordAudit(caller, "key.created", name, { via: "job", feature: caller.feature, expiresAt: expiresAt.toISOString() });
+  return { id: row.id, token: secret, expiresAt: expiresAt.toISOString() };
+}
+
+/** The job token presenting itself, revoked: its job is done. Any other key or caller has none to revoke. */
+export async function revokeJobToken(caller: Caller) {
+  if (!caller.key) return false;
+  const [gone] = await db
+    .delete(apiKeys)
+    .where(and(eq(apiKeys.id, caller.key), isNotNull(apiKeys.userId), isNotNull(apiKeys.feature), isNotNull(apiKeys.expiresAt)))
+    .returning({ name: apiKeys.name });
+  if (gone) await recordAudit(caller, "key.revoked", gone.name, { via: "job" });
   return !!gone;
 }

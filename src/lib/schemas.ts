@@ -101,6 +101,17 @@ export const Finalize = z.union([
   }),
 ]);
 
+export const PdfCut = z.strictObject({
+  page: z.number().int().min(1).max(10000).describe("The page, from 1"),
+  box: z
+    .tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)])
+    .refine(([l, t, r, b]) => r > l && b > t, "The box's right and bottom must be past its left and top")
+    .describe("The area as fractions of the page: left, top, right, bottom, from its top-left corner. What is mostly inside it is cut"),
+  filename: z.string().trim().min(1).max(200).optional().describe("The new asset's name; its extension is the cut's (svg, or png)"),
+  collections: promote.collections,
+  tags: promote.tags,
+});
+
 export const GoogleFontImport = z.strictObject({
   family: z.string().trim().regex(GOOGLE_FAMILY, "A Google Fonts family, e.g. Playfair Display").describe("As Google Fonts names it"),
   ...promote,
@@ -339,6 +350,17 @@ export const CommentPatch = z
     resolved: z.boolean().optional().describe("Resolve the thread, or reopen it; a thread's first comment only"),
   })
   .refine((p) => p.body !== undefined || p.resolved !== undefined, "Send `body`, `resolved`, or both");
+
+/** POST /api/v1/job-tokens: a feature's background job, done as you. */
+export const CreateJobToken = z.strictObject({
+  name: z.string().trim().min(1).max(80).describe("What the job is, as history names it after yours: \"brand import\""),
+  minutes: z.number().int().min(5).max(720).default(240).describe("How long it works, at most; the job revokes it when done"),
+});
+export const JobToken = z.object({
+  id: uuid,
+  token: z.string().describe("Shown once. Send as `Authorization: Bearer <token>`"),
+  expiresAt: z.iso.datetime({ offset: true }),
+});
 
 export const CreateKey = z.strictObject({
   name: z.string().trim().min(1).max(120),

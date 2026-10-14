@@ -72,6 +72,15 @@ export const ACTIONS = {
   "brand.comment": { scope: "propose", on: "brand" },
   /** Put the brand's pages and rules, as they stand, in front of portal visitors. */
   "brand.publish": { scope: "write", on: "brand" },
+  // Brand import (Intelligence's, shown only where it is on: me.brandImport). The importer checks the same names.
+  /** The project's imports: each one's status, who started it, and what it made. */
+  "import.read": { scope: "read", on: "project" },
+  /** Start an import, open and edit its plan, read its guidelines again: a Contributor's plan waits for an Editor. */
+  "import.run": { scope: "propose", on: "project" },
+  /** Apply a plan, carry on a stopped Apply, undo one's own: it makes brands and adds files as approved. */
+  "import.apply": { scope: "write", on: "project" },
+  /** Undo or discard someone else's import. */
+  "import.manage": { scope: "write", on: "project" },
   // Sharing, keys, people, settings
   "share.manage": { scope: "write", on: "anywhere" },
   "share.collect_project": { scope: "write", on: "project" },
