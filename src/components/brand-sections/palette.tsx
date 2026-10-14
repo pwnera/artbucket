@@ -245,7 +245,9 @@ function Swatch({
   values: Record<Medium, Value[]>;
   heading: "h3" | "h4";
 }) {
-  const { url } = useSite();
+  const { url, view } = useSite();
+  // On the Board look (grounds: canvas) a color is a big block, its value at the foot, as a brand book prints it.
+  const board = view.theme.grounds === "canvas";
   const anchor = useRuleAnchor()(r.key);
   // A copy says so on the swatch you clicked, not in a toast.
   const [copied, copy] = useCopied();
@@ -261,7 +263,7 @@ function Swatch({
   return (
     <div id={anchor} className="group/block min-w-0 scroll-mt-20 space-y-3">
       <div className="flex items-center gap-1">
-        <H className={cn(HEAD, "text-lg")}>{name}</H>
+        <H className={cn(HEAD, board ? "text-2xl" : "text-lg")}>{name}</H>
         {anchor && <AnchorLink id={anchor} label={`Copy a link to ${name}`} className="group-hover/block:opacity-100" />}
       </div>
 
@@ -271,7 +273,8 @@ function Swatch({
         aria-label={`Copy ${value}`}
         onClick={() => void copy(value, "hex")}
         className={cn(
-          "ring-border relative flex h-32 w-full cursor-copy flex-col justify-between overflow-hidden rounded-xl p-3 text-start shadow-sm ring-1 transition-[box-shadow,scale] hover:shadow-md active:scale-[0.98] active:duration-75",
+          "ring-border relative flex w-full cursor-copy flex-col justify-between overflow-hidden text-start shadow-sm ring-1 transition-[box-shadow,scale] hover:shadow-md active:scale-[0.98] active:duration-75",
+          board ? "h-56 rounded-2xl p-6 @3xl:h-72" : "h-32 rounded-xl p-3",
           value.length === 9 && "bg-checker",
         )}
         style={{ color: ink }}
@@ -280,8 +283,8 @@ function Swatch({
         {texture?.preview && (
           <span aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${JSON.stringify(url(texture.id, "/w_720,f_webp"))})` }} />
         )}
-        <span className="relative text-3xl font-semibold tracking-tight">Aa</span>
-        <span className="relative flex items-center gap-1 font-mono text-xs opacity-80">{copied === value ? <Copied /> : value}</span>
+        <span className={cn("relative tracking-tight", board ? cn(HEAD, "text-7xl") : "text-3xl font-semibold")}>Aa</span>
+        <span className={cn("relative flex items-center gap-1 font-mono opacity-80", board ? "self-center text-base" : "text-xs")}>{copied === value ? <Copied /> : value}</span>
       </button>
 
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">

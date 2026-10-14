@@ -75,7 +75,9 @@ export function CoverSection({ section: s }: SectionProps) {
   // A wordmark or lockup already spells the name: the heading saying it again stays for readers of the outline only.
   const spelled = mark && !/mark|icon|symbol|glyph/.test(markOf(view.rules.filter((r) => r.context === null))?.key ?? "mark");
   const echo = spelled && (s.title ?? heading).trim().toLowerCase() === view.brand.name.trim().toLowerCase();
-  const big = cn(TITLE[p.titleSize ?? "large"], "leading-[1.1] break-words");
+  // On the Board look (grounds: canvas) a two-line headline reads as the brand's: tight, its second line muted.
+  const board = view.theme.grounds === "canvas" && !!s.title?.includes("\n");
+  const big = cn(TITLE[p.titleSize ?? "large"], "break-words", board ? "text-(--brand-muted) leading-[0.95] [&::first-line]:text-(--brand-ink)" : "leading-[1.1]");
   const focus = (still ?? video)?.focus;
   const position = focus ? `${focus.x * 100}% ${focus.y * 100}%` : undefined;
 
