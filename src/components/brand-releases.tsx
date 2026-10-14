@@ -6,7 +6,6 @@ import { IconWorldUpload } from "@/components/icons";
 import { ReleaseForm } from "@/components/builder/publish-dialog";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
-import { InfoTip } from "@/components/info-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Update } from "@/lib/history";
@@ -44,20 +43,18 @@ export function ReleaseList({ slug, updates, pending }: { slug: string; updates:
     <div className="grid gap-4">
       {(pending || !updates.length) && (
         <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-          <p className="flex items-center gap-1.5 text-sm">
-            {updates.length ? (
-              `Unreleased changes since @${updates[0].version}`
-            ) : (
-              <>
-                Never released
-                <InfoTip>Portals and BrandHub show nothing of it until it is released.</InfoTip>
-              </>
-            )}
-          </p>
+          {updates.length ? (
+            <p className="text-sm">Unreleased changes since @{updates[0].version}</p>
+          ) : (
+            <div className="grid gap-0.5">
+              <p className="text-sm font-medium">Not released yet</p>
+              <p className="text-muted-foreground text-sm">A release is what portals, BrandHub and agents read. Until the first, they show nothing of it.</p>
+            </div>
+          )}
           {edit && (
             <Button asChild size="sm">
               <Link href={brandPath(slug, "/releases/new")}>
-                <IconWorldUpload aria-hidden /> Publish release
+                <IconWorldUpload aria-hidden /> Release
               </Link>
             </Button>
           )}

@@ -20,7 +20,6 @@ import {
   IconRobot,
   IconSettings,
   IconSitemap,
-  IconSparkles,
   IconWorld,
   IconWorldUpload,
 } from "@/components/icons";
@@ -297,7 +296,16 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
       <Popover>
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" title={compact ? "Use this brand" : undefined}>
-            <IconRobot aria-hidden /> <span className={compact ? "sr-only" : undefined}>Use this brand</span> {!compact && <IconChevronDown aria-hidden />}
+            <IconRobot aria-hidden />{" "}
+            {compact ? (
+              <span className="sr-only">Use this brand</span>
+            ) : (
+              <>
+                {/* "Use" on a phone, so Use, Edit, Release and the menu share one row. */}
+                <span className="sm:hidden">Use</span>
+                <span className="hidden sm:inline">Use this brand</span> <IconChevronDown aria-hidden />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
@@ -440,7 +448,7 @@ const MORE_ICON = { theme: IconPalette, insights: IconChartBar, settings: IconSe
  * The brand's menu, at the end of its header: the pages that aren't tabs
  * (Theme, Insights, Settings), then what is done to it now and then: keep
  * it in Git, pin it to the sidebar, open it in the catalog (its lineage and
- * who reaches it), and Edit with AI, shown and not yet there (SITE-17).
+ * who reaches it).
  */
 function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; connect: string | null | undefined }) {
   const can = useCan();
@@ -482,16 +490,6 @@ function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; con
             <IconSitemap aria-hidden /> Open in the catalog
           </Link>
         </DropdownMenuItem>
-        {can("brand.edit") && (
-          <>
-            <DropdownMenuSeparator />
-            {/* Pages edited by an agent from here, as the builder retires (PRD part 2): not yet, and said so. */}
-            <DropdownMenuItem disabled>
-              <IconSparkles aria-hidden /> Edit with AI
-              <span className="text-muted-foreground ms-auto text-xs">Coming soon</span>
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

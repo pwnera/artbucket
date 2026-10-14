@@ -1,48 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { IconCode, IconDownload } from "@/components/icons";
+import { IconCode } from "@/components/icons";
 import type { BrandInfo } from "@/components/brand-switcher";
-import { InfoTip } from "@/components/info-tip";
-import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
+import { TokensDialog } from "@/components/tokens-dialog";
 import { ColorCells, ColorHead } from "@/components/color-table";
 import { FileThumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
-import { colorTable, darkContext } from "@/lib/color-table";
+import { colorTable, darkContext, hasDark } from "@/lib/color-table";
 import { contextLabel, fontLabel, fontValue, ruleLabel, ruleName, section, type Rule, type RuleValue } from "@/lib/rules";
-import { TOKEN_FORMAT_IDS, TOKEN_FORMATS } from "@/lib/tokens";
 
 /**
  * The brand's tokens, in every format the API serves (DESIGN.md among them),
- * to download or look at: above its rules on the Rules tab, read-only or not.
+ * above its rules on the Rules tab, read-only or not: one line, the formats
+ * in the dialog, each to look at, copy, download or link.
  */
 export function UseInCode({ brand }: { brand: BrandInfo }) {
   const [tokens, setTokens] = useState(false);
   return (
     <>
-      <section className="bg-card grid gap-3 rounded-xl border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-1.5 font-medium">
-            Use in code
-            <InfoTip>Colors, faces and the type scale as tokens for your stack, each a link that stays current.</InfoTip>
-          </h2>
-          <Button size="sm" variant="outline" onClick={() => setTokens(true)}>
-            <IconCode aria-hidden /> Look at them
-          </Button>
+      <section className="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3">
+        <div className="grid min-w-0 flex-1">
+          <h2 className="font-medium">Use in code</h2>
+          <p className="text-muted-foreground text-sm">Colors, faces and the type scale as tokens: CSS, Tailwind, shadcn/ui, DTCG, DESIGN.md and more.</p>
         </div>
-        <ul className="flex flex-wrap gap-2">
-          {TOKEN_FORMAT_IDS.map((id) => (
-            <li key={id}>
-              <Button size="xs" variant="secondary" asChild>
-                <a href={tokensPath(brand, undefined, id)} download={TOKEN_FORMATS[id].file(brand.slug)}>
-                  <IconDownload aria-hidden /> {TOKEN_FORMATS[id].label}
-                </a>
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <Button size="sm" variant="outline" onClick={() => setTokens(true)}>
+          <IconCode aria-hidden /> Get tokens
+        </Button>
       </section>
       <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
     </>
@@ -119,6 +105,7 @@ export function BrandRules({ brand, rules }: { brand: BrandInfo; rules: Rule[] }
 function Colors({ rules }: { rules: Rule[] }) {
   const dark = darkContext(rules.map((r) => r.context));
   const groups = colorTable(rules, dark);
+  const shown = hasDark(rules, dark);
   const named = groups.some((g) => g.group);
   return (
     <div className="grid gap-6 py-3">
@@ -126,7 +113,7 @@ function Colors({ rules }: { rules: Rule[] }) {
         <div key={group} className="grid gap-2">
           {named && <h3 className="px-4 pt-1 text-sm font-medium">{group || "Other"}</h3>}
           <div className="border-b px-4 pb-2">
-            <ColorHead />
+            <ColorHead dark={shown} />
           </div>
           <ul className="divide-y">
             {rows.map((row) => {
@@ -134,7 +121,7 @@ function Colors({ rules }: { rules: Rule[] }) {
               const others = rules.filter((x) => x.key === row.key && x.context && x.context !== dark);
               return (
                 <li key={row.key} className="grid gap-2 px-4 py-2">
-                  <ColorCells row={row} label={r.label} />
+                  <ColorCells row={row} label={r.label} dark={shown} />
                   {others.map((v) => (
                     <div key={v.context} className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary">{contextLabel(v.context!)}</Badge>

@@ -14,7 +14,7 @@ import { brandPath, type PageView } from "@/lib/site";
 export function BrandThemeTab({ slug, theme, behind, released }: { slug: string; theme: PageView["theme"]; behind: boolean; released: boolean }) {
   const router = useRouter();
   return (
-    <div className="grid max-w-2xl gap-3">
+    <div className="grid gap-3">
       {(behind || !released) && (
         <div className="bg-muted/50 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3 text-sm">
           <p className="min-w-0 flex-1">

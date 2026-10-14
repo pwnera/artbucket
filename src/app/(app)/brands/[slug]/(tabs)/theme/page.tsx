@@ -30,7 +30,7 @@ async function Tab({ params }: Props) {
   const [head, view] = await Promise.all([brandHead(slug), getBody<{ data?: PageView }>(`brands/${encodeURIComponent(slug)}/view?edit=1`)]);
   if (!head || !view?.data) notFound();
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
+    <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
       <BrandThemeTab slug={head.brand.slug} theme={view.data.theme} behind={head.status?.publish === "behind"} released={!!head.release} />
     </div>
   );

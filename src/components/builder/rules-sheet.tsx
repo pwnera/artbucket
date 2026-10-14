@@ -44,7 +44,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import type { RuleRef } from "@/lib/builder-ops";
 import { keyFor, PRESETS, type Preset } from "@/lib/presets";
 import { assetUrl } from "@/lib/asset-url";
-import { colorRow, darkContext, type ColorRow } from "@/lib/color-table";
+import { colorRow, darkContext, hasDark, type ColorRow } from "@/lib/color-table";
 import { contextLabel, fontValue, RULE_SPEC, ruleLabel, ruleName, section, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { undoable } from "@/lib/undo";
@@ -150,6 +150,7 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
   const taken = new Set(rules.map((r) => r.key));
   /** Where colors keep their dark values: the color section's Dark column. */
   const dark = darkContext(rules.map((r) => r.context));
+  const darkShown = hasDark(rules, dark);
   /** A section's keys as last dragged or moved here, ahead of the next load: the order PUT /brand/rules/order saved. */
   const [order, setOrder] = useState<Record<string, string[]>>({});
   /** The keys of each section, sections and keys in the brand's order. */
@@ -499,7 +500,7 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
                   <li aria-hidden className="flex items-center">
                     {!needle && keys.length > 1 && <span className="w-6 shrink-0" />}
                     <div className="flex flex-1 items-center gap-3 px-3 py-2">
-                      <ColorHead />
+                      <ColorHead dark={darkShown} />
                       <span className="size-4 shrink-0" />
                     </div>
                     <span className="me-1 size-8 shrink-0" />
@@ -560,6 +561,7 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
                             <RuleRow
                               rule={vs[0]}
                               color={color}
+                              dark={darkShown}
                               versions={vs.length}
                               pages={b.shownOn(key).length}
                               open={open}
@@ -869,6 +871,7 @@ function RulePreview({ r }: { r: ViewRule }) {
 function RuleRow({
   rule: r,
   color,
+  dark = false,
   versions,
   pages,
   open,
@@ -877,6 +880,8 @@ function RuleRow({
   rule: ViewRule;
   /** A color's row of the table: its light and dark values in place of the line. */
   color?: ColorRow | null;
+  /** The color table has a Dark column. */
+  dark?: boolean;
   versions: number;
   pages: number;
   open: boolean;
@@ -891,7 +896,7 @@ function RuleRow({
       className="hover:bg-muted/50 focus-visible:ring-ring/50 flex w-full items-center gap-3 px-3 py-2 text-start outline-none focus-visible:ring-3 focus-visible:ring-inset"
     >
       {color ? (
-        <ColorCells row={color} label={r.label} />
+        <ColorCells row={color} label={r.label} dark={dark} />
       ) : (
         <>
           <RulePreview r={r} />
