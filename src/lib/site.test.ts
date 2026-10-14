@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { Section } from "./pages.ts";
 import type { SnapRule } from "./history.ts";
 import {
+  balanced,
   canonicalPath,
   dirOf,
   formerBuilderPath,
@@ -318,4 +319,18 @@ test("formerBuilderPath: the retired builder's links land where that work is now
   assert.equal(formerBuilderPath("acme", { git: "connected" }), "/brands/acme?git=connected");
   assert.equal(rulesPath("acme"), "/brands/acme/rules");
   assert.equal(rulesPath("acme", "color.primary"), "/brands/acme/rules#rule-color.primary");
+});
+
+test("balanced columns leave no item alone on the last row where they can", () => {
+  assert.equal(balanced(4, 3), 4);
+  assert.equal(balanced(7, 3), 4);
+  assert.equal(balanced(5, 4), 3);
+  assert.equal(balanced(6, 3), 3);
+  assert.equal(balanced(3, 3), 3);
+  assert.equal(balanced(2, 3), 3);
+  assert.equal(balanced(5, 2), 3);
+  assert.equal(balanced(1, 1), 1);
+  assert.equal(balanced(9, 4), 3);
+  // Nothing avoids it: what was asked.
+  assert.equal(balanced(13, 4), 4);
 });

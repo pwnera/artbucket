@@ -25,7 +25,8 @@ export function QuoteSection({ section: s, rules }: SectionProps) {
         &ldquo;
       </span>
       <blockquote className="space-y-6">
-        <Body className={cn(HEAD, "text-2xl leading-snug text-pretty @3xl:text-3xl [&_p]:font-[inherit]")} />
+        {/* A headline's size on the look's scale, at least the 3xl it had: the words are the picture here. */}
+        <Body className={cn(HEAD, "text-2xl leading-[1.15] text-pretty @3xl:text-[length:max(1.875rem,min(var(--brand-h2-large),6cqi))] [&_p]:font-[inherit]")} />
         {shown.map((r) => (
           <div key={r.key} className="[&_[data-field=value]_.rich]:font-(family-name:--brand-head) [&_[data-field=value]_.rich]:text-2xl [&_[data-field=value]_.rich]:leading-snug @3xl:[&_[data-field=value]_.rich]:text-3xl">
             <RuleSlot rule={r} />

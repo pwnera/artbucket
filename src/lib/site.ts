@@ -206,6 +206,16 @@ export function trail(roots: NavNode[], slug: string): NavNode[] {
 }
 
 /**
+ * The columns a grid of `n` items is laid in, near the `columns` a section
+ * asks for (2 to 4), so its last row never holds one item alone where
+ * another count avoids it: four colors in three columns go four across.
+ */
+export function balanced(n: number, columns: number): number {
+  if (n <= columns) return columns;
+  return [columns, columns + 1, columns - 1].find((k) => k >= 2 && k <= 4 && n % k !== 1) ?? columns;
+}
+
+/**
  * A page's sections around its tab strip: untabbed ones before the first tab
  * sit above it, untabbed ones after sit below its panel, and each tab holds its
  * sections in page order, wherever on the page they are.
