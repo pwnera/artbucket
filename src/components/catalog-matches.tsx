@@ -2,58 +2,137 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { NavLink } from "@/components/app-sidebar";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
+import { Button } from "@/components/ui/button";
 import { TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
+import { cn } from "@/lib/utils";
 
 /**
  * What else a search in Explore finds, beside the assets below it
- * (GET /api/v1/catalog): brands, collections, portals, and brands' rules and
- * guideline pages, as cards above the assets. Each opens in the catalog.
+ * (GET /api/v1/catalog): brands, collections, sites, and brands' rules and
+ * guideline pages. A row of types to pick one, then a first look at each as
+ * cards above the assets, or (`only`) every match of one type, a page at a
+ * time. Each opens in the catalog.
  */
 
 const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page"];
 const SHOWN = 8;
+const PAGE = 40;
 
-export function CatalogMatches({ q }: { q: string }) {
-  const [found, setFound] = useState<{ q: string; r: CatalogResults } | null>(null);
+type Found = { key: string; r: CatalogResults; items: CatalogResults["items"] };
+
+const fetchCatalog = (q: string, types: CatalogType[], cursor: number, signal?: AbortSignal) => {
+  const params = new URLSearchParams({ q, limit: String(PAGE), cursor: String(cursor) });
+  for (const t of types) params.append("type", t);
+  return fetch(`/api/v1/catalog?${params}`, { signal }).then((r) => (r.ok ? (r.json() as Promise<CatalogResults>) : null));
+};
+
+/** The matches of `types` for `q` (none asked: nothing), and the next page of them on `more`. */
+function useFound(q: string, types: CatalogType[] | null) {
+  const key = types && `${q}|${types.join()}`;
+  const [found, setFound] = useState<Found | null>(null);
   useEffect(() => {
+    if (!key || !types) return;
     const ac = new AbortController();
-    const params = new URLSearchParams({ q, limit: "40" });
-    for (const t of OTHERS) params.append("type", t);
     const wait = setTimeout(() => {
-      fetch(`/api/v1/catalog?${params}`, { signal: ac.signal })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((r) => r && setFound({ q, r }))
+      fetchCatalog(q, types, 0, ac.signal)
+        .then((r) => r && setFound({ key, r, items: r.items }))
         .catch(() => {});
     }, 200);
     return () => {
       clearTimeout(wait);
       ac.abort();
     };
-  }, [q]);
-  const r = found?.q === q ? found.r : null;
-  if (!r?.items.length) return null;
-  const items = OTHERS.flatMap((t) => r.items.filter((i) => i.type === t));
-  const total = OTHERS.reduce((n, t) => n + (r.counts[t] ?? 0), 0);
+    // `key` is q and types.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const now = found?.key === key ? found : null;
+  const more = () =>
+    now?.r.next != null &&
+    fetchCatalog(q, types!, now.r.next)
+      .then((r) => r && setFound((f) => (f?.key === key ? { key, r, items: [...f.items, ...r.items] } : f)))
+      .catch(() => {});
+  return now && { ...now, more };
+}
+
+export function CatalogMatches({ q, only, assets }: { q: string; only: CatalogType | null; assets: number }) {
+  const all = useFound(q, OTHERS);
+  const one = useFound(q, only && only !== "asset" ? [only] : null);
+  if (!all) return null;
+  const types = OTHERS.filter((t) => all.r.counts[t] || t === only);
+  if (!types.length) return null;
+  const total = OTHERS.reduce((n, t) => n + (all.r.counts[t] ?? 0), 0);
+  const href = (t: CatalogType | null) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (t) p.set("in", t);
+    return p.size ? `/?${p}` : "/";
+  };
+  const tab = (t: CatalogType | null, label: string, n?: number) => (
+    <NavLink
+      key={t ?? "all"}
+      href={href(t)}
+      aria-current={only === t ? "page" : undefined}
+      className={cn(
+        "inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors",
+        only === t ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent",
+      )}
+    >
+      {label}
+      {n != null && <span className={cn("text-xs tabular-nums", only !== t && "text-muted-foreground")}>{n.toLocaleString()}</span>}
+    </NavLink>
+  );
   return (
-    <Section title="Brands, collections and more" count={total}>
-      <CardGrid>
-        {items.slice(0, SHOWN).map((i) => (
-          <ObjectCard
-            key={i.id}
-            type={i.type}
-            href={`/catalog?o=${i.id}`}
-            name={i.name}
-            sub={`${TYPE_LABEL[i.type].one} · ${i.parent ? i.parent.name : i.project.name}`}
-            status={i.status}
-          />
-        ))}
-      </CardGrid>
-      {total > SHOWN && <p className="text-muted-foreground text-xs">and {total - SHOWN} more: narrow the search to see them</p>}
-    </Section>
+    <>
+      <nav aria-label="What to explore" className="flex flex-wrap gap-2">
+        {tab(null, "Everything")}
+        {tab("asset", TYPE_LABEL.asset.many, assets)}
+        {types.map((t) => tab(t, TYPE_LABEL[t].many, all.r.counts[t] ?? 0))}
+      </nav>
+      {only === "asset" ? null : only ? (
+        <Section title={TYPE_LABEL[only].many} count={one?.r.total}>
+          {one && !one.items.length ? (
+            <p className="text-muted-foreground text-sm">No {TYPE_LABEL[only].many.toLowerCase()} match.</p>
+          ) : (
+            <CardGrid>
+              {(one?.items ?? []).map((i) => (
+                <Card key={i.id} i={i} />
+              ))}
+            </CardGrid>
+          )}
+          {one?.r.next != null && (
+            <Button variant="outline" size="sm" onClick={one.more}>
+              Show more
+            </Button>
+          )}
+        </Section>
+      ) : (
+        <Section title="Brands, collections and more" count={total}>
+          <CardGrid>
+            {OTHERS.flatMap((t) => all.items.filter((i) => i.type === t))
+              .slice(0, SHOWN)
+              .map((i) => (
+                <Card key={i.id} i={i} />
+              ))}
+          </CardGrid>
+          {total > SHOWN && <p className="text-muted-foreground text-xs">and {total - SHOWN} more: pick a type above to see them all</p>}
+        </Section>
+      )}
+    </>
   );
 }
+
+const Card = ({ i }: { i: CatalogResults["items"][number] }) => (
+  <ObjectCard
+    type={i.type}
+    href={`/catalog?o=${i.id}`}
+    name={i.name}
+    sub={`${TYPE_LABEL[i.type].one} · ${i.parent ? i.parent.name : i.project.name}`}
+    status={i.status}
+  />
+);
 
 /** A titled part of Explore or the catalog: "Brands and collections", "Assets for you". */
 export function Section({ title, count, aside, children }: { title: string; count?: number; aside?: React.ReactNode; children: React.ReactNode }) {

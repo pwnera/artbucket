@@ -90,8 +90,13 @@ export const ACTIONS = {
   "audit.read": { scope: "admin", on: "project" },
   /** What the brand's events say (lib/core/insights.ts): for whoever looks after the project. */
   "insights.read": { scope: "write", on: "project" },
-  /** Automations: emails and webhooks sent when a brand is released or a license ends (lib/core/automations.ts). */
-  "automation.manage": { scope: "admin", on: "project" },
+  /**
+   * Automations: emails and webhooks sent when something happens in a project (lib/core/automations.ts).
+   * An editor of a brand manages its release automations; any other trigger, or any brand's releases,
+   * reaches private assets, brands or the audit log, so those take the project's admins.
+   */
+  "automation.manage": { scope: "write", on: "brand" },
+  "automation.manage_all": { scope: "admin", on: "project" },
   "project.manage": { scope: "admin", on: "project" },
   "organization.manage": { scope: "admin", on: "organization" },
 } as const satisfies Record<string, { scope: Scope; on: On }>;

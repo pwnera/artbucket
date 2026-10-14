@@ -4,8 +4,10 @@ import { library } from "@/lib/library-page";
 import { parseView } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
-// The server's title; the page names the view it shows once it runs (a collection, a search).
-export const metadata: Metadata = { title: "Assets" };
+// The server's title, Assets for the plain grid; the page names the view it shows once it runs (a collection, a search).
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[]>> }): Promise<Metadata> {
+  return { title: "browse" in (await searchParams) ? "Assets" : "Explore" };
+}
 
 /**
  * The initial list comes from the public API over real HTTP, exactly as any

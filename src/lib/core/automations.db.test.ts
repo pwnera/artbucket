@@ -155,12 +155,11 @@ test("an asset nearing its last day fires once, by email, and again for a new da
   await deleteAutomation(ada.caller, mail.id);
 });
 
-test("what a trigger and an action need is checked, and only the project's admins manage them", async () => {
+test("what a trigger and an action need is checked", async () => {
   await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "brand.released", action: "email" }), /email needs emails/);
   await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "asset.expiring", action: "email", emails: ["a@example.com"] }), /needs days/);
   await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "brand.released", action: "webhook" }), /needs url/);
   await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "brand.released", brand: "nope", action: "email", emails: ["a@example.com"] }), /No brand "nope"/);
-  await assert.rejects(listAutomations({ ...ada.caller, scope: "write" }), /admin on the project/);
 
   // Made a webhook, it gets a secret; made an email again, its URL and secret go.
   const a = await createAutomation(ada.caller, { name: "Switch", trigger: "brand.released", action: "email", emails: ["a@example.com"] });
@@ -171,6 +170,22 @@ test("what a trigger and an action need is checked, and only the project's admin
   assert.equal(back.host, null);
   const [row] = await db.select().from(automations).where(eq(automations.id, a.id));
   assert.equal(row.secret, null);
+});
+
+test("an editor manages a brand's release automations; license dates and any brand's take an admin", async () => {
+  const editor = { ...ada.caller, scope: "write" as const };
+  const theirs = await createAutomation(editor, { name: "Tell us", trigger: "brand.released", brand: "default", action: "email", emails: ["e@example.com"] });
+  const any = await createAutomation(ada.caller, { name: "Any", trigger: "brand.released", action: "email", emails: ["a@example.com"] });
+  await assert.rejects(createAutomation(editor, { name: "x", trigger: "brand.released", action: "email", emails: ["e@example.com"] }), /admin on the project/);
+  await assert.rejects(createAutomation(editor, { name: "x", trigger: "asset.expiring", days: 7, action: "email", emails: ["e@example.com"] }), /admin on the project/);
+  // Neither widened nor seen nor touched: an admin's for any brand is not theirs.
+  await assert.rejects(updateAutomation(editor, theirs.id, { brand: null }), /admin on the project/);
+  await assert.rejects(deleteAutomation(editor, any.id), /admin on the project/);
+  const listed = (await listAutomations(editor)).map((a) => a.id);
+  assert.ok(listed.includes(theirs.id) && !listed.includes(any.id));
+  await assert.rejects(listAutomations({ ...ada.caller, scope: "read" }), /write on this brand/);
+  await deleteAutomation(editor, theirs.id);
+  await deleteAutomation(ada.caller, any.id);
 });
 
 test("a test sends the brand's latest release now, off or on, marked as a test and never tried again", async (t) => {
@@ -213,7 +228,7 @@ test("a test sends the brand's latest release now, off or on, marked as a test a
       ["delivered", true],
     ],
   );
-  await assert.rejects(testAutomation({ ...ada.caller, scope: "write" }, hook.id), /admin on the project/);
+  await assert.rejects(testAutomation({ ...ada.caller, scope: "read" }, hook.id), /write on this brand/);
   await deleteAutomation(ada.caller, hook.id);
 });
 

@@ -87,6 +87,7 @@ import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
 import { reason, refusal } from "@/lib/send";
 
@@ -188,7 +189,10 @@ function go(patch: Partial<View>, push = false) {
   const next = { ...currentView(), ...patch };
   // On Review, review is the page, not a parameter.
   const base = onReview() && next.review ? REVIEW : "/";
-  const qs = viewQuery(base === REVIEW ? { ...next, review: false } : next);
+  // Which place it is (Assets' ?browse) and Explore's type (?in=) stay as the view moves.
+  const now = new URLSearchParams(window.location.search);
+  const kept = [now.has("browse") && "browse", now.get("in") && `in=${encodeURIComponent(now.get("in")!)}`].filter(Boolean);
+  const qs = [...kept, viewQuery(base === REVIEW ? { ...next, review: false } : next)].filter(Boolean).join("&");
   window.history[push ? "pushState" : "replaceState"](null, "", qs ? `${base}?${qs}` : base);
 }
 
@@ -1095,20 +1099,28 @@ export function Gallery({
   }, [recentKey, rememberRecent]);
   // A search of the whole library is named by its words, as the prototype's “winter” is.
   const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
-  // Explore before anything is asked opens on its search (components/explore-start.tsx); ?browse is the plain grid.
-  const browsing = useSearchParams().has("browse");
+  // Explore before anything is asked opens on its search (components/explore-start.tsx); ?browse is the plain grid, Assets.
+  const sp = useSearchParams();
+  const browsing = sp.has("browse");
+  // Explore searches everything: its words across every type, or one type (?in=) on its own.
+  const only = !browsing && (CATALOG_TYPES as readonly string[]).includes(sp.get("in") ?? "") ? (sp.get("in") as CatalogType) : null;
+  const everything = !browsing && !activeSearch && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
+  const othersOnly = everything && !!only && only !== "asset";
   const startScreen =
-    !browsing && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
+    !browsing && !only && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
   // A search that settled is one to come back to.
   const [recentQueries, setRecentQueries] = useRecentQueries();
   useEffect(() => {
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
-  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : "All assets")));
-  const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : undefined)));
+  const typeOnly = othersOnly && !searched ? TYPE_LABEL[only!].many : null;
+  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? "All assets"))));
+  const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
+  // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
+  const root = inCollection && !activeSearch ? { label: "Collections", href: "/collections" } : everything || activeSearch || startScreen ? { label: "Explore", href: "/" } : { label: "Assets", href: "/?browse" };
 
   // The tab says which view (or asset) it is; the history menu too.
-  const tabTitle = open ? open.metadata?.title || open.filename : (where ?? "Assets");
+  const tabTitle = open ? open.metadata?.title || open.filename : (where ?? root.label);
   useEffect(() => {
     document.title = `${tabTitle} - ${brand.name}`;
   }, [tabTitle, brand.name]);
@@ -1151,7 +1163,7 @@ export function Gallery({
 
   return (
     <>
-      <AppHeader trail={reviewPage ? [{ label: "Review" }] : where ? [{ label: "Explore", href: "/" }, { label: where }] : [{ label: "Explore" }]}>
+      <AppHeader trail={reviewPage ? [{ label: "Review" }] : where ? [root, { label: where }] : [{ label: root.label }]}>
         {/* The start screen's own box is the search there: one, not two. */}
         <div className={cn("relative w-36 min-w-20 shrink! sm:w-64", startScreen && "hidden")}>
           {searching ? (
@@ -1166,8 +1178,8 @@ export function Gallery({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && !text && e.currentTarget.blur()}
-            placeholder={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
-            aria-label={inCollection || view.review || activeSearch ? "Filter this view" : "Search everything"}
+            placeholder={inCollection || view.review || activeSearch ? "Filter this view" : root.label === "Assets" ? "Search assets" : "Search everything"}
+            aria-label={inCollection || view.review || activeSearch ? "Filter this view" : root.label === "Assets" ? "Search assets" : "Search everything"}
             className="h-8 pl-8 sm:pr-8"
           />
           {!text && <Kbd keys={["/"]} className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex" />}
@@ -1257,7 +1269,7 @@ export function Gallery({
           <>
         <PageHeader
           icon={
-            view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : <IconPhoto />
+            view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : everything ? <IconSearch /> : <IconPhoto />
           }
           title={title}
           aside={
@@ -1265,7 +1277,7 @@ export function Gallery({
               {/* Held in place while moving, so the title doesn't shift; a new count pops in. */}
               <Badge
                 variant="secondary"
-                className={cn("font-mono tabular-nums", moving && "invisible")}
+                className={cn("font-mono tabular-nums", (moving || othersOnly) && "invisible")}
                 title={`${total.toLocaleString()} ${total === 1 ? "asset" : "assets"}`}
               >
                 <span key={total} className="animate-in fade-in-0 zoom-in-90 duration-150">
@@ -1283,7 +1295,7 @@ export function Gallery({
                 <InfoTip>Approved and in date, unless Status says otherwise.</InfoTip>
               ) : activeSearch ? (
                 <InfoTip>A saved search: this link always shows what matches now.</InfoTip>
-              ) : canUpload ? (
+              ) : canUpload && !othersOnly ? (
                 <InfoTip>{inCollection ? `Uploads made here land in ${inCollection.name}.` : "Drop or paste files anywhere on the page to add them."}</InfoTip>
               ) : null}
             </>
@@ -1319,10 +1331,12 @@ export function Gallery({
           )}
         </PageHeader>
 
-        {/* Explore searches everything: what else matches, as folders above the files. */}
-        {searched && <CatalogMatches q={searched} />}
-        {searched && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
+        {/* Explore searches everything: what else matches, as folders above the files, or one type on its own. */}
+        {everything && <CatalogMatches q={view.q.trim()} only={only} assets={total} />}
+        {everything && !only && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
 
+        {!othersOnly && (
+          <>
         {/* Heard once a search settles, not per keystroke. */}
         <span className="sr-only" aria-live="polite">
           {searching ? "" : failure ? "This search can't run" : `${total.toLocaleString()} ${total === 1 ? "result" : "results"}`}
@@ -1622,6 +1636,8 @@ export function Gallery({
                 Showing all {total.toLocaleString()} {total === 1 ? "asset" : "assets"}
               </p>
             )}
+          </>
+        )}
           </>
         )}
           </>

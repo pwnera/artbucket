@@ -1494,15 +1494,16 @@ export function openapi(serverUrl: string) {
       "/api/v1/automations": {
         get: op({
           summary: "The project's automations",
-          scope: "admin",
+          scope: "write",
           description:
             "What is sent, by email or a signed webhook, when a brand is released, an asset's license is about to end, governance changes, " +
-            "the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review.",
+            "the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review: those the caller may manage. " +
+            "An editor of a brand manages its release automations; every other trigger, and any brand's releases, take admin on the project.",
           ok: [200, "Automations", data(z.array(S.Automation))],
         }),
         post: op({
           summary: "Make an automation",
-          scope: "admin",
+          scope: "write",
           description:
             "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, " +
             "`days` before its last day of use, and again for a new date. governance fires on each entry of the project's audit log " +
@@ -1522,18 +1523,18 @@ export function openapi(serverUrl: string) {
         parameters: [path("id", "Automation id")],
         patch: op({
           summary: "Change an automation",
-          scope: "admin",
+          scope: "write",
           description: "What is left out stays. Made a webhook, it gets a secret, in this answer only.",
           body: S.AutomationPatch,
           ok: [200, "Changed", data(S.Automation)],
         }),
-        delete: op({ summary: "Delete an automation", scope: "admin", description: "Its run log goes with it.", ok: [200, "Deleted", S.Deleted] }),
+        delete: op({ summary: "Delete an automation", scope: "write", description: "Its run log goes with it.", ok: [200, "Deleted", S.Deleted] }),
       },
       "/api/v1/automations/{id}/runs": {
         parameters: [path("id", "Automation id")],
         get: op({
           summary: "An automation's run log",
-          scope: "admin",
+          scope: "write",
           description: "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.",
           ok: [200, "Runs", data(z.array(S.AutomationRun))],
         }),
@@ -1542,7 +1543,7 @@ export function openapi(serverUrl: string) {
         parameters: [path("id", "Automation id")],
         post: op({
           summary: "Send a test",
-          scope: "admin",
+          scope: "write",
           description:
             "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), " +
             "for asset.expiring the approved asset whose license ends soonest, else the newest; for governance the latest audit entry it takes, " +

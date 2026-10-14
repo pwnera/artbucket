@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconArrowRight, IconClock, IconFileText, IconInbox, IconLetterCase, IconMovie, IconPhoto, IconSearch, IconX } from "@/components/icons";
+import { IconArrowRight, IconClock, IconInbox, IconSearch, IconX } from "@/components/icons";
 import { useNavigate, type SavedSearch } from "@/components/app-sidebar";
 import { useMe } from "@/components/can";
+import { TypeIcon } from "@/components/catalog";
 import { CardGrid, ObjectCard, Section } from "@/components/catalog-matches";
+import { TYPE_LABEL } from "@/lib/catalog";
 import type { Collection } from "@/components/collections";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
 import { Kbd } from "@/components/ui/kbd";
@@ -23,12 +25,15 @@ import { ago, day, short } from "@/lib/time";
 export const useRecentQueries = () => usePref<string[]>("artbucket:recent-queries", []);
 export const rememberQuery = (list: string[], q: string) => [q, ...list.filter((x) => x !== q)].slice(0, 8);
 
-const CHIPS: { label: string; href: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { label: "Images", href: "/?type=image", icon: IconPhoto },
-  { label: "Videos", href: "/?type=video", icon: IconMovie },
-  { label: "Fonts", href: "/?type=font", icon: IconLetterCase },
-  { label: "Documents", href: "/?type=document", icon: IconFileText },
-  { label: "In review", href: "/review", icon: IconInbox },
+/** Everything there is to explore, a type at a time: assets in their grid, the rest as Explore's matches (?in=). */
+const CHIPS: { label: string; href: string; icon: React.ReactNode }[] = [
+  { label: TYPE_LABEL.asset.many, href: "/?browse", icon: <TypeIcon type="asset" className="text-muted-foreground size-4" /> },
+  ...(["brand", "collection", "rule", "page", "site"] as const).map((t) => ({
+    label: TYPE_LABEL[t].many,
+    href: `/?in=${t}`,
+    icon: <TypeIcon type={t} className="text-muted-foreground size-4" />,
+  })),
+  { label: "In review", href: "/review", icon: <IconInbox className="text-muted-foreground size-4" /> },
 ];
 
 type Latest = { id: string; filename: string; createdAt: string; metadata?: { title?: string } | null };
@@ -70,7 +75,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
               onClick={() => navigate(c.href)}
               className="bg-card hover:bg-accent inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors"
             >
-              <c.icon className="text-muted-foreground size-4" /> {c.label}
+              {c.icon} {c.label}
             </button>
           ))}
         </div>

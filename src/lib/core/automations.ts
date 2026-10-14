@@ -26,7 +26,8 @@ import { seal, unseal } from "@/lib/settings";
  * features' hooks are (signHook), as JSON or as a Slack or Teams message. Each thing that sets one off is a run, made once
  * (its `key`), and delivered at once; a failed delivery is tried again by
  * runAutomations, after BACKOFF, MAX_ATTEMPTS in all, each attempt kept as
- * the run log. The project's admins manage them.
+ * the run log. A brand's editors manage its release automations; the
+ * project's admins every one (mayManage).
  */
 
 type Row = typeof automations.$inferSelect;
@@ -60,6 +61,21 @@ const RUNS_SHOWN = 50;
 const manage = (caller: Caller) => {
   if (!can(caller, "automation.manage")) throw new AssetError("forbidden", `Automations take ${needs("automation.manage")}`);
 };
+
+/**
+ * Whether the caller may see and change this one: an admin any, an editor of
+ * its brand one about that brand's releases. Any other trigger, or "any
+ * brand", reaches private assets, brands or the audit log, which only admins do.
+ */
+async function mayManage(caller: Caller, r: { trigger: Row["trigger"]; brandId: string | null }) {
+  if (can(caller, "automation.manage_all")) return true;
+  if (r.trigger !== "brand.released" || !r.brandId) return false;
+  const [b] = await db.select({ id: brands.id, private: brands.private }).from(brands).where(eq(brands.id, r.brandId));
+  return !!b && can(caller, "automation.manage", b);
+}
+
+const refused = () =>
+  new AssetError("forbidden", `This automation takes ${needs("automation.manage")}, or ${needs("automation.manage_all")} for any other trigger or any brand's releases`);
 
 const hostOf = (sealed: string | null) => {
   const url = sealed && unseal(sealed, env.BETTER_AUTH_SECRET);
@@ -105,13 +121,16 @@ async function present(rows: Row[]) {
 async function automationOf(caller: Caller, id: string) {
   const [a] = await db.select().from(automations).where(and(eq(automations.id, id), eq(automations.projectId, caller.project.id)));
   if (!a) throw new AssetError("not_found", "No such automation in this project");
+  if (!(await mayManage(caller, a))) throw refused();
   return a;
 }
 
-/** GET /api/v1/automations: the project's, oldest first. */
+/** GET /api/v1/automations: the project's the caller may manage, oldest first. */
 export async function listAutomations(caller: Caller) {
   manage(caller);
-  return present(await db.select().from(automations).where(eq(automations.projectId, caller.project.id)).orderBy(asc(automations.createdAt)));
+  const rows = await db.select().from(automations).where(eq(automations.projectId, caller.project.id)).orderBy(asc(automations.createdAt));
+  const mine = await Promise.all(rows.map((r) => mayManage(caller, r)));
+  return present(rows.filter((_, i) => mine[i]));
 }
 
 /**
@@ -171,6 +190,7 @@ async function columns(caller: Caller, was: Row | null, input: z.infer<typeof Au
 export async function createAutomation(caller: Caller, input: z.infer<typeof AutomationInput>) {
   manage(caller);
   const { set, secret } = await columns(caller, null, input);
+  if (!(await mayManage(caller, { trigger: input.trigger, brandId: set.brandId ?? null }))) throw refused();
   const [row] = await db
     .insert(automations)
     .values({ ...set, projectId: caller.project.id, name: input.name, trigger: input.trigger, action: input.action, createdBy: caller.actor })
@@ -184,6 +204,7 @@ export async function updateAutomation(caller: Caller, id: string, input: z.infe
   manage(caller);
   const was = await automationOf(caller, id);
   const { set, secret } = await columns(caller, was, input);
+  if (!(await mayManage(caller, { trigger: set.trigger!, brandId: set.brandId === undefined ? was.brandId : set.brandId }))) throw refused();
   const [row] = await db
     .update(automations)
     .set({ ...set, updatedAt: new Date() })
