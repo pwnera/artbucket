@@ -25,9 +25,47 @@ export function truncateFilename(name: string, max = 24): string {
  * A Content-Disposition naming the file, as RFC 6266 has it: `filename*` in
  * UTF-8, percent-encoded past what encodeURIComponent leaves, since a ' ( )
  * or * there is outside RFC 5987 and Chrome drops a value with a third quote.
+ * Before it, `filename` in plain ASCII for what reads no `filename*` (curl -J):
+ * anything else, a quote or a backslash, is an underscore.
  */
 export const disposition = (kind: "inline" | "attachment", filename: string) =>
-  `${kind}; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
+  `${kind}; filename="${filename.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
+
+/** An asset as names go: what the app calls it is its title, else its file name. */
+type Named = { filename: string; metadata?: { title?: string | null } | null };
+
+/** The name without the file's own extension, and the extension the bytes have: `ext` (a rendition's), else that one. */
+function nameParts(a: Named, ext?: string) {
+  const own = a.filename.match(/\.([a-z0-9]{1,10})$/i)?.[1] ?? "";
+  const name = a.metadata?.title || a.filename;
+  const stem = own && name.toLowerCase().endsWith(`.${own.toLowerCase()}`) ? name.slice(0, -own.length - 1) : name;
+  return { stem, ext: ext ?? own };
+}
+
+/** What the file is saved as: "Summer hero.jpg", or "Summer hero.webp" for its WebP rendition. */
+export function savedName(a: Named, ext?: string) {
+  const { stem, ext: e } = nameParts(a, ext);
+  return e ? `${stem}.${e}` : stem;
+}
+
+/**
+ * The same as a link's last segment: summer-hero.webp. ASCII letters and
+ * digits only, so it reads the same pasted anywhere; null when nothing is
+ * left of the name (all in another script) or the bytes have no extension,
+ * since a link's name is the segment with a dot (lib/asset-url.ts).
+ */
+export function linkName(a: Named, ext?: string) {
+  const { stem, ext: e } = nameParts(a, ext);
+  const slug = stem
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 60)
+    .replace(/^-+|-+$/g, "");
+  return slug && e ? `${slug}.${e.toLowerCase()}` : null;
+}
 
 /** The uppercase file-type badge: PSD, PNG, JPG. */
 export function fileTypeBadge(filename: string, mime: string, probe?: Record<string, unknown> | null): string {

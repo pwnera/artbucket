@@ -60,8 +60,33 @@ test("truncating never splits an emoji in two", () => {
 test("a Content-Disposition any browser reads back, whatever the name", async () => {
   const { disposition } = await import("./filename.ts");
   // RFC 5987 allows no ' ( ) * in the value: Chrome drops a filename* with a third quote.
-  assert.equal(disposition("attachment", "Brand's logo (2)*.png"), "attachment; filename*=UTF-8''Brand%27s%20logo%20%282%29%2A.png");
-  assert.equal(disposition("inline", 'a"\r\nSet-Cookie: x.png'), "inline; filename*=UTF-8''a%22%0D%0ASet-Cookie%3A%20x.png");
+  assert.equal(
+    disposition("attachment", "Brand's logo (2)*.png"),
+    `attachment; filename="Brand's logo (2)*.png"; filename*=UTF-8''Brand%27s%20logo%20%282%29%2A.png`,
+  );
+  assert.equal(disposition("inline", 'a"\r\nSet-Cookie: x.png'), `inline; filename="a___Set-Cookie: x.png"; filename*=UTF-8''a%22%0D%0ASet-Cookie%3A%20x.png`);
+  // Past ASCII, the fallback is underscores and filename* has the name.
+  assert.equal(disposition("attachment", "Café \\ 夏.jpg"), `attachment; filename="Caf_ _ _.jpg"; filename*=UTF-8''Caf%C3%A9%20%5C%20%E5%A4%8F.jpg`);
+});
+
+test("a file is saved as the asset's name, with the extension of its bytes", async () => {
+  const { linkName, savedName } = await import("./filename.ts");
+  const hero = { filename: "IMG_2034.JPG", metadata: { title: "Summer hero" } };
+  assert.equal(savedName(hero), "Summer hero.JPG");
+  assert.equal(savedName(hero, "webp"), "Summer hero.webp");
+  assert.equal(savedName({ filename: "logo.svg" }), "logo.svg");
+  assert.equal(savedName({ filename: "logo.svg" }, "png"), "logo.png");
+  // A title that already ends in the extension doesn't get it twice; one with a dot of its own keeps it.
+  assert.equal(savedName({ filename: "a.png", metadata: { title: "hero.png" } }), "hero.png");
+  assert.equal(savedName({ filename: "a.png", metadata: { title: "Logo v1.2" } }), "Logo v1.2.png");
+  assert.equal(savedName({ filename: "README" }), "README");
+
+  assert.equal(linkName(hero), "summer-hero.jpg");
+  assert.equal(linkName(hero, "webp"), "summer-hero.webp");
+  assert.equal(linkName({ filename: "a.png", metadata: { title: "Crème brûlée’s menu, 2026!" } }), "creme-brulees-menu-2026.png");
+  assert.equal(linkName({ filename: "a.png", metadata: { title: "x".repeat(59) + " y" } }), `${"x".repeat(59)}.png`);
+  assert.equal(linkName({ filename: "夏.png" }), null);
+  assert.equal(linkName({ filename: "README" }), null);
 });
 
 test("an upload past the limit says so in MB or GB, not bytes", () => {

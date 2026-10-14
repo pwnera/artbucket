@@ -33,14 +33,17 @@ const refuse = (message: string) => (_req: IncomingMessage, res: ServerResponse)
 };
 
 /** Runs the CLI with a key `login` saved for `url`, and no ARTBUCKET_KEY; answers what it printed on stderr. */
-function cli(url: string, ...args: string[]): Promise<string> {
+const cli = (url: string, ...args: string[]) => run(url, ...args).then((r) => r.err);
+
+/** The same, answering stdout too. */
+function run(url: string, ...args: string[]): Promise<{ out: string; err: string }> {
   const config = mkdtempSync(join(tmpdir(), "artbucket-cli-"));
   mkdirSync(join(config, "artbucket"));
   writeFileSync(join(config, "artbucket", "credentials.json"), JSON.stringify({ [url]: "ab_test", default: url }));
   const env: NodeJS.ProcessEnv = { ...process.env, XDG_CONFIG_HOME: config, ARTBUCKET_URL: url };
   delete env.ARTBUCKET_KEY;
   return new Promise((done) =>
-    execFile(process.execPath, ["--experimental-strip-types", "--no-warnings", CLI, ...args], { env }, (_e, _out, err) => done(err)),
+    execFile(process.execPath, ["--experimental-strip-types", "--no-warnings", CLI, ...args], { env }, (_e, out, err) => done({ out, err })),
   );
 }
 
@@ -82,6 +85,22 @@ test("login --scope admin refuses before signing in, and so does a scope login d
     assert.match(await cli(s.url, "login", s.url, "--scope", "admin"), /Signing in never gives admin: use a key an admin makes in Connections \(API keys\), as ARTBUCKET_KEY/);
     assert.match(await cli(s.url, "login", s.url, "--scope", "owner"), /--scope is read, propose or write; got "owner"/);
     assert.deepEqual(s.asked, [], "no device flow started");
+  } finally {
+    await s.close();
+  }
+});
+
+test("url names the link after the asset, in the format asked", async () => {
+  const asset = { id: "00000000-0000-0000-0000-000000000000", filename: "IMG_2034.JPG", mime: "image/jpeg", metadata: { title: "Summer hero" }, probe: {} };
+  const s = await server((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ data: asset }));
+  });
+  try {
+    const at = `${s.url}/a/${asset.id}`;
+    assert.equal((await run(s.url, "url", asset.id)).out.trim(), `${at}/summer-hero.jpg`);
+    assert.equal((await run(s.url, "url", asset.id, "--width", "800", "--format", "webp")).out.trim(), `${at}/w_800,f_webp/summer-hero.webp`);
+    assert.equal((await run(s.url, "url", asset.id, "--width", "800")).out.trim(), `${at}/w_800/summer-hero.jpg`);
   } finally {
     await s.close();
   }

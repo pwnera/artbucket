@@ -25,6 +25,7 @@ import { getObject, originalKey } from "@/lib/storage";
 import { provesDomain } from "@/lib/domain-proof";
 import { backgroundOf, cookieDomain, countsOf, headingFace, hubHome, hubPath, logoOf, paletteOf, parseHubRef, swatches, taglineOf, tintOf } from "@/lib/hub";
 import { brandJson } from "@/lib/brand-json";
+import { assetLink } from "@/lib/asset-url";
 import { withSignature } from "@/lib/signed";
 
 /**
@@ -329,9 +330,10 @@ export async function hubBrand(
     db.select({ n: sql<number>`count(*)::int` }).from(hubStars).where(eq(hubStars.brandId, row.id)),
   ]);
   // A picture shown, not handed out, is a rendition: its original isn't for taking (lib/rights.ts isDownloadable).
-  const fileUrl = (a: { id: string; rendition: string | null; kept?: true; preview: boolean }) => {
+  const fileUrl = (a: { id: string; rendition: string | null; kept?: true; preview: boolean; filename?: string; mime?: string; title?: string | null }) => {
     const rendition = a.rendition ?? (a.kept && a.preview ? "w_1600,f_png" : null);
-    return withSignature(`${env.APP_URL}/a/${a.id}${rendition ? `/${rendition}` : ""}`, view.signed[a.id]);
+    // Named for whoever it is handed to (lib/asset-url.ts).
+    return withSignature(`${env.APP_URL}${assetLink({ ...a, metadata: { title: a.title } }, rendition ? `/${rendition}` : "")}`, view.signed[a.id]);
   };
   const rules = view.data.map((r) => ({
     key: r.key,

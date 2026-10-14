@@ -1,3 +1,4 @@
+import { assetLink } from "@/lib/asset-url";
 import type { Caller } from "@/lib/core/access";
 import type { Asset } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
@@ -22,7 +23,8 @@ import { withSignature } from "@/lib/signed";
 const FETCH = 15 * 60;
 const DAY = 86400;
 
-const at = (a: Asset, rest: string) => `${env.APP_URL}/a/${a.id}${rest}`;
+/** Named for whoever it is handed to: /a/{id}/w_800,f_webp/summer-hero.webp (lib/asset-url.ts). */
+const at = (a: Asset, rest: string) => `${env.APP_URL}${assetLink(a, rest)}`;
 
 /** A URL the agent itself can open for a few minutes; null for what isn't served signed (a proposal, a draft, expired). */
 export function fetchUrl(a: Asset, rest = "") {

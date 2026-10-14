@@ -10,14 +10,14 @@ test("an image gets the portal's presets, named for what they are", () => {
   assert.deepEqual(
     d.map((x) => [x.preset, x.url, x.filename]),
     [
-      ["web", `${base}/a/x/w_1920,q_85,f_jpeg`, "Logo v2-web.jpg"],
-      ["png", `${base}/a/x/f_png`, "Logo v2-png.png"],
+      ["web", `${base}/a/x/w_1920,q_85,f_jpeg/logo-v2.jpg`, "Logo v2-web.jpg"],
+      ["png", `${base}/a/x/f_png/logo-v2.png`, "Logo v2-png.png"],
     ],
   );
 });
 
 test("the original only when the portal offers it, and always for what isn't an image", () => {
-  assert.equal(downloadsFor({ id: "x", filename: "a.jpg", mime: "image/jpeg" }, ["original"], base)[0].url, `${base}/a/x?download`);
+  assert.equal(downloadsFor({ id: "x", filename: "a.jpg", mime: "image/jpeg" }, ["original"], base)[0].url, `${base}/a/x/a.jpg?download`);
   const pdf = downloadsFor({ id: "y", filename: "kit.pdf", mime: "application/pdf" }, ["web", "print"], base);
   assert.deepEqual(pdf.map((x) => x.preset), ["original"]);
   // No presets at all still leaves something to download.

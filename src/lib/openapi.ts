@@ -2276,9 +2276,10 @@ export function openapi(serverUrl: string) {
             "session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share " +
             "link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of " +
             "embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. " +
-            "Not there for this caller: 404.",
+            "Not there for this caller: 404. A name may follow the id, or a transform, for people reading the link " +
+            "(/a/{id}/summer-hero.jpg, /a/{id}/w_800,f_webp/summer-hero.webp): any segment with a dot, never read.",
           query: {
-            download: { schema: { type: "string" }, description: "Present: attach, with metadata embedded" },
+            download: { schema: { type: "string" }, description: "Present: attach, saved as the asset's name, with metadata embedded (a rendition: in its format)" },
             s: { schema: { type: "string" }, description: "A signature: lets whoever holds the URL in until it expires. Renditions take it too" },
           },
           ok: [200, "The file"],
@@ -2290,7 +2291,7 @@ export function openapi(serverUrl: string) {
         get: {
           summary: "The current version",
           description:
-            "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the " +
+            "302 to /a/{current id}, with whatever follows the id (a transform, a name) and `?download` carried over: the " +
             "stack's current version, or the asset a person replaced it with. For embedding: a new version reaches " +
             "the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it " +
             "in the library; /a/ then answers as it always does. Not there for this caller: 404.",
@@ -2313,6 +2314,7 @@ export function openapi(serverUrl: string) {
         ],
         get: {
           summary: "A rendition, generated once and cached",
+          description: "A name may follow, for people reading the link (/a/{id}/w_800,f_webp/summer-hero.webp), never read. `?download` attaches it, saved as the asset's name in its format.",
           security: [],
           responses: { 200: { description: "Image bytes" }, 429: { description: "Busy making renditions: try again", content: json(S.ErrorBody) }, default: { description: "An error", content: json(S.ErrorBody) } },
         },

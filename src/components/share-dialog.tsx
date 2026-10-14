@@ -20,14 +20,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { followingUrl } from "@/lib/asset-url";
 import { sendResult } from "@/lib/send";
 import { ago } from "@/lib/time";
 
 export type ShareTarget = {
   kind: "view" | "upload";
   collection?: { id: string; name: string };
-  /** `public`: served at /a/{id} to anyone already. `shareable`: approved, and the caller may share it; else only its team link. */
-  asset?: { id: string; name: string; public?: boolean; shareable?: boolean };
+  /**
+   * `public`: served at /a/{id} to anyone already. `shareable`: approved, and the caller may share it; else only its team link.
+   * `path`: its /a/ path named for whoever gets it (lib/asset-url.ts assetLink).
+   */
+  asset?: { id: string; name: string; public?: boolean; shareable?: boolean; path?: string };
 };
 
 export type ShareLink = {
@@ -596,7 +600,13 @@ function TeamLink({ id }: { id: string }) {
  * the one to embed; and /a/{id}, this version's file, pinned. No undo
  * toast: the switch is its own undo, where it was flipped.
  */
-function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: boolean }; onChanged?: (a: { id: string; public: boolean }) => void }) {
+function PublicToggle({
+  asset,
+  onChanged,
+}: {
+  asset: { id: string; public?: boolean; path?: string };
+  onChanged?: (a: { id: string; public: boolean }) => void;
+}) {
   const fieldId = useId();
   const [on, setOn] = useState(!!asset.public);
   const [busy, setBusy] = useState(false);
@@ -628,11 +638,11 @@ function PublicToggle({ asset, onChanged }: { asset: { id: string; public?: bool
               Always the current version
               <InfoTip>The one to embed: a new version, once approved, shows wherever it is used.</InfoTip>
             </p>
-            <Snippet text={at(`/c/${asset.id}`)} what="the URL" />
+            <Snippet text={at(followingUrl(asset.path ?? `/a/${asset.id}`))} what="the URL" />
           </div>
           <div className="grid gap-1.5">
             <p className="text-sm font-medium">This version only</p>
-            <Snippet text={at(`/a/${asset.id}`)} what="the URL" />
+            <Snippet text={at(asset.path ?? `/a/${asset.id}`)} what="the URL" />
           </div>
         </div>
       )}

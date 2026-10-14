@@ -1,3 +1,4 @@
+import { assetLink } from "@/lib/asset-url";
 import type { Caller } from "@/lib/core/access";
 import { currentVersion, getAsset, type Asset } from "@/lib/core/assets";
 import { listRules } from "@/lib/core/brand";
@@ -27,7 +28,8 @@ export type Check = Use & { asset: string; context?: string; brand?: string };
 type Suggestion = { id: string; title: string; url: string; why: string };
 
 const title = (a: Pick<Asset, "filename" | "metadata">) => a.metadata?.title ?? a.filename;
-const url = (id: string, rendition?: string | null) => `${env.APP_URL}/a/${id}${rendition ? `/${rendition}` : ""}`;
+/** Named for whoever it is handed to (lib/asset-url.ts). */
+const url = (a: Asset, rendition?: string | null) => `${env.APP_URL}${assetLink(a, rendition ? `/${rendition}` : "")}`;
 
 export async function checkUse(caller: Caller, { asset: id, context, brand, ...use }: Check, surface: Surface = caller.key ? "api" : "app") {
   const ws = caller.project.id;
@@ -62,7 +64,7 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
     const current = await currentVersion(asset);
     const no = current.id !== asset.id ? barred(current) : null;
     reasons.push({ code: "superseded", blocking: true, message: `Replaced by ${title(current)}${no ? `, which can't be used here either: ${no}` : ""}` });
-    if (current.id !== asset.id && !no) suggest.push({ id: current.id, title: title(current), url: url(current.id), why: "Its replacement" });
+    if (current.id !== asset.id && !no) suggest.push({ id: current.id, title: title(current), url: url(current), why: "Its replacement" });
   }
 
   reasons.push(...rightsReasons(asset.rights, { ...use, date }));
@@ -83,8 +85,10 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
         message: `${r.key} has its own ${context} version${names ? `: ${names}` : ""}${r.brand && brand === undefined ? ` (${r.brand})` : ""}`,
       });
       for (const a of variant.assets) {
-        if (suggest.some((s) => s.id === a.id) || barred(await getAsset(caller, a.id))) continue;
-        suggest.push({ id: a.id, title: a.title ?? a.filename!, url: url(a.id, a.rendition), why: `${r.key} for ${context}` });
+        if (suggest.some((s) => s.id === a.id)) continue;
+        const found = await getAsset(caller, a.id);
+        if (!found || barred(found)) continue;
+        suggest.push({ id: a.id, title: a.title ?? a.filename!, url: url(found, a.rendition), why: `${r.key} for ${context}` });
       }
     }
   }
@@ -104,7 +108,7 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
   });
   return {
     allowed,
-    asset: { id: asset.id, title: title(asset), url: url(asset.id) },
+    asset: { id: asset.id, title: title(asset), url: url(asset) },
     use: { ...use, date, ...(context ? { context } : {}) },
     reasons,
     suggest,

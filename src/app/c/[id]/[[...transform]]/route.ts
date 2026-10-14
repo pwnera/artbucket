@@ -10,6 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /c/{id}                  → 302 to /a/{current id}
  * GET /c/{id}/w_800,f_webp     → 302 to /a/{current id}/w_800,f_webp
+ * GET /c/{id}/w_800,f_webp/summer-hero.webp → the same, its name kept
  *
  * The URL to embed when it should follow the asset: a new version approved,
  * a rollback, a replacement a person named (lib/core/versions.ts

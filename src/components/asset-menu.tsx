@@ -38,6 +38,7 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { complain } from "@/lib/send";
 import { undoable } from "@/lib/undo";
+import { savedName } from "@/lib/filename";
 import { hasPreview } from "@/lib/preview";
 
 /** Save a URL the way a download link would, without one on the page. */
@@ -177,7 +178,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
                 label: "Download",
                 icon: <IconDownload />,
                 items: [
-                  { id: "original", label: "Original", hint: "as uploaded", run: () => save(`/a/${a.id}?download`, a.filename) },
+                  { id: "original", label: "Original", hint: "as uploaded", run: () => save(`/a/${a.id}?download`, savedName(a)) },
                   ...PRESETS.map((p) => ({
                     id: p.name,
                     label: p.name,
@@ -187,7 +188,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
                 ],
               },
             ]
-          : [{ id: "download", label: "Download", icon: <IconDownload />, run: () => save(`/a/${a.id}?download`, a.filename) }]),
+          : [{ id: "download", label: "Download", icon: <IconDownload />, run: () => save(`/a/${a.id}?download`, savedName(a)) }]),
     ],
     reviewer && live
       ? [

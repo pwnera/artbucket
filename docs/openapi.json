@@ -13035,7 +13035,7 @@
                         "url": {
                           "type": "string",
                           "format": "uri",
-                          "description": "The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"
+                          "description": "The original, its name at the end; add a rendition after the id, /a/{id}/w_800,f_webp/summer-hero.webp?s=..., or ?download"
                         },
                         "expiresAt": {
                           "type": "string",
@@ -63636,7 +63636,7 @@
       ],
       "get": {
         "summary": "The original",
-        "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not there for this caller: 404.\n\nNo key needed.",
+        "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not there for this caller: 404. A name may follow the id, or a transform, for people reading the link (/a/{id}/summer-hero.jpg, /a/{id}/w_800,f_webp/summer-hero.webp): any segment with a dot, never read.\n\nNo key needed.",
         "security": [],
         "parameters": [
           {
@@ -63645,7 +63645,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Present: attach, with metadata embedded"
+            "description": "Present: attach, saved as the asset's name, with metadata embedded (a rendition: in its format)"
           },
           {
             "name": "s",
@@ -63743,7 +63743,7 @@
       ],
       "get": {
         "summary": "The current version",
-        "description": "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+        "description": "302 to /a/{current id}, with whatever follows the id (a transform, a name) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
         "security": [],
         "responses": {
           "302": {
@@ -63872,6 +63872,7 @@
       ],
       "get": {
         "summary": "A rendition, generated once and cached",
+        "description": "A name may follow, for people reading the link (/a/{id}/w_800,f_webp/summer-hero.webp), never read. `?download` attaches it, saved as the asset's name in its format.",
         "security": [],
         "responses": {
           "200": {

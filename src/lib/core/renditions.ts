@@ -15,6 +15,7 @@ import {
   isStock,
   isVector,
   OUTSIDE_MAX,
+  outputFormat,
   OUTSIDE_RENDITIONS,
   parseTransform,
   PRESETS,
@@ -53,7 +54,7 @@ export async function renderAsset(
 ): Promise<{ body: BodyInit; length: number; contentType: string; cached: boolean }> {
   // A file sharp can't read renders from the still derived at upload (lib/core/previews.ts).
   const still = typeof asset.probe?.preview === "string" ? asset.probe.preview : null;
-  const format: Format = requested.f ?? (still ? "png" : defaultFormat(asset.mime));
+  const format = outputFormat(requested, asset);
   const vector = !still && isVector(asset.mime);
   // AVIF's encoder and an SVG's drawing don't stop at RENDER_SECONDS: theirs stay smaller for whoever a URL let in.
   const asked = outside && (format === "avif" || vector) ? capSides(requested, OUTSIDE_MAX) : requested;
@@ -133,12 +134,5 @@ async function render(source: string, transform: Transform, format: Format, vect
     .catch((err: Error) => {
       throw err.message.startsWith("timeout") ? new AssetError("too_large", "This rendition takes too long to make: ask for a smaller one") : err;
     });
-}
-
-function defaultFormat(mime: string): Format {
-  if (mime === "image/png") return "png";
-  if (mime === "image/avif") return "avif";
-  if (mime === "image/webp") return "webp";
-  return "jpeg";
 }
 

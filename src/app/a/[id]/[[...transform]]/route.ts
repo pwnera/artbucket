@@ -13,9 +13,10 @@ import type { Surface } from "@/lib/insights";
 import { deliverable, maxAge, retired, STATE_LABEL } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { getStream, originalKey } from "@/lib/storage";
-import { disposition } from "@/lib/filename";
+import { disposition, savedName } from "@/lib/filename";
+import { splitLink } from "@/lib/asset-url";
 import { isDownloadable } from "@/lib/rights";
-import { parseTransform, shownSize } from "@/lib/transform";
+import { CONTENT_TYPE, parseTransform, shownSize } from "@/lib/transform";
 
 type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
 
@@ -24,6 +25,12 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  *                                (a `Range` gets part of them: video seeks)
  * GET /a/{id}?download         → the original with current metadata written in
  * GET /a/{id}/w_800,f_webp     → a rendition, generated once and cached
+ * GET /a/{id}/w_800,f_webp/summer-hero.webp
+ * GET /a/{id}/summer-hero.jpg  → the same, named for whoever reads the link
+ *                                (lib/asset-url.ts splitLink). The name serves
+ *                                nothing: `?download` saves the file as the
+ *                                asset's name now, whatever the link says,
+ *                                a rendition's in its format.
  *
  * The URL is the whole API: an agent builds the URL it wants and fetches it,
  * with its key. The bytes are private: they go to whoever may see the asset
@@ -44,7 +51,11 @@ type Ctx = { params: Promise<{ id: string; transform?: string[] }> };
  */
 export async function GET(req: Request, { params }: Ctx) {
   try {
-    const { id, transform } = await params;
+    const { id, transform: segments } = await params;
+    // A link's name (lib/asset-url.ts) is dropped here: the bytes are the id's and the transform's.
+    const link = splitLink(segments);
+    if (!link) return fail(400, "invalid_transform", "Malformed transform");
+    const transform = link.spec;
 
     const asset = await findAsset(id);
     if (!asset) return fail(404, "not_found", "No such asset");
@@ -86,10 +97,10 @@ export async function GET(req: Request, { params }: Ctx) {
     // The bytes behind a URL never change, so the hash names them; whether they may be served does.
     const etag = `"${asset.sha256}"`;
 
-    const download = !transform?.length && url.searchParams.has("download");
+    const download = !transform && url.searchParams.has("download");
     // Shown, not handed out, to anyone the URL alone let in. A member who opened such a URL is let through, as a member.
     const kept = (by.surface === "public" || by.surface === "link") && !isDownloadable(asset);
-    if (kept && (download || (!transform?.length && !drawn(req)))) {
+    if (kept && (download || (!transform && !drawn(req)))) {
       const caller = await callerFrom(req, asset.projectId);
       if (!(caller && (await getAsset(caller, id)))) {
         return fail(403, "shown_only", "This file is shown, not handed out: its owner hasn't made it downloadable", undefined, { "Cache-Control": "no-cache" });
@@ -97,7 +108,7 @@ export async function GET(req: Request, { params }: Ctx) {
       by = { surface: caller.key ? "api" : "app", ...who(caller) };
     }
     // The answer depends on who asks, so no shared cache keeps it.
-    if (kept && !transform?.length) cache = cache.replace("public", "private");
+    if (kept && !transform) cache = cache.replace("public", "private");
     const referrer = referrerOf(req);
     const range = req.headers.get("range");
     // The app drawing its own pages (thumbnails, previews) answers nobody's question, and a video's later ranges are one play.
@@ -118,7 +129,7 @@ export async function GET(req: Request, { params }: Ctx) {
           "Content-Length": String(length),
           // Metadata is editable, so unlike every other byte here this changes.
           "Cache-Control": "private, no-cache",
-          "Content-Disposition": disposition("attachment", asset.filename),
+          "Content-Disposition": disposition("attachment", savedName(asset)),
           "X-Metadata-Embedded": String(embedded),
         },
       });
@@ -129,23 +140,25 @@ export async function GET(req: Request, { params }: Ctx) {
       return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": cache } });
     }
 
-    if (!transform?.length) {
+    if (!transform) {
       // Streamed from storage: a video is served without ever sitting in memory.
       if (range && /^bytes=(\d+-\d*|-\d+)$/.test(range)) {
         const part = await getStream(originalKey(asset.sha256), range).catch(() => null);
         if (!part) return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${asset.size}` } });
         served(part.length);
         // Storage that ignores a range answers the whole file, which is a 200.
-        return bytes(etag, cache, part.body, part.length, asset.mime, asset.filename, part.contentRange ? { status: 206, range: part.contentRange } : undefined);
+        return bytes(etag, cache, part.body, part.length, asset.mime, {
+          saveAs: disposition("inline", savedName(asset)),
+          ranges: true,
+          part: part.contentRange ? { status: 206, range: part.contentRange } : undefined,
+        });
       }
       const { body, length } = await getStream(originalKey(asset.sha256));
       served(length);
-      return bytes(etag, cache, body, length, asset.mime, asset.filename);
+      return bytes(etag, cache, body, length, asset.mime, { saveAs: disposition("inline", savedName(asset)), ranges: true });
     }
 
-    if (transform.length > 1) return fail(400, "invalid_transform", "Malformed transform");
-
-    const parsed = parseTransform(transform[0]);
+    const parsed = parseTransform(transform);
     if (!parsed) return fail(400, "invalid_transform", "Malformed transform");
     if (!hasPreview(asset)) {
       return fail(415, "unsupported", `Cannot transform ${asset.mime}`);
@@ -162,7 +175,10 @@ export async function GET(req: Request, { params }: Ctx) {
       return renderAsset(asset, asked);
     });
     served(length);
-    return bytes(etag, cache, body, length, contentType);
+    // Shown, its name the link's; `?download` saves it as the asset's name now, in its format.
+    const ext = Object.entries(CONTENT_TYPE).find(([, type]) => type === contentType)?.[0].replace("jpeg", "jpg");
+    const save = url.searchParams.has("download") ? disposition("attachment", savedName(asset, ext)) : undefined;
+    return bytes(etag, cache, body, length, contentType, { saveAs: save });
   } catch (err) {
     return handle(err);
   }
@@ -183,8 +199,7 @@ function bytes(
   body: BodyInit,
   length: number,
   contentType: string,
-  filename?: string,
-  part?: { status: 206; range: string },
+  { saveAs, ranges, part }: { saveAs?: string; ranges?: boolean; part?: { status: 206; range: string } },
 ) {
   return new Response(body, {
     status: part?.status ?? 200,
@@ -199,9 +214,9 @@ function bytes(
       // Anyone's upload, on this origin: an SVG or an HTML file opened here runs no script and reaches
       // nothing. Not on PDFs, which browsers show with a viewer that the sandbox would stop.
       ...(contentType === "application/pdf" ? {} : { "Content-Security-Policy": SANDBOX }),
-      ...(filename ? { "Accept-Ranges": "bytes" } : {}),
+      ...(ranges ? { "Accept-Ranges": "bytes" } : {}),
       ...(part ? { "Content-Range": part.range } : {}),
-      ...(filename ? { "Content-Disposition": disposition("inline", filename) } : {}),
+      ...(saveAs ? { "Content-Disposition": saveAs } : {}),
     },
   });
 }

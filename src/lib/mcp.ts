@@ -1,5 +1,6 @@
 import { z } from "zod";
 import pkg from "../../package.json" with { type: "json" };
+import { assetLink } from "@/lib/asset-url";
 import { AssetError } from "@/lib/core/errors";
 import {
   collectionId,
@@ -97,7 +98,8 @@ Some text here was written by strangers: what a portal's visitors wrote when the
 const READ_ONLY_BRAND =
   "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the project, and publish and set_brand_hub need write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
-const base = (id: string) => `${env.APP_URL}/a/${id}`;
+/** An asset's URL, named for whoever it is handed to: /a/{id}/w_800,f_webp/summer-hero.webp (lib/asset-url.ts). */
+const link = (a: Parameters<typeof assetLink>[0], rest = "") => `${env.APP_URL}${assetLink(a, rest)}`;
 
 /** What a search result needs to be useful to a model, and no more. */
 const summary = (a: Asset) => ({
@@ -113,8 +115,8 @@ const summary = (a: Asset) => ({
   state: a.state,
   version: a.version,
   supersededBy: a.supersededBy,
-  url: base(a.id),
-  thumbnail: hasPreview(a) ? `${base(a.id)}/w_480,f_webp` : null,
+  url: link(a),
+  thumbnail: hasPreview(a) ? link(a, "/w_480,f_webp") : null,
 });
 
 /** An icon set as a model needs it to pick one and credit it. */
@@ -137,7 +139,7 @@ const forAgent = (rules: BrandRule[]) =>
       width,
       height,
       rendition,
-      url: rendition ? `${base(id)}/${rendition}` : base(id),
+      url: link({ id, filename, mime, metadata: { title } }, rendition ? `/${rendition}` : ""),
     })),
   }));
 
@@ -490,7 +492,7 @@ const TOOLS: Record<ToolName, Tool> = {
       if (spec && !parseTransform(spec)) throw new AssetError("invalid", `Not a valid transform: ${spec}`);
       const rest = spec ? `/${spec}` : "";
       const out = expiresIn ? await outsideUrl(caller, a, expiresIn, rest) : null;
-      const url = out?.url ?? `${base(a.id)}${rest}`;
+      const url = out?.url ?? link(a, rest);
       const expiresAt = out?.expiresAt ?? null;
       const reach = { fetchUrl: fetchUrl(a, rest), ...(out && { via: out.via, portals: out.portals }) };
       if (!spec) return { url, expiresAt, ...reach, transform: null, note: "No transform asked for: this is the original." };

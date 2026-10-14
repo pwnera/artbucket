@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { canFollow, followingUrl, withSignature } from "@/lib/asset-url";
+import { assetLink, canFollow, followingUrl, withSignature } from "@/lib/asset-url";
+import { savedName } from "@/lib/filename";
 import { FITS, FORMATS, MAX_DIMENSION, outputSize, parseTransform, PRESETS, type Fit, type Format } from "@/lib/transform";
 
 export { PRESETS };
@@ -131,7 +132,7 @@ export function Renditions({ asset }: { asset: Asset }) {
           </div>
         )}
         <ul className="max-h-72 overflow-y-auto p-1">
-          <Row label="Original" hint="As stored, with edits written in" url={`/a/${asset.id}?download`} filename={asset.filename} link={linkFor} />
+          <Row label="Original" hint="As stored, with edits written in" url={assetLink(asset, "?download")} filename={savedName(asset)} link={linkFor} />
           {GROUPS.map((g) => (
             <li key={g.label}>
               <p className="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium">{g.label}</p>
@@ -142,7 +143,7 @@ export function Renditions({ asset }: { asset: Asset }) {
                     label={p.name}
                     hint={describeSpec(p.spec, asset)}
                     title={p.spec}
-                    url={`/a/${asset.id}/${p.spec}`}
+                    url={assetLink(asset, `/${p.spec}`)}
                     filename={`${stem(asset.filename)}-${p.name.toLowerCase().replace(/\s+/g, "-")}.${extOf(p.spec)}`}
                     link={linkFor}
                   />
@@ -225,7 +226,7 @@ export function Renditions({ asset }: { asset: Asset }) {
               <Row
                 label={custom}
                 hint={describeSpec(custom, asset)}
-                url={`/a/${asset.id}/${custom}`}
+                url={assetLink(asset, `/${custom}`)}
                 filename={`${stem(asset.filename)}-${w || "auto"}x${h || "auto"}.${extOf(custom)}`}
                 link={linkFor}
                 mono

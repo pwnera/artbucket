@@ -81,6 +81,7 @@ import { pool } from "@/lib/pool";
 import { expiring, STATE_LABEL, type State, type Status } from "@/lib/lifecycle";
 import type { Origin, Rights } from "@/lib/rights";
 import type { C2pa } from "@/lib/c2pa";
+import { assetLink } from "@/lib/asset-url";
 import { fileTypeBadge, formatBytes, tooLargeToUpload, truncateFilename } from "@/lib/filename";
 import { isFont } from "@/lib/font";
 import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
@@ -967,7 +968,7 @@ export function Gallery({
   if (!stocked && total > 0) setStocked(true);
 
   const picked = useMemo(() => assets.filter((a) => selected.has(a.id)), [assets, selected]);
-  const shareAsset = (a: Asset) => share({ kind: "view", asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public } });
+  const shareAsset = (a: Asset) => share({ kind: "view", asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public, path: assetLink(a) } });
   const selectAll = () => setSelected(new Set(assets.map((a) => a.id)));
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
