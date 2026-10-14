@@ -26,6 +26,8 @@ import { ago } from "@/lib/time";
 
 export type ShareTarget = {
   kind: "view" | "upload";
+  /** What they see it called, unless changed: a search gap's words (Insights' Request it). */
+  name?: string;
   collection?: { id: string; name: string };
   /**
    * `public`: served at /a/{id} to anyone already. `shareable`: approved, and the caller may share it; else only its team link.
@@ -288,7 +290,7 @@ function Share({
           {lead && <p className="text-sm font-medium">New link</p>}
           <div className="grid gap-2">
             <Label htmlFor={`${id}-name`}>What they see it called</Label>
-            <Input key={what} id={`${id}-name`} name="name" maxLength={120} defaultValue={upload ? `Uploads for ${what}` : what} />
+            <Input key={what} id={`${id}-name`} name="name" maxLength={120} defaultValue={target.name ?? (upload ? `Uploads for ${what}` : what)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${id}-emails`}>Send it to</Label>

@@ -152,6 +152,32 @@ export function siteProblemsEmail(to: string, s: { site: string; path: string; p
   };
 }
 
+/**
+ * To whoever answers for a place that still loads replaced versions (lib/core/insights.ts notifyStale): what each is
+ * now, at a link that always leads to the current version.
+ */
+export function staleVersionEmail(
+  to: string,
+  s: { by: string; organization: string; place: string; agent: boolean; assets: { title: string; version: number | null; current: { title: string; version: number | null; url: string } }[] },
+): Draft {
+  const v = (n: number | null) => (n === null ? "" : ` v${n}`);
+  const [one] = s.assets;
+  const where = s.agent ? `Your agent ${s.place}` : s.place;
+  return {
+    to,
+    subject: s.assets.length === 1 ? `${where} still uses an old version of ${one.title}` : `${where} still uses old versions of ${s.assets.length} assets`,
+    lines: [
+      `${s.by} at ${s.organization} noticed that ${s.agent ? `the agent ${s.place}` : s.place} still loads ${s.assets.length === 1 ? "a version" : "versions"} replaced since:`,
+      ...s.assets.map((a) => {
+        const now = [a.current.title === a.title ? "" : a.current.title, v(a.current.version).trim()].filter(Boolean).join(" ") || "a new file";
+        return `${a.title}${v(a.version)} is now ${now}: ${a.current.url}`;
+      }),
+      "Each link always leads to the current version: use it instead, and the next one reaches you without a change.",
+    ],
+    ...(s.assets.length === 1 && { action: { label: "Open the current version", url: one.current.url } }),
+  };
+}
+
 /** To the operator (SITE_REVIEW_EMAIL): a build that looks like phishing or malware waits, not served, for a person to decide. */
 export function siteHeldEmail(to: string, h: { organization: string; site: string; path: string; deployment: string; flags: string[] }): Draft {
   return {

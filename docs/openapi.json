@@ -39844,6 +39844,13 @@
                                   "null"
                                 ]
                               },
+                              "client": {
+                                "description": "The agent's key name that fetched it; null for a person or nobody in particular",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
                               "fetches": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -39852,18 +39859,53 @@
                               "last": {
                                 "type": "string",
                                 "description": "The last day it was fetched"
+                              },
+                              "owners": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "People this server knows answer for the place (a site of this project's admins, an agent's person): who a notice reaches unasked"
+                              },
+                              "notified": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      "by": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "at",
+                                      "by"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When the place was told about this version (POST /api/v1/insights/notices)"
                               }
                             },
                             "required": [
                               "asset",
                               "replacement",
                               "referrer",
+                              "client",
                               "fetches",
-                              "last"
+                              "last",
+                              "owners",
+                              "notified"
                             ],
                             "additionalProperties": false
                           },
-                          "description": "Still on the old release: replaced versions fetched lately, by referrer, most first"
+                          "description": "Still on the old release: replaced versions fetched lately, by referrer and agent, most first"
                         },
                         "top": {
                           "type": "array",
@@ -39972,12 +40014,39 @@
                               },
                               "last": {
                                 "type": "string"
+                              },
+                              "requested": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      "by": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "at",
+                                      "by"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "An open upload link named after the words asks for it"
                               }
                             },
                             "required": [
                               "q",
                               "searches",
-                              "last"
+                              "last",
+                              "requested"
                             ],
                             "additionalProperties": false
                           },
@@ -40304,6 +40373,158 @@
                         "checks",
                         "delivery",
                         "pageViews"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/insights/notices": {
+      "post": {
+        "summary": "Tell a place it uses an old version",
+        "description": "Email whoever answers for a place in Insights' `stale` list (a host, or an agent's key name) where the current versions are, at /c/ links that keep following them. It reaches the people this server knows answer for it (a site of this project's admins, the person who connected the agent) and `emails`. Each version and place is told once: a second time is a 409. A 422 says why when nobody could be emailed.\n\nScope: `write`.",
+        "x-scope": "write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "referrer": {
+                    "description": "The host that still loads them, as Insights names it",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "client": {
+                    "description": "Or the agent's key name, for an agent that said no referrer",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "assets": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "description": "The replaced versions it loads"
+                  },
+                  "emails": {
+                    "description": "Who else to tell: whoever looks after a site this server doesn't know",
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 320,
+                      "format": "email",
+                      "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                    }
+                  }
+                },
+                "required": [
+                  "assets"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Who it reached, and what it told about",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "emailed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How many people it reached"
+                        },
+                        "notified": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "by": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "at",
+                              "by"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "The versions told about now; those told before are left out"
+                        }
+                      },
+                      "required": [
+                        "emailed",
+                        "notified"
                       ],
                       "additionalProperties": false
                     }
