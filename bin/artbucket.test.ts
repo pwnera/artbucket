@@ -152,6 +152,8 @@ test("site scan finds the Storybook components a codebase imports, through tscon
   writeFileSync(join(repo, "src", "ui", "chip.tsx"), "export const Chip = 1");
   writeFileSync(join(repo, "src", "ui", "bits.stories.tsx"), 'import { Chip } from "./chip";\nimport { Button } from "./button";');
   writeFileSync(join(repo, "src", "app", "tags.tsx"), 'import { Chip } from "@/ui/chip";');
+  // Through packages: one asked for, one not (said on stderr), one whose names are no component (left alone).
+  writeFileSync(join(repo, "src", "app", "shop.tsx"), 'import { Card as Tile, type CardProps } from "@acme/ui";\nimport Button from "@other/kit/button";\nimport { useState } from "react";');
   writeFileSync(join(repo, "src", "app", "page.tsx"), 'import { Button } from "@/ui/button";\nexport default () => null;');
   writeFileSync(join(repo, "src", "app", "other.tsx"), 'const B = await import("../ui/button");');
   const button = { address: "acme/web/site/ui/component/ui-button", name: "Button", version: 2, files: ["./src/ui/button.stories.tsx", "./src/ui/button.tsx"] };
@@ -173,17 +175,18 @@ test("site scan finds the Storybook components a codebase imports, through tscon
     const config = mkdtempSync(join(tmpdir(), "artbucket-cli-"));
     const env: NodeJS.ProcessEnv = { ...process.env, XDG_CONFIG_HOME: config, ARTBUCKET_URL: s.url, ARTBUCKET_KEY: "ab_test" };
     const { out, err } = await new Promise<{ out: string; err: string }>((done) =>
-      execFile(process.execPath, ["--experimental-strip-types", "--no-warnings", CLI, "site", "scan", "src", "--site", "app"], { env, cwd: repo }, (_e, o, e) => done({ out: o, err: e })),
+      execFile(process.execPath, ["--experimental-strip-types", "--no-warnings", CLI, "site", "scan", "src", "--site", "app", "--packages", "@acme/ui"], { env, cwd: repo }, (_e, o, e) => done({ out: o, err: e })),
     );
-    assert.equal(err, "");
-    assert.match(out, /Recorded for app: 6 files, 0 assets of the library, 2 components\n/);
+    assert.equal(err, "! @other/kit brings in Button (1 file) and isn't followed. If it is your design system, scan it too: --packages @other/kit\n");
+    assert.match(out, /Recorded for app: 6 files, 0 assets of the library, 3 components\n/);
+    assert.match(out, / {2}Card +app\/shop\.tsx\n/);
     assert.match(out, / {2}Button +app\/(page|other)\.tsx and 1 more\n/);
     assert.match(out, / {2}Bits +app\/tags\.tsx\n/);
     const { unzip } = await import("../src/lib/zip.ts");
     const manifest = unzip(new Uint8Array(body)).find((e) => e.name === "artbucket.site.json")!;
     const m = JSON.parse(new TextDecoder().decode(await manifest.read()));
     const named = new Map(m.components.map((c: { component: string; fingerprint: string }) => [c.component, c.fingerprint]));
-    assert.deepEqual([...named.keys()].sort(), [bits.address, button.address]);
+    assert.deepEqual([...named.keys()].sort(), [bits.address, button.address, card.address]);
     assert.match(named.get(button.address) as string, /^[0-9a-f]{64}$/);
   } finally {
     await s.close();

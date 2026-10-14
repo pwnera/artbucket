@@ -310,8 +310,15 @@ reads the files for the library's assets as it reads a build's (copies,
 `/a/` and `/c/` links, in source as in HTML) and stores nothing but what it
 found. The scan is the site's record: in lineage, in Fixes when a component
 or an asset it uses is replaced, and checked again every day. It exits 1
-when something it uses may no longer be. Imports through a package's name
-(`@acme/ui`) aren't followed yet.
+when something it uses may no longer be.
+
+Packages are followed only when you name them: `--packages @acme/ui` (a
+comma-separated list) when the design system ships as one. Its imports count
+by the names they bring in (`{ Button }`, or `@acme/ui/button`), at the
+version whose code it is when the component's source is in the repository
+too (a monorepo), else the current one. A package you didn't name that
+brings in two or more components' names, or one by its path, is pointed out
+on stderr with the flag to add; the scan goes on without it.
 
 ## Held for review
 
