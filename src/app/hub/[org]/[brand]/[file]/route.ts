@@ -9,7 +9,7 @@ import { deliverable } from "@/lib/lifecycle";
 import { hasPreview } from "@/lib/preview";
 import { TokenQuery } from "@/lib/schemas";
 import { signUrlsIn } from "@/lib/signed";
-import { TOKEN_FORMATS, type TokenRule } from "@/lib/tokens";
+import { TOKEN_FORMATS, type TokenRule, withoutFontFaces } from "@/lib/tokens";
 
 /**
  * A listing for agents, public and keyless: {org}/{brand}[@n]/brand.json
@@ -57,7 +57,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
     const f = TOKEN_FORMATS[q.data.format];
     const rules = (q.data.context ? b.rules : b.rules.filter((r) => r.context === null)) as TokenRule[];
     const title = `${b.org}/${b.brand}@${b.version} design tokens${q.data.context ? ` for ${q.data.context}` : ""}, from the Artbucket BrandHub (${b.url}).`;
-    const text = signUrlsIn(f.render(rules, { origin: env.APP_URL, title }), (id) => b.signed[id] ?? null);
+    const all = f.render(rules, { origin: env.APP_URL, title });
+    const text = signUrlsIn(q.data.fonts === "none" ? withoutFontFaces(all) : all, (id) => b.signed[id] ?? null);
     return new Response(text, { headers: { ...headers, "Content-Type": `${f.mime}; charset=utf-8` } });
   }
   if (file === "brand.json") return Response.json(listingBrandJson(b), { headers });

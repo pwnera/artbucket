@@ -6245,7 +6245,7 @@
       },
       "format": {
         "default": "css",
-        "description": "css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens) or designmd (DESIGN.md, with guidance)",
+        "description": "css, scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json (W3C design tokens), designmd (DESIGN.md, with guidance) or designsystem (tokens.json for a Claude design system)",
         "type": "string",
         "enum": [
           "css",
@@ -6258,7 +6258,8 @@
           "mui",
           "chakra",
           "json",
-          "designmd"
+          "designmd",
+          "designsystem"
         ]
       },
       "context": {

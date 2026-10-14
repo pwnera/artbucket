@@ -612,6 +612,9 @@ export type TokenFormat = {
 };
 
 /** Every export, in the order the Tokens dialog lists them. `?format=` is the key. */
+/** A format's text without its @font-face rules (`fonts=none`): a site that serves its own font files keeps the values. */
+export const withoutFontFaces = (text: string) => text.replace(/@font-face\s*\{[^}]*\}\n?/g, "");
+
 export const TOKEN_FORMATS = {
   css: {
     label: "CSS variables",

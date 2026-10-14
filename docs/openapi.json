@@ -3323,6 +3323,17 @@
               "type": "string"
             },
             "description": "live: the release readers see, as a site built from the brand shows it; a number: that release. The draft without it"
+          },
+          {
+            "name": "fonts",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "none"
+              ]
+            },
+            "description": "none: leave out the @font-face rules, for a site that serves its own font files"
           }
         ],
         "responses": {
