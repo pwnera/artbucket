@@ -33,7 +33,10 @@ import { type Entry, zip } from "@/lib/zip";
 export const KIT_BYTES = 100 * 1024 * 1024;
 /** An SVG's PNG: this many pixels on its longer side. */
 const PNG = { w: 2048, h: 2048, f: "png", fit: "inside" } as const;
-/** Kits built at once, and how many may wait: they are held in memory whole (lib/zip.ts). */
+/**
+ * Kits built at once, and how many may wait.
+ * ponytail: a kit is held in memory whole (lib/zip.ts), up to KIT_BYTES; stream the zip if kits outgrow that.
+ */
 const building = gate(2, 8);
 /** One build per kit, however many ask for it while it runs. */
 const inFlight = new Map<string, Promise<Uint8Array<ArrayBuffer>>>();
