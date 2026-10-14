@@ -25,7 +25,7 @@ test("Slack gets text with a link, Teams an Adaptive Card, JSON the run as it is
   const p = { event: "brand.released", brand: { name: "Acme" }, release: 3, url: "https://app.example.com/brands/acme", automation: { name: "Tell #brand" } };
   assert.equal(bodyIn("json", p), p);
   assert.deepEqual(bodyIn("slack", p), { text: "Acme release 3 is out <https://app.example.com/brands/acme|Open>\n_Tell #brand_" });
-  const card = (bodyIn("teams", p).attachments as { content: { body: { text: string }[]; actions: { url: string }[] } }[])[0].content;
-  assert.equal(card.body[0].text, "Acme release 3 is out");
-  assert.equal(card.actions[0].url, p.url);
+  const card = (bodyIn("teams", p).attachments as { content: { body: { text: string }[]; actions?: unknown } }[])[0].content;
+  assert.equal(card.body[0].text, "Acme release 3 is out [Open](https://app.example.com/brands/acme)");
+  assert.equal(card.actions, undefined);
 });

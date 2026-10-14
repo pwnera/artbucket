@@ -83,7 +83,8 @@ export function summaryOf(p: Record<string, unknown>): string {
  * What a webhook posts in its format: the run's own JSON, or a chat
  * message of its summary and a link. Slack's incoming webhooks take `text`
  * with `<url|label>` links; a Teams workflow ("when a webhook request is
- * received") takes a message with an Adaptive Card.
+ * received") takes a message with an Adaptive Card, as Microsoft's own
+ * example has it, whose buttons it doesn't draw.
  */
 export function bodyIn(format: WebhookFormat, p: Record<string, unknown>): Record<string, unknown> {
   if (format === "json") return p;
@@ -100,11 +101,11 @@ export function bodyIn(format: WebhookFormat, p: Record<string, unknown>): Recor
           $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard",
           version: "1.4",
+          // Workflows don't draw a card's buttons: the link is Markdown in its text, which they do.
           body: [
-            { type: "TextBlock", text, wrap: true, weight: "Bolder" },
+            { type: "TextBlock", text: url ? `${text} [Open](${url})` : text, wrap: true, weight: "Bolder" },
             ...(from ? [{ type: "TextBlock", text: from, wrap: true, isSubtle: true, size: "Small" }] : []),
           ],
-          ...(url && { actions: [{ type: "Action.OpenUrl", title: "Open", url }] }),
         },
       },
     ],
