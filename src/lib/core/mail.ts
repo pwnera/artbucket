@@ -215,3 +215,32 @@ export const testEmail = (to: string, organization: string, url: string): Draft 
   lines: [`This is a test from ${organization}'s settings. Invitations and password resets will arrive like this.`],
   action: { label: "Open {product}", url },
 });
+
+/** An automation's email (lib/core/automations.ts): a brand released. */
+export function releasedEmail(to: string, r: { automation: string; brand: string; release: number; note: string | null; url: string }): Draft {
+  return {
+    to,
+    subject: `${r.brand} release ${r.release} is out`,
+    lines: [
+      `The ${r.brand} guidelines were released as release ${r.release}.`,
+      ...(r.note ? [`What changed: ${r.note}`] : []),
+      `You get this from the automation "${r.automation}".`,
+    ],
+    action: { label: `Open ${r.brand}`, url: r.url },
+  };
+}
+
+/** An automation's email: an asset's license ends soon, on `expires`, its last day of use. */
+export function expiringEmail(to: string, e: { automation: string; asset: string; expires: string; days: number; url: string }): Draft {
+  const when = e.days === 0 ? "today" : e.days === 1 ? "tomorrow" : `in ${e.days} days`;
+  return {
+    to,
+    subject: `${e.asset} may be used until ${e.expires}`,
+    lines: [
+      `The license of ${e.asset} ends ${when}: ${e.expires} is its last day of use. After it, checks refuse it and it is no longer served.`,
+      "Renew the license and set the new date, or replace it.",
+      `You get this from the automation "${e.automation}".`,
+    ],
+    action: { label: "Open the asset", url: e.url },
+  };
+}

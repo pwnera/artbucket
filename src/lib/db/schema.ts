@@ -268,6 +268,67 @@ export const savedSearches = pgTable("saved_searches", {
 });
 
 /**
+ * When something happens in a project, tell someone (lib/core/automations.ts):
+ * a brand released (of `brandId`, or any), or an asset's license ending in
+ * `days` days; by email to `emails`, or by a POST to `url` signed with
+ * `secret`, sealed at rest like other secrets (lib/settings.ts seal).
+ */
+export const automations = pgTable(
+  "automations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    trigger: text("trigger").$type<"brand.released" | "asset.expiring">().notNull(),
+    brandId: uuid("brand_id").references((): AnyPgColumn => brands.id, { onDelete: "cascade" }),
+    days: integer("days"),
+    action: text("action").$type<"email" | "webhook">().notNull(),
+    emails: jsonb("emails").$type<string[]>().notNull().default([]),
+    url: text("url"),
+    secret: text("secret"),
+    enabled: boolean("enabled").notNull().default(true),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("automations_project_idx").on(t.projectId),
+    check("automations_trigger_check", sql`${t.trigger} in ('brand.released', 'asset.expiring')`),
+    check("automations_action_check", sql`${t.action} in ('email', 'webhook')`),
+  ],
+);
+
+/**
+ * One thing an automation was set off by, and its delivery: `key` names it
+ * (a release, an asset's last day), so the same thing fires once. Each
+ * attempt is kept in `attempts`; a failed one is tried again at `nextAt`,
+ * up to three in all, then the run is `failed`.
+ */
+export const automationRuns = pgTable(
+  "automation_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    automationId: uuid("automation_id")
+      .notNull()
+      .references(() => automations.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status").$type<"pending" | "delivered" | "failed">().notNull().default("pending"),
+    attempts: jsonb("attempts").$type<{ at: string; ok: boolean; code: number | null; error: string | null }[]>().notNull().default([]),
+    nextAt: timestamp("next_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("automation_runs_key_unique").on(t.automationId, t.key),
+    index("automation_runs_automation_idx").on(t.automationId, t.createdAt.desc()),
+    index("automation_runs_due_idx").on(t.nextAt).where(sql`${t.status} = 'pending'`),
+    check("automation_runs_status_check", sql`${t.status} in ('pending', 'delivered', 'failed')`),
+  ],
+);
+
+/**
  * API keys, one project each. Only a SHA-256 of the secret is stored: keys
  * are 256 random bits, so a fast hash is enough and a leaked table leaks no usable key. `prefix`
  * is the first characters of the secret, to tell keys apart in a list.

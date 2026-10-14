@@ -74,6 +74,7 @@
           "guides/catalog",
           "guides/sites",
           "guides/portals",
+          "guides/automations",
           "guides/adcp",
           "guides/playbook"
         ]

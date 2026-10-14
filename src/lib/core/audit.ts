@@ -79,6 +79,9 @@ export type AuditAction =
   | "setting.changed"
   | "setting.reset"
   | "feature.switched"
+  | "automation.created"
+  | "automation.updated"
+  | "automation.deleted"
   | "email.failed";
 
 /** Who did it and where: a caller (lib/core/access.ts), or the parts a sign-in hook knows. */

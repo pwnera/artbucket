@@ -1,0 +1,61 @@
+---
+title: Automations
+description: An email or a signed webhook when a brand is released or an asset's license is about to end.
+---
+
+An automation tells someone when something happens in a project. Its admins make them in **Settings, Project, Automations**, or at `/api/v1/automations`.
+
+## When
+
+- **A brand is released** (`brand.released`): any brand of the project, or one named by `brand`. Each release fires once.
+- **An asset's license is about to end** (`asset.expiring`): `days` days before an approved asset's last day of use (its rights' `expires`; `0` is the day itself). Each asset fires once per last day: a license renewed to a new date fires again as that one nears. Only the current version of a stack counts, and the check runs every five minutes.
+
+## Then
+
+- **Email** (`email`): to the addresses in `emails`, through the organization's email settings, counted in its emails for the day.
+- **Webhook** (`webhook`): a `POST` of the run's JSON to an `https` `url`. The URL is kept sealed and never shown again; the automation shows its host. Addresses on private networks are refused, and redirects are not followed.
+
+```bash
+curl -X POST https://artbucket.example.com/api/v1/automations \
+  -H "Authorization: Bearer $ARTBUCKET_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Rebuild the docs","trigger":"brand.released","brand":"default","action":"webhook","url":"https://ci.example.com/hooks/brand"}'
+```
+
+The answer holds `secret`, once. Keep it: every POST is signed with it.
+
+## The webhook
+
+```json
+{
+  "id": "6a1d...",
+  "event": "brand.released",
+  "brand": { "id": "...", "slug": "default", "name": "Acme" },
+  "release": 12,
+  "note": "Bluer primary",
+  "url": "https://artbucket.example.com/brands/default",
+  "at": "2026-10-14T09:30:00.000Z",
+  "automation": { "id": "...", "name": "Rebuild the docs" },
+  "project": { "id": "...", "slug": "library", "name": "Library" }
+}
+```
+
+`asset.expiring` sends `asset` (`id`, `filename`, `title`), `expires` (the last day of use), `days` (left until it) and the asset's `url` instead of the brand and release. `id` is the run's: a retry sends the same body, so a receiver can tell it from a new event.
+
+Headers: `Artbucket-Event` names the event, and `Artbucket-Signature` signs the body as Stripe signs its webhooks: `t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}` with the secret. Check it before trusting the body, and refuse an old `t`:
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verify(body, header, secret) {
+  const { t, v1 } = Object.fromEntries(header.split(",").map((p) => p.split("=")));
+  const expected = createHmac("sha256", secret).update(`${t}.${body}`).digest("hex");
+  const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
+  return fresh && v1?.length === expected.length && timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+}
+```
+
+## Runs and retries
+
+Each thing that fires an automation is a run, delivered at once. A webhook answering 2xx, or every email sent, delivers it. Anything else is tried again 5 minutes later, then an hour after that: three attempts in all, then the run is failed. An automation turned off fires nothing, and its runs waiting for a retry wait with it.
+
+The run log, in Settings under each automation and at `GET /api/v1/automations/{id}/runs`, keeps its latest 50 runs: what set each off, and every attempt with the webhook's status or the error. Making, changing and deleting an automation is in the audit log.
