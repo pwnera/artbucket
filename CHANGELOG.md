@@ -4,6 +4,16 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.4.0](https://github.com/pwnera/artbucket/compare/v2.3.0...v2.4.0) (2026-10-14)
+
+
+### Features
+
+* **api:** cut an area of a PDF into an asset; job tokens for a feature's background work ([6643da1](https://github.com/pwnera/artbucket/commit/6643da1b612b75f37170a7bddac788ae50062105))
+* **brand-import:** Import your brand, its plan page, the Imports page, and import.* permissions ([e239b57](https://github.com/pwnera/artbucket/commit/e239b57993bf2aaf3a3fbc249fe7e4cb9ce4ac2b))
+* **brand-import:** Import your brand, its plan page, the Imports page; job tokens and PDF cut ([cbc6a20](https://github.com/pwnera/artbucket/commit/cbc6a20c5e17fce5c9cd48ac0a7e6e06ed688402))
+* **templates:** Firefox and Rust on the Board look ([#263](https://github.com/pwnera/artbucket/issues/263)) ([702aeed](https://github.com/pwnera/artbucket/commit/702aeedc71e44182364d24bd4a553c0686b79aa8))
+
 ## [2.3.0](https://github.com/pwnera/artbucket/compare/v2.2.0...v2.3.0) (2026-10-14)
 
 
