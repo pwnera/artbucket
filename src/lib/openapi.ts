@@ -1856,6 +1856,28 @@ export function openapi(serverUrl: string) {
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },
+      "/api/v1/portal/{slug}/brands/{brand}/office/templates": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug")],
+        get: op({
+          summary: "A brand's own Office templates, in a portal",
+          scope: "public",
+          description:
+            "The PowerPoint, Word and Excel files on the brand's latest publish, behind the portal's door, only those " +
+            "that may leave the team, each with its check: GET /api/v1/brand/office/templates.",
+          ok: [200, "The templates", data(z.array(S.OfficeTemplate))],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/brands/{brand}/office/templates/{id}": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug"), path("id", "The template's asset id, or the one a rule names it by")],
+        get: op({
+          summary: "Download one of a brand's own templates, in a portal",
+          scope: "public",
+          description: "The file wearing the brand's latest publish, behind the portal's door: GET /api/v1/brand/office/templates/{id}.",
+          ok: [200, "The template (binary)"],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
       "/api/v1/portal/{slug}/site": {
         parameters: [path("slug", "The portal's address")],
         get: op({

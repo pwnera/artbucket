@@ -419,7 +419,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
         {release && (
           <li>
             <Link href={`/templates?${new URLSearchParams({ brand: brand.slug })}`} className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2">
-              Share card, press kit and more in Templates
+              Your own templates, share card and press kit in Templates
             </Link>
           </li>
         )}

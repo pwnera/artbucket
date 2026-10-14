@@ -10,6 +10,7 @@ import { renderAsset } from "@/lib/core/renditions";
 import { latestVersion } from "@/lib/core/versions";
 import { colorsOf } from "@/lib/brand-theme";
 import { deliverable } from "@/lib/lifecycle";
+import { isDownloadable } from "@/lib/rights";
 import { officeLook } from "@/lib/office";
 import { inspect, mediaMime, retheme, TEMPLATE_KINDS, templateKind, type Part } from "@/lib/office-template";
 import { hasPreview } from "@/lib/preview";
@@ -23,8 +24,14 @@ import { unzip, zip } from "@/lib/zip";
  * them won't follow the brand, and downloaded wearing the release: its
  * theme, and each library image at its current version. Like the generated
  * templates (lib/core/office.ts), nothing is written at release: each
- * download is made from the release it asks for.
+ * download is made from the release it asks for. A file, or an image put
+ * in one, has to be free to leave the team (lib/rights.ts), as the
+ * generated templates' logo has.
  */
+
+/** Who reads: the project, and what of it they may see (a member's access; a portal's door sees what may leave). */
+export type Reader = { projectId: string; see: (id: string) => Promise<Asset | null> };
+const member = (caller: Caller): Reader => ({ projectId: caller.project.id, see: (id) => getAsset(caller, id) });
 
 /** What a package may inflate to in all, past which it isn't read: a zip bomb stops here. */
 const UNPACKED = 256 * 1024 * 1024;
@@ -35,14 +42,17 @@ async function sourceOf(ws: string, slug: string | undefined, version: "live" | 
   return src;
 }
 
-/** The release's templates: each Office file on its rules, at its latest version, once. */
-async function templatesIn(caller: Caller, src: BrandSource) {
-  const out: Asset[] = [];
-  for (const id of new Set(src.rules.flatMap((r) => r.assets.map((a) => a.id)))) {
-    const a = await getAsset(caller, id);
-    if (!a || a.deletedAt || !templateKind(a)) continue;
+/** The release's templates: each Office file on its rules, at its latest version, once, with the ids its rules name it by. */
+async function templatesIn(r: Reader, src: BrandSource) {
+  const out: (Asset & { named: string[] })[] = [];
+  for (const id of new Set(src.rules.flatMap((rule) => rule.assets.map((a) => a.id)))) {
+    const a = await r.see(id);
+    if (!a || a.deletedAt || a.projectId !== r.projectId || !templateKind(a)) continue;
     const at = await latestVersion(a);
-    if (deliverable(at) && !at.deletedAt && !out.some((o) => o.id === at.id)) out.push(at);
+    if (!deliverable(at) || at.deletedAt || !isDownloadable(at)) continue;
+    const seen = out.find((o) => o.id === at.id);
+    if (seen) seen.named.push(id);
+    else out.push({ ...at, named: [id] });
   }
   return out;
 }
@@ -80,7 +90,7 @@ async function bindings(projectId: string, images: { name: string; sha256: strin
 
 /** An asset's bytes as the image it replaces: as stored when the format is the same, else drawn in it. Null when it can't stand in. */
 async function bytesAs(a: Asset, name: string): Promise<Uint8Array | null> {
-  if (!deliverable(a)) return null;
+  if (!deliverable(a) || !isDownloadable(a)) return null;
   const mime = mediaMime(name);
   if (a.mime === mime) return getObject(originalKey(a.sha256));
   const f = mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpeg" : null;
@@ -98,16 +108,20 @@ const lookOf = (src: BrandSource) => officeLook(src.brand.name, src.rules, src.t
  * nothing is written outside it, and every image is the library's.
  */
 export async function brandTemplates(caller: Caller, slug: string | undefined, version: "live" | number) {
-  const src = await sourceOf(caller.project.id, slug, version);
+  return templatesOf(member(caller), await sourceOf(caller.project.id, slug, version));
+}
+
+/** A release's templates as `r` may have them, each with its check. */
+export async function templatesOf(r: Reader, src: BrandSource) {
   const look = lookOf(src);
   const allowed = colorsOf(src.rules).map((r) => r.value as string);
   return Promise.all(
-    (await templatesIn(caller, src)).map(async (a) => {
+    (await templatesIn(r, src)).map(async (a) => {
       const kind = templateKind(a)!;
       const head = { id: a.id, filename: a.filename, title: a.metadata?.title ?? null, kind, app: TEMPLATE_KINDS[kind].app };
       try {
         const c = inspect(await partsOf(a), look, allowed);
-        const bound = await bindings(caller.project.id, c.images);
+        const bound = await bindings(r.projectId, c.images);
         const images = { total: bound.length, library: bound.filter((b) => b.asset).length, updated: bound.filter((b) => b.current).length };
         return { ...head, error: null, themes: c.themes, colors: c.colors, fonts: c.fonts, images, follows: c.themes > 0 && !c.colors.length && !c.fonts.length && images.library === images.total };
       } catch (err) {
@@ -128,13 +142,17 @@ export async function brandTemplates(caller: Caller, slug: string | undefined, v
  * a few times the room it did. Deflate on write if a deck's size matters.
  */
 export async function brandTemplateFile(caller: Caller, slug: string | undefined, version: "live" | number, id: string) {
-  const src = await sourceOf(caller.project.id, slug, version);
-  const t = (await templatesIn(caller, src)).find((a) => a.id === id);
+  return templateFileOf(member(caller), await sourceOf(caller.project.id, slug, version), id);
+}
+
+/** One of a release's templates wearing it, as `r` may have it: by its id, or by an id a rule names it by (an older version's). */
+export async function templateFileOf(r: Reader, src: BrandSource, id: string) {
+  const t = (await templatesIn(r, src)).find((a) => a.id === id || a.named.includes(id));
   if (!t) throw new AssetError("not_found", "That isn't one of this release's templates");
   const look = lookOf(src);
   const parts = await partsOf(t);
   const swap = new Map<string, Uint8Array>();
-  for (const b of await bindings(caller.project.id, inspect(parts, look).images)) {
+  for (const b of await bindings(r.projectId, inspect(parts, look).images)) {
     const bytes = b.current && (await bytesAs(b.current, b.name));
     if (bytes) swap.set(b.name, bytes);
   }

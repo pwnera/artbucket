@@ -55826,6 +55826,500 @@
         }
       }
     },
+    "/api/v1/portal/{slug}/brands/{brand}/office/templates": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "The portal's address",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "One of its brands, by slug",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A brand's own Office templates, in a portal",
+        "description": "The PowerPoint, Word and Excel files on the brand's latest publish, behind the portal's door, only those that may leave the team, each with its check: GET /api/v1/brand/office/templates.\n\nNo key needed.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "The file's asset id, at its latest version: download it at /api/v1/brand/office/templates/{id}"
+                          },
+                          "filename": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "potx",
+                              "pptx",
+                              "dotx",
+                              "docx",
+                              "xltx",
+                              "xlsx"
+                            ]
+                          },
+                          "app": {
+                            "type": "string",
+                            "enum": [
+                              "PowerPoint",
+                              "Word",
+                              "Excel"
+                            ]
+                          },
+                          "error": {
+                            "description": "Why the file can't be read; null when it can",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "themes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Theme parts in it: none, and only its images follow the brand"
+                          },
+                          "colors": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "value": {
+                                  "type": "string"
+                                },
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "value",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Colors written on shapes or runs that aren't the brand's, most used first"
+                          },
+                          "fonts": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Faces written on shapes or runs that aren't the brand's heading or text family"
+                          },
+                          "images": {
+                            "type": "object",
+                            "properties": {
+                              "total": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "library": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "total",
+                              "library",
+                              "updated"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Its images: how many the library has, and how many a download replaces with a newer version"
+                          },
+                          "follows": {
+                            "type": "boolean",
+                            "description": "Everything in it follows a release: a theme, nothing written outside it, every image the library's"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "filename",
+                          "title",
+                          "kind",
+                          "app",
+                          "error",
+                          "themes",
+                          "colors",
+                          "fonts",
+                          "images",
+                          "follows"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not in yet: how to get in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "password"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "access": {
+                              "type": "string",
+                              "enum": [
+                                "password",
+                                "members"
+                              ]
+                            },
+                            "theme": {
+                              "type": "object",
+                              "properties": {
+                                "logo": {
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "accent": {
+                                  "description": "The portal's, else its first brand's color, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "background": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "icon": {
+                                  "description": "The organization's, for the browser tab",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "product": {
+                                  "type": "string",
+                                  "description": "What the organization calls the product"
+                                }
+                              },
+                              "required": [
+                                "logo",
+                                "accent",
+                                "background",
+                                "icon",
+                                "product"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "access",
+                            "theme"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "detail"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portal/{slug}/brands/{brand}/office/templates/{id}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "description": "The portal's address",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "brand",
+          "in": "path",
+          "required": true,
+          "description": "One of its brands, by slug",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The template's asset id, or the one a rule names it by",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Download one of a brand's own templates, in a portal",
+        "description": "The file wearing the brand's latest publish, behind the portal's door: GET /api/v1/brand/office/templates/{id}.\n\nNo key needed.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The template (binary)"
+          },
+          "401": {
+            "description": "Not in yet: how to get in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "password"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "access": {
+                              "type": "string",
+                              "enum": [
+                                "password",
+                                "members"
+                              ]
+                            },
+                            "theme": {
+                              "type": "object",
+                              "properties": {
+                                "logo": {
+                                  "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "accent": {
+                                  "description": "The portal's, else its first brand's color, else its organization's",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "background": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "icon": {
+                                  "description": "The organization's, for the browser tab",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "product": {
+                                  "type": "string",
+                                  "description": "What the organization calls the product"
+                                }
+                              },
+                              "required": [
+                                "logo",
+                                "accent",
+                                "background",
+                                "icon",
+                                "product"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "access",
+                            "theme"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "detail"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portal/{slug}/site": {
       "parameters": [
         {

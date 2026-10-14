@@ -253,8 +253,12 @@ ones, and each download wears that release:
 
 The file itself isn't rewritten: like the generated ones, each download is
 made from the release it asks for, so an older release still gives its own.
-The file has to be approved and usable now, and the caller has to be able to
-see it; a new version of the file takes over as soon as it is current.
+The file has to be approved, usable now and free to leave the team, and the
+caller has to be able to see it; a new version of the file takes over as soon
+as it is current. An image is replaced only by a version that may leave too.
+On the brand's pages, the file's tile on its rule downloads it this way, and
+portal visitors get it behind the portal's door
+(`GET /api/v1/portal/{slug}/brands/{brand}/office/templates/{id}`).
 
 ```bash
 curl "https://assets.example.com/api/v1/brand/office/templates?brand=acme"

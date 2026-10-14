@@ -4,7 +4,11 @@ import { deflateSync } from "node:zlib";
 import { signUp } from "@/test/db";
 import { ingestBytes } from "@/lib/core/assets";
 import { createBrand, createRule, publishBrand } from "@/lib/core/brand";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { assets } from "@/lib/db/schema";
 import { brandTemplateFile, brandTemplates } from "@/lib/core/office-templates";
+import { createPortal, portalTemplateFile, portalTemplates } from "@/lib/core/portals";
 import { officeLook, themeXml } from "@/lib/office";
 import { crc32, unzip, zip } from "@/lib/zip";
 
@@ -77,4 +81,20 @@ test("a download wears the release, and the logo's newer version takes the old o
 test("only a release's template is served", async () => {
   await assert.rejects(brandTemplateFile(ada.caller, "acme", "live", logo.id), /isn't one of this release's templates/);
   await assert.rejects(brandTemplates(ada.caller, "acme", 99), /Version 99 was never released/);
+});
+
+test("a portal hands its brand's templates out behind its door, and none that may not leave", async () => {
+  const slug = `kit-${Date.now().toString(36)}`;
+  await createPortal(ada.caller, { name: "Kit", slug, access: "password", password: "open sesame 1", brands: ["acme"] });
+  const pass = { password: "open sesame 1" };
+  await assert.rejects(portalTemplates(slug, {}, "acme"), /needs a password/);
+  assert.deepEqual((await portalTemplates(slug, pass, "acme")).map((t) => t.id), [deck.id]);
+  const t = await portalTemplateFile(slug, pass, "acme", deck.id);
+  assert.match(dec.decode((await unzip(t.bytes).find((e) => e.name === "ppt/theme/theme1.xml")!.read())), /6D4AFF/);
+
+  // Shown only, it is handed out to no one: not by the portal, not to members.
+  await db.update(assets).set({ rights: { license: null, territories: [], channels: [], embargo: null, expires: null, modelRelease: null, downloadable: false } }).where(eq(assets.id, deck.id));
+  assert.deepEqual(await portalTemplates(slug, pass, "acme"), []);
+  assert.deepEqual(await brandTemplates(ada.caller, "acme", "live"), []);
+  await assert.rejects(portalTemplateFile(slug, pass, "acme", deck.id), /isn't one of this release's templates/);
 });
