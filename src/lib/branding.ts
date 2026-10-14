@@ -33,6 +33,13 @@ export const BrandingSettings = z.object({
   icon: z.uuid().nullable(),
   /** Buttons, links, focus rings. */
   accent: hex.nullable(),
+  /**
+   * A brand of the organization whose released color.primary is the accent
+   * instead: each release recolors the app, and with nothing else set the
+   * product keeps its own name and marks, in that color. Until the brand has
+   * a release with one, `accent` stands.
+   */
+  accentFrom: z.uuid().nullable(),
   /** A line at the foot of every email: an address, a support contact. */
   emailFooter: z.string().trim().max(500).nullable(),
 });
@@ -40,7 +47,17 @@ export type BrandingSettings = z.infer<typeof BrandingSettings>;
 
 export const PRODUCT = "Artbucket";
 
-export const DEFAULT_BRANDING: BrandingSettings = { name: PRODUCT, tagline: null, logo: null, icon: null, accent: null, emailFooter: null };
+export const DEFAULT_BRANDING: BrandingSettings = { name: PRODUCT, tagline: null, logo: null, icon: null, accent: null, accentFrom: null, emailFooter: null };
+
+/** Anything but the accent's source differs from the product's own look: its marks give way (Brand.custom). */
+export const customized = (v: BrandingSettings) =>
+  (Object.keys(DEFAULT_BRANDING) as (keyof BrandingSettings)[]).some((k) => k !== "accentFrom" && v[k] !== DEFAULT_BRANDING[k]);
+
+/** A release's color.primary, for every context: what `accentFrom` reads. */
+export function primaryOf(rules: { key: string; context: string | null; value: unknown }[]) {
+  const v = rules.find((r) => r.key === "color.primary" && r.context === null)?.value;
+  return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : null;
+}
 
 type Env = Record<string, string | undefined>;
 
@@ -66,7 +83,7 @@ export type Brand = {
   custom: boolean;
 };
 
-export const DEFAULT_BRAND: Brand = { ...DEFAULT_BRANDING, logo: null, icon: null, custom: false };
+export const DEFAULT_BRAND: Brand = { name: DEFAULT_BRANDING.name, tagline: null, logo: null, icon: null, accent: null, emailFooter: null, custom: false };
 
 /** A file name's worth of the product name: "Acme Assets" to "acme-assets". */
 export const fileSlug = (name: string) =>

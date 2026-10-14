@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { brandingFromEnv, fileSlug, render } from "./branding.ts";
+import { brandingFromEnv, customized, fileSlug, primaryOf, render } from "./branding.ts";
 import { resolve } from "./settings.ts";
 
 const draft = { to: "a@x.test", subject: "Reset your {product} password", lines: ["Welcome to {product}."], action: { label: "Open {product}", url: "https://x.test" } };
@@ -44,4 +44,24 @@ test("file names", () => {
   assert.equal(fileSlug("Acme Assets"), "acme-assets");
   assert.equal(fileSlug("Ünïcode Brand!"), "unicode-brand");
   assert.equal(fileSlug("!!!"), "assets");
+});
+
+test("an accent following a brand recolors the product without white-labeling it", () => {
+  const own = resolve("branding", {}, {}).value;
+  assert.equal(customized(own), false);
+  assert.equal(customized({ ...own, accentFrom: "6f1c2a8e-3b4d-4e5f-8a9b-0c1d2e3f4a5b" }), false);
+  assert.equal(customized({ ...own, accent: "#ff5b1f" }), true);
+  // A value stored before accentFrom existed still reads, as none.
+  assert.equal(resolve("branding", { organization: { name: "Acme", accent: "#ff5b1f" } }, {}).value.accentFrom, null);
+});
+
+test("the accent a release gives: its color.primary, for every context", () => {
+  const rules = [
+    { key: "color.primary", context: "dark-background", value: "#a592ff" },
+    { key: "color.primary", context: null, value: "#6B4DFF" },
+    { key: "color.ink", context: null, value: "#16152a" },
+  ];
+  assert.equal(primaryOf(rules), "#6b4dff");
+  assert.equal(primaryOf(rules.slice(2)), null);
+  assert.equal(primaryOf([{ key: "color.primary", context: null, value: { light: "#fff" } }]), null);
 });

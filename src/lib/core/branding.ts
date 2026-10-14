@@ -1,14 +1,14 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { memo } from "@/lib/memo";
-import { assets, organizations, projects } from "@/lib/db/schema";
+import { assets, brands, brandVersions, organizations, projects } from "@/lib/db/schema";
 import { callerFrom } from "@/lib/core/access";
 import { deliverableSql } from "@/lib/core/assets";
 import { appUrlFor, hostTarget } from "@/lib/core/domains";
 import { effective } from "@/lib/core/settings";
 import { longSig } from "@/lib/core/signing";
 import { withSignature } from "@/lib/asset-url";
-import { DEFAULT_BRANDING, type Brand, type BrandingSettings } from "@/lib/branding";
+import { customized, primaryOf, type Brand } from "@/lib/branding";
 import { resolve } from "@/lib/settings";
 
 /**
@@ -33,15 +33,30 @@ async function servable(organizationId: string, id: string | null, spec: string,
   return a ? withSignature(`/a/${a.id}/${spec}`, longSig(a.id, days)) : null;
 }
 
-const differs = (v: BrandingSettings) => (Object.keys(DEFAULT_BRANDING) as (keyof BrandingSettings)[]).some((k) => v[k] !== DEFAULT_BRANDING[k]);
+/** The color.primary of a brand's latest release, if the brand is the organization's: `accentFrom`. */
+async function releasedAccent(organizationId: string, brandId: string) {
+  const [v] = await db
+    .select({ rules: brandVersions.snapshot })
+    .from(brandVersions)
+    .innerJoin(brands, eq(brands.id, brandVersions.brandId))
+    .innerJoin(projects, eq(projects.id, brands.projectId))
+    .where(and(eq(brandVersions.brandId, brandId), eq(projects.organizationId, organizationId), isNotNull(brandVersions.publishedAt)))
+    .orderBy(desc(brandVersions.number))
+    .limit(1);
+  return v ? primaryOf(v.rules) : null;
+}
 
 /** An organization's brand, or with none the server's. Image URLs are host-relative, and work for `days`. */
 export async function brandOf(organizationId: string | null, days = 30): Promise<Brand> {
   const { value } = organizationId ? await effective("branding", { organizationId }) : resolve("branding", {}, process.env);
-  const [logo, icon] = organizationId
-    ? await Promise.all([servable(organizationId, value.logo, "h_128,f_webp", days), servable(organizationId, value.icon, "w_64,h_64,fit_cover,f_png", days)])
-    : [null, null];
-  return { name: value.name, tagline: value.tagline, logo, icon, accent: value.accent, emailFooter: value.emailFooter, custom: differs(value) };
+  const [logo, icon, released] = organizationId
+    ? await Promise.all([
+        servable(organizationId, value.logo, "h_128,f_webp", days),
+        servable(organizationId, value.icon, "w_64,h_64,fit_cover,f_png", days),
+        value.accentFrom ? releasedAccent(organizationId, value.accentFrom) : null,
+      ])
+    : [null, null, null];
+  return { name: value.name, tagline: value.tagline, logo, icon, accent: released ?? value.accent, emailFooter: value.emailFooter, custom: customized(value) };
 }
 
 /** The server's organization while it has just one: its brand is everyone's. Kept a minute; making or deleting one forgets it. */
