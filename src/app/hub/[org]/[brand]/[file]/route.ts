@@ -1,6 +1,8 @@
 import { record, referrerOf } from "@/lib/core/events";
-import { hubBrand, listingBrandJson, type HubBrand } from "@/lib/core/hub";
+import { handle } from "@/lib/api";
+import { hubBrand, hubViewer, listingBrandJson, type HubBrand } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
+import { pressKit } from "@/lib/core/press-kit";
 import { env } from "@/lib/env";
 import { brandText, hubBadge, hubHome, hubPath, markOf, parseRef } from "@/lib/hub";
 import { findAsset } from "@/lib/core/assets";
@@ -16,7 +18,9 @@ import { TOKEN_FORMATS, type TokenRule, withoutFontFaces } from "@/lib/tokens";
  * (the brand as AdCP's brand.json, lib/brand-json.ts), /rules.json (every
  * rule, its files as signed URLs), /llms.txt (the same in words), and
  * /tokens?format=css (lib/tokens.ts, as GET /api/v1/brand/tokens; ?context=
- * resolves for one), and /badge.svg for a README ("Acme | @4", lib/hub.ts hubBadge). Files are
+ * resolves for one), /badge.svg for a README ("Acme | @4", lib/hub.ts hubBadge), and
+ * /press-kit.zip (lib/core/press-kit.ts), the one a private listing's own people
+ * get too, signed in, as they see its page. Files are
  * signed for a day; a CDN keeps an answer five minutes, so a release reaches
  * agents and sites that load the tokens within minutes.
  *
@@ -31,11 +35,14 @@ const missing = (message: string) => Response.json({ error: { code: "not_found",
 
 export async function GET(req: Request, { params }: { params: Promise<{ org: string; brand: string; file: string }> }) {
   const { org, brand, file } = await params;
-  if (!["brand.json", "rules.json", "llms.txt", "tokens", "badge.svg"].includes(file)) return missing("Not a file of a listing: brand.json, rules.json, llms.txt, tokens or badge.svg");
+  if (!["brand.json", "rules.json", "llms.txt", "tokens", "badge.svg", "press-kit.zip"].includes(file)) {
+    return missing("Not a file of a listing: brand.json, rules.json, llms.txt, tokens, badge.svg or press-kit.zip");
+  }
+  const kit = file === "press-kit.zip";
   const ref = parseRef(brand);
   const q = TokenQuery.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!q.success) return Response.json({ error: { code: "invalid", message: q.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400, headers: BASE });
-  const b = ref && (await hubBrand(org, ref.slug, { version: ref.version, context: file === "tokens" ? q.data.context : undefined }));
+  const b = ref && (await hubBrand(org, ref.slug, { version: ref.version, context: file === "tokens" ? q.data.context : undefined, viewer: kit ? await hubViewer() : null }));
   if (!b) {
     // Claimed by whoever proved its domain: its files lead to theirs, for good.
     const moved = ref && (await hubMoved(org, ref.slug));
@@ -50,6 +57,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   record({ projectId: b.projectId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
   const about = { name: b.name, owner: b.owner, verified: b.verified, version: b.version, url: b.url, guidelines: b.guidelines ?? b.url, terms: b.terms };
 
+  if (kit) {
+    // A private listing's kit is its people's: no cache but theirs, no other site reading it.
+    const cache = b.visibility === "public" ? headers : { "Cache-Control": "private, max-age=0, must-revalidate" };
+    try {
+      const k = await pressKit(b);
+      if (req.headers.get("if-none-match") === k.etag) return new Response(null, { status: 304, headers: { ...cache, ETag: k.etag } });
+      return new Response(await k.bytes(), {
+        headers: { ...cache, ETag: k.etag, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${k.filename}"` },
+      });
+    } catch (err) {
+      return handle(err);
+    }
+  }
   if (file === "llms.txt") {
     return new Response(brandText(about, b.rules, (a) => a.url), { headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } });
   }

@@ -208,6 +208,7 @@ export function brandText<A extends HubRule["assets"][number]>(about: About, rul
     `- As AdCP brand.json: ${about.url}/brand.json`,
     `- Every rule as JSON: ${about.url}/rules.json`,
     `- As design tokens: ${about.url}/tokens?format=css (or scss, less, tailwind, tailwind3, ts, shadcn, mui, chakra, json for W3C design tokens)`,
+    `- Press kit (logos, palette, tokens, fonts and a README) as one zip: ${about.url}/press-kit.zip`,
   ];
   if (about.terms) lines.push("", "## Terms of use", "", about.terms);
   const contexts = [null, ...new Set(rules.flatMap((r) => r.context ?? []))];

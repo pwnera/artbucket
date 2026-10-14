@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { fileSlug } from "@/lib/branding";
 import { formatBytes } from "@/lib/filename";
 import { pool } from "@/lib/pool";
+import { kitFolder } from "@/lib/press-kit";
 import { contextLabel, resolve, ruleName } from "@/lib/rules";
 import type { ViewAsset, ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -84,7 +85,7 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
           view.rules
             .filter((r) => r.key === k && r.type !== "color")
             .flatMap((r) => {
-              const folder = `${nameOf(k)}${r.context ? ` (${contextLabel(r.context)})` : ""}`.replace(/[\\/]/g, "-");
+              const folder = kitFolder(nameOf(k), r.context);
               return r.assets.filter((a) => current(a) && !a.kept).map((a): KitFile => ({ name: `${folder}/${a.filename}`, asset: a }));
             }),
         );

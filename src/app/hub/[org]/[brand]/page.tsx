@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconTag, IconTypography, IconWorld } from "@/components/icons";
+import { IconAlertTriangle, IconBook, IconCircleCheckFilled, IconDownload, IconLock, IconPalette, IconPhoto, IconShieldCheck, IconTag, IconTypography, IconWorld } from "@/components/icons";
 import { BrandCard, cardParts, faces } from "@/components/brand-card";
 import { CopyButton } from "@/components/copy-button";
 import { FloatingEdit } from "@/components/floating-edit";
@@ -127,6 +127,12 @@ export default async function HubListing(props: Props) {
                   compact
                 />
               )}
+              {/* The release shown, zipped: what a journalist or a partner asks for (lib/core/press-kit.ts). */}
+              <Button asChild variant="outline" size="sm">
+                <a href={`${here}/press-kit.zip`} download>
+                  <IconDownload aria-hidden /> Download press kit
+                </a>
+              </Button>
               {open && mine && <StartFrom from={`${b.org}/${b.brand}@${b.version}`} name={b.name} app={env.APP_URL} />}
               {open ? (
                 <UseBrand url={b.url} name={b.name} />

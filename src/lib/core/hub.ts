@@ -369,7 +369,7 @@ export type HubBrand = NonNullable<Awaited<ReturnType<typeof hubBrand>>>;
 
 /** A listing as AdCP's brand.json (lib/brand-json.ts), linking the files that say the rest. */
 export function listingBrandJson(b: HubBrand) {
-  const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, guidelines: b.guidelines ?? b.url };
+  const links = { rules: `${b.url}/rules.json`, tokens: `${b.url}/tokens?format=json`, llms: `${b.url}/llms.txt`, press_kit: `${b.url}/press-kit.zip`, guidelines: b.guidelines ?? b.url };
   return brandJson({ slug: b.brand, name: b.name, version: b.version, publishedAt: b.publishedAt!, verified: b.verified, domain: b.domain, rules: b.rules, links });
 }
 
