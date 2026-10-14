@@ -458,6 +458,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The asset", data(S.Asset)],
         }),
       },
+      "/api/v1/assets/{id}/cut": {
+        parameters: [path("id", "A PDF asset's id")],
+        post: op({
+          summary: "Cut an area of a PDF's page into an asset",
+          scope: "propose",
+          description:
+            "A logo or a figure drawn in a brand book, as an asset of its own: what is mostly inside `box` (fractions of the page) comes out as an SVG of its vectors, the page's background and neighbours left out, or as a PNG when nothing there is drawn as vectors. Its parent is the PDF. The same bytes as an asset already here dedupe.",
+          body: S.PdfCut,
+          ok: [201, "The new asset", data(S.Asset)],
+        }),
+      },
       "/api/v1/assets/{id}/versions": {
         parameters: [path("id", "Asset id: any version of it")],
         get: op({
@@ -2284,6 +2295,22 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           body: S.CreateKey,
           ok: [201, "The key, with its secret, shown this once", data(S.ApiKeyCreated)],
+        }),
+      },
+      "/api/v1/job-tokens": {
+        post: op({
+          summary: "A token for a feature's background job, done as you",
+          scope: "any",
+          description:
+            "For a feature that carries on after you leave the page (a brand import's Apply): made from your session only, for the feature `Artbucket-Feature` names, on in this project. It acts with exactly your access here, in this project only, until `minutes` pass, the job revokes it, or the feature is turned off. History names it after you. Connections doesn't list it.",
+          body: S.CreateJobToken,
+          ok: [201, "The token, shown this once", data(S.JobToken)],
+        }),
+        delete: op({
+          summary: "Revoke the job token sending this",
+          scope: "any",
+          description: "A job done: its token revoked. Sent with any other credential, 404.",
+          ok: [200, "Revoked", z.object({ revoked: z.literal(true) })],
         }),
       },
       "/api/v1/keys/{id}": {
