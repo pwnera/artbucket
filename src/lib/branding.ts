@@ -96,8 +96,20 @@ export const fileSlug = (name: string) =>
 
 // ---- email ----------------------------------------------------------------------
 
+/** A paragraph, or one that links somewhere: the weekly digest's items. */
+export type Line = string | { text: string; url: string };
+
 /** An email before it is branded: `{product}` in it becomes the product's name. */
-export type Draft = { to: string; subject: string; lines: string[]; action?: { label: string; url: string }; /** A one-time code, set large under the lines. */ code?: string };
+export type Draft = {
+  to: string;
+  subject: string;
+  lines: Line[];
+  action?: { label: string; url: string };
+  /** A one-time code, set large under the lines. */
+  code?: string;
+  /** Where to stop getting this kind of email, linked small under the message. */
+  unsubscribe?: string;
+};
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const ink = (hexColor: string) => {
@@ -116,18 +128,25 @@ const ink = (hexColor: string) => {
  */
 export function render(d: Draft, brand: Pick<Brand, "name" | "accent" | "emailFooter"> & { logo: string | null }) {
   const fill = (s: string) => s.replaceAll("{product}", brand.name);
-  const lines = d.lines.map(fill);
+  const lines = d.lines.map((l) => (typeof l === "string" ? { text: fill(l), url: null } : { text: fill(l.text), url: l.url }));
   const action = d.action && { label: fill(d.action.label), url: d.action.url };
   const accent = brand.accent ?? "#6D4AFF";
-  const text = [...lines, ...(d.code ? ["", d.code] : []), ...(action ? ["", `${action.label}: ${action.url}`] : []), ...(brand.emailFooter ? ["", "--", brand.emailFooter] : [])].join("\n");
+  const text = [
+    ...lines.map((l) => (l.url ? `${l.text} ${l.url}` : l.text)),
+    ...(d.code ? ["", d.code] : []),
+    ...(action ? ["", `${action.label}: ${action.url}`] : []),
+    ...(brand.emailFooter ? ["", "--", brand.emailFooter] : []),
+    ...(d.unsubscribe ? ["", `Unsubscribe: ${d.unsubscribe}`] : []),
+  ].join("\n");
   const html = `<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111">
 <div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e4e4ea;border-radius:12px;padding:32px">
 ${brand.logo ? `<p style="margin:0 0 24px"><img src="${escape(brand.logo)}" alt="${escape(brand.name)}" height="32" style="height:32px;width:auto"></p>` : ""}
-${lines.map((l) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${escape(l)}</p>`).join("\n")}
+${lines.map((l) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${l.url ? `<a href="${escape(l.url)}" style="color:#111111">${escape(l.text)}</a>` : escape(l.text)}</p>`).join("\n")}
 ${d.code ? `<p style="margin:8px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px">${escape(d.code)}</p>` : ""}
 ${action ? `<p style="margin:24px 0 0"><a href="${escape(action.url)}" style="display:inline-block;background:${accent};color:${ink(accent)};text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escape(action.label)}</a></p>` : ""}
 </div>
 ${brand.emailFooter ? `<p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6b6b76;text-align:center">${escape(brand.emailFooter)}</p>` : ""}
+${d.unsubscribe ? `<p style="max-width:480px;margin:16px auto 0;font-size:12px;text-align:center"><a href="${escape(d.unsubscribe)}" style="color:#6b6b76">Unsubscribe</a></p>` : ""}
 </body></html>`;
   return { to: d.to, subject: fill(d.subject), text, html };
 }

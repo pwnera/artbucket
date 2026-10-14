@@ -12,7 +12,7 @@ import type { HubOffer } from "@/components/hub-offers";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
 import { EmailDomainsPanel, type EmailDomain } from "@/components/settings/email-domains";
 import { SsoPanel, type Sso, type Project } from "@/components/settings/sso";
-import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, ProfilePanel, UsagePanel, ProjectsPanel, type Usage } from "@/components/settings/panels";
+import { DeleteOrganization, FieldsPanel, LoadFailed, NameForm, NotificationsPanel, ProfilePanel, UsagePanel, ProjectsPanel, type Usage } from "@/components/settings/panels";
 import { find, has, locked, opens } from "@/components/settings/sections";
 import { SectionSkeleton } from "@/components/skeletons";
 import type { FieldDef } from "@/lib/fields";
@@ -46,6 +46,7 @@ const LOADS: Record<string, string> = {
   "organization/hub": "github-orgs",
   "organization/domains": "email-domains",
   "organization/sso": "sso",
+  "account/notifications": "me/digest",
 };
 
 /**
@@ -190,6 +191,8 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     }
     case "account/profile":
       return <ProfilePanel me={me} passwordReset={me.auth.passwordReset} />;
+    case "account/notifications":
+      return <NotificationsPanel weekly={data<{ weekly: boolean }>().weekly} />;
   }
   return null;
 }

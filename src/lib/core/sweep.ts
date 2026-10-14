@@ -4,6 +4,7 @@ import { db, unbounded } from "@/lib/db";
 import { assets, grants, instance, invitations, portalRequests, renditions, siteDeployments } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { hostFontsBackfill } from "@/lib/core/brand";
+import { sendDigests } from "@/lib/core/digest";
 import { rollUp } from "@/lib/core/events";
 import { runAutomations } from "@/lib/core/automations";
 import { sweepTokens } from "@/lib/core/oauth";
@@ -164,9 +165,10 @@ const AUTOMATIONS_EVERY_MS = 5 * 60 * 1000;
  * re-check, live builds checked again for what they show (lib/core/sites.ts
  * recheckSites), agents' tokens past renewal (lib/core/oauth.ts sweepTokens) and
  * a batch of the brands still waiting for their Google faces' files
- * (lib/core/brand.ts hostFontsBackfill); a failed run is logged and tried
- * again next time. Automations (assets nearing their last day, deliveries
- * to retry) every five minutes.
+ * (lib/core/brand.ts hostFontsBackfill) and, on Mondays, the weekly digest
+ * (lib/core/digest.ts); a failed run is logged and tried again next time.
+ * Automations (assets nearing their last day, deliveries to retry) every
+ * five minutes.
  */
 export function scheduleSweep() {
   const run = () => {
@@ -183,6 +185,9 @@ export function scheduleSweep() {
     hostFontsBackfill()
       .then((n) => n && console.info(`[artbucket] Hosted the Google Fonts faces of ${n} brands`))
       .catch((err) => console.warn("[artbucket] Font backfill stopped:", err instanceof Error ? err.message : err));
+    sendDigests()
+      .then((n) => n && console.info(`[artbucket] Sent ${n} weekly digests`))
+      .catch((err) => console.warn("[artbucket] Weekly digest stopped:", err instanceof Error ? err.message : err));
     return sweep()
       .then(({ purged, removed, forgotten }) => {
         if (purged || removed || forgotten) console.info(`[artbucket] Swept: ${purged} deleted assets purged, ${removed} files removed, ${forgotten} portal requests forgotten`);

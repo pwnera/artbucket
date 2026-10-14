@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import type { FieldDef } from "@/lib/fields";
 import { FEATURES, formatSize, type Feature, type Limits } from "@/lib/limits";
 import { roleName, type Scope } from "@/lib/scopes";
@@ -300,6 +301,39 @@ async function auth(path: string, body: unknown) {
 }
 
 /** Your name, and your password. Each form says its own errors, under itself. */
+/** Your own email: the weekly digest, on or off (PATCH /api/v1/me/digest). */
+export function NotificationsPanel({ weekly }: { weekly: boolean }) {
+  const id = useId();
+  const [on, setOn] = useState(weekly);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Group
+      title="Weekly digest"
+      description="On Mondays, what happened last week in each project you edit: brands released, new assets, licenses about to end, searches that found nothing, and what waits for review."
+      info="Only editors and admins get it, and only for a week with something in it."
+    >
+      <div className="flex items-center gap-2">
+        <Switch
+          id={id}
+          checked={on}
+          disabled={busy}
+          onCheckedChange={async (next) => {
+            setBusy(true);
+            const saved = await send("PATCH", "/api/v1/me/digest", { weekly: next });
+            setBusy(false);
+            if (!saved) return;
+            setOn(next);
+            toast.success(next ? "You'll get the weekly digest" : "No more weekly digest");
+          }}
+        />
+        <Label htmlFor={id} className="font-normal">
+          Email me the weekly digest
+        </Label>
+      </div>
+    </Group>
+  );
+}
+
 export function ProfilePanel({ me, passwordReset }: { me: Me; passwordReset: boolean }) {
   const id = useId();
   const router = useRouter();

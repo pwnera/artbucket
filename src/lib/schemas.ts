@@ -1238,6 +1238,9 @@ export const JoinOffer = z.object({
   organization: z.object({ id: z.uuid(), name: z.string() }),
   domain: z.string().describe("The email domain it opened"),
 });
+export const DigestSetting = z.object({
+  weekly: z.boolean().describe("The weekly digest: on Mondays, last week in each project you edit or administer, by email"),
+});
 export const Me = z.object({
   user: z.object({ id: z.string(), name: z.string(), email: z.string() }).nullable().describe("Signed in as; null for a key or nobody"),
   key: z.boolean().describe("Calling with an API key"),

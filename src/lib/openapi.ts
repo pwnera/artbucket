@@ -1264,6 +1264,24 @@ export function openapi(serverUrl: string) {
           ok: [200, "You", data(S.Me)],
         }),
       },
+      "/api/v1/me/digest": {
+        get: op({
+          summary: "Your weekly digest",
+          scope: "any",
+          description: "Whether you get the weekly digest: a person signed in, not a key. On unless you turned it off; it goes to a project's editors and admins only.",
+          ok: [200, "Your setting", data(S.DigestSetting)],
+        }),
+        patch: op({ summary: "Turn your weekly digest on or off", scope: "any", description: "A person signed in, not a key.", body: S.DigestSetting, ok: [200, "Saved", data(S.DigestSetting)] }),
+      },
+      "/api/v1/unsubscribe/{token}": {
+        parameters: [path("token", "The token in the weekly digest's unsubscribe link")],
+        post: op({
+          summary: "Unsubscribe from the weekly digest",
+          scope: "public",
+          description: "What the digest's own link does, without signing in: the token names the person. A 404 when it isn't a token of this server's.",
+          ok: [200, "Turned off", data(S.DigestSetting)],
+        }),
+      },
       "/api/v1/organizations": {
         get: op({ summary: "Your organizations", scope: "any", ok: [200, "Organizations you have a grant in", data(z.array(S.Organization))] }),
         post: op({

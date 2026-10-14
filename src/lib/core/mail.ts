@@ -4,7 +4,8 @@ import { grants, organizations, settings } from "@/lib/db/schema";
 import { recordAudit } from "@/lib/core/audit";
 import { effective } from "@/lib/core/settings";
 import { emailBrand } from "@/lib/core/branding";
-import { render, type Draft } from "@/lib/branding";
+import { render, type Draft, type Line } from "@/lib/branding";
+import type { Digest } from "@/lib/core/digest";
 import { deliver, unusable } from "@/lib/email";
 import { limiter } from "@/lib/rate";
 import { SETTINGS } from "@/lib/settings";
@@ -202,6 +203,43 @@ export function portalAccessEmail(to: string, a: { portal: string; organization:
     ],
     action: { label: `Open ${a.portal}`, url: a.url },
   };
+}
+
+const day = (d: Date | string) => new Date(d).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "a, b, c and 2 more": the first `max` named. */
+const listed = (names: string[], max = 5) => {
+  const shown = names.slice(0, max);
+  const more = names.length - shown.length;
+  return more > 0 ? `${shown.join(", ")} and ${more} more` : shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}` : shown.join("");
+};
+
+/**
+ * The weekly digest (lib/core/digest.ts): a line or two per section that has
+ * something, each linking where to act on it. Plain words, nothing to decode.
+ */
+export function digestEmail(
+  to: string,
+  w: { project: string; url: string; projectId: string; start: Date; digest: Digest; unsubscribe: string },
+): Draft {
+  const { digest: d } = w;
+  const at = (path: string) => `${w.url}${path}${path.includes("?") ? "&" : "?"}project=${w.projectId}`;
+  const lines: Line[] = [`Here is your week in ${w.project}, from ${day(w.start)} to ${day(new Date(w.start.getTime() + 6 * 86_400_000))}.`];
+  if (d.releases.length) {
+    lines.push(`${plural(d.releases.length, "brand release")} went out:`);
+    for (const r of d.releases) lines.push({ text: `${r.brand}, version ${r.version}${r.note ? `: ${r.note}` : ""}`, url: at(`/brands/${r.slug}`) });
+  }
+  if (d.added.length) lines.push({ text: `${plural(d.added.length, "new asset")}: ${listed(d.added)}.`, url: at("/library") });
+  if (d.replaced.length) lines.push({ text: `${plural(d.replaced.length, "asset")} got a new version: ${listed(d.replaced)}.`, url: at("/library") });
+  if (d.expiringTotal) {
+    lines.push(`${plural(d.expiringTotal, "license")} ${d.expiringTotal === 1 ? "ends" : "end"} in the next two weeks:`);
+    for (const e of d.expiring) lines.push({ text: `${e.title}, last day ${day(e.expires)}${e.replacement ? `. Replaced by ${e.replacement}` : ""}`, url: at(`/assets/${e.id}`) });
+    if (d.expiringTotal > d.expiring.length) lines.push(`And ${d.expiringTotal - d.expiring.length} more.`);
+  }
+  if (d.gaps.length) lines.push({ text: `People searched for ${listed(d.gaps.map((q) => `"${q}"`))} and found nothing.`, url: at("/insights") });
+  if (d.review) lines.push({ text: `${plural(d.review, "asset waits", "assets wait")} for review.`, url: at("/review") });
+  lines.push(`You get this on Mondays as an editor of ${w.project}. Turn it off in Settings, under Notifications, or unsubscribe below.`);
+  return { to, subject: `Your week in ${w.project}`, lines, action: { label: `Open ${w.project}`, url: at("/") }, unsubscribe: w.unsubscribe };
 }
 
 /** Whether this organization's email can go out now. */

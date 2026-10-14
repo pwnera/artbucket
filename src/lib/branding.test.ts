@@ -30,6 +30,17 @@ test("a one-time code sits large under the lines, in both parts", () => {
   assert.doesNotMatch(render(draft, { name: "A", accent: null, logo: null, emailFooter: null }).html, /letter-spacing/);
 });
 
+test("a line may link, and an unsubscribe link sits under the message, in both parts", () => {
+  const m = render(
+    { to: "a@x.test", subject: "Digest", lines: ["Released:", { text: "Acme @3", url: "https://x.test/brands/acme" }], unsubscribe: "https://x.test/unsubscribe/t" },
+    { name: "Artbucket", accent: null, logo: null, emailFooter: null },
+  );
+  assert.match(m.text, /^Released:\nAcme @3 https:\/\/x\.test\/brands\/acme\n\nUnsubscribe: https:\/\/x\.test\/unsubscribe\/t$/);
+  assert.match(m.html, /<a href="https:\/\/x\.test\/brands\/acme"[^>]*>Acme @3<\/a>/);
+  assert.match(m.html, /<a href="https:\/\/x\.test\/unsubscribe\/t"[^>]*>Unsubscribe<\/a>/);
+  assert.doesNotMatch(render(draft, { name: "A", accent: null, logo: null, emailFooter: null }).html, /Unsubscribe/);
+});
+
 test("the server's BRAND_* sit under an organization's own, property by property", () => {
   const env = { BRAND_NAME: "Studio Assets", BRAND_ACCENT: "#112233" };
   assert.deepEqual(brandingFromEnv({}), null);

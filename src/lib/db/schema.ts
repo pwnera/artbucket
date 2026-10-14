@@ -1062,6 +1062,29 @@ export const audit = pgTable(
   (t) => [index("audit_org_at_idx").on(t.organizationId, t.at.desc()), index("audit_user_idx").on(t.userId)],
 );
 
+/** People who turned the weekly digest off (lib/core/digest.ts), in Settings or from the email's own link. */
+export const digestOptOuts = pgTable("digest_opt_outs", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** The last week (`2026-W41`) each person got a project's digest: a week goes out once, whichever instance sweeps. */
+export const digestsSent = pgTable(
+  "digests_sent",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    week: text("week").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.projectId] })],
+);
+
 /**
  * Settings (lib/settings.ts): one row per key and place, an organization's or
  * a project's. Secret properties are sealed before they get here.

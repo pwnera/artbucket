@@ -39050,6 +39050,245 @@
       }
     }
   },
+  "/api/v1/me/digest": {
+    "get": {
+      "summary": "Your weekly digest",
+      "description": "Whether you get the weekly digest: a person signed in, not a key. On unless you turned it off; it goes to a project's editors and admins only.\n\nAny caller; the scope needed is checked on what it acts on.",
+      "responses": {
+        "200": {
+          "description": "Your setting",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "weekly": {
+                        "type": "boolean",
+                        "description": "The weekly digest: on Mondays, last week in each project you edit or administer, by email"
+                      }
+                    },
+                    "required": [
+                      "weekly"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "patch": {
+      "summary": "Turn your weekly digest on or off",
+      "description": "A person signed in, not a key.\n\nAny caller; the scope needed is checked on what it acts on.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "weekly": {
+                  "type": "boolean",
+                  "description": "The weekly digest: on Mondays, last week in each project you edit or administer, by email"
+                }
+              },
+              "required": [
+                "weekly"
+              ]
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Saved",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "weekly": {
+                        "type": "boolean",
+                        "description": "The weekly digest: on Mondays, last week in each project you edit or administer, by email"
+                      }
+                    },
+                    "required": [
+                      "weekly"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/unsubscribe/{token}": {
+    "parameters": [
+      {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "The token in the weekly digest's unsubscribe link",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "Unsubscribe from the weekly digest",
+      "description": "What the digest's own link does, without signing in: the token names the person. A 404 when it isn't a token of this server's.\n\nNo key needed.",
+      "security": [],
+      "responses": {
+        "200": {
+          "description": "Turned off",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "weekly": {
+                        "type": "boolean",
+                        "description": "The weekly digest: on Mondays, last week in each project you edit or administer, by email"
+                      }
+                    },
+                    "required": [
+                      "weekly"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/organizations": {
     "get": {
       "summary": "Your organizations",

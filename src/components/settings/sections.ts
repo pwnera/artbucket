@@ -204,6 +204,16 @@ export const SECTIONS: Section[] = [
     action: null,
   },
   {
+    context: "account",
+    id: "notifications",
+    label: "Notifications",
+    icon: IconMail,
+    description: "The email you get from projects you edit.",
+    action: null,
+    // Nothing to say where the server can't send.
+    hidden: (me) => !me.email,
+  },
+  {
     context: "development",
     id: "design",
     label: "Design system",
