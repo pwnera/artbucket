@@ -137,24 +137,24 @@
   ],
   "theme": {
     "ink": "color.primary",
-    "nav": "top",
-    "toc": "inline",
+    "nav": "sidebar",
+    "toc": "none",
     "body": "type.body",
     "dark": "color.primary",
     "head": "type.heading",
     "logo": "logo.primary",
     "scale": 1.333,
-    "width": "normal",
+    "width": "wide",
     "accent": "color.red",
     "device": "9992e494-daa6-4275-a120-3e915e3e72ff",
     "header": "band",
     "motion": "subtle",
-    "radius": 24,
-    "titles": "large",
-    "density": "normal",
-    "grounds": "alternate",
+    "radius": 18,
+    "titles": "huge",
+    "density": "airy",
+    "grounds": "canvas",
     "surface": "color.white",
-    "numbering": false,
+    "numbering": true,
     "separation": "space"
   },
   "pages": [
@@ -164,47 +164,29 @@
       "icon": "heart",
       "audience": "everyone",
       "tabs": false,
-      "layout": "landing",
       "sections": [
         {
           "template": "cover",
-          "title": "Rust",
-          "eyebrow": "Brand guidelines, an unofficial showcase",
-          "lede": "A language empowering everyone to build reliable and efficient software.",
+          "title": "Rust.\nReliable software, for everyone.",
+          "eyebrow": "An unofficial brand book",
           "body": "",
           "keys": [],
-          "tone": "color",
-          "background": { "color": "color.yellow" },
-          "width": "full",
           "hidden": false,
           "columns": 1,
-          "props": { "mark": "always", "align": "start", "height": "screen", "markSize": "large", "markFrame": "bare", "titleSize": "huge" }
+          "props": { "mark": "never", "align": "start", "titleSize": "huge", "strip": true },
+          "lede": "A language empowering everyone to build reliable and efficient software."
         },
-        {
-          "template": "statement",
-          "title": "Rust belongs to its community.",
-          "eyebrow": "01",
-          "body": "",
-          "keys": ["tone.voice"],
-          "tone": "color",
-          "background": { "color": "color.primary" },
-          "width": "wide",
-          "hidden": false,
-          "columns": 1,
-          "props": {}
-        },
+        { "template": "statement", "title": "Rust belongs to its community.", "eyebrow": "01", "body": "", "keys": ["tone.voice"], "hidden": false, "columns": 1, "props": {}, "tone": "plain" },
         {
           "template": "split",
           "title": "Meet Ferris, the unofficial mascot",
           "eyebrow": "02",
           "body": "",
           "keys": ["mascot.ferris"],
-          "tone": "color",
-          "background": { "color": "color.teal" },
-          "width": "full",
           "hidden": false,
           "columns": 1,
-          "props": { "fit": "whole", "flip": true, "align": "center", "ratio": "picture" }
+          "props": { "fit": "whole", "flip": true, "align": "center", "ratio": "picture" },
+          "tone": "plain"
         },
         {
           "template": "gallery",
@@ -212,11 +194,10 @@
           "eyebrow": "03",
           "body": "",
           "keys": ["imagery.events", "mascot.corro"],
-          "tone": "plain",
-          "width": "full",
           "hidden": false,
           "columns": 3,
-          "props": { "layout": "strip" }
+          "props": { "layout": "strip" },
+          "tone": "dark"
         },
         {
           "template": "palette",
@@ -224,19 +205,16 @@
           "body": "",
           "aside": "An unofficial showcase built on Artbucket from public Rust artwork. Rust and the Rust logo are trademarks of the Rust Foundation; this guide is not made or endorsed by it.",
           "keys": ["color.primary", "color.yellow", "color.red", "color.purple", "color.teal", "color.ferris"],
-          "tone": "panel",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
-          "props": { "show": ["hex"] }
+          "props": { "show": ["hex"] },
+          "tone": "plain"
         },
         {
           "template": "pages",
           "title": "Inside the guide",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [
@@ -247,10 +225,12 @@
             { "link": "/mascots", "text": "Ferris, Corro and event art.", "asset": "f9753395-8218-4aa3-b497-e759bf0f5e53", "title": "Mascots" },
             { "link": "/resources", "text": "Artwork, policy and where to ask.", "asset": "fb93fe34-c5e1-4683-a68a-f09d7d69ff96", "title": "Resources" }
           ],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         },
-        { "template": "updates", "title": "What's new", "body": "", "keys": [], "tone": "plain", "width": "text", "hidden": false, "columns": 1, "props": { "limit": 3 } }
-      ]
+        { "template": "updates", "title": "What's new", "body": "", "keys": [], "hidden": false, "columns": 1, "props": { "limit": 3 }, "tone": "plain" }
+      ],
+      "layout": "book"
     },
     {
       "slug": "logo",
@@ -259,53 +239,46 @@
       "icon": "sparkles",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
         {
           "template": "logos",
           "title": "An R in a gear, five ways",
           "body": "",
           "keys": ["logo.primary", "logo.reversed", "logo.mark", "logo.rainbow", "logo.rusty", "color.white", "color.yellow", "color.primary"],
-          "tone": "panel",
-          "width": "full",
           "hidden": false,
           "columns": 2,
           "items": [
             { "key": "color.primary", "asset": "a428e1a6-25c0-405d-9bda-39e17b4d3861", "caption": "The black logo disappears on Charcoal: use the white outline.", "verdict": "dont" },
             { "key": "color.red", "asset": "a428e1a6-25c0-405d-9bda-39e17b4d3861", "caption": "Black on Crimson is too dark to read: use the white outline.", "verdict": "dont" }
           ],
-          "props": { "kit": true, "size": "large" }
+          "props": { "kit": true, "size": "large" },
+          "tone": "plain"
         },
         {
           "template": "statement",
           "title": "Share the artwork. Never look official.",
           "body": "The artwork is CC BY 4.0; the name and logo are trademarks. Say when you changed it, and ask before you sell it.",
           "keys": [],
-          "tone": "color",
-          "background": { "color": "color.red" },
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": {}
+          "props": {},
+          "tone": "plain"
         },
         {
           "template": "dodont",
           "title": "What the trademark policy says",
           "body": "From the Rust Foundation's trademark policy.",
           "keys": ["logo.always", "logo.never"],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 2,
-          "props": { "layout": "pairs" }
+          "props": { "layout": "pairs" },
+          "tone": "plain"
         },
         {
           "template": "faq",
           "title": "Questions",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "text",
           "hidden": false,
           "columns": 1,
           "items": [
@@ -313,21 +286,22 @@
             { "text": "Merchandise and commercial use need written permission: trademark@rust-lang.org.", "title": "Can I sell stickers or T-shirts?" },
             { "text": "The artwork is CC BY 4.0, so yes, but say that you did, and keep it from looking official.", "title": "Can I change it?" }
           ],
-          "props": { "layout": "accordion" }
+          "props": { "layout": "accordion" },
+          "tone": "plain"
         },
         {
           "template": "pages",
           "title": "",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [{ "link": "/color", "title": "Color" }, { "link": "/resources", "title": "Resources" }],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         }
-      ]
+      ],
+      "layout": "book"
     },
     {
       "slug": "color",
@@ -336,38 +310,32 @@
       "icon": "palette",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
         {
           "template": "palette",
           "title": "Charcoal carries the weight",
           "body": "",
           "keys": ["color.primary", "color.yellow", "color.red", "color.purple", "color.teal", "color.ferris", "color.ferrisShade", "color.white"],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
-          "props": { "ase": true, "show": ["hex", "rgb", "hsl", "css"], "matrix": true, "simulate": true }
+          "props": { "ase": true, "show": ["hex", "rgb", "hsl", "css"], "matrix": true, "simulate": true },
+          "tone": "plain"
         },
         {
           "template": "statement",
           "title": "Three deep bands, all white on top.",
           "body": "Crimson, Night Purple and Teal carry white text. Alternate them to pace a long page.",
           "keys": [],
-          "tone": "color",
-          "background": { "color": "color.purple" },
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": {}
+          "props": {},
+          "tone": "plain"
         },
         {
           "template": "dodont",
           "title": "Yellow is loud: let Charcoal ride on it",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 2,
           "items": [
@@ -376,32 +344,32 @@
             { "text": "Crimson, Night Purple and Teal all pass AA with white.", "title": "White on the deep bands", "verdict": "do" },
             { "text": "Keep it for Ferris and illustration.", "title": "Ferris Orange for text", "verdict": "dont" }
           ],
-          "props": { "layout": "grid" }
+          "props": { "layout": "grid" },
+          "tone": "plain"
         },
         {
           "template": "chart",
           "title": "Charts lead with the bands",
           "body": "",
           "keys": ["color.red", "color.teal", "color.purple", "color.yellow", "color.primary"],
-          "tone": "panel",
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": { "kind": "line" }
+          "props": { "kind": "line" },
+          "tone": "plain"
         },
         {
           "template": "pages",
           "title": "",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [{ "link": "/typography", "title": "Typography" }, { "link": "/mascots", "title": "Mascots" }],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         }
-      ]
+      ],
+      "layout": "book"
     },
     {
       "slug": "typography",
@@ -410,44 +378,40 @@
       "icon": "brush",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
         {
           "template": "type",
           "title": "A slab that shouts, a sans that explains",
           "body": "",
           "keys": ["type.heading", "type.body"],
-          "tone": "plain",
-          "width": "full",
           "hidden": false,
           "columns": 1,
-          "props": { "embed": true, "roles": true, "glyphs": true, "sample": "Performance. Reliability. Productivity.", "formula": { "base": 16, "ratio": 1.333, "steps": 6 } }
+          "props": { "embed": true, "roles": true, "glyphs": true, "sample": "Performance. Reliability. Productivity.", "formula": { "base": 16, "ratio": 1.333, "steps": 6 } },
+          "tone": "plain"
         },
         {
           "template": "statement",
           "title": "Alfa Slab One at big sizes only.",
           "body": "One weight, heavy by design: for headlines. Everything read runs in Fira Sans.",
           "keys": [],
-          "tone": "color",
-          "background": { "color": "color.yellow" },
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": {}
+          "props": {},
+          "tone": "plain"
         },
         {
           "template": "pages",
           "title": "",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [{ "link": "/voice", "title": "Voice" }, { "link": "/color", "title": "Color" }],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         }
-      ]
+      ],
+      "layout": "book"
     },
     {
       "slug": "voice",
@@ -456,39 +420,15 @@
       "icon": "speakerphone",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
-        {
-          "template": "statement",
-          "title": "Patient with people, exact about code.",
-          "body": "",
-          "keys": ["tone.voice"],
-          "tone": "color",
-          "background": { "color": "color.purple" },
-          "width": "wide",
-          "hidden": false,
-          "columns": 1,
-          "props": {}
-        },
-        {
-          "template": "dodont",
-          "title": "How Rustaceans write",
-          "body": "",
-          "keys": ["tone.always", "tone.avoid"],
-          "tone": "plain",
-          "width": "wide",
-          "hidden": false,
-          "columns": 2,
-          "props": { "layout": "rows" }
-        },
-        { "template": "copy", "title": "Words to paste", "body": "", "keys": ["brand.name", "brand.tagline"], "tone": "panel", "width": "text", "hidden": false, "columns": 1, "props": {} },
+        { "template": "statement", "title": "Patient with people, exact about code.", "body": "", "keys": ["tone.voice"], "hidden": false, "columns": 1, "props": {}, "tone": "plain" },
+        { "template": "dodont", "title": "How Rustaceans write", "body": "", "keys": ["tone.always", "tone.avoid"], "hidden": false, "columns": 2, "props": { "layout": "rows" }, "tone": "plain" },
+        { "template": "copy", "title": "Words to paste", "body": "", "keys": ["brand.name", "brand.tagline"], "hidden": false, "columns": 1, "props": {}, "tone": "plain" },
         {
           "template": "faq",
           "title": "Words the community uses",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "text",
           "hidden": false,
           "columns": 1,
           "items": [
@@ -497,21 +437,22 @@
             { "text": "The crab. Unofficial mascot, public domain.", "title": "Ferris" },
             { "text": "The urchin. Mascot of `unsafe` Rust.", "title": "Corro" }
           ],
-          "props": { "layout": "definitions" }
+          "props": { "layout": "definitions" },
+          "tone": "plain"
         },
         {
           "template": "pages",
           "title": "",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [{ "link": "/mascots", "title": "Mascots" }, { "link": "/resources", "title": "Resources" }],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         }
-      ]
+      ],
+      "layout": "book"
     },
     {
       "slug": "mascots",
@@ -520,26 +461,13 @@
       "icon": "heart",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
-        {
-          "template": "split",
-          "title": "Ferris, free for everyone",
-          "body": "",
-          "keys": ["mascot.ferris"],
-          "tone": "plain",
-          "width": "full",
-          "hidden": false,
-          "columns": 1,
-          "props": { "fit": "whole" }
-        },
+        { "template": "split", "title": "Ferris, free for everyone", "body": "", "keys": ["mascot.ferris"], "hidden": false, "columns": 1, "props": { "fit": "whole" }, "tone": "plain" },
         {
           "template": "gallery",
           "title": "Four poses, all public domain",
           "body": "",
           "keys": [],
-          "tone": "tint",
-          "width": "full",
           "hidden": false,
           "columns": 3,
           "items": [
@@ -548,67 +476,53 @@
             { "asset": "63740006-885a-491a-9362-bd6792ef02a8", "title": "Original" },
             { "asset": "fb93fe34-c5e1-4683-a68a-f09d7d69ff96", "title": "Cuddly" }
           ],
-          "props": { "layout": "grid" }
+          "props": { "layout": "grid" },
+          "tone": "plain"
         },
         {
           "template": "pattern",
           "title": "Ferris as a pattern",
           "body": "Public domain means you can tile him on anything.",
           "keys": ["color.yellow", "color.white", "color.primary"],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
-          "props": { "asset": "d096deee-920a-4e23-88e8-08ca68f9f454", "scales": [0.5, 1, 2] }
+          "props": { "asset": "d096deee-920a-4e23-88e8-08ca68f9f454", "scales": [0.5, 1, 2] },
+          "tone": "plain"
         },
         {
           "template": "statement",
           "title": "Recolor him, dress him up, put him on a cake.",
           "body": "Ferris is CC0. The logo is not: keep the two apart.",
           "keys": [],
-          "tone": "color",
-          "background": { "color": "color.ferris" },
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": {}
+          "props": {},
+          "tone": "dark"
         },
         {
           "template": "split",
           "title": "Corro guards the unsafe parts",
           "body": "",
           "keys": ["mascot.corro"],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 1,
-          "props": { "fit": "whole", "flip": true }
+          "props": { "fit": "whole", "flip": true },
+          "tone": "plain"
         },
-        {
-          "template": "gallery",
-          "title": "Every event gets its Ferris",
-          "body": "",
-          "keys": ["imagery.events"],
-          "tone": "color",
-          "background": { "color": "color.teal" },
-          "width": "full",
-          "hidden": false,
-          "columns": 3,
-          "props": { "layout": "grid" }
-        },
+        { "template": "gallery", "title": "Every event gets its Ferris", "body": "", "keys": ["imagery.events"], "hidden": false, "columns": 3, "props": { "layout": "grid" }, "tone": "plain" },
         {
           "template": "pages",
           "title": "",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 3,
           "items": [{ "link": "/resources", "title": "Resources" }],
-          "props": { "layout": "list" }
+          "props": { "layout": "list" },
+          "tone": "plain"
         }
-      ]
+      ],
+      "layout": "book"
     },
     {
       "slug": "resources",
@@ -616,15 +530,12 @@
       "icon": "archive",
       "audience": "everyone",
       "tabs": false,
-      "layout": "book",
       "sections": [
         {
           "template": "links",
           "title": "Straight from the source",
           "body": "",
           "keys": ["logo.primary", "logo.reversed", "logo.mark"],
-          "tone": "plain",
-          "width": "wide",
           "hidden": false,
           "columns": 2,
           "items": [
@@ -632,32 +543,32 @@
             { "link": "https://rustfoundation.org/policy/rust-trademark-policy/", "text": "What you may do with the name and logo.", "label": "Policy", "title": "Trademark policy" },
             { "link": "https://rustacean.net/", "text": "Ferris in every format.", "label": "Web", "title": "rustacean.net" }
           ],
-          "props": { "layout": "cards" }
+          "props": { "layout": "cards" },
+          "tone": "plain"
         },
         {
           "template": "collection",
           "title": "Every file, live from the library",
           "body": "",
           "keys": [],
-          "tone": "plain",
-          "width": "full",
           "hidden": false,
           "columns": 4,
-          "props": { "sort": "name", "limit": 40, "query": "type=image", "layout": "grid" }
+          "props": { "sort": "name", "limit": 40, "query": "type=image", "layout": "grid" },
+          "tone": "plain"
         },
         {
           "template": "request",
           "title": "A question?",
           "body": "",
           "keys": [],
-          "tone": "panel",
-          "width": "text",
           "hidden": false,
           "columns": 1,
-          "props": { "kind": "question", "prompt": "Not sure your use is fine under the trademark policy? Ask before you print." }
+          "props": { "kind": "question", "prompt": "Not sure your use is fine under the trademark policy? Ask before you print." },
+          "tone": "plain"
         },
-        { "template": "updates", "title": "What's new", "body": "", "keys": [], "tone": "plain", "width": "text", "hidden": false, "columns": 1, "props": { "limit": 5 } }
-      ]
+        { "template": "updates", "title": "What's new", "body": "", "keys": [], "hidden": false, "columns": 1, "props": { "limit": 5 }, "tone": "plain" }
+      ],
+      "layout": "book"
     }
   ]
 }
