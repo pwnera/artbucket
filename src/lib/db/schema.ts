@@ -1605,6 +1605,30 @@ export const eventCounts = pgView("event_counts", counted).as(
     group by ${DIMS}`,
 );
 
+/**
+ * A place told it still loads a replaced version (lib/core/insights.ts
+ * notifyStale): once per version and place, so Insights says "Notified 2
+ * days ago" rather than mailing the same people again. The place is a
+ * referrer's host, or an agent's key name when it said none.
+ */
+export const insightNotices = pgTable(
+  "insight_notices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** The replaced version it loads. */
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    place: text("place").notNull(),
+    by: text("by").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("insight_notices_unique").on(t.assetId, t.place), index("insight_notices_project_idx").on(t.projectId)],
+);
+
 // ---- the catalog ----------------------------------------------------------------
 
 /** A name as an address segment: "Press kit" is press-kit. lib/catalog.ts slugOf, as SQL. */

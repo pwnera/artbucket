@@ -1,11 +1,15 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brandPages, brands, brandVersions, eventCounts, events, pageViews, portals, traffic } from "@/lib/db/schema";
+import { apiKeys, assets, brandPages, brands, brandVersions, eventCounts, events, insightNotices, pageViews, portals, shareLinks, traffic, users } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
-import { getAsset } from "@/lib/core/assets";
+import { getAsset, type Asset } from "@/lib/core/assets";
+import { recordAudit } from "@/lib/core/audit";
 import { listRules } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
-import { publicPortalsShowing } from "@/lib/core/portals";
+import { appUrlFor, hostTarget, portalNamed } from "@/lib/core/domains";
+import { sendAs, staleVersionEmail } from "@/lib/core/mail";
+import { adminsOf, publicPortalsShowing } from "@/lib/core/portals";
+import { latestVersion } from "@/lib/core/versions";
 import { AssetError } from "@/lib/core/errors";
 import { adoptionDays, connectionsOf, fillWeeks, INSIGHT_DAYS, onCurrent, releaseOfAssets, taken, WEEKS, type Surface } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
@@ -106,6 +110,114 @@ async function checkLog(ws: string) {
   };
 }
 
+/**
+ * Where a replaced version is still loaded, as a notice names it: the
+ * referrer's host, else the agent's key name. Null: nobody to tell (a person
+ * in the app, a signed link without a referrer).
+ */
+const placeOf = (s: Place) => s.referrer ?? s.client;
+type Place = { referrer: string | null; client: string | null };
+
+/**
+ * Who answers for a place still loading a replaced version, as far as this
+ * server knows: a site or portal of this project, its admins (as a site's
+ * problems go to them); an agent, the person who connected it. Empty for a
+ * site elsewhere or a key an admin made: whoever notifies names them.
+ */
+async function ownersOf(projectId: string, p: Place): Promise<string[]> {
+  if (p.referrer) {
+    const t = await hostTarget(p.referrer);
+    const site = t?.portal ? await portalNamed(t.portal) : null;
+    return site?.p.projectId === projectId ? adminsOf(site.p) : [];
+  }
+  if (!p.client) return [];
+  const rows = await db
+    .selectDistinct({ email: users.email })
+    .from(apiKeys)
+    .innerJoin(users, eq(users.id, apiKeys.userId))
+    .where(and(eq(apiKeys.projectId, projectId), eq(apiKeys.name, p.client)));
+  return rows.map((r) => r.email);
+}
+
+/**
+ * Search gaps already asked for: an upload link (lib/core/shares.ts) named
+ * after the words, still open, the newest. "Request it" on a gap makes one,
+ * so what comes back waits in Review like any upload.
+ */
+async function requestsFor(projectId: string, qs: string[]) {
+  const rows = qs.length
+    ? await db
+        .select({ q: sql<string>`lower(${shareLinks.name})`, at: shareLinks.createdAt, by: shareLinks.createdBy })
+        .from(shareLinks)
+        .where(
+          and(
+            eq(shareLinks.projectId, projectId),
+            eq(shareLinks.kind, "upload"),
+            inArray(sql`lower(${shareLinks.name})`, qs),
+            or(sql`${shareLinks.expiresAt} is null`, sql`${shareLinks.expiresAt} > now()`),
+          ),
+        )
+        .orderBy(asc(shareLinks.createdAt))
+    : [];
+  return new Map(rows.map((r) => [r.q, { at: r.at.toISOString(), by: r.by }]));
+}
+
+/**
+ * POST /api/v1/insights/notices: tell a place that still loads replaced
+ * versions where the current ones are, by email: whoever answers for it
+ * (ownersOf) and anyone named. One email names every version given; each
+ * version and place is told once, so a second Notify for them is a conflict.
+ * Insights' readers, as it acts on what Insights shows.
+ */
+export async function notifyStale(caller: Caller, input: { referrer?: string; client?: string; assets: string[]; emails?: string[] }) {
+  if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Notifying takes ${needs("insights.read")}`);
+  const where: Place = { referrer: input.referrer?.toLowerCase() ?? null, client: input.referrer ? null : (input.client ?? null) };
+  const place = placeOf(where);
+  if (!place) throw new AssetError("invalid", "Name the place: a referrer's host, or an agent's key name");
+  const title = (a: Asset) => a.metadata?.title ?? a.filename;
+  const old: { a: Asset; now: Asset }[] = [];
+  for (const id of new Set(input.assets)) {
+    const a = await getAsset(caller, id);
+    if (!a) throw new AssetError("not_found", `No asset ${id}`);
+    const now = await latestVersion(a);
+    if (now.id === a.id) throw new AssetError("invalid", `${title(a)} is the current version: nothing to tell`);
+    old.push({ a, now });
+  }
+  const to = [...new Set([...(await ownersOf(caller.project.id, where)), ...(input.emails ?? [])].map((e) => e.trim().toLowerCase()))];
+  if (!to.length) throw new AssetError("invalid", `Nobody here answers for ${place}: give the email of whoever does`);
+  // Claimed before sending, so two clicks at once send one email; given back when none could go.
+  const claimed = await db
+    .insert(insightNotices)
+    .values(old.map((o) => ({ projectId: caller.project.id, assetId: o.a.id, place, by: caller.actor })))
+    .onConflictDoNothing()
+    .returning();
+  if (!claimed.length) throw new AssetError("conflict", `${place} was already told about ${old.length === 1 ? "this version" : "these versions"}`);
+  const app = await appUrlFor(caller.project.organizationId);
+  const draft = (email: string) =>
+    staleVersionEmail(email, {
+      by: caller.actor,
+      organization: caller.project.organization.name,
+      place,
+      agent: !where.referrer,
+      assets: old
+        .filter((o) => claimed.some((c) => c.assetId === o.a.id))
+        .map((o) => ({ title: title(o.a), version: o.a.version, current: { title: title(o.now), version: o.now.version, url: `${app}/c/${o.now.id}` } })),
+    });
+  let sent = 0;
+  let error: { message: string; limited?: true } | null = null;
+  for (const email of to) {
+    const r = await sendAs(caller.project.organizationId, draft(email));
+    if (r.sent) sent++;
+    else error ??= { message: r.error ?? "it didn't go through", limited: r.limited };
+  }
+  if (!sent) {
+    await db.delete(insightNotices).where(inArray(insightNotices.id, claimed.map((c) => c.id)));
+    throw new AssetError(error?.limited ? "rate_limited" : "invalid", `Not sent: ${error?.message}`);
+  }
+  await recordAudit(caller, "insights.notified", place, { assets: claimed.map((c) => c.assetId), to: to.length, sent });
+  return { emailed: sent, notified: claimed.map((c) => ({ asset: c.assetId, at: c.at.toISOString(), by: c.by })) };
+}
+
 /** GET /api/v1/insights: the project's Insights. Write on the project. */
 export async function insightsOf(caller: Caller) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
@@ -126,10 +238,10 @@ export async function insightsOf(caller: Caller) {
       .groupBy(week),
     // Who still loads a version that was already replaced when they got it: the release that hasn't reached them.
     db
-      .select({ asset: eventCounts.assetId, referrer: eventCounts.referrer, fetches: n(), last: sql<string>`max(${eventCounts.day})::text` })
+      .select({ asset: eventCounts.assetId, referrer: eventCounts.referrer, client: eventCounts.client, fetches: n(), last: sql<string>`max(${eventCounts.day})::text` })
       .from(eventCounts)
       .where(and(recent, fetched, eq(eventCounts.verdict, "superseded"), isNotNull(eventCounts.assetId)))
-      .groupBy(eventCounts.assetId, eventCounts.referrer)
+      .groupBy(eventCounts.assetId, eventCounts.referrer, eventCounts.client)
       .orderBy(desc(n()))
       .limit(50),
     db
@@ -176,7 +288,20 @@ export async function insightsOf(caller: Caller) {
     .slice(0, 10);
 
   const described = await describe([...ranked.map((r) => r.id), ...stale.map((s) => s.asset!)]);
-  const replacements = await describe(stale.flatMap((s) => described.get(s.asset!)?.supersededBy ?? []));
+  const [replacements, told, owners, requested] = await Promise.all([
+    describe(stale.flatMap((s) => described.get(s.asset!)?.supersededBy ?? [])),
+    stale.length
+      ? db
+          .select({ asset: insightNotices.assetId, place: insightNotices.place, at: insightNotices.at, by: insightNotices.by })
+          .from(insightNotices)
+          .where(inArray(insightNotices.assetId, [...new Set(stale.map((s) => s.asset!))]))
+      : [],
+    // Each place's people, counted: who a Notify reaches without being told (ownersOf).
+    Promise.all([...new Map(stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])))].map(async ([p, s]) => [p, (await ownersOf(caller.project.id, s)).length] as const)).then(
+      (xs) => new Map<string | null, number>(xs),
+    ),
+    requestsFor(caller.project.id, gaps.flatMap((g) => g.q ?? [])),
+  ]);
 
   return {
     days: INSIGHT_DAYS,
@@ -185,13 +310,28 @@ export async function insightsOf(caller: Caller) {
     adoption: fillWeeks(adoption, { current: 0, superseded: 0 }),
     stale: stale.flatMap((s) => {
       const a = described.get(s.asset!);
-      return a ? [{ asset: a, replacement: (a.supersededBy && replacements.get(a.supersededBy)) || null, referrer: s.referrer, fetches: s.fetches, last: s.last }] : [];
+      const place = placeOf(s);
+      const notice = told.find((t) => t.asset === s.asset && t.place === place);
+      return a
+        ? [
+            {
+              asset: a,
+              replacement: (a.supersededBy && replacements.get(a.supersededBy)) || null,
+              referrer: s.referrer,
+              client: s.client,
+              fetches: s.fetches,
+              last: s.last,
+              owners: owners.get(place) ?? 0,
+              notified: notice ? { at: notice.at.toISOString(), by: notice.by } : null,
+            },
+          ]
+        : [];
     }),
     top: ranked.flatMap((r) => {
       const a = described.get(r.id);
       return a ? [{ asset: a, total: r.total, surfaces: r.surfaces }] : [];
     }),
-    gaps: gaps.map((g) => ({ q: g.q ?? "", searches: g.searches, last: g.last })),
+    gaps: gaps.map((g) => ({ q: g.q ?? "", searches: g.searches, last: g.last, requested: requested.get(g.q ?? "") ?? null })),
     checks,
     delivery,
     pageViews: views,

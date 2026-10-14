@@ -1,17 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
-import { useSelectedLayoutSegment } from "next/navigation";
-import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload } from "@/components/icons";
+import { useRouter, useSelectedLayoutSegment } from "next/navigation";
+import { toast } from "sonner";
+import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload, IconFolderUp, IconSend } from "@/components/icons";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
 import { InfoTip } from "@/components/info-tip";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { emailsIn, ShareDialog } from "@/components/share-dialog";
 import { Group } from "@/components/settings/panels";
 import { REASON } from "@/lib/insights";
 import { formatSize } from "@/lib/limits";
+import { sendResult } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +29,18 @@ export type InsightsData = {
   weeks: number;
   answers: { week: string; person: number; agent: number; anonymous: number }[];
   adoption: { week: string; current: number; superseded: number }[];
-  stale: { asset: Asset; replacement: Asset | null; referrer: string | null; fetches: number; last: string }[];
+  stale: {
+    asset: Asset;
+    replacement: Asset | null;
+    referrer: string | null;
+    client: string | null;
+    fetches: number;
+    last: string;
+    owners: number;
+    notified: { at: string; by: string } | null;
+  }[];
   top: { asset: Asset; total: number; surfaces: Partial<Record<string, number>> }[];
-  gaps: { q: string; searches: number; last: string }[];
+  gaps: { q: string; searches: number; last: string; requested: { at: string; by: string } | null }[];
   checks: {
     allowed: number;
     refused: number;
@@ -106,10 +121,10 @@ export function InsightsFrame({ refused, children }: { refused: number | undefin
   );
 }
 
-/** A tab's body, under the frame. */
-export function InsightsBody({ data, tab = "overview" }: { data: InsightsData | null; tab?: InsightsTab }) {
+/** A tab's body, under the frame. `collections`: where a requested asset's uploads may go. */
+export function InsightsBody({ data, tab = "overview", collections = [] }: { data: InsightsData | null; tab?: InsightsTab; collections?: { id: string; name: string }[] }) {
   if (!data) return <None>Insights couldn&apos;t load. Try again in a moment.</None>;
-  return tab === "checks" ? <UseChecks data={data} /> : <Overview data={data} />;
+  return tab === "checks" ? <UseChecks data={data} /> : <Overview data={data} collections={collections} />;
 }
 
 type Chart = "answers" | "delivery" | "adoption";
@@ -139,8 +154,11 @@ function regroup<T>(xs: T[], key: (x: T) => string, value: (x: T) => number) {
  * each: assets, where answers went, portal pages, and what people and
  * agents asked for and didn't get.
  */
-function Overview({ data }: { data: InsightsData }) {
+function Overview({ data, collections }: { data: InsightsData; collections: { id: string; name: string }[] }) {
+  const router = useRouter();
   const [picked, setPicked] = useState("answers");
+  const [notifying, setNotifying] = useState<Place | null>(null);
+  const [requesting, setRequesting] = useState<string | null>(null);
   const sites = new Set(data.stale.flatMap((s) => s.referrer ?? []));
   const answers = data.answers.map((a) => ({ ...a, total: a.person + a.agent + a.anonymous }));
   const total = sum(answers.map((a) => a.total));
@@ -290,16 +308,30 @@ function Overview({ data }: { data: InsightsData }) {
               label: "Old versions",
               column: "Fetches",
               empty: "No site loads a replaced version.",
-              rows: regroup(data.stale, (s) => s.referrer ?? "", (s) => s.fetches).map(([site, n]) => ({
-                key: site || "-",
-                label: site || <span className="text-muted-foreground">Not said</span>,
-                sub: data.stale
-                  .filter((s) => (s.referrer ?? "") === site)
-                  .map((s) => s.asset.title)
-                  .join(", "),
-                value: n,
-                tone: "warning" as const,
-              })),
+              rows: regroup(data.stale, placeKey, (s) => s.fetches).map(([key, n]) => {
+                const rows = data.stale.filter((s) => placeKey(s) === key);
+                const [{ referrer, client, owners }] = rows;
+                const titles = [...new Set(rows.map((s) => s.asset.title))].join(", ");
+                const told = rows.flatMap((s) => s.notified?.at ?? []).sort().at(-1);
+                const pending = [...new Map(rows.filter((s) => !s.notified).map((s) => [s.asset.id, s.asset])).values()];
+                return {
+                  key: key || "-",
+                  label: key ? (referrer ?? client) : <span className="text-muted-foreground">Not said</span>,
+                  sub: referrer ? titles : client ? `Agent · ${titles}` : titles,
+                  value: n,
+                  tone: "warning" as const,
+                  // Nobody to tell where the request named no place: a person in the app, a signed link.
+                  action: !key ? undefined : pending.length ? (
+                    <Button size="xs" variant="outline" onClick={() => setNotifying({ referrer, client: referrer ? null : client, owners, assets: pending })}>
+                      <IconSend /> Notify
+                    </Button>
+                  ) : (
+                    <span className="text-muted-foreground text-xs" title={told && exact(told)} suppressHydrationWarning>
+                      Notified {told && ago(told)}
+                    </span>
+                  ),
+                };
+              }),
             },
           ]}
         />
@@ -342,7 +374,21 @@ function Overview({ data }: { data: InsightsData }) {
               label: "Not found",
               column: "Searches",
               empty: "Every search found something.",
-              rows: data.gaps.map((g) => ({ key: g.q, label: <>&ldquo;{g.q}&rdquo;</>, sub: `Last on ${date(g.last)}`, value: g.searches })),
+              rows: data.gaps.map((g) => ({
+                key: g.q,
+                label: <>&ldquo;{g.q}&rdquo;</>,
+                sub: `Last on ${date(g.last)}`,
+                value: g.searches,
+                action: g.requested ? (
+                  <span className="text-muted-foreground text-xs" title={`By ${g.requested.by}, ${exact(g.requested.at)}`} suppressHydrationWarning>
+                    Requested {ago(g.requested.at)}
+                  </span>
+                ) : (
+                  <Button size="xs" variant="outline" onClick={() => setRequesting(g.q)}>
+                    <IconFolderUp /> Request it
+                  </Button>
+                ),
+              })),
             },
             {
               id: "refused",
@@ -354,10 +400,120 @@ function Overview({ data }: { data: InsightsData }) {
           ]}
         />
       </div>
+      <NotifyDialog
+        place={notifying}
+        onClose={() => setNotifying(null)}
+        onSent={() => {
+          setNotifying(null);
+          router.refresh();
+        }}
+      />
+      {/* A gap asked for is an upload link named after its words: what comes back waits in Review. */}
+      <ShareDialog
+        open={requesting !== null}
+        target={{ kind: "upload", name: requesting ?? undefined }}
+        collections={collections}
+        onClose={() => setRequesting(null)}
+        onMade={() => router.refresh()}
+      />
       <p className="text-muted-foreground text-xs">
         Answers and adoption: last {data.weeks} weeks. The rest: last {data.days} days. {on(current + replaced)} in all.
       </p>
     </>
+  );
+}
+
+/** Where a replaced version is loaded, as a notice names it: its host, else the agent's key name. */
+const placeKey = (s: InsightsData["stale"][number]) => s.referrer ?? s.client ?? "";
+type Place = { referrer: string | null; client: string | null; owners: number; assets: Asset[] };
+
+/**
+ * Notify (PRD item 8): email whoever answers for a place still loading
+ * replaced versions where the current ones are. The server reaches the people
+ * it knows (a site's admins, an agent's person); anyone else is named here.
+ */
+function NotifyDialog({ place, onClose, onSent }: { place: Place | null; onClose: () => void; onSent: () => void }) {
+  const id = useId();
+  const [emails, setEmails] = useState("");
+  const [busy, setBusy] = useState(false);
+  // Kept while the dialog plays its close animation.
+  const [shown, setShown] = useState(place);
+  if (place && place !== shown) {
+    setShown(place);
+    setEmails("");
+  }
+  if (!shown) return null;
+  const name = shown.referrer ?? shown.client;
+  const known = shown.owners > 0;
+  const to = emailsIn(emails);
+  const bad = to.find((e) => !/.+@.+\..+/.test(e));
+  async function notify() {
+    setBusy(true);
+    const r = await sendResult("POST", "/api/v1/insights/notices", {
+      ...(shown!.referrer ? { referrer: shown!.referrer } : { client: shown!.client }),
+      assets: shown!.assets.map((a) => a.id),
+      emails: to.length ? to : undefined,
+    });
+    setBusy(false);
+    if (!r.ok) return;
+    toast.success(`Sent to ${r.data.emailed} ${r.data.emailed === 1 ? "person" : "people"}`);
+    onSent();
+  }
+  return (
+    <Dialog open={!!place} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex min-w-0 items-start gap-2 pr-6 leading-snug">
+            <IconSend className="size-5 shrink-0" />
+            <span className="min-w-0 break-words">Tell {name} about the current version</span>
+          </DialogTitle>
+          <DialogDescription>An email names what it still loads, and a link that always leads to the current version.</DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!bad && (known || to.length)) void notify();
+          }}
+        >
+          <ul className="divide-y rounded-md border text-sm">
+            {shown.assets.map((a) => (
+              <li key={a.id} className="truncate px-3 py-1.5">
+                <AssetLink a={a} />
+              </li>
+            ))}
+          </ul>
+          {known && (
+            <p className="text-sm">
+              Goes to {shown.referrer ? "this site's admins" : "the person who connected this agent"} ({shown.owners}).
+            </p>
+          )}
+          <div className="grid gap-2">
+            <Label htmlFor={`${id}-emails`}>{known ? "Also send to" : "Send to"}</Label>
+            <Input
+              id={`${id}-emails`}
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              placeholder={shown.referrer ? `webmaster@${shown.referrer.replace(/^www\./, "")}` : "someone@example.com"}
+              aria-invalid={!!bad || undefined}
+              aria-describedby={`${id}-emails-hint`}
+              autoFocus={!known}
+            />
+            <p id={`${id}-emails-hint`} className={bad ? "text-destructive text-xs" : "text-muted-foreground text-xs"} role={bad ? "alert" : undefined}>
+              {bad ? <>&ldquo;{bad}&rdquo; isn&apos;t an email address.</> : known ? "Optional." : `Whoever looks after ${name}: this server doesn't know who does.`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" pending={busy} disabled={!!bad || (!known && !to.length)}>
+              <IconSend /> Send
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

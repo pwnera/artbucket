@@ -1265,6 +1265,19 @@ export function openapi(serverUrl: string) {
           ok: [200, "Insights", data(S.Insights)],
         }),
       },
+      "/api/v1/insights/notices": {
+        post: op({
+          summary: "Tell a place it uses an old version",
+          scope: "write",
+          description:
+            "Email whoever answers for a place in Insights' `stale` list (a host, or an agent's key name) where the current versions are, " +
+            "at /c/ links that keep following them. It reaches the people this server knows answer for it (a site of this project's admins, " +
+            "the person who connected the agent) and `emails`. Each version and place is told once: a second time is a 409. " +
+            "A 422 says why when nobody could be emailed.",
+          body: S.InsightNotice,
+          ok: [201, "Who it reached, and what it told about", data(S.InsightNoticeSent)],
+        }),
+      },
       "/api/v1/insights/connections": {
         get: op({
           summary: "Connections: what each agent asked for",

@@ -1506,15 +1506,27 @@ export const Insights = z.object({
         asset: InsightAsset,
         replacement: InsightAsset.nullable().describe("What replaced it"),
         referrer: z.string().nullable().describe("The host that loaded it; null when the request didn't say"),
+        client: z.string().nullable().describe("The agent's key name that fetched it; null for a person or nobody in particular"),
         fetches: z.number().int(),
         last: z.string().describe("The last day it was fetched"),
+        owners: z.number().int().describe("People this server knows answer for the place (a site of this project's admins, an agent's person): who a notice reaches unasked"),
+        notified: z.object({ at: date, by: z.string() }).nullable().describe("When the place was told about this version (POST /api/v1/insights/notices)"),
       }),
     )
-    .describe("Still on the old release: replaced versions fetched lately, by referrer, most first"),
+    .describe("Still on the old release: replaced versions fetched lately, by referrer and agent, most first"),
   top: z
     .array(z.object({ asset: InsightAsset, total: z.number().int(), surfaces: z.partialRecord(z.enum(SURFACES), z.number().int()).describe("Fetches through each surface: app, api, mcp, portal, share, hub, link (a signed URL), public") }))
     .describe("The ten most fetched assets, with their fetches by surface"),
-  gaps: z.array(z.object({ q: z.string(), searches: z.number().int(), last: z.string() })).describe("Searches that found nothing, most asked first"),
+  gaps: z
+    .array(
+      z.object({
+        q: z.string(),
+        searches: z.number().int(),
+        last: z.string(),
+        requested: z.object({ at: date, by: z.string() }).nullable().describe("An open upload link named after the words asks for it"),
+      }),
+    )
+    .describe("Searches that found nothing, most asked first"),
   checks: z
     .object({
       allowed: z.number().int(),
@@ -1549,6 +1561,18 @@ export const Insights = z.object({
       }),
     )
     .describe("Portal pages read, most first"),
+});
+export const InsightNotice = z
+  .strictObject({
+    referrer: z.string().trim().toLowerCase().min(1).max(253).optional().describe("The host that still loads them, as Insights names it"),
+    client: z.string().trim().min(1).max(200).optional().describe("Or the agent's key name, for an agent that said no referrer"),
+    assets: z.array(uuid).min(1).max(50).describe("The replaced versions it loads"),
+    emails: z.array(z.email().max(320)).max(20).optional().describe("Who else to tell: whoever looks after a site this server doesn't know"),
+  })
+  .refine((n) => !n.referrer !== !n.client, "Give referrer or client, one of them");
+export const InsightNoticeSent = z.object({
+  emailed: z.number().int().describe("How many people it reached"),
+  notified: z.array(z.object({ asset: uuid, at: date, by: z.string() })).describe("The versions told about now; those told before are left out"),
 });
 export const AssetInsights = z.object({
   days: z.number().int().describe("How far back fetches go"),

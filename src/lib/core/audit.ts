@@ -48,6 +48,7 @@ export type AuditAction =
   | "site.problems"
   | "site.held"
   | "site.rebuilt"
+  | "insights.notified"
   | "brand.published"
   | "brand.public"
   | "brand.private"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { InsightsBody } from "@/components/insights";
 import { InsightsSkeleton, LATE } from "@/components/skeletons";
+import { get } from "@/lib/sidebar";
 import { insights } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +24,7 @@ export default function InsightsPage() {
 }
 
 async function Tab() {
-  return <InsightsBody data={await insights()} />;
+  // Where a search gap's requested uploads may go (Request it).
+  const [data, collections] = await Promise.all([insights(), get("collections", (b: { data: { id: string; name: string }[] }) => b.data, [])]);
+  return <InsightsBody data={data} collections={collections} />;
 }

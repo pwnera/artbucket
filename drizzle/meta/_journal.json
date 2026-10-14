@@ -526,6 +526,13 @@
       "when": 1791909572421,
       "tag": "0074_site_previews",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791970006968,
+      "tag": "0075_insight_notices",
+      "breakpoints": true
     }
   ]
 }

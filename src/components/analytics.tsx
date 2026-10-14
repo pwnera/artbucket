@@ -309,7 +309,8 @@ export function ComboChart<R extends Record<string, number | string>>({
   );
 }
 
-export type Row = { key: string; label: React.ReactNode; sub?: React.ReactNode; value: number; display?: string; tone?: "warning" };
+/** `action`: what to do about the row (Insights' Notify, Request it), shown before its value. */
+export type Row = { key: string; label: React.ReactNode; sub?: React.ReactNode; value: number; display?: string; tone?: "warning"; action?: React.ReactNode };
 export type BreakdownTab = { id: string; label: string; column: string; rows: Row[]; empty: React.ReactNode };
 
 /** A ranked list, each row's share of the largest drawn behind it. Ten at first, the rest a click away. */
@@ -334,6 +335,7 @@ export function BarList({ rows, column, empty }: { rows: Row[]; column: string; 
                 <span className="truncate">{r.label}</span>
                 {r.sub && <span className="text-muted-foreground truncate text-xs">{r.sub}</span>}
               </span>
+              {r.action && <span className="shrink-0">{r.action}</span>}
               <span className="shrink-0 font-medium tabular-nums">{r.display ?? short(r.value)}</span>
             </div>
           </li>
