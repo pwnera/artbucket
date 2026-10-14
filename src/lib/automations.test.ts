@@ -29,3 +29,15 @@ test("Slack gets text with a link, Teams an Adaptive Card, JSON the run as it is
   assert.equal(card.body[0].text, "Acme release 3 is out [Open](https://app.example.com/brands/acme)");
   assert.equal(card.actions, undefined);
 });
+
+test("every recipe is an automation the API takes, once who to tell is added", async () => {
+  const { AutomationInput } = await import("./schemas.ts");
+  const { RECIPES } = await import("./automations.ts");
+  assert.equal(new Set(RECIPES.map((r) => r.id)).size, RECIPES.length);
+  for (const { id, says, ...r } of RECIPES) {
+    const to = r.action === "email" ? { emails: ["a@example.com"] } : { url: "https://hooks.example.com/x" };
+    const parsed = AutomationInput.safeParse({ ...r, ...to });
+    assert.ok(parsed.success, `${id}: ${parsed.error?.message}`);
+    assert.ok(says.endsWith("."), id);
+  }
+});

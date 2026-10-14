@@ -111,3 +111,91 @@ export function bodyIn(format: WebhookFormat, p: Record<string, unknown>): Recor
     ],
   };
 }
+
+/**
+ * Ready-made automations (the Automations page's recipes): what they fire
+ * on and how they tell, without who to tell, which the person adds. Each is
+ * an AutomationInput but for `emails` or `url`.
+ */
+export type Recipe = {
+  id: string;
+  name: string;
+  says: string;
+  trigger: AutomationTrigger;
+  days?: number;
+  times?: number;
+  actions?: string[];
+  kind?: FixKind;
+  action: (typeof AUTOMATION_ACTIONS)[number];
+  format?: WebhookFormat;
+};
+
+export const RECIPES: Recipe[] = [
+  {
+    id: "shares-to-slack",
+    name: "New share links to Slack",
+    says: "Post to a channel whenever someone shares a collection or a project outside it.",
+    trigger: "governance",
+    actions: ["share.created", "share.project", "asset.published"],
+    action: "webhook",
+    format: "slack",
+  },
+  {
+    id: "access-to-admins",
+    name: "Access changes to the admins",
+    says: "Email when a grant, a group or an API key changes who may do what.",
+    trigger: "governance",
+    actions: ["grant.*", "group.members", "key.created", "key.revoked"],
+    action: "email",
+  },
+  {
+    id: "licenses-to-legal",
+    name: "Licenses ending, to legal",
+    says: "Email a month before an approved asset's last day of use.",
+    trigger: "asset.expiring",
+    days: 30,
+    action: "email",
+  },
+  {
+    id: "refusals-to-brand",
+    name: "An asset the check keeps refusing",
+    says: "Email the brand team when agents or people are refused the same asset three times in a week: the guidelines may have a gap.",
+    trigger: "check.refused",
+    times: 3,
+    days: 7,
+    action: "email",
+  },
+  {
+    id: "fixes-to-teams",
+    name: "New Fixes to Teams",
+    says: "Post to a Teams channel when a place still loads an old version, or a search finds nothing.",
+    trigger: "fix.opened",
+    action: "webhook",
+    format: "teams",
+  },
+  {
+    id: "nudge-reviewers",
+    name: "Nudge reviewers",
+    says: "Email when a proposal has waited three days for review.",
+    trigger: "review.waiting",
+    days: 3,
+    action: "email",
+  },
+  {
+    id: "decisions-to-slack",
+    name: "Approvals and rejections to Slack",
+    says: "Post each review decision to a channel.",
+    trigger: "governance",
+    actions: ["asset.approved", "asset.rejected"],
+    action: "webhook",
+    format: "slack",
+  },
+  {
+    id: "release-rebuilds",
+    name: "Rebuild a site on each release",
+    says: "Post a signed webhook to your CI when any brand is released.",
+    trigger: "brand.released",
+    action: "webhook",
+    format: "json",
+  },
+];
