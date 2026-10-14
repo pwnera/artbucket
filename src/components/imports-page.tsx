@@ -383,7 +383,7 @@ function ImportRowLine({
           )}
         </span>
       </td>
-      <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap max-lg:hidden">{i.startedBy.name ?? "—"}</td>
+      <td className="text-muted-foreground px-4 py-2.5 whitespace-nowrap max-lg:hidden">{i.startedBy.name ?? "-"}</td>
       <td className="px-4 py-2.5 whitespace-nowrap max-lg:hidden">
         {i.status === "undone" ? (
           <span className="text-muted-foreground">Taken back</span>
@@ -409,7 +409,7 @@ function ImportRowLine({
             )}
           </span>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         )}
       </td>
       <td className="text-muted-foreground px-4 py-2.5 text-end whitespace-nowrap tabular-nums max-xl:hidden">{day(i.appliedAt ?? i.at)}</td>
