@@ -11,7 +11,7 @@ import { behavior } from "@/components/site/anchors";
 import { useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
 import type { Item } from "@/lib/pages";
-import type { Media } from "@/lib/site";
+import { balanced, type Media } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -187,7 +187,7 @@ export function GallerySection({ section: s, rules }: SectionProps) {
               ))}
             </ul>
           ) : (
-            <ul className={cn("grid gap-x-6 gap-y-8", layout !== "crops" && GRID[s.columns], layout === "bento" && "grid-flow-dense gap-x-4")}>
+            <ul className={cn("grid gap-x-6 gap-y-8", layout !== "crops" && GRID[layout === "grid" ? balanced(pictures.length, s.columns) : s.columns], layout === "bento" && "grid-flow-dense gap-x-4")}>
               {pictures.map((p, n) => (
                 <li
                   key={p.m.id}

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fileTypeBadge, formatBytes } from "@/lib/filename";
 import { SITE_PATH } from "@/lib/markdown";
-import type { ViewAsset } from "@/lib/site";
+import { balanced, type ViewAsset } from "@/lib/site";
 import { renditionLabel } from "@/lib/transform";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ export function LinksSection({ section: s, rules }: SectionProps) {
     <div className="space-y-6">
       <Body />
       {files.length + items.length > 0 && (
-        <ul className={list ? "divide-y border-y" : cn("grid gap-4", GRID[s.columns])}>
+        <ul className={list ? "divide-y border-y" : cn("grid gap-4", GRID[balanced(files.length + items.length, s.columns)])}>
           {files.map(({ a, id }) => (
             <FileEntry key={`${a.id}/${a.rendition}`} asset={a} id={id} list={list} />
           ))}

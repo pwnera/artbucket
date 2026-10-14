@@ -346,17 +346,22 @@ function Layout({
                   <div ref={head}>
                     <PageHeader page={page} roots={roots} onNavigate={onNavigate} />
                   </div>
-                  {listed && (
-                    <details data-chrome className={cn("mx-6 my-4 rounded-lg border @3xl:mx-10 print:hidden", toc === "side" && "@6xl/site:hidden")}>
-                      <summary className={cn(LABEL, "text-muted-foreground cursor-pointer px-3 py-2")}>On this page</summary>
-                      <div className="px-1 pb-2">
-                        <OnThisPage sections={sections} />
-                      </div>
-                    </details>
-                  )}
                   {/* The canvas (grounds: canvas): the page under its header, dotted like a whiteboard (globals.css). */}
                   <div className={cn(view.theme.grounds === "canvas" && "ground-canvas")}>
-                    <PageBody page={page} />
+                    <PageBody
+                      page={page}
+                      // On this page, folded under the header, or under the cover a page opens on: the first screen is the cover's.
+                      under={
+                        listed && (
+                          <details data-chrome className={cn("mx-6 my-4 rounded-lg border @3xl:mx-10 print:hidden", toc === "side" && "@6xl/site:hidden")}>
+                            <summary className={cn(LABEL, "text-muted-foreground cursor-pointer px-3 py-2")}>On this page</summary>
+                            <div className="px-1 pb-2">
+                              <OnThisPage sections={sections} />
+                            </div>
+                          </details>
+                        )
+                      }
+                    />
                     {!landing && <Pager roots={roots} current={page.slug} onNavigate={onNavigate} />}
                   </div>
                 </>

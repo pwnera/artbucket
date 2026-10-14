@@ -283,11 +283,19 @@ function Family({ f, sample, glyphs, embed }: { f: Face; sample?: string; glyphs
   const many = f.scripts.length > 1;
   return (
     <div role="group" aria-labelledby={title} className="space-y-8 border-t pt-8">
-      <div className="space-y-1">
-        <h3 id={title} className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
-          {f.family}
-        </h3>
-        <Source f={f} />
+      {/* The face as a picture first: its Aa big, at its heaviest weight, then its name. */}
+      <div className="@container flex flex-wrap items-end gap-x-8 gap-y-3">
+        {f.scripts.includes("Latn") && (
+          <InFace aria-hidden f={f} weight={f.weights.at(-1)} className="text-[length:min(10rem,30cqi)] leading-[0.8] tracking-tight">
+            Aa
+          </InFace>
+        )}
+        <div className="min-w-0 space-y-1">
+          <h3 id={title} className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>
+            {f.family}
+          </h3>
+          <Source f={f} />
+        </div>
       </div>
 
       <Part title={many ? "Weights" : `Weights, in ${SCRIPT.of(f.scripts[0])}`}>

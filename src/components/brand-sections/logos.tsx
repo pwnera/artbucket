@@ -20,7 +20,7 @@ import type { OfficeFormat } from "@/lib/office";
 import { pool } from "@/lib/pool";
 import { kitFolder } from "@/lib/press-kit";
 import { contextLabel, resolve, ruleName } from "@/lib/rules";
-import type { ViewAsset, ViewRule } from "@/lib/site";
+import { balanced, type ViewAsset, type ViewRule } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import type { Entry } from "@/lib/zip";
 
@@ -105,7 +105,7 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
       {shown.length > 0 && (
         // Its own container: the frame's is the whole section, wider than the column this sits in.
         <div className="@container">
-          <div className={cn("grid gap-x-6 gap-y-10", GRID[s.columns])}>
+          <div className={cn("grid gap-x-6 gap-y-10", GRID[balanced(shown.length, s.columns)])}>
             {shown.map((r) => (
               <Mark
                 // Drawn anew for each place picked, so its tiles start on that place's backdrop.

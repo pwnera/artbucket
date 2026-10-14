@@ -226,7 +226,8 @@ export function SectionFrame({
             PAD_END,
             PAD_TOP[joined === "space" ? "joined" : (s.space ?? "normal")],
             joined === "hairline" && "border-t",
-            WIDTH[s.width === "full" && WORDS.has(s.template) ? "wide" : s.width],
+            // A reading column with an aside beside it keeps its measure: the aside's 16rem and gap come on top.
+            s.aside && s.width === "text" ? "max-w-[calc(var(--brand-measure)+19rem)]" : WIDTH[s.width === "full" && WORDS.has(s.template) ? "wide" : s.width],
           )}
         >
           {(open || s.eyebrow || s.title || s.lede) && (

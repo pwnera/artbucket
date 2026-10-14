@@ -7,7 +7,7 @@ import { Body, ItemText, ItemTitle, itemRoot, useSection } from "@/components/br
 import type { SectionProps } from "@/components/brand-sections/types";
 import { useMedia, useSite } from "@/components/site/site-context";
 import { SITE_PATH } from "@/lib/markdown";
-import { type NavNode, trail, tree } from "@/lib/site";
+import { balanced, type NavNode, trail, tree } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,7 +55,7 @@ export function PagesSection({ section: s }: SectionProps) {
             ))}
           </ol>
         ) : (
-          <ul className={cn("grid gap-4", GRID[s.columns])}>
+          <ul className={cn("grid gap-4", GRID[balanced(picks.length, s.columns)])}>
             {picks.map((p) => (
               <Card key={p.node.slug + (p.section ?? "")} {...p} />
             ))}
@@ -124,7 +124,8 @@ function Card(p: Pick) {
             alt=""
             loading="lazy"
             decoding="async"
-            className="size-full object-cover"
+            // A drawing (a wordmark, a lockup) sits whole on its panel, as the page header has it; a photo fills the card.
+            className={cn("size-full", cover.mime === "image/svg+xml" ? "object-contain p-6" : "object-cover")}
           />
         </div>
       )}
