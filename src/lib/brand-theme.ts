@@ -63,7 +63,10 @@ export const ThemeSettings = z.strictObject({
   motion: z.enum(["none", "subtle"]).optional().describe("subtle: sections reveal as they scroll in; never with reduced motion"),
   toc: z.enum(["side", "inline", "none"]).optional().describe("On this page: a side column, a list under the page header, or hidden"),
   titles: z.enum(["medium", "large", "huge"]).optional().describe("Section titles: headings (medium), or headlines (large, huge); a section's own size wins"),
-  grounds: z.enum(["plain", "alternate"]).optional().describe("alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm"),
+  grounds: z
+    .enum(["plain", "alternate", "canvas"])
+    .optional()
+    .describe("alternate: every other section on the page's own ground sits on the panel, so a long page has rhythm; canvas: under its header the page sits on the panel, dotted like a whiteboard, its section titles centered"),
   languages: z
     .array(z.strictObject({ code: LANG, label: z.string().trim().min(1).max(40), dir: z.enum(["ltr", "rtl"]).optional().describe("From the language when left out") }))
     .max(12)
@@ -129,6 +132,12 @@ export const LOOKS: Record<string, { name: string; about: string; fits: string; 
     about: "Round, warm, alternating grounds",
     fits: "a mascot brand, a community, a product for children or makers",
     patch: { width: "normal", density: "normal", scale: 1.333, radius: 24, nav: "top", toc: "inline", header: "band", band: null, numbering: false, separation: "space", motion: "subtle", titles: "large", grounds: "alternate" },
+  },
+  board: {
+    name: "Board",
+    about: "A band of the brand color, then a dotted canvas",
+    fits: "a software or product brand, a team that thinks on a whiteboard",
+    patch: { width: "wide", density: "airy", scale: 1.333, radius: 18, nav: "sidebar", toc: "none", header: "band", band: null, numbering: true, separation: "space", motion: "subtle", titles: "huge", grounds: "canvas" },
   },
 };
 export const LOOK_NAMES = Object.keys(LOOKS) as [string, ...string[]];
@@ -280,7 +289,7 @@ export type Theme = {
   motion: "none" | "subtle";
   toc: "side" | "inline" | "none";
   titles: "medium" | "large" | "huge";
-  grounds: "plain" | "alternate";
+  grounds: "plain" | "alternate" | "canvas";
   /** Every pair graded: `used` is `fg` when it clears `need`, else its fallback. */
   checks: Check[];
 };

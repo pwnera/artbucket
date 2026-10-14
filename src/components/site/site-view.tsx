@@ -354,8 +354,11 @@ function Layout({
                       </div>
                     </details>
                   )}
-                  <PageBody page={page} />
-                  {!landing && <Pager roots={roots} current={page.slug} onNavigate={onNavigate} />}
+                  {/* The canvas (grounds: canvas): the page under its header, dotted like a whiteboard (globals.css). */}
+                  <div className={cn(view.theme.grounds === "canvas" && "ground-canvas")}>
+                    <PageBody page={page} />
+                    {!landing && <Pager roots={roots} current={page.slug} onNavigate={onNavigate} />}
+                  </div>
                 </>
               ) : view.locked && portal ? (
                 <Locked portal={portal} base={base} canonical={canonical} roots={roots} privacy={privacy} />
