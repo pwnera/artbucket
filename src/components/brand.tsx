@@ -58,12 +58,12 @@ export function Logo({ variant = "primary", className }: { variant?: "primary" |
  * The app icon: the white mark on a violet rounded square. Also public/icon.svg.
  * In a span, so a parent's `[&>svg]:size-4` (sidebar and menu items) can't shrink it.
  */
-export function AppIcon({ className }: { className?: string }) {
+export function AppIcon({ className, fill = VIOLET }: { className?: string; /** The tile; the mark is whichever of black and white reads on it. */ fill?: string }) {
   return (
     <span className={cn("inline-flex size-8 shrink-0", className)}>
       <svg viewBox="0 0 512 512" className="size-full" role="img" aria-label="Artbucket">
-        <rect width="512" height="512" rx="121" fill={VIOLET} />
-        <g transform="translate(256 256) scale(0.8) translate(-270 -244.5)" fill="#FFFFFF">
+        <rect width="512" height="512" rx="121" fill={fill} />
+        <g transform="translate(256 256) scale(0.8) translate(-270 -244.5)" fill={fill === VIOLET ? "#FFFFFF" : inkOn(fill)}>
           {MARK}
         </g>
       </svg>
@@ -146,7 +146,8 @@ export function BrandMark({ brand: given, className }: { brand?: Brand; classNam
       <img src={brand.logo} alt={brand.name} className={cn("h-8 w-auto max-w-[160px] shrink-0 object-contain object-left", className)} />
     );
   }
-  if (!brand.custom) return <AppIcon className={className} />;
+  // Customized only by an accent following a brand (accentFrom): the product's own icon, in that accent.
+  if (!brand.custom) return <AppIcon className={className} fill={brand.accent ?? undefined} />;
   const fill = brand.accent ?? "var(--primary)";
   return (
     <span

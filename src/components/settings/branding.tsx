@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_BRAND, type BrandingSettings } from "@/lib/branding";
@@ -41,7 +42,7 @@ const OWN_ACCENT = "#6d4aff";
  * server's configuration (BRAND_*), or the product's own. The page remounts
  * it from what the server has after each save.
  */
-export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
+export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /** The project's, whose releases the accent may follow. */ brands: { id: string; name: string }[] }) {
   const id = useId();
   const router = useRouter();
   const v = setting.value;
@@ -50,6 +51,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
   const [logo, setLogo] = useState(v.logo ?? "");
   const [icon, setIcon] = useState(v.icon ?? "");
   const [accent, setAccent] = useState(v.accent);
+  const [accentFrom, setAccentFrom] = useState(v.accentFrom);
   const [footer, setFooter] = useState(v.emailFooter ?? "");
   const [picking, setPicking] = useState<"logo" | "icon" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +61,7 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
   const logoId = logo.trim() ? asAssetId(logo) : null;
   const iconId = icon.trim() ? asAssetId(icon) : null;
   const bad = { logo: !!logo.trim() && !logoId, icon: !!icon.trim() && !iconId };
-  const next: BrandingSettings = { name: name.trim(), tagline: tagline.trim() || null, logo: logoId, icon: iconId, accent, emailFooter: footer.trim() || null };
+  const next: BrandingSettings = { name: name.trim(), tagline: tagline.trim() || null, logo: logoId, icon: iconId, accent, accentFrom, emailFooter: footer.trim() || null };
   const patch = Object.fromEntries(Object.entries(next).filter(([k, x]) => x !== v[k as keyof BrandingSettings]));
   const dirty = Object.keys(patch).length > 0 || bad.logo || bad.icon;
   useLeaveGuard(dirty);
@@ -147,6 +149,26 @@ export function BrandingPanel({ setting }: { setting: BrandingSetting }) {
           </div>
           <Hint text={env("accent")} />
         </div>
+        {brands.length > 0 && (
+          <div className="grid max-w-md gap-2">
+            <Label htmlFor={`${id}-accent-from`}>Follow a brand</Label>
+            <Select value={accentFrom ?? "none"} onValueChange={(x) => setAccentFrom(x === "none" ? null : x)}>
+              <SelectTrigger id={`${id}-accent-from`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No: the accent above</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+                {accentFrom && !brands.some((b) => b.id === accentFrom) && <SelectItem value={accentFrom}>A brand of another project</SelectItem>}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">Each release sets the accent to the brand&apos;s primary color. Alone, it keeps the product&apos;s name and marks.</p>
+          </div>
+        )}
       </Group>
       <Group title="Email" info="Invitations, share links, portal access and password resets arrive with the logo and accent above. The sender's name and address are in Email sending.">
         <div className="grid max-w-md gap-2">
