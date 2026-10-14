@@ -299,10 +299,11 @@ body:has([data-floating="selection"]) [data-sonner-toaster][data-y-position="bot
         translate: 0 1.5rem;
       }
     }
+    /* Done once its first 10rem are in: a share of its height would leave a tall section half faded while it is read. */
     [data-motion="subtle"] section[data-template] {
       animation: brand-reveal linear both;
       animation-timeline: view();
-      animation-range: entry 0% entry 60%;
+      animation-range: entry 0 entry 10rem;
     }
   }
 }
