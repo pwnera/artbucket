@@ -29,7 +29,9 @@ const plain = (v: string) => v.length <= 300 && !/[\u0000-\u001f\u007f]/.test(v)
 const PLACES: [RegExp, Reads][] = [
   // The library and Review: the same view, with its filters and an asset open.
   [/^\/(?:review)?$/, library],
-  [/^\/(?:collections|activity|connections|insights(?:\/(?:activity|checks))?)$/, nothing],
+  [/^\/(?:collections|activity|connections|fixes|automations|insights(?:\/(?:activity|checks))?)$/, nothing],
+  // A brand's templates, by its slug.
+  [/^\/templates$/, (k, v) => k === "brand" && IS_SLUG.test(v)],
   // ?new=brand opens New brand, empty.
   [/^\/brands$/, (k, v) => k === "new" && v === "brand"],
   // A guidelines page by its slug, with the ways to edit it or its comments open; first, as guidelines is a tab too.

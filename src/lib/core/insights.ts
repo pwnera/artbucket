@@ -36,7 +36,7 @@ const answered = or(
 );
 
 /** How a list names an asset: enough to show and link it. */
-async function describe(ids: string[]) {
+export async function describe(ids: string[]) {
   const rows = ids.length
     ? await db
         .select({ id: assets.id, filename: assets.filename, title: sql<string | null>`${assets.metadata} ->> 'title'`, mime: assets.mime, version: assets.version, supersededBy: assets.supersededBy })
@@ -218,6 +218,85 @@ export async function notifyStale(caller: Caller, input: { referrer?: string; cl
   return { emailed: sent, notified: claimed.map((c) => ({ asset: c.assetId, at: c.at.toISOString(), by: c.by })) };
 }
 
+/**
+ * Who still loads a version that was already replaced when they got it, the
+ * release that hasn't reached them, over INSIGHT_DAYS: by place, most first,
+ * each with its replacement, how many people answer for the place
+ * (ownersOf) and when it was told (notifyStale). Insights' Old versions and
+ * Fixes read it.
+ */
+export async function staleIn(projectId: string) {
+  const stale = await db
+    .select({
+      asset: eventCounts.assetId,
+      referrer: eventCounts.referrer,
+      client: eventCounts.client,
+      fetches: n(),
+      first: sql<string>`min(${eventCounts.day})::text`,
+      last: sql<string>`max(${eventCounts.day})::text`,
+    })
+    .from(eventCounts)
+    .where(
+      and(
+        eq(eventCounts.projectId, projectId),
+        gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`),
+        eq(eventCounts.kind, "fetch"),
+        eq(eventCounts.verdict, "superseded"),
+        isNotNull(eventCounts.assetId),
+      ),
+    )
+    .groupBy(eventCounts.assetId, eventCounts.referrer, eventCounts.client)
+    .orderBy(desc(n()))
+    .limit(50);
+  const described = await describe(stale.map((s) => s.asset!));
+  const [replacements, told, owners] = await Promise.all([
+    describe(stale.flatMap((s) => described.get(s.asset!)?.supersededBy ?? [])),
+    stale.length
+      ? db
+          .select({ asset: insightNotices.assetId, place: insightNotices.place, at: insightNotices.at, by: insightNotices.by })
+          .from(insightNotices)
+          .where(inArray(insightNotices.assetId, [...new Set(stale.map((s) => s.asset!))]))
+      : [],
+    // Each place's people, counted: who a Notify reaches without being told (ownersOf).
+    Promise.all([...new Map(stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])))].map(async ([p, s]) => [p, (await ownersOf(projectId, s)).length] as const)).then(
+      (xs) => new Map<string | null, number>(xs),
+    ),
+  ]);
+  return stale.flatMap((s) => {
+    const a = described.get(s.asset!);
+    const place = placeOf(s);
+    const notice = told.find((t) => t.asset === s.asset && t.place === place);
+    return a
+      ? [
+          {
+            asset: a,
+            replacement: (a.supersededBy && replacements.get(a.supersededBy)) || null,
+            referrer: s.referrer,
+            client: s.client,
+            fetches: s.fetches,
+            first: s.first,
+            last: s.last,
+            owners: owners.get(place) ?? 0,
+            notified: notice ? { at: notice.at.toISOString(), by: notice.by } : null,
+          },
+        ]
+      : [];
+  });
+}
+
+/** Searches that found nothing over INSIGHT_DAYS, most asked first, each with the upload link that asks for it (requestsFor). Insights' Not found and Fixes read it. */
+export async function gapsIn(projectId: string) {
+  const gaps = await db
+    .select({ q: eventCounts.subject, searches: n(), first: sql<string>`min(${eventCounts.day})::text`, last: sql<string>`max(${eventCounts.day})::text` })
+    .from(eventCounts)
+    .where(and(eq(eventCounts.projectId, projectId), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`), eq(eventCounts.kind, "search"), eq(eventCounts.verdict, "empty")))
+    .groupBy(eventCounts.subject)
+    .orderBy(desc(n()))
+    .limit(20);
+  const requested = await requestsFor(projectId, gaps.flatMap((g) => g.q ?? []));
+  return gaps.map((g) => ({ q: g.q ?? "", searches: g.searches, first: g.first, last: g.last, requested: requested.get(g.q ?? "") ?? null }));
+}
+
 /** GET /api/v1/insights: the project's Insights. Write on the project. */
 export async function insightsOf(caller: Caller) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Insights take ${needs("insights.read")}`);
@@ -236,26 +315,13 @@ export async function insightsOf(caller: Caller) {
       .from(eventCounts)
       .where(and(ws, gte(eventCounts.day, sql`${since(WEEKS * 7)}`), fetched))
       .groupBy(week),
-    // Who still loads a version that was already replaced when they got it: the release that hasn't reached them.
-    db
-      .select({ asset: eventCounts.assetId, referrer: eventCounts.referrer, client: eventCounts.client, fetches: n(), last: sql<string>`max(${eventCounts.day})::text` })
-      .from(eventCounts)
-      .where(and(recent, fetched, eq(eventCounts.verdict, "superseded"), isNotNull(eventCounts.assetId)))
-      .groupBy(eventCounts.assetId, eventCounts.referrer, eventCounts.client)
-      .orderBy(desc(n()))
-      .limit(50),
+    staleIn(caller.project.id),
     db
       .select({ asset: eventCounts.assetId, surface: eventCounts.surface, fetches: n() })
       .from(eventCounts)
       .where(and(recent, fetched, isNotNull(eventCounts.assetId)))
       .groupBy(eventCounts.assetId, eventCounts.surface),
-    db
-      .select({ q: eventCounts.subject, searches: n(), last: sql<string>`max(${eventCounts.day})::text` })
-      .from(eventCounts)
-      .where(and(recent, eq(eventCounts.kind, "search"), eq(eventCounts.verdict, "empty")))
-      .groupBy(eventCounts.subject)
-      .orderBy(desc(n()))
-      .limit(20),
+    gapsIn(caller.project.id),
     // Delivery traffic and portal page views, the counters these charts had before Insights (lib/core/usage.ts).
     db
       .select({ day: traffic.day, requests: traffic.requests, bytes: traffic.bytes })
@@ -286,52 +352,19 @@ export async function insightsOf(caller: Caller) {
     .map(([id, surfaces]) => ({ id, surfaces, total: Object.values(surfaces).reduce((a, b) => a + b, 0) }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
-
-  const described = await describe([...ranked.map((r) => r.id), ...stale.map((s) => s.asset!)]);
-  const [replacements, told, owners, requested] = await Promise.all([
-    describe(stale.flatMap((s) => described.get(s.asset!)?.supersededBy ?? [])),
-    stale.length
-      ? db
-          .select({ asset: insightNotices.assetId, place: insightNotices.place, at: insightNotices.at, by: insightNotices.by })
-          .from(insightNotices)
-          .where(inArray(insightNotices.assetId, [...new Set(stale.map((s) => s.asset!))]))
-      : [],
-    // Each place's people, counted: who a Notify reaches without being told (ownersOf).
-    Promise.all([...new Map(stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])))].map(async ([p, s]) => [p, (await ownersOf(caller.project.id, s)).length] as const)).then(
-      (xs) => new Map<string | null, number>(xs),
-    ),
-    requestsFor(caller.project.id, gaps.flatMap((g) => g.q ?? [])),
-  ]);
+  const described = await describe(ranked.map((r) => r.id));
 
   return {
     days: INSIGHT_DAYS,
     weeks: WEEKS,
     answers: fillWeeks(answers, { person: 0, agent: 0, anonymous: 0 }),
     adoption: fillWeeks(adoption, { current: 0, superseded: 0 }),
-    stale: stale.flatMap((s) => {
-      const a = described.get(s.asset!);
-      const place = placeOf(s);
-      const notice = told.find((t) => t.asset === s.asset && t.place === place);
-      return a
-        ? [
-            {
-              asset: a,
-              replacement: (a.supersededBy && replacements.get(a.supersededBy)) || null,
-              referrer: s.referrer,
-              client: s.client,
-              fetches: s.fetches,
-              last: s.last,
-              owners: owners.get(place) ?? 0,
-              notified: notice ? { at: notice.at.toISOString(), by: notice.by } : null,
-            },
-          ]
-        : [];
-    }),
+    stale,
     top: ranked.flatMap((r) => {
       const a = described.get(r.id);
       return a ? [{ asset: a, total: r.total, surfaces: r.surfaces }] : [];
     }),
-    gaps: gaps.map((g) => ({ q: g.q ?? "", searches: g.searches, last: g.last, requested: requested.get(g.q ?? "") ?? null })),
+    gaps,
     checks,
     delivery,
     pageViews: views,

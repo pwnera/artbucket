@@ -14,7 +14,7 @@ test("the assistant may take the person to the library's views, an asset, a bran
   assert.equal(assistantPlace("/brands/northwind-coffee", O), "/brands/northwind-coffee");
   assert.equal(assistantPlace("/brands/northwind-coffee/rules", O), "/brands/northwind-coffee/rules");
   assert.equal(assistantPlace("/brands/northwind-coffee/guidelines?page=colors", O), "/brands/northwind-coffee/guidelines?page=colors");
-  for (const p of ["/collections", "/sites", "/connections", "/insights", "/insights/activity", "/insights/checks", "/activity", "/settings", "/settings/organization/usage", "/settings/account/profile"]) {
+  for (const p of ["/collections", "/sites", "/connections", "/insights", "/fixes", "/automations", "/templates", "/insights/activity", "/insights/checks", "/activity", "/settings", "/settings/organization/usage", "/settings/account/profile"]) {
     assert.equal(assistantPlace(p, O), p);
   }
 });

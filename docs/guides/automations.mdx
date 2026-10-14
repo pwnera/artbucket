@@ -3,7 +3,7 @@ title: Automations
 description: An email or a signed webhook when a brand is released or an asset's license is about to end.
 ---
 
-An automation tells someone when something happens in a project. Its admins make them in **Settings, Project, Automations**, or at `/api/v1/automations`.
+An automation tells someone when something happens in a project. Its admins make, change and test them on the **Automations** page, in the sidebar (Settings, Project, Automations leads there too), or at `/api/v1/automations`.
 
 ## When
 
@@ -54,8 +54,24 @@ function verify(body, header, secret) {
 }
 ```
 
+## Send a test
+
+**Send a test**, on each automation, sends it now with a sample event, on or off, so a webhook or an inbox can be checked without releasing anything:
+
+- `brand.released`: its brand's latest release (the default brand's, for an automation on any brand); release 1 for a brand never released.
+- `asset.expiring`: the approved asset whose license ends soonest, else the newest approved asset, as if it ended in `days` days.
+
+What it sends is the real thing's, with `"test": true`. A test is tried once, never again, and lands in the run log marked **Test**. The audit log keeps who sent it.
+
+```bash
+curl -X POST https://artbucket.example.com/api/v1/automations/{id}/test \
+  -H "Authorization: Bearer $ARTBUCKET_KEY"
+```
+
+It answers the run, `delivered` or `failed` with the error, and a 422 when there is nothing to make a sample from (no brand, or no approved asset).
+
 ## Runs and retries
 
 Each thing that fires an automation is a run, delivered at once. A webhook answering 2xx, or every email sent, delivers it. Anything else is tried again 5 minutes later, then an hour after that: three attempts in all, then the run is failed. An automation turned off fires nothing, and its runs waiting for a retry wait with it.
 
-The run log, in Settings under each automation and at `GET /api/v1/automations/{id}/runs`, keeps its latest 50 runs: what set each off, and every attempt with the webhook's status or the error. Making, changing and deleting an automation is in the audit log.
+The run log, under each automation on the Automations page and at `GET /api/v1/automations/{id}/runs`, keeps its latest 50 runs: what set each off, and every attempt with the webhook's status or the error. Making, changing and deleting an automation is in the audit log.

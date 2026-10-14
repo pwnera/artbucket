@@ -1,0 +1,220 @@
+"use client";
+
+import { useEffect, useId, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { IconDownload, IconTemplate } from "@/components/icons";
+import { Snippet } from "@/components/agent-access";
+import type { BrandHub } from "@/components/brands";
+import { useCan } from "@/components/can";
+import { AppHeader, PageHeader } from "@/components/page";
+import { Group } from "@/components/settings/panels";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { Release } from "@/lib/brand-head";
+import { brandPath } from "@/lib/site";
+
+type Brand = { slug: string; name: string };
+
+/** The live release as Office templates (GET /api/v1/brand/office), and what each holds, as the guide says. */
+const OFFICE = [
+  {
+    format: "potx",
+    label: "PowerPoint template",
+    says: "A slide master in the brand's colors and fonts, with the logo, and three layouts: title, title and content, a section on the accent. Google Slides opens it too.",
+  },
+  {
+    format: "dotx",
+    label: "Word template",
+    says: "Title and headings in the heading font, body text in the text font, the logo in the header, on A4.",
+  },
+];
+
+/**
+ * Templates: what a brand's latest release makes for people to use
+ * elsewhere, one brand at a time (`?brand=`, picked here): its share card,
+ * tried live and copied as an og:image tag or a URL; its PowerPoint and Word
+ * templates; and its press kit, once it is on BrandHub (`hub`: null on a
+ * server without one). Nothing until the
+ * brand is released: every one of them is drawn from a release.
+ */
+export function Templates({
+  brands,
+  brand,
+  release,
+  hub,
+  origin,
+}: {
+  brands: Brand[];
+  brand: Brand | null;
+  release: Release | null;
+  hub: BrandHub | null;
+  origin: string;
+}) {
+  const router = useRouter();
+  const can = useCan();
+  const published = hub?.published ? hub : null;
+  return (
+    <>
+      <AppHeader trail={[{ label: "Templates" }]} />
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+        <PageHeader icon={<IconTemplate />} title="Templates" description="Files made from your brand's latest release, ready to use: a share card for links, slides, documents and the press kit.">
+          {brand && brands.length > 1 && (
+            <Select value={brand.slug} onValueChange={(slug) => router.push(`/templates?${new URLSearchParams({ brand: slug })}`)}>
+              <SelectTrigger size="sm" className="w-44" aria-label="Brand">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {brands.map((b) => (
+                  <SelectItem key={b.slug} value={b.slug}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </PageHeader>
+        {!brand ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconTemplate />
+              </EmptyMedia>
+              <EmptyTitle>No brand yet</EmptyTitle>
+              <EmptyDescription>Make a brand and release it: its share card, slides and documents show up here.</EmptyDescription>
+            </EmptyHeader>
+            {can("brand.create") && (
+              <EmptyContent>
+                <Button asChild>
+                  <Link href="/brands?new=brand">New brand</Link>
+                </Button>
+              </EmptyContent>
+            )}
+          </Empty>
+        ) : !release ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconTemplate />
+              </EmptyMedia>
+              <EmptyTitle>Release {brand.name} first</EmptyTitle>
+              <EmptyDescription>Templates are made from a release, so they always match what people see. Release the brand and they&apos;re ready here.</EmptyDescription>
+            </EmptyHeader>
+            {can("brand.publish") && (
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={brandPath(brand.slug, "/releases/new")}>Release {brand.name}</Link>
+                </Button>
+              </EmptyContent>
+            )}
+          </Empty>
+        ) : (
+          <>
+            <ShareCard key={brand.slug} brand={brand} origin={origin} hub={published?.visibility === "public" ? published : null} hubbed={!!hub} />
+            <Group title="Slides and documents" description={`Release ${release.number}, ready to open in PowerPoint or Word. Each new release makes new ones.`}>
+              <ul className="divide-y rounded-lg border">
+                {OFFICE.map((t) => (
+                  <li key={t.format} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
+                    <div className="grid min-w-0 flex-1 basis-56 gap-0.5">
+                      <span className="text-sm font-medium">{t.label}</span>
+                      <span className="text-muted-foreground text-xs text-pretty">{t.says}</span>
+                    </div>
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={`/api/v1/brand/office?${new URLSearchParams({ brand: brand.slug, format: t.format })}`} download>
+                        <IconDownload aria-hidden /> Download .{t.format}
+                      </a>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-muted-foreground text-xs">Office can&apos;t load web fonts from a template: install the brand&apos;s fonts for the real thing.</p>
+            </Group>
+            {/* A server without BrandHub has no press kit: it is a listing's. */}
+            {hub && (
+              <Group
+                title="Press kit"
+                description={
+                  published
+                    ? "Every logo as SVG and PNG, the palette, the tokens and the fonts you may hand out, with a README of do's and don'ts. For journalists and partners."
+                    : "Every logo, the palette, the tokens and the fonts you may hand out, in one zip. It comes with the brand's BrandHub page."
+                }
+              >
+                {published ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={`${published.url}/press-kit.zip`} download>
+                        <IconDownload aria-hidden /> Download the press kit
+                      </a>
+                    </Button>
+                    {published.visibility === "public" && <Snippet text={`${published.url}/press-kit.zip`} what="the press kit's address" />}
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" asChild className="w-fit">
+                    <Link href={brandPath(brand.slug, "/sharing")}>Put it on BrandHub</Link>
+                  </Button>
+                )}
+              </Group>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * The brand's share card (lib/core/cards.ts): its latest release drawn as a
+ * 1200x630 Open Graph image, from a URL any page's og:image can name. A
+ * public brand's is on BrandHub, keyless; a private one's is the API's,
+ * for whoever may read the brand. Title, eyebrow and theme are tried here;
+ * the rest (subtitle, image) is the URL's, as the guide says.
+ */
+function ShareCard({ brand, origin, hub, hubbed }: { brand: Brand; origin: string; hub: Pick<BrandHub, "url"> | null; hubbed: boolean }) {
+  const id = useId();
+  const [typed, setTyped] = useState({ title: brand.name, eyebrow: "" });
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  // Drawn once typing stops, not per key.
+  const [shown, setShown] = useState(typed);
+  useEffect(() => {
+    const t = setTimeout(() => setShown({ title: typed.title.trim() || brand.name, eyebrow: typed.eyebrow.trim() }), 400);
+    return () => clearTimeout(t);
+  }, [typed, brand.name]);
+  const q = new URLSearchParams({ title: shown.title, ...(shown.eyebrow && { eyebrow: shown.eyebrow }), ...(theme === "dark" && { theme }) });
+  const url = hub ? `${hub.url}/og.png?${q}` : `${origin}/api/v1/brand/cards/og?${new URLSearchParams({ brand: brand.slug })}&${q}`;
+  return (
+    <Group
+      title="Share card"
+      description={
+        hub
+          ? "The picture a link shows when it's shared, in the brand's colors, fonts and logo. Put its tag on any page: each release restyles every card."
+          : `The picture a link shows when it's shared, in the brand's colors, fonts and logo. Its URL needs a key, so save the picture with your page${hubbed ? ", or make the brand public on BrandHub" : ""}.`
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${id}-title`}>Title</Label>
+          <Input id={`${id}-title`} value={typed.title} onChange={(e) => setTyped({ ...typed, title: e.target.value })} maxLength={140} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${id}-eyebrow`}>Above it</Label>
+          <Input id={`${id}-eyebrow`} value={typed.eyebrow} onChange={(e) => setTyped({ ...typed, eyebrow: e.target.value })} maxLength={60} placeholder="Blog, News, Careers..." />
+        </div>
+        <div className="grid gap-1.5">
+          <Label id={`${id}-theme`}>Theme</Label>
+          <ToggleGroup type="single" variant="outline" size="sm" value={theme} onValueChange={(v) => v && setTheme(v as "light" | "dark")} aria-labelledby={`${id}-theme`}>
+            <ToggleGroupItem value="light">Light</ToggleGroupItem>
+            <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={`${brand.name}'s share card, titled ${shown.title}`} width={1200} height={630} className="bg-muted aspect-[1200/630] h-auto w-full max-w-2xl rounded-md border" />
+      {hub && <Snippet text={`<meta property="og:image" content="${url.replace(/&/g, "&amp;")}" />`} what="the og:image tag" />}
+      <Snippet text={url} what="the card's URL" />
+    </Group>
+  );
+}

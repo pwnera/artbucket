@@ -40215,6 +40215,10 @@
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
                               },
+                              "first": {
+                                "type": "string",
+                                "description": "The first day it was fetched, within `days`"
+                              },
                               "last": {
                                 "type": "string",
                                 "description": "The last day it was fetched"
@@ -40258,6 +40262,7 @@
                               "referrer",
                               "client",
                               "fetches",
+                              "first",
                               "last",
                               "owners",
                               "notified"
@@ -40371,6 +40376,10 @@
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
                               },
+                              "first": {
+                                "type": "string",
+                                "description": "The first day it found nothing, within `days`"
+                              },
                               "last": {
                                 "type": "string"
                               },
@@ -40404,6 +40413,7 @@
                             "required": [
                               "q",
                               "searches",
+                              "first",
                               "last",
                               "requested"
                             ],
@@ -40732,6 +40742,476 @@
                         "checks",
                         "delivery",
                         "pageViews"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fixes": {
+      "get": {
+        "summary": "Fixes: what needs doing",
+        "description": "One list of what to act on in the project, from what Insights and the library know: places still loading a replaced version (tell them with POST /api/v1/insights/notices), searches that found nothing (ask for the file with an upload link, POST /api/v1/shares) and approved assets whose license ends within 30 days, with what replaced them. Each says whether it was done; `open` counts the rest.\n\nScope: `write`.",
+        "x-scope": "write",
+        "responses": {
+          "200": {
+            "description": "Fixes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far back stale and gaps go"
+                        },
+                        "licenseDays": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "How far ahead licenses are listed"
+                        },
+                        "open": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them"
+                        },
+                        "stale": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Its version in its stack; null for an asset with one"
+                                  },
+                                  "preview": {
+                                    "type": "boolean",
+                                    "description": "Whether /a/{id} can make a picture of it"
+                                  },
+                                  "supersededBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "version",
+                                  "preview",
+                                  "supersededBy"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "replacement": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Its version in its stack; null for an asset with one"
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Whether /a/{id} can make a picture of it"
+                                      },
+                                      "supersededBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "version",
+                                      "preview",
+                                      "supersededBy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "What replaced it"
+                              },
+                              "referrer": {
+                                "description": "The host that loaded it; null when the request didn't say",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "client": {
+                                "description": "The agent's key name that fetched it; null for a person or nobody in particular",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "fetches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "first": {
+                                "type": "string",
+                                "description": "The first day it was fetched, within `days`"
+                              },
+                              "last": {
+                                "type": "string",
+                                "description": "The last day it was fetched"
+                              },
+                              "owners": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "People this server knows answer for the place (a site of this project's admins, an agent's person): who a notice reaches unasked"
+                              },
+                              "notified": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      "by": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "at",
+                                      "by"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "When the place was told about this version (POST /api/v1/insights/notices)"
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "replacement",
+                              "referrer",
+                              "client",
+                              "fetches",
+                              "first",
+                              "last",
+                              "owners",
+                              "notified"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Places still loading a replaced version, as Insights has them: done once `notified`"
+                        },
+                        "gaps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "q": {
+                                "type": "string"
+                              },
+                              "searches": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "first": {
+                                "type": "string",
+                                "description": "The first day it found nothing, within `days`"
+                              },
+                              "last": {
+                                "type": "string"
+                              },
+                              "requested": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                      },
+                                      "by": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "at",
+                                      "by"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "An open upload link named after the words asks for it"
+                              }
+                            },
+                            "required": [
+                              "q",
+                              "searches",
+                              "first",
+                              "last",
+                              "requested"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Searches that found nothing, as Insights has them: done once `requested`"
+                        },
+                        "licenses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Its version in its stack; null for an asset with one"
+                                  },
+                                  "preview": {
+                                    "type": "boolean",
+                                    "description": "Whether /a/{id} can make a picture of it"
+                                  },
+                                  "supersededBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "version",
+                                  "preview",
+                                  "supersededBy"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "expires": {
+                                "type": "string",
+                                "description": "Its last day of use, YYYY-MM-DD"
+                              },
+                              "days": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Days left until it, 0 on the day"
+                              },
+                              "replacement": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Its version in its stack; null for an asset with one"
+                                      },
+                                      "preview": {
+                                        "type": "boolean",
+                                        "description": "Whether /a/{id} can make a picture of it"
+                                      },
+                                      "supersededBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "version",
+                                      "preview",
+                                      "supersededBy"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "What replaced it: done, people are sent there"
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "expires",
+                              "days",
+                              "replacement"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Approved assets whose license ends within `licenseDays`, soonest first"
+                        }
+                      },
+                      "required": [
+                        "days",
+                        "licenseDays",
+                        "open",
+                        "stale",
+                        "gaps",
+                        "licenses"
                       ],
                       "additionalProperties": false
                     }
@@ -43869,6 +44349,10 @@
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "test": {
+                            "type": "boolean",
+                            "description": "Sent by Send a test (POST /api/v1/automations/{id}/test), with a sample event: its payload says `test: true` too"
                           }
                         },
                         "required": [
@@ -43877,10 +44361,178 @@
                           "payload",
                           "attempts",
                           "nextAt",
-                          "createdAt"
+                          "createdAt",
+                          "test"
                         ],
                         "additionalProperties": false
                       }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{id}/test": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Automation id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Send a test",
+        "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `admin`.",
+        "x-scope": "admin",
+        "responses": {
+          "201": {
+            "description": "The run, delivered or failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "delivered",
+                            "failed"
+                          ],
+                          "description": "pending: delivering, or failed and tried again at `nextAt`; failed: after 3 attempts"
+                        },
+                        "payload": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {},
+                          "description": "What the webhook posts, and what the email says"
+                        },
+                        "attempts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "code": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The webhook's HTTP status; null for email, or when it didn't answer"
+                              },
+                              "error": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "at",
+                              "ok",
+                              "code",
+                              "error"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "nextAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "test": {
+                          "type": "boolean",
+                          "description": "Sent by Send a test (POST /api/v1/automations/{id}/test), with a sample event: its payload says `test: true` too"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "status",
+                        "payload",
+                        "attempts",
+                        "nextAt",
+                        "createdAt",
+                        "test"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [

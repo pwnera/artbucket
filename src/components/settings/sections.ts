@@ -99,6 +99,7 @@ export const SECTIONS: Section[] = [
     icon: IconBolt,
     description: "An email or a signed webhook when a brand is released or a license is about to end.",
     action: "automation.manage",
+    href: "/automations",
   },
   {
     context: "organization",

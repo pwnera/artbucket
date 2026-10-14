@@ -35,12 +35,13 @@ export type InsightsData = {
     referrer: string | null;
     client: string | null;
     fetches: number;
+    first: string;
     last: string;
     owners: number;
     notified: { at: string; by: string } | null;
   }[];
   top: { asset: Asset; total: number; surfaces: Partial<Record<string, number>> }[];
-  gaps: { q: string; searches: number; last: string; requested: { at: string; by: string } | null }[];
+  gaps: { q: string; searches: number; first: string; last: string; requested: { at: string; by: string } | null }[];
   checks: {
     allowed: number;
     refused: number;
@@ -425,14 +426,14 @@ function Overview({ data, collections }: { data: InsightsData; collections: { id
 
 /** Where a replaced version is loaded, as a notice names it: its host, else the agent's key name. */
 const placeKey = (s: InsightsData["stale"][number]) => s.referrer ?? s.client ?? "";
-type Place = { referrer: string | null; client: string | null; owners: number; assets: Asset[] };
+export type Place = { referrer: string | null; client: string | null; owners: number; assets: Asset[] };
 
 /**
  * Notify (PRD item 8): email whoever answers for a place still loading
  * replaced versions where the current ones are. The server reaches the people
  * it knows (a site's admins, an agent's person); anyone else is named here.
  */
-function NotifyDialog({ place, onClose, onSent }: { place: Place | null; onClose: () => void; onSent: () => void }) {
+export function NotifyDialog({ place, onClose, onSent }: { place: Place | null; onClose: () => void; onSent: () => void }) {
   const id = useId();
   const [emails, setEmails] = useState("");
   const [busy, setBusy] = useState(false);

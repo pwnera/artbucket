@@ -80,6 +80,7 @@ export type AuditAction =
   | "setting.reset"
   | "feature.switched"
   | "automation.created"
+  | "automation.tested"
   | "automation.updated"
   | "automation.deleted"
   | "email.failed";

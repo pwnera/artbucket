@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import {
   IconActivity,
+  IconBolt,
   IconBook,
   IconBook2,
   IconBookmark,
@@ -24,6 +25,8 @@ import {
   IconSettings,
   IconShare,
   IconSun,
+  IconTemplate,
+  IconTool,
   IconUpload,
   IconUsers,
   IconPlus,
@@ -478,6 +481,19 @@ export function CommandPalette({
           {can("portal.manage") && (
             <CommandItem value="Sites portals brand portal press kit partner hub retailer" onSelect={() => go("/sites")}>
               <IconWorld /> Sites
+            </CommandItem>
+          )}
+          {can("insights.read") && (
+            <CommandItem value="Fixes to do old versions notify searches request licenses ending" onSelect={() => go("/fixes")}>
+              <IconTool /> Fixes
+            </CommandItem>
+          )}
+          <CommandItem value="Templates share card og image powerpoint word press kit" onSelect={() => go("/templates")}>
+            <IconTemplate /> Templates
+          </CommandItem>
+          {can("automation.manage") && (
+            <CommandItem value="Automations email webhook release license notify" onSelect={() => go("/automations")}>
+              <IconBolt /> Automations
             </CommandItem>
           )}
           {can("share.manage") && (

@@ -116,6 +116,7 @@ import {
   InstagramLogo,
   Key,
   Keyboard,
+  Layout,
   Leaf,
   Lightning,
   LinkSimple,
@@ -212,6 +213,7 @@ import {
   Warning,
   WarningCircle,
   WarningOctagon,
+  Wrench,
   X,
   XCircle,
   XLogo,
@@ -438,9 +440,11 @@ export const IconTable = ph(Table as Phosphor, "IconTable");
 export const IconTableOff = ph(Table as Phosphor, "IconTableOff");
 export const IconTag = ph(Tag as Phosphor, "IconTag");
 export const IconTagOff = ph(TagSimple as Phosphor, "IconTagOff");
+export const IconTemplate = ph(Layout as Phosphor, "IconTemplate");
 export const IconTerminal2 = ph(TerminalWindow as Phosphor, "IconTerminal2");
 export const IconTexture = ph(Checkerboard as Phosphor, "IconTexture");
 export const IconToggleLeft = ph(ToggleLeft as Phosphor, "IconToggleLeft");
+export const IconTool = ph(Wrench as Phosphor, "IconTool");
 export const IconTrash = ph(Trash as Phosphor, "IconTrash");
 export const IconTrophy = ph(Trophy as Phosphor, "IconTrophy");
 export const IconTypography = ph(TextT as Phosphor, "IconTypography");
