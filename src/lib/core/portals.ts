@@ -47,9 +47,11 @@ import { assetIdsIn, signUrlsIn, withSignature } from "@/lib/signed";
 import { longSig, pagePath, pageSig, byPortal } from "@/lib/core/signing";
 import { signerOpen } from "@/lib/core/signers";
 import { collectionItems, presentAsset } from "@/lib/core/section-assets";
+import { officeTemplate } from "@/lib/core/office";
 import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
 import { assetRefs, AUDIENCES, isLive, LANG, liveProps, type Audience, type RequestKind } from "@/lib/pages";
+import type { OfficeFormat } from "@/lib/office";
 import { hasPreview } from "@/lib/preview";
 import { isDownloadable, rightsReasons, today, type Use } from "@/lib/rights";
 import { resolve, ruleContext, specAssets } from "@/lib/rules";
@@ -777,6 +779,19 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
   return readBrand(p.projectId, brand, p.expiresAt, { ...o, by: byPortal(p.id) });
+}
+
+/**
+ * One of a portal's brands as an Office template (lib/core/office.ts), from
+ * its latest publish, behind the same door as the portal.
+ */
+export async function portalOffice(slug: string, pass: Pass, brandSlug: string, format: OfficeFormat) {
+  const { p } = await open(slug, pass);
+  const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
+  if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
+  const src = await publishedSource(p.projectId, brand.slug);
+  if (!src) throw new AssetError("not_found", "That brand isn't published yet");
+  return officeTemplate(src, format);
 }
 
 /**

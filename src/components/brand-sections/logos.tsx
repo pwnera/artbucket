@@ -9,13 +9,14 @@ import { AssetTile, LogoTile, pictured } from "@/components/brand-sections/parts
 import { Body, ItemCaption, itemRoot, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { Markdown, MARKER } from "@/components/brand-values";
-import { saveZip } from "@/components/save-zip";
+import { saveFile, saveZip } from "@/components/save-zip";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
 import { fileSlug } from "@/lib/branding";
 import { formatBytes } from "@/lib/filename";
+import type { OfficeFormat } from "@/lib/office";
 import { pool } from "@/lib/pool";
 import { kitFolder } from "@/lib/press-kit";
 import { contextLabel, resolve, ruleName } from "@/lib/rules";
@@ -29,7 +30,8 @@ import type { Entry } from "@/lib/zip";
  * URL, captioned by its name, what it is and when to use it. Then every mark
  * on every color the section binds (its keys' and its items' color rules),
  * each item a pair never to use, crossed and numbered with a legend. And the
- * kit: every version's originals in one zip. With `ask`, "Which logo?": the
+ * kit: every version's originals in one zip, beside the release as PowerPoint
+ * and Word templates (lib/office.ts). With `ask`, "Which logo?": the
  * reader picks where the mark will run among the section's contexts, and the
  * marks show the version for it, else the default, as check_use resolves.
  */
@@ -93,7 +95,12 @@ export function LogosSection({ section: s, rules: bound }: SectionProps) {
   return (
     <div className="space-y-10">
       <Body />
-      {kit.length > 0 && <Kit files={kit} name={`${fileSlug(view.brand.name)}-logo-kit.zip`} />}
+      {s.props.kit !== false && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {kit.length > 0 && <Kit files={kit} name={`${fileSlug(view.brand.name)}-logo-kit.zip`} />}
+          <Templates />
+        </div>
+      )}
       {where !== undefined && <Where contexts={asks} value={where} onChange={setAsked} />}
       {shown.length > 0 && (
         // Its own container: the frame's is the whole section, wider than the column this sits in.
@@ -285,6 +292,42 @@ function OnColor({
           ))}
         </ol>
       )}
+    </div>
+  );
+}
+
+/**
+ * The release as Office templates, each fetched as the page's reader (a
+ * portal's visitor with the headers they got in with, a member with their
+ * session) and saved: the release the page shows, else the live one.
+ */
+// Named here, not from lib/office.ts: that would bring the writer to the browser.
+const TEMPLATES: Record<OfficeFormat, string> = { potx: "PowerPoint template", dotx: "Word template" };
+
+function Templates() {
+  const { view, portal } = useSite();
+  const [busy, setBusy] = useState<OfficeFormat | null>(null);
+  const brand = encodeURIComponent(view.brand.slug);
+
+  async function download(format: OfficeFormat) {
+    setBusy(format);
+    const url = portal
+      ? `/api/v1/portal/${encodeURIComponent(portal.slug)}/brands/${brand}/office?format=${format}`
+      : `/api/v1/brand/office?brand=${brand}&format=${format}&version=${view.version?.number ?? "live"}`;
+    const res = await fetch(url, { headers: portal?.headers?.() }).catch(() => null);
+    const blob = res?.ok ? await res.blob().catch(() => null) : null;
+    setBusy(null);
+    if (!blob) return void toast.error(`The ${TEMPLATES[format]} couldn't be downloaded`, { description: "Try again in a moment." });
+    saveFile(blob, `${fileSlug(view.brand.name)}.${format}`);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {(Object.keys(TEMPLATES) as OfficeFormat[]).map((f) => (
+        <Button key={f} variant="outline" size="sm" onClick={() => download(f)} disabled={busy !== null} aria-busy={busy === f}>
+          {busy === f ? <Spinner /> : <IconDownload />} {TEMPLATES[f]}
+        </Button>
+      ))}
     </div>
   );
 }

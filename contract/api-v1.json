@@ -3340,6 +3340,82 @@
       }
     }
   },
+  "/api/v1/brand/office": {
+    "get": {
+      "summary": "Download the brand as an Office template",
+      "description": "A release as a PowerPoint template (`potx`) or a Word template (`dotx`). Both carry one Office theme: ink and paper as dk1 and lt1, the dark and the panel as dk2 and lt2, the accent as accent1 and the palette's other colors after it, and the heading and text families, named rather than embedded, with the kind of face Office falls back to. The logo, when it may leave the team, sits on the slide master and the title layout and in the page header. The deck has title, title and content, and section layouts; Google Slides and LibreOffice open it too. One release is one file byte for byte: send its ETag back for a 304.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "format",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "potx",
+              "dotx"
+            ],
+            "default": "potx"
+          },
+          "description": "potx: a PowerPoint template; dotx: a Word template"
+        },
+        {
+          "name": "brand",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A brand's slug; the default brand without it"
+        },
+        {
+          "name": "version",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A release's number; live, the release readers see, without it"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The template (binary)"
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/fonts/google": {
     "get": {
       "summary": "Search Google Fonts",
@@ -52176,6 +52252,185 @@
               }
             }
           }
+        },
+        "401": {
+          "description": "Not in yet: how to get in",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "const": "password"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "access": {
+                            "type": "string",
+                            "enum": [
+                              "password",
+                              "members"
+                            ]
+                          },
+                          "theme": {
+                            "type": "object",
+                            "properties": {
+                              "logo": {
+                                "description": "A URL on this host: the portal's, else its first brand's mark, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "accent": {
+                                "description": "The portal's, else its first brand's color, else its organization's",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "background": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "icon": {
+                                "description": "The organization's, for the browser tab",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "product": {
+                                "type": "string",
+                                "description": "What the organization calls the product"
+                              }
+                            },
+                            "required": [
+                              "logo",
+                              "accent",
+                              "background",
+                              "icon",
+                              "product"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "access",
+                          "theme"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message",
+                      "detail"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/portal/{slug}/brands/{brand}/office": {
+    "parameters": [
+      {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "description": "The portal's address",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "brand",
+        "in": "path",
+        "required": true,
+        "description": "One of its brands, by slug",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A brand's Office template, in a portal",
+      "description": "One of the portal's brands as a PowerPoint (`potx`) or Word (`dotx`) template, from its latest publish, behind the same door as the portal (see GET /api/v1/portal/{slug}); a brand never published is a 404. What it carries: GET /api/v1/brand/office.\n\nNo key needed.",
+      "security": [],
+      "parameters": [
+        {
+          "name": "format",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "potx",
+              "dotx"
+            ],
+            "default": "potx"
+          },
+          "description": "potx: a PowerPoint template; dotx: a Word template"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The template (binary)"
         },
         "401": {
           "description": "Not in yet: how to get in",

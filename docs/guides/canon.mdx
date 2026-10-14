@@ -30,7 +30,7 @@ the latest: "@4 live · Unreleased changes", "@4 live · Up to date" or "Never
 released", where it is live, "@4 live on BrandHub, Press and Partners" or "Only the team", each place a
 link out in a popover (portals only for whoever manages them), and the
 release's note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
-BrandHub, the tokens, `DESIGN.md`, and a copy as a new brand), **Edit** (the
+BrandHub, the tokens, `DESIGN.md`, the [Office templates](#office-templates) once released, and a copy as a new brand), **Edit** (the
 three ways to change the pages, [below](#brand-pages)) and, while readers don't see the latest, **Release** beside it, the one
 filled button; the rest is in the brand's menu at the header's end (Theme, Insights, Settings,
 Connect Git, pinning it to the sidebar, opening it in the catalog). Every tab stays in the page,
@@ -186,6 +186,52 @@ with `@font-face`; `format=json` is W3C design tokens; `format=designmd` is a
 the tokens with the brand's guidance as prose, to keep at a repository's root.
 [Standards](/guides/brand-as-code/standards) has every format and how rules
 become each.
+
+## Office templates
+
+A release is also a PowerPoint template (`.potx`) and a Word template
+(`.dotx`), for the people who make decks and documents rather than code.
+Members get them under **Use this brand**; portal visitors beside the logo
+kit, on a logos section that offers it.
+
+```bash
+curl -OJ "https://assets.example.com/api/v1/brand/office?brand=acme&format=potx"
+curl -OJ "https://assets.example.com/api/v1/brand/office?brand=acme&format=dotx&version=4"
+```
+
+Without `version`, the release readers see; a brand edited and never released
+has no template. On a portal, `GET /api/v1/portal/{slug}/brands/{brand}/office?format=potx`,
+behind the portal's door.
+
+Both carry the brand as an Office theme, the one PowerPoint and Word list
+under Design and Page Layout:
+
+| Office slot | From the release |
+|---|---|
+| Text/Background dark 1, light 1 (`dk1`, `lt1`) | The ink and the paper, as the brand's pages wear them ([Theme](/guides/portals#look)) |
+| Dark 2, light 2 (`dk2`, `lt2`) | The dark color and the panel; on a dark paper, the panel and the quiet text |
+| Accent 1 | The accent |
+| Accents 2 to 6 | The palette's other colors, in its order, then tints and shades of the accent |
+| Hyperlink, followed hyperlink | The accent as text, the quiet text |
+| Headings, body fonts | The heading and text faces |
+
+The deck has a slide master with three layouts (title, title and content,
+section on the accent) and opens on a title slide with the brand's name. The
+document has Title and Heading 1 to 3 in the heading face, body text in the
+text face, on A4. The logo, the theme's logo rule's first file, sits on the
+master, large on the title layout and in the document's header, drawn as a
+PNG; a logo [shown only](/guides/assets#shown-not-handed-out) stays out.
+
+Office can't load a web font from a template, so the theme names each family
+and says what kind of face it is (sans, serif or mono, read from its
+fallback): where the family isn't installed, Office sets a face of that kind,
+and Word the fallback's first named family. Install the brand's fonts for the
+real thing; the typography section offers them.
+
+Google Slides opens a `.potx` uploaded to Drive (Open with, Google Slides),
+and LibreOffice Impress opens one too: there is no Slides integration to set up. One
+release is one file byte for byte, so a download sends an `ETag` and the same
+copy answers `304`.
 
 ## Brands and history
 

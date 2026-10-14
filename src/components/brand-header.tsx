@@ -343,12 +343,19 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
   );
 }
 
+/** The live release as Office templates (GET /api/v1/brand/office), for the people who make decks and documents. */
+const OFFICE = [
+  { format: "potx", label: "PowerPoint template", hint: "Its colors, fonts and logo; Google Slides opens it too" },
+  { format: "dotx", label: "Word template", hint: "Its colors, fonts and logo in the header" },
+];
+
 /**
  * The addresses agents and code read a brand from: the MCP server the
  * Connections page connects; on BrandHub, once public, its brand.json at the
  * release and its llms.txt; its tokens in every format (`onTokens` opens
  * them), and DESIGN.md for static agent setups, from BrandHub without a key,
- * else from the API with one. Use this brand and the Sharing tab both show it.
+ * else from the API with one; once released, its PowerPoint and Word
+ * templates. Use this brand and the Sharing tab both show it.
  * `hub`: the brand on BrandHub, once released there.
  */
 export function BrandAddresses({ brand, origin, hub, release, onTokens }: { brand: BrandInfo; origin: string; hub: Pick<NonNullable<Status["hub"]>, "visibility" | "url"> | null; release: Release | null; onTokens: () => void }) {
@@ -395,6 +402,20 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
             </a>
           </Button>
         </li>
+        {release &&
+          OFFICE.map((t) => (
+            <li key={t.format} className="flex items-center gap-3">
+              <span className="grid min-w-0 flex-1">
+                <span className="text-sm font-medium">{t.label}</span>
+                <span className="text-muted-foreground text-xs">{t.hint}</span>
+              </span>
+              <Button size="xs" variant="outline" asChild>
+                <a href={`/api/v1/brand/office?brand=${encodeURIComponent(brand.slug)}&format=${t.format}`} download>
+                  <IconDownload aria-hidden /> Get
+                </a>
+              </Button>
+            </li>
+          ))}
       </ul>
       <p className="text-muted-foreground text-xs">
         {open ? "Its BrandHub files are public: no key. " : "With a key: "}

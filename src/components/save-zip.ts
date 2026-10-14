@@ -7,7 +7,11 @@ import { type Entry, uniqueNames, zip } from "@/lib/zip";
  */
 export function saveZip(files: Entry[], name: string) {
   const names = uniqueNames(files.map((f) => f.name));
-  const blob = new Blob([zip(files.map((f, i) => ({ ...f, name: names[i] })))], { type: "application/zip" });
+  saveFile(new Blob([zip(files.map((f, i) => ({ ...f, name: names[i] })))], { type: "application/zip" }), name);
+}
+
+/** Save what the page fetched as `name`: a download the browser couldn't ask for itself, its headers being the page's. */
+export function saveFile(blob: Blob, name: string) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = name;

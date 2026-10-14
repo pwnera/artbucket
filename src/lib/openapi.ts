@@ -8,6 +8,7 @@ import { STATES } from "./lifecycle.ts";
 import { TOOL_INPUTS } from "./mcp-tools.ts";
 import { Consent, GRANTABLE } from "./oauth.ts";
 import type { Scope } from "./scopes.ts";
+import { OFFICE_FORMAT_IDS } from "./office.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 
 /**
@@ -299,6 +300,25 @@ export function openapi(serverUrl: string) {
             fonts: { schema: { type: "string", enum: ["none"] }, description: "none: leave out the @font-face rules, for a site that serves its own font files" },
           },
           ok: [200, "The tokens, as text: CSS, Sass, Less, JS, TypeScript or JSON"],
+        }),
+      },
+      "/api/v1/brand/office": {
+        get: op({
+          summary: "Download the brand as an Office template",
+          scope: "read",
+          description:
+            "A release as a PowerPoint template (`potx`) or a Word template (`dotx`). Both carry one Office theme: ink " +
+            "and paper as dk1 and lt1, the dark and the panel as dk2 and lt2, the accent as accent1 and the palette's " +
+            "other colors after it, and the heading and text families, named rather than embedded, with the kind of " +
+            "face Office falls back to. The logo, when it may leave the team, sits on the slide master and the title " +
+            "layout and in the page header. The deck has title, title and content, and section layouts; Google Slides " +
+            "and LibreOffice open it too. One release is one file byte for byte: send its ETag back for a 304.",
+          query: {
+            format: { schema: { type: "string", enum: OFFICE_FORMAT_IDS, default: "potx" }, description: "potx: a PowerPoint template; dotx: a Word template" },
+            brand: { schema: str, description: "A brand's slug; the default brand without it" },
+            version: { schema: str, description: "A release's number; live, the release readers see, without it" },
+          },
+          ok: [200, "The template (binary)"],
         }),
       },
       "/api/v1/fonts/google": {
@@ -1660,6 +1680,20 @@ export function openapi(serverUrl: string) {
             "come signed. `updatedAt` is when it was published.",
           query: { context: { schema: str, description: "Resolve for one context, e.g. dark-background" } },
           ok: [200, "The guidelines", S.PortalBrand],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/brands/{brand}/office": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug")],
+        get: op({
+          summary: "A brand's Office template, in a portal",
+          scope: "public",
+          description:
+            "One of the portal's brands as a PowerPoint (`potx`) or Word (`dotx`) template, from its latest publish, " +
+            "behind the same door as the portal (see GET /api/v1/portal/{slug}); a brand never published is a 404. " +
+            "What it carries: GET /api/v1/brand/office.",
+          query: { format: { schema: { type: "string", enum: OFFICE_FORMAT_IDS, default: "potx" }, description: "potx: a PowerPoint template; dotx: a Word template" } },
+          ok: [200, "The template (binary)"],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),
       },

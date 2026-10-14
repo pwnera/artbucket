@@ -13,6 +13,7 @@ import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
 import { SCOPES } from "./scopes.ts";
 import { SETTING_CONTEXTS, SETTING_KEYS, type SettingKey } from "./settings.ts";
+import { OFFICE_FORMAT_IDS } from "./office.ts";
 import { TOKEN_FORMAT_IDS } from "./tokens.ts";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "./search.ts";
 import { MAX_UPLOAD_BYTES } from "./filename.ts";
@@ -145,6 +146,12 @@ export const ReleaseRef = z
 
 /** GET /api/v1/brand/tokens: a release as well as the draft. */
 export const BrandTokenQuery = TokenQuery.extend({ version: ReleaseRef.optional() });
+
+/** GET /api/v1/brand/office: which template, from which release (`live` without one: a template is always a release's). */
+export const OfficeQuery = z.object({
+  format: z.enum(OFFICE_FORMAT_IDS).default("potx").describe("potx: a PowerPoint template; dotx: a Word template"),
+  version: ReleaseRef.default("live"),
+});
 
 export const GoogleFontQuery = z.object({
   q: z.string().max(80).optional().describe("Part of the family name, any case"),
