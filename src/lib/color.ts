@@ -53,3 +53,17 @@ export function groundFor(pixels: Rgb[], fallback: string, palette: string[], mi
   if (score(fallback) >= min) return fallback;
   return palette.find((g) => score(g) >= min && whole(g)) ?? ["#111111", "#fafaf7"].sort((a, b) => score(b) - score(a))[0];
 }
+
+/**
+ * An organization's accent as the app's primary color, once per theme and
+ * lifted until it shows on that theme's background: a black accent would
+ * erase buttons and focus rings in dark. As text (--primary-ink) it is lifted
+ * further, to 4.5:1. ponytail: graded on the background only; muted is a
+ * step toward the text, so a borderline accent can dip just under 4.5 there.
+ * html-qualified, so these outrank globals.css whatever the order. lift() only returns "#rrggbb".
+ */
+const vars = (accent: string, bg: string) => {
+  const c = lift(accent, bg);
+  return `--primary:${c};--primary-foreground:${inkOn(c)};--ring:${c};--sidebar-primary:${c};--sidebar-primary-foreground:${inkOn(c)};--primary-ink:${lift(accent, bg, 4.5)};`;
+};
+export const accentCss = (accent: string | null) => accent && `html:root{${vars(accent, APP_BG.light)}}html.dark{${vars(accent, APP_BG.dark)}}`;

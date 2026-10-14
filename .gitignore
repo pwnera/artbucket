@@ -32,3 +32,6 @@ cli/artbucket.js
 cli/LICENSE
 cli/starters
 cli/*.tgz
+
+# Storybook builds (pnpm storybook:build)
+storybook-static

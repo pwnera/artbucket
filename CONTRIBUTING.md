@@ -23,6 +23,14 @@ pnpm db:migrate
 pnpm dev
 ```
 
+## Components
+
+`pnpm storybook` opens the app's components and the brand site's, each in a
+`*.stories.tsx` beside it, in light or dark and with a brand's accent. Change a
+component there and the app changes with it: it is the same file. A new
+component in `src/components/ui`, or a new section template, comes with its
+story.
+
 ## Before you push
 
 ```bash
@@ -31,6 +39,7 @@ pnpm lint
 pnpm test
 DATABASE_URL=postgres://artbucket:artbucket@localhost:5433/artbucket pnpm test:db
 pnpm build
+pnpm storybook:build
 ```
 
 ## House rules
