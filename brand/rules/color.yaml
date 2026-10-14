@@ -1,7 +1,7 @@
 color.primary:
   type: color
-  label: Iris
-  value: "#6b4dff"
+  label: Volt
+  value: "#c6f432"
   usage: "This week's accent, the only color the weekly release changes. A fill: eyebrow marks, highlights, the icon's tile, the halo around the primary button. Never text."
   spec:
     pair: color.onPrimary
@@ -11,7 +11,7 @@ color.primary:
 color.onPrimary:
   type: color
   label: On accent
-  value: "#ffffff"
+  value: "#16152a"
   usage: Text and the mark on this week's accent. Ink on Volt, Signal and Moss; white on Iris, Tide and Fuchsia.
   spec:
     pair: color.primary
