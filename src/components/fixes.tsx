@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconCertificate, IconCircleCheck, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
+import { IconCertificate, IconCircleCheck, IconComponents, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
 import { AppHeader, PageHeader } from "@/components/page";
 import { ShareDialog } from "@/components/share-dialog";
@@ -20,6 +20,7 @@ export type FixesData = {
   stale: InsightsData["stale"];
   gaps: InsightsData["gaps"];
   licenses: { asset: Asset; expires: string; days: number; replacement: Asset | null }[];
+  components: { site: { id: string; name: string; slug: string }; path: string; component: { id: string; name: string; version: number }; current: { id: string; version: number }; since: string }[];
 };
 
 /** One thing to do, whatever it is: what, where, since when, its action, and once done, when. */
@@ -45,8 +46,9 @@ const Done = ({ children, at, by }: { children: React.ReactNode; at?: string; by
  * Fixes: what Insights and the library found that needs a hand, in one
  * list, each with the one thing to do about it. Places still showing a
  * replaced version (Notify, Insights' own dialog), searches that found
- * nothing (Request it, an upload link named after them) and licenses about
- * to end (open the asset, or what replaced it). What isn't done comes first;
+ * nothing (Request it, an upload link named after them), licenses about
+ * to end (open the asset, or what replaced it) and sites built with an old
+ * component (open the current one, then deploy the site with it). What isn't done comes first;
  * what is stays below, saying when, until it leaves Insights' window.
  */
 export function Fixes({ data, collections }: { data: FixesData | null; collections: { id: string; name: string }[] }) {
@@ -64,7 +66,7 @@ export function Fixes({ data, collections }: { data: FixesData | null; collectio
           icon={<IconTool />}
           title="Fixes"
           aside={data && data.open > 0 ? <Badge variant="secondary">{data.open} to do</Badge> : undefined}
-          description="What needs a hand: sites showing an old version, searches that found nothing, licenses about to end."
+          description="What needs a hand: sites showing an old version or built with an old component, searches that found nothing, licenses about to end."
         />
         {!data ? (
           <p className="text-muted-foreground text-sm">Fixes couldn&apos;t load. Try again in a moment.</p>
@@ -144,7 +146,7 @@ function Section({ title, rows, empty }: { title: string; rows: Row[]; empty?: s
   );
 }
 
-/** Every fix as a row: licenses first (they run out), then places, then searches, each in the API's order. */
+/** Every fix as a row: licenses first (they run out), then places, then old components, then searches, each in the API's order. */
 function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string) => void): Row[] {
   const licenses: Row[] = data.licenses.map((l) => ({
     key: `license:${l.asset.id}`,
@@ -230,5 +232,27 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
     ),
   }));
 
-  return [...licenses, ...places, ...gaps];
+  const components: Row[] = data.components.map((c) => ({
+    key: `component:${c.site.id}:${c.path}:${c.component.id}`,
+    icon: <IconComponents />,
+    what: (
+      <>
+        Built with{" "}
+        <Link href={`/catalog?o=${c.component.id}`} className="font-medium underline-offset-2 hover:underline">
+          {c.component.name} @{c.component.version}
+        </Link>
+        : @{c.current.version} is current
+      </>
+    ),
+    where: `${c.site.name}${c.path === "/" ? "" : c.path}`,
+    when: `Since ${date(c.since)}`,
+    done: null,
+    action: (
+      <Button size="xs" variant="outline" asChild>
+        <Link href={`/catalog?o=${c.current.id}`}>Open @{c.current.version}</Link>
+      </Button>
+    ),
+  }));
+
+  return [...licenses, ...places, ...components, ...gaps];
 }

@@ -105,3 +105,37 @@ test("url names the link after the asset, in the format asked", async () => {
     await s.close();
   }
 });
+
+test("site push hashes a Storybook's components' code into artbucket.site.json, beside what it already says", async () => {
+  const src = mkdtempSync(join(tmpdir(), "artbucket-sb-src-"));
+  writeFileSync(join(src, "button.tsx"), "export const Button = 1");
+  const dist = mkdtempSync(join(tmpdir(), "artbucket-sb-"));
+  writeFileSync(join(dist, "index.html"), "sb");
+  writeFileSync(join(dist, "artbucket.site.json"), JSON.stringify({ brand: "acme" }));
+  writeFileSync(
+    join(dist, "index.json"),
+    JSON.stringify({ v: 5, entries: { "ui-button--primary": { id: "ui-button--primary", title: "UI/Button", componentPath: join(src, "button.tsx"), importPath: join(src, "missing.stories.tsx") } } }),
+  );
+  let body = Buffer.alloc(0);
+  const s = await server((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      if (req.method === "GET") return res.end(JSON.stringify({ data: [{ id: "s1", slug: "sb", url: "http://sb.example" }] }));
+      body = Buffer.concat(chunks);
+      res.end(JSON.stringify({ data: { path: "/", state: "live" } }));
+    });
+  });
+  try {
+    const { err } = await run(s.url, "site", "push", dist, "--site", "sb");
+    assert.equal(err, "");
+    const { unzip } = await import("../src/lib/zip.ts");
+    const manifest = unzip(new Uint8Array(body)).find((e) => e.name === "artbucket.site.json")!;
+    const m = JSON.parse(new TextDecoder().decode(await manifest.read()));
+    assert.equal(m.brand, "acme");
+    assert.match(m.fingerprints["ui-button"], /^[0-9a-f]{64}$/);
+  } finally {
+    await s.close();
+  }
+});

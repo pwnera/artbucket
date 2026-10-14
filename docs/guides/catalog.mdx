@@ -37,7 +37,28 @@ A brand's slug is unique in its project; an asset's comes from its filename,
 and `@n` picks a version. A component is read from the `index.json` that
 `storybook build` writes, each time a Storybook is deployed: one per title
 (`UI/Button`), at Storybook's own id for it (`ui-button`), with its stories.
-It stays while that deployment is live, under the same id across deploys.
+
+## Component versions
+
+A deploy that changes a component makes a new version of it (`@2`); one that
+leaves it as it was keeps its version, and rolling a deployment back makes its
+versions current again. What counts as a change: its code, when the build is
+pushed with `artbucket site push` from where Storybook ran (the CLI hashes each
+component's source into the manifest's `fingerprints`), else its stories and
+their bundled file. Older versions stay in the catalog as replaced, linked to
+the current one, and **Components** in the sidebar shows each component with its
+story live beside it and every version, previewed while the build that held it
+is kept (the live one and the last three).
+
+A build says which components it is made with in its `artbucket.site.json`:
+
+```json
+{ "components": ["acme/corporate/site/storybook/component/ui-button"] }
+```
+
+Without `@n`, that is the version current when it is deployed. Each one is
+upstream of the site in its lineage, and once a newer version is out, the site
+is listed in **Fixes** until it is deployed with it.
 
 ## Search
 

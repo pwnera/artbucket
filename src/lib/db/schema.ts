@@ -33,7 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
-import type { BuildKind, DeploymentState, SiteComponent, SiteKind, SiteUse } from "@/lib/sites";
+import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
 import type { SiteRules } from "@/lib/site-rules";
 
 export type AssetStatus = Status;
@@ -1239,8 +1239,10 @@ export const siteDeployments = pgTable(
     rules: jsonb("rules").$type<SiteRules | null>(),
     /** What it uses of the library, found in its files (lib/sites.ts SiteUse): its lineage. Null on deployments made before it was kept. */
     uses: jsonb("uses").$type<SiteUse[] | null>(),
-    /** A Storybook's components, from its index.json (lib/sites.ts storybookComponents): catalog parts of its site while it is live. */
-    components: jsonb("components").$type<SiteComponent[] | null>(),
+    /** A Storybook's components, the version of each it holds (site_components): current in the catalog while it is live. */
+    components: uuid("components").array(),
+    /** The component versions its manifest says it is built with (`components`): its lineage, and a fix once one is replaced. */
+    componentUses: uuid("component_uses").array(),
     /** What of it may no longer be shown, as the last re-check found (lib/core/sites.ts recheckSites): empty when all is well. */
     problems: jsonb("problems").$type<string[]>().notNull().default([]),
     /** Signs it looks like phishing or malware (lib/site-safety.ts), one line each: held for the operator, or live with them noted. */
@@ -1261,6 +1263,37 @@ export const siteDeployments = pgTable(
     check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held', 'preview')`),
     check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
   ],
+);
+
+/**
+ * Every version of every component a site's Storybook has documented at a
+ * mount (lib/core/sites.ts deploy): a new one when its fingerprint changes
+ * (its code as the CLI hashed it, else its stories), so what was built with
+ * an older one can say so. Current while a live deployment holds it
+ * (site_deployments.components); kept after, for its history and lineage.
+ */
+export const siteComponents = pgTable(
+  "site_components",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => portals.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    /** Storybook's own id for it: ui-button. */
+    slug: text("slug").notNull(),
+    version: integer("version").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    name: text("name").notNull(),
+    title: text("title").notNull(),
+    story: text("story").notNull(),
+    stories: jsonb("stories").$type<string[]>().notNull(),
+    /** The deployment it first came in, and who made it. */
+    deploymentId: uuid("deployment_id").references(() => siteDeployments.id, { onDelete: "set null" }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("site_components_version_unique").on(t.siteId, t.path, t.slug, t.version)],
 );
 
 /**
@@ -1793,13 +1826,15 @@ export const catalogObjects = pgView("catalog_objects", {
       g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))
     from ${brandPages} g join ${brands} b on b.id = g.brand_id
     union all
-    select md5(d.site_id::text || d.path || (c ->> 'slug'))::uuid, 'component', p.project_id, p.id, c ->> 'slug', c ->> 'name',
-      (c ->> 'title') || coalesce(': ' || (select string_agg(s, ', ') from jsonb_array_elements_text(c -> 'stories') s), ''),
-      'current', null, null, false, '{}'::uuid[], '[]'::jsonb, d.created_at, d.created_at,
-      to_tsvector('simple', regexp_replace(c ->> 'title', '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c -> 'stories') s), ''))
-    from ${siteDeployments} d join ${portals} p on p.id = d.site_id,
-      jsonb_array_elements(case when jsonb_typeof(d.components) = 'array' then d.components else '[]'::jsonb end) c
-    where d.state = 'live'`,
+    select c.id, 'component', p.project_id, p.id, c.slug, c.name,
+      c.title || coalesce(': ' || (select string_agg(s, ', ') from jsonb_array_elements_text(c.stories) s), ''),
+      case when l.ids is not null and c.id = any(l.ids) then 'current'
+        when exists (select 1 from ${siteComponents} n where n.id = any(l.ids) and n.slug = c.slug) then 'replaced'
+        else 'archived' end,
+      c.version, null, false, '{}'::uuid[], '[]'::jsonb, c.created_at, c.created_at,
+      to_tsvector('simple', regexp_replace(c.title, '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c.stories) s), ''))
+    from ${siteComponents} c join ${portals} p on p.id = c.site_id
+    left join lateral (select d.components as ids from ${siteDeployments} d where d.site_id = c.site_id and d.path = c.path and d.state = 'live') l on true`,
 );
 
 /**
@@ -1807,7 +1842,8 @@ export const catalogObjects = pgView("catalog_objects", {
  * links the tables already hold: an asset to what replaced it and to what was
  * made from it, to the brands whose rules name it (`via`: their keys) and the
  * collections it is in; a collection or a brand to the portals that offer it;
- * a brand to the brands forked from it.
+ * a brand to the brands forked from it; a component's older versions to the
+ * one live now, and each version to the sites built with it.
  */
 export const catalogEdges = pgView("catalog_edges", {
   fromId: uuid("from_id").notNull(),
@@ -1842,5 +1878,11 @@ export const catalogEdges = pgView("catalog_edges", {
     select b.id, d.site_id, 'built', d.path from ${siteDeployments} d join ${portals} p on p.id = d.site_id join ${brands} b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'
     where d.state = 'live'
     union all
-    select p.rebuild_brand_id, p.id, 'built', null from ${portals} p where p.rebuild_brand_id is not null and p.rebuild_hook is not null`,
+    select p.rebuild_brand_id, p.id, 'built', null from ${portals} p where p.rebuild_brand_id is not null and p.rebuild_hook is not null
+    union all
+    select c.id, n.id, 'replaced_by', null from ${siteComponents} c
+      join ${siteDeployments} d on d.site_id = c.site_id and d.path = c.path and d.state = 'live'
+      join ${siteComponents} n on n.id = any(d.components) and n.slug = c.slug and n.id <> c.id
+    union all
+    select distinct u, d.site_id, 'built', d.path from ${siteDeployments} d, unnest(d.component_uses) u where d.state = 'live'`,
 );

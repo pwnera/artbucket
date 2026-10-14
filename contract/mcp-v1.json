@@ -5607,7 +5607,8 @@
             "asset",
             "site",
             "rule",
-            "page"
+            "page",
+            "component"
           ]
         }
       },

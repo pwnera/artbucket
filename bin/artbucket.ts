@@ -239,7 +239,9 @@ const loginOf = (t: { access_token: string; refresh_token?: string; expires_in?:
  * A folder as a zip, deflated, hidden files left out: what site push sends.
  * Written here, as the CLI is one file with no dependencies.
  */
-async function zipFolder(dir: string) {
+const MANIFEST = "artbucket.site.json";
+
+async function zipFolder(dir: string, extra: Record<string, Buffer> = {}) {
   const names: string[] = [];
   const walk = async (d: string, rel: string) => {
     for (const e of await readdir(d, { withFileTypes: true })) {
@@ -251,11 +253,12 @@ async function zipFolder(dir: string) {
   };
   await walk(dir, "");
   if (!names.length) throw new Error(`${dir} holds no files: build the site first`);
+  for (const name of Object.keys(extra)) if (!names.includes(name)) names.push(name);
   const parts: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
   for (const name of names) {
-    const data = await readFile(join(dir, name));
+    const data = extra[name] ?? (await readFile(join(dir, name)));
     const packed = deflateRawSync(data);
     const crc = crc32(data) >>> 0;
     const n = Buffer.from(name);
@@ -291,6 +294,49 @@ async function zipFolder(dir: string) {
   end.writeUInt32LE(dirBytes.length, 12);
   end.writeUInt32LE(offset, 16);
   return { zip: Buffer.concat([...parts, dirBytes, end]), files: names.length };
+}
+
+/**
+ * A Storybook build's components' code, hashed: each component's stories and
+ * source as its index.json names them, read from where Storybook ran (here).
+ * Put in artbucket.site.json's `fingerprints`, so the server makes a new
+ * version of a component when its code changes, not only its stories.
+ * Nothing when the folder isn't a Storybook or the sources aren't here.
+ */
+async function storybookFingerprints(dir: string, root = process.cwd()): Promise<Record<string, string>> {
+  const index = await readFile(join(dir, "index.json"), "utf8").then(JSON.parse, () => null);
+  const entries = index && typeof index === "object" ? (index.entries ?? index.stories) : null;
+  if (!entries || typeof entries !== "object") return {};
+  const files = new Map<string, Set<string>>();
+  for (const e of Object.values(entries) as { id?: unknown; importPath?: unknown; componentPath?: unknown }[]) {
+    if (typeof e?.id !== "string" || !e.id.includes("--")) continue;
+    const slug = e.id.split("--")[0];
+    const set = files.get(slug) ?? new Set<string>();
+    for (const f of [e.importPath, e.componentPath]) if (typeof f === "string") set.add(f);
+    files.set(slug, set);
+  }
+  const out: Record<string, string> = {};
+  for (const [slug, set] of files) {
+    const hash = createHash("sha256");
+    let read = 0;
+    for (const f of [...set].sort()) {
+      const data = await readFile(resolve(root, f)).catch(() => null);
+      if (data) {
+        hash.update(f).update(data);
+        read++;
+      }
+    }
+    if (read) out[slug] = hash.digest("hex");
+  }
+  return out;
+}
+
+/** artbucket.site.json with a Storybook's fingerprints added, to send in its place; nothing for any other folder. */
+async function withFingerprints(dir: string): Promise<Record<string, Buffer>> {
+  const prints = await storybookFingerprints(resolve(dir));
+  if (!Object.keys(prints).length) return {};
+  const own = await readFile(join(resolve(dir), MANIFEST), "utf8").then(JSON.parse, () => ({}));
+  return { [MANIFEST]: Buffer.from(JSON.stringify({ ...own, fingerprints: prints })) };
 }
 
 async function api(method: string, path: string, body?: unknown) {
@@ -1137,7 +1183,7 @@ async function main() {
       if (sub === "new") return console.log(await siteNew(need(args[1], "the new site's folder: artbucket site new acme-docs --brand acme")));
       if (sub === "eject") return console.log(await siteEject(need(args[1], "the new site's folder: artbucket site eject acme-guidelines --brand acme")));
       if (sub === "check") {
-        const { zip, files } = await zipFolder(resolve(dir));
+        const { zip, files } = await zipFolder(resolve(dir), await withFingerprints(dir));
         const res = await fetch(`${BASE}/api/v1/sites/check`, {
           method: "POST",
           headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
@@ -1156,7 +1202,8 @@ async function main() {
       if (!opt.site) throw new Error("--site: the site's address, as artbucket sites lists it");
       const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
       if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);
-      const { zip, files } = await zipFolder(resolve(dir));
+      // A Storybook's components' code, hashed where it was built: a change to one makes a new version of it.
+      const { zip, files } = await zipFolder(resolve(dir), await withFingerprints(dir));
       const q = new URLSearchParams({ path: opt.path ?? "/", ...(opt.kind && { kind: opt.kind }), ...(opt.preview && { preview: opt.preview }) });
       const res = await fetch(`${BASE}/api/v1/sites/${site.id}/deployments?${q}`, {
         method: "POST",

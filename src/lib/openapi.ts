@@ -753,6 +753,27 @@ export function openapi(serverUrl: string) {
           ok: [200, "Activity", data(z.array(z.object({ at: z.string(), who: z.string(), what: z.string(), agent: z.boolean() })))],
         }),
       },
+      "/api/v1/components": {
+        get: op({
+          summary: "Components",
+          scope: "read",
+          description:
+            "Every component the project's Storybooks show now, at its current version: one per Storybook title, read from the index.json of each " +
+            "Storybook deployed to a site, with a new version whenever a deploy changes it.",
+          ok: [200, "Components", data(z.array(S.ComponentRow))],
+        }),
+      },
+      "/api/v1/components/{ref}": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "A component's versions",
+          scope: "read",
+          description:
+            "Every version of a component at its mount, newest first, each with its story's preview while a kept build holds it and the sites " +
+            "whose artbucket.site.json names it in `components`.",
+          ok: [200, "Component", data(S.ComponentDetail)],
+        }),
+      },
       "/api/v1/searches": {
         get: op({ summary: "Saved searches", scope: "read", ok: [200, "Saved searches", data(z.array(S.SavedSearch))] }),
         post: op({ summary: "Save a search", scope: "write", body: S.SaveSearch, ok: [201, "Saved", data(S.SavedSearch)] }),

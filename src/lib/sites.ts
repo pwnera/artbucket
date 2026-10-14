@@ -79,8 +79,13 @@ export const MANIFEST = "artbucket.site.json";
 /** What `storybook build` writes beside index.html: every story and docs page, by id. */
 export const STORYBOOK_INDEX = "index.json";
 
-/** A component a Storybook documents: one catalog part of its site (the catalog view reads them off the live deployment). */
-export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[] };
+/**
+ * A component a Storybook documents, as its index.json says: one catalog part
+ * of its site, versioned by lib/core/sites.ts as its code or stories change.
+ * `files`: its stories' and component's source, relative to where Storybook
+ * ran, which the CLI hashes into the manifest's `fingerprints`.
+ */
+export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[]; files: string[] };
 
 const MAX_COMPONENTS = 2000;
 
@@ -102,9 +107,11 @@ export function storybookComponents(index: unknown): SiteComponent[] {
     let c = byTitle.get(title);
     if (!c) {
       if (byTitle.size >= MAX_COMPONENTS) continue;
-      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [] };
+      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [], files: [] };
       byTitle.set(title, c);
     }
+    const { importPath, componentPath } = (e ?? {}) as Record<string, unknown>;
+    for (const f of [importPath, componentPath]) if (typeof f === "string" && !c.files.includes(f)) c.files.push(f);
     if (type === "docs") continue;
     if (!c.stories.length) c.story = id;
     if (typeof name === "string") c.stories.push(name);

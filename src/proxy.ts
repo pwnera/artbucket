@@ -29,6 +29,12 @@ const origin = (url: string | undefined) => {
 };
 const https = process.env.APP_URL?.startsWith("https:");
 const app = origin(process.env.APP_URL);
+/** Where builds answer (BUILD_DOMAIN, else PORTAL_DOMAIN): the Components page frames a Storybook's stories from there. */
+const buildHosts = (() => {
+  const domain = process.env.BUILD_DOMAIN ?? process.env.PORTAL_DOMAIN;
+  const at = app && domain ? new URL(app) : null;
+  return at ? `${at.protocol}//*.${domain}${at.port ? `:${at.port}` : ""}` : "";
+})();
 const appHost = (() => {
   try {
     return new URL(process.env.APP_URL ?? "http://localhost:3000").host;
@@ -78,6 +84,7 @@ const csp = (nonce: string, picking: boolean) => [
   `media-src 'self' blob: ${app}`.trim(),
   `connect-src 'self' ${s3} ${bucket} https://cdn.jsdelivr.net`.replace(/\s+/g, " ").trim(),
   "frame-src https://www.figma.com https://docs.google.com https://drive.google.com https://embed.figma.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com" +
+    (buildHosts ? ` ${buildHosts}` : "") +
     turnstile,
   "worker-src 'self' blob:",
   "object-src 'none'",

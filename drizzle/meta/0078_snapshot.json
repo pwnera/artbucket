@@ -1,5 +1,5 @@
 {
-  "id": "bec347fa-0495-41ed-894a-8e9bbac98d82",
+  "id": "611bd3e7-e513-463a-815a-ccb0cfdd8203",
   "prevId": "f6059843-f1a5-4376-b736-77220fc9bb0a",
   "version": "7",
   "dialect": "postgresql",
@@ -6034,6 +6034,160 @@
       },
       "isRLSEnabled": false
     },
+    "public.site_components": {
+      "name": "site_components",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "site_id": {
+          "name": "site_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "story": {
+          "name": "story",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stories": {
+          "name": "stories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deployment_id": {
+          "name": "deployment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "site_components_version_unique": {
+          "name": "site_components_version_unique",
+          "columns": [
+            {
+              "expression": "site_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "site_components_site_id_portals_id_fk": {
+          "name": "site_components_site_id_portals_id_fk",
+          "tableFrom": "site_components",
+          "tableTo": "portals",
+          "columnsFrom": [
+            "site_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "site_components_deployment_id_site_deployments_id_fk": {
+          "name": "site_components_deployment_id_site_deployments_id_fk",
+          "tableFrom": "site_components",
+          "tableTo": "site_deployments",
+          "columnsFrom": [
+            "deployment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.site_deployments": {
       "name": "site_deployments",
       "schema": "",
@@ -6117,7 +6271,13 @@
         },
         "components": {
           "name": "components",
-          "type": "jsonb",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "component_uses": {
+          "name": "component_uses",
+          "type": "uuid[]",
           "primaryKey": false,
           "notNull": false
         },
@@ -6647,7 +6807,7 @@
           "notNull": false
         }
       },
-      "definition": "select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from \"assets\" a where a.superseded_by is not null\n    union all\n    select a.parent_asset_id, a.id, 'derived', null from \"assets\" a where a.parent_asset_id is not null\n    union all\n    select bra.asset_id, r.brand_id, 'rule', string_agg(distinct r.key, ', ') from \"brand_rule_assets\" bra join \"brand_rules\" r on r.id = bra.rule_id group by bra.asset_id, r.brand_id\n    union all\n    select ca.asset_id, ca.collection_id, 'member', null from \"collection_assets\" ca\n    union all\n    select pc.collection_id, pc.portal_id, 'offered', null from \"portal_collections\" pc\n    union all\n    select pb.brand_id, pb.portal_id, 'offered', null from \"portal_brands\" pb\n    union all\n    select s.id, b.id, 'fork', b.forked_from from \"brands\" b\n      join \"organizations\" o on o.slug = split_part(b.forked_from, '/', 1)\n      join \"projects\" w on w.organization_id = o.id\n      join \"brands\" s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)\n    where b.forked_from is not null\n    union all\n    select distinct (u ->> 'asset')::uuid, d.site_id, 'built', d.path from \"site_deployments\" d, jsonb_array_elements(d.uses) u\n    where d.state = 'live' and jsonb_typeof(d.uses) = 'array' and (u ->> 'asset') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n    union all\n    select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from \"site_deployments\" d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x\n    where d.state = 'live' and d.uses is null and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n    union all\n    select b.id, d.site_id, 'built', d.path from \"site_deployments\" d join \"portals\" p on p.id = d.site_id join \"brands\" b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'\n    where d.state = 'live'\n    union all\n    select p.rebuild_brand_id, p.id, 'built', null from \"portals\" p where p.rebuild_brand_id is not null and p.rebuild_hook is not null",
+      "definition": "select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from \"assets\" a where a.superseded_by is not null\n    union all\n    select a.parent_asset_id, a.id, 'derived', null from \"assets\" a where a.parent_asset_id is not null\n    union all\n    select bra.asset_id, r.brand_id, 'rule', string_agg(distinct r.key, ', ') from \"brand_rule_assets\" bra join \"brand_rules\" r on r.id = bra.rule_id group by bra.asset_id, r.brand_id\n    union all\n    select ca.asset_id, ca.collection_id, 'member', null from \"collection_assets\" ca\n    union all\n    select pc.collection_id, pc.portal_id, 'offered', null from \"portal_collections\" pc\n    union all\n    select pb.brand_id, pb.portal_id, 'offered', null from \"portal_brands\" pb\n    union all\n    select s.id, b.id, 'fork', b.forked_from from \"brands\" b\n      join \"organizations\" o on o.slug = split_part(b.forked_from, '/', 1)\n      join \"projects\" w on w.organization_id = o.id\n      join \"brands\" s on s.project_id = w.id and s.slug = split_part(split_part(b.forked_from, '/', 2), '@', 1)\n    where b.forked_from is not null\n    union all\n    select distinct (u ->> 'asset')::uuid, d.site_id, 'built', d.path from \"site_deployments\" d, jsonb_array_elements(d.uses) u\n    where d.state = 'live' and jsonb_typeof(d.uses) = 'array' and (u ->> 'asset') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n    union all\n    select (x.value #>> '{}')::uuid, d.site_id, 'built', d.path from \"site_deployments\" d, jsonb_array_elements(case when jsonb_typeof(d.manifest -> 'assets') = 'array' then d.manifest -> 'assets' else '[]'::jsonb end) x\n    where d.state = 'live' and d.uses is null and (x.value #>> '{}') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n    union all\n    select b.id, d.site_id, 'built', d.path from \"site_deployments\" d join \"portals\" p on p.id = d.site_id join \"brands\" b on b.project_id = p.project_id and b.slug = d.manifest ->> 'brand'\n    where d.state = 'live'\n    union all\n    select p.rebuild_brand_id, p.id, 'built', null from \"portals\" p where p.rebuild_brand_id is not null and p.rebuild_hook is not null\n    union all\n    select c.id, n.id, 'replaced_by', null from \"site_components\" c\n      join \"site_deployments\" d on d.site_id = c.site_id and d.path = c.path and d.state = 'live'\n      join \"site_components\" n on n.id = any(d.components) and n.slug = c.slug and n.id <> c.id\n    union all\n    select distinct u, d.site_id, 'built', d.path from \"site_deployments\" d, unnest(d.component_uses) u where d.state = 'live'",
       "name": "catalog_edges",
       "schema": "public",
       "isExisting": false,
@@ -6752,7 +6912,7 @@
           "notNull": true
         }
       },
-      "definition": "select a.id, 'asset' as type, a.project_id, null::uuid as parent_id,\n      coalesce(nullif(trim(both '-' from regexp_replace(lower(regexp_replace(a.filename, '\\.[^.]*$', '')), '[^a-z0-9]+', '-', 'g')), ''), a.id::text) as slug,\n      a.filename as name, a.metadata ->> 'description' as description,\n      case when a.status = 'draft' then 'draft' when a.status = 'proposed' then 'in_review'\n        when a.status in ('archived', 'rejected') then 'archived'\n        when a.superseded_by is not null or (a.stack_id is not null and not a.current) then 'replaced'\n        else 'current' end as status,\n      a.version as release, a.rights ->> 'expires' as expires,\n      (a.private or (exists (select 1 from \"collection_assets\" ca where ca.asset_id = a.id)\n        and not exists (select 1 from \"collection_assets\" ca join \"collections\" c on c.id = ca.collection_id where ca.asset_id = a.id and not c.private))) as private,\n      coalesce((select array_agg(ca.collection_id) from \"collection_assets\" ca where ca.asset_id = a.id), '{}'::uuid[]) as collections,\n      a.tags, a.created_at, a.updated_at, a.search\n    from \"assets\" a where a.deleted_at is null\n    union all\n    select c.id, 'collection', c.project_id, null, trim(both '-' from regexp_replace(lower(c.name), '[^a-z0-9]+', '-', 'g')), c.name, null, 'current', null, null, c.private, '{}'::uuid[], '[]'::jsonb,\n      c.created_at, c.created_at, to_tsvector('simple', c.name)\n    from \"collections\" c\n    union all\n    select b.id, 'brand', b.project_id, null, b.slug, b.name, null,\n      case when r.number is null then 'draft' else 'current' end, r.number, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      b.created_at, coalesce(u.at, b.created_at), to_tsvector('simple', b.name || ' ' || b.slug || ' ' || coalesce(b.domain, ''))\n    from \"brands\" b\n    left join lateral (select max(v.number) as number from \"brand_versions\" v where v.brand_id = b.id and v.published_at is not null) r on true\n    left join lateral (select max(v.updated_at) as at from \"brand_versions\" v where v.brand_id = b.id) u on true\n    union all\n    select p.id, 'site', p.project_id, null, p.slug, p.name, p.intro,\n      case when p.expires_at < now() then 'archived' else 'current' end, null, null, false, '{}'::uuid[], '[]'::jsonb,\n      p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))\n    from \"portals\" p\n    union all\n    select r.id, 'rule', b.project_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      r.created_at, r.updated_at, to_tsvector('simple', regexp_replace(r.key, '[._-]+', ' ', 'g') || ' ' || coalesce(r.label, '') || ' ' || coalesce(r.usage, ''))\n    from \"brand_rules\" r join \"brands\" b on b.id = r.brand_id where r.context is null\n    union all\n    select g.id, 'page', b.project_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))\n    from \"brand_pages\" g join \"brands\" b on b.id = g.brand_id\n    union all\n    select md5(d.site_id::text || d.path || (c ->> 'slug'))::uuid, 'component', p.project_id, p.id, c ->> 'slug', c ->> 'name',\n      (c ->> 'title') || coalesce(': ' || (select string_agg(s, ', ') from jsonb_array_elements_text(c -> 'stories') s), ''),\n      'current', null, null, false, '{}'::uuid[], '[]'::jsonb, d.created_at, d.created_at,\n      to_tsvector('simple', regexp_replace(c ->> 'title', '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c -> 'stories') s), ''))\n    from \"site_deployments\" d join \"portals\" p on p.id = d.site_id,\n      jsonb_array_elements(case when jsonb_typeof(d.components) = 'array' then d.components else '[]'::jsonb end) c\n    where d.state = 'live'",
+      "definition": "select a.id, 'asset' as type, a.project_id, null::uuid as parent_id,\n      coalesce(nullif(trim(both '-' from regexp_replace(lower(regexp_replace(a.filename, '\\.[^.]*$', '')), '[^a-z0-9]+', '-', 'g')), ''), a.id::text) as slug,\n      a.filename as name, a.metadata ->> 'description' as description,\n      case when a.status = 'draft' then 'draft' when a.status = 'proposed' then 'in_review'\n        when a.status in ('archived', 'rejected') then 'archived'\n        when a.superseded_by is not null or (a.stack_id is not null and not a.current) then 'replaced'\n        else 'current' end as status,\n      a.version as release, a.rights ->> 'expires' as expires,\n      (a.private or (exists (select 1 from \"collection_assets\" ca where ca.asset_id = a.id)\n        and not exists (select 1 from \"collection_assets\" ca join \"collections\" c on c.id = ca.collection_id where ca.asset_id = a.id and not c.private))) as private,\n      coalesce((select array_agg(ca.collection_id) from \"collection_assets\" ca where ca.asset_id = a.id), '{}'::uuid[]) as collections,\n      a.tags, a.created_at, a.updated_at, a.search\n    from \"assets\" a where a.deleted_at is null\n    union all\n    select c.id, 'collection', c.project_id, null, trim(both '-' from regexp_replace(lower(c.name), '[^a-z0-9]+', '-', 'g')), c.name, null, 'current', null, null, c.private, '{}'::uuid[], '[]'::jsonb,\n      c.created_at, c.created_at, to_tsvector('simple', c.name)\n    from \"collections\" c\n    union all\n    select b.id, 'brand', b.project_id, null, b.slug, b.name, null,\n      case when r.number is null then 'draft' else 'current' end, r.number, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      b.created_at, coalesce(u.at, b.created_at), to_tsvector('simple', b.name || ' ' || b.slug || ' ' || coalesce(b.domain, ''))\n    from \"brands\" b\n    left join lateral (select max(v.number) as number from \"brand_versions\" v where v.brand_id = b.id and v.published_at is not null) r on true\n    left join lateral (select max(v.updated_at) as at from \"brand_versions\" v where v.brand_id = b.id) u on true\n    union all\n    select p.id, 'site', p.project_id, null, p.slug, p.name, p.intro,\n      case when p.expires_at < now() then 'archived' else 'current' end, null, null, false, '{}'::uuid[], '[]'::jsonb,\n      p.created_at, p.updated_at, to_tsvector('simple', p.name || ' ' || p.slug || ' ' || coalesce(p.intro, ''))\n    from \"portals\" p\n    union all\n    select r.id, 'rule', b.project_id, b.id, r.key, coalesce(r.label, r.key), r.usage, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      r.created_at, r.updated_at, to_tsvector('simple', regexp_replace(r.key, '[._-]+', ' ', 'g') || ' ' || coalesce(r.label, '') || ' ' || coalesce(r.usage, ''))\n    from \"brand_rules\" r join \"brands\" b on b.id = r.brand_id where r.context is null\n    union all\n    select g.id, 'page', b.project_id, b.id, g.slug, g.title, g.lede, 'current', null, null, b.private, '{}'::uuid[], '[]'::jsonb,\n      g.created_at, g.updated_at, to_tsvector('simple', g.title || ' ' || coalesce(g.eyebrow, '') || ' ' || coalesce(g.lede, ''))\n    from \"brand_pages\" g join \"brands\" b on b.id = g.brand_id\n    union all\n    select c.id, 'component', p.project_id, p.id, c.slug, c.name,\n      c.title || coalesce(': ' || (select string_agg(s, ', ') from jsonb_array_elements_text(c.stories) s), ''),\n      case when l.ids is not null and c.id = any(l.ids) then 'current'\n        when exists (select 1 from \"site_components\" n where n.id = any(l.ids) and n.slug = c.slug) then 'replaced'\n        else 'archived' end,\n      c.version, null, false, '{}'::uuid[], '[]'::jsonb, c.created_at, c.created_at,\n      to_tsvector('simple', regexp_replace(c.title, '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c.stories) s), ''))\n    from \"site_components\" c join \"portals\" p on p.id = c.site_id\n    left join lateral (select d.components as ids from \"site_deployments\" d where d.site_id = c.site_id and d.path = c.path and d.state = 'live') l on true",
       "name": "catalog_objects",
       "schema": "public",
       "isExisting": false,

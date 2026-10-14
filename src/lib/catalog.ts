@@ -63,11 +63,12 @@ export const slugOf = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-export type Address = { org: string; project: string; type: CatalogType; slug: string; release: number | null; part?: { type: CatalogType; slug: string } };
+export type Address = { org: string; project: string; type: CatalogType; slug: string; release: number | null; part?: { type: CatalogType; slug: string; release: number | null } };
 
 /**
  * {org}/{project}/{type}/{slug}[@release], and a part after its object:
- * acme/corporate/brand/acme/rule/logo.primary. Null when it isn't one.
+ * acme/corporate/brand/acme/rule/logo.primary, a component's version
+ * acme/corporate/site/storybook/component/ui-button@3. Null when it isn't one.
  */
 export function parseAddress(raw: string): Address | null {
   const segs = raw.trim().replace(/^\/+|\/+$/g, "").split("/");
@@ -79,15 +80,16 @@ export function parseAddress(raw: string): Address | null {
   if (!org || !project || !at) return null;
   const address: Address = { org, project, type: type as CatalogType, slug: at[1], release: at[2] ? Number(at[2]) : null };
   if (segs.length === 6) {
-    if (!(PART_TYPES as readonly string[]).includes(partType) || !partSlug) return null;
-    address.part = { type: partType as CatalogType, slug: partSlug };
+    const p = partSlug?.match(/^(.+?)(?:@(\d+))?$/);
+    if (!(PART_TYPES as readonly string[]).includes(partType) || !p) return null;
+    address.part = { type: partType as CatalogType, slug: p[1], release: p[2] ? Number(p[2]) : null };
   }
   return address;
 }
 
 export function formatAddress(a: { org: string; project: string; type: CatalogType; slug: string; release?: number | null; parent?: { type: CatalogType; slug: string } | null }) {
   const at = a.release ? `@${a.release}` : "";
-  return a.parent ? `${a.org}/${a.project}/${a.parent.type}/${a.parent.slug}/${a.type}/${a.slug}` : `${a.org}/${a.project}/${a.type}/${a.slug}${at}`;
+  return a.parent ? `${a.org}/${a.project}/${a.parent.type}/${a.parent.slug}/${a.type}/${a.slug}${at}` : `${a.org}/${a.project}/${a.type}/${a.slug}${at}`;
 }
 
 export type CatalogQuery = {

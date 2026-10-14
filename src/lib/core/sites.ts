@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { and, desc, eq, gt, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { assets, brands, domains, portalRequests, portals, sessions, siteDeployments, siteTickets } from "@/lib/db/schema";
+import { assets, brands, domains, portalRequests, portals, sessions, siteComponents, siteDeployments, siteTickets } from "@/lib/db/schema";
+import { findObject } from "@/lib/core/catalog";
 import { projectById, type Caller } from "@/lib/core/access";
 import { visible } from "@/lib/core/assets";
 import { recordAudit } from "@/lib/core/audit";
@@ -77,7 +78,13 @@ export async function listDeployments(caller: Caller, siteId: string) {
   return rows.map((d) => present(d, previewUrl(site.slug, d)));
 }
 
-type Manifest = { release?: number; assets?: string[]; rules?: string[] };
+/**
+ * artbucket.site.json. `components`: the component versions the build is made
+ * with, by address or id (`acme/corporate/site/storybook/component/ui-button@3`;
+ * without @n, the current one). `fingerprints`: a Storybook's own, each of its
+ * components' code as the CLI hashed it, by Storybook id.
+ */
+type Manifest = { release?: number; assets?: string[]; rules?: string[]; components?: unknown; fingerprints?: unknown };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -364,6 +371,7 @@ export async function deploy(
       );
     }
     if (manifest) scan.declare(manifest);
+    const componentUses = await usedComponents(caller, (manifest as Manifest | null)?.components);
     const { rules, errors: ruleErrors } = rulesOf(ruleTexts);
     if (ruleErrors.length) throw new AssetError("invalid", `Its rules can't be read: ${ruleErrors.join("; ")}`);
     const { uses, unknown } = await resolveUses(site.projectId, scan);
@@ -373,9 +381,12 @@ export async function deploy(
     const held = flags.length > 0 && limits.siteReview;
     // A preview is never held for the operator: one that looks like phishing isn't served at all.
     if (held && preview) throw new AssetError("invalid", `A preview isn't served when it looks like phishing: ${flags.join("; ")}. Deploy it to the site to have it looked at`);
-    const kept = { files: files.size, bytes, manifest, uses, components, rules, flags, problems: [], checkedAt: new Date() };
+    const kept = { files: files.size, bytes, manifest, uses, componentUses, rules, flags, problems: [], checkedAt: new Date() };
     const [row] = await db.transaction(async (tx) => {
       await claimStorage(tx, organizationId, bytes, limits);
+      // A preview's components make no versions: only what goes to the site does.
+      const found = components && !preview ? await versionComponents(tx, site.id, path, id, caller.actor, components, fingerprintsOf(components, manifest, scan)) : null;
+      Object.assign(kept, { components: found });
       if (preview) return makePreview(tx, site.id, path, preview, id, kept);
       if (!held) return makeLive(tx, site.id, path, id, kept);
       const why = `Held for review: ${flags.join("; ")}. Whoever runs this server looks at it, and it goes live if it is what it seems`;
@@ -390,6 +401,68 @@ export async function deploy(
     await db.update(siteDeployments).set({ state: "failed", error: why }).where(eq(siteDeployments.id, id));
     throw err instanceof AssetError ? err : new AssetError("invalid", why);
   }
+}
+
+/**
+ * The component versions a manifest says the build is made with, as ids;
+ * null when it names none. Refused when one isn't a component the caller
+ * reaches: a typo would otherwise drop out of its lineage unseen.
+ */
+async function usedComponents(caller: Caller, refs: unknown): Promise<string[] | null> {
+  if (!Array.isArray(refs) || !refs.length) return null;
+  const ids = new Set<string>();
+  for (const ref of refs) {
+    const o = typeof ref === "string" ? await findObject(caller, ref) : null;
+    if (o?.type !== "component") throw new AssetError("invalid", `${MANIFEST} names ${typeof ref === "string" ? ref : "something"} as a component: it isn't one this key reaches`);
+    ids.add(o.id);
+  }
+  return [...ids];
+}
+
+/**
+ * Each component's fingerprint: its code, as the CLI hashed it into the
+ * manifest; else what the build shows of it, its stories and their bundled
+ * file (Vite's `button.stories-{hash}.js`), which changes when its stories
+ * do but not always when its code does.
+ */
+function fingerprintsOf(components: SiteComponent[], manifest: Manifest | null, scan: BuildScan) {
+  const declared = manifest?.fingerprints && typeof manifest.fingerprints === "object" ? (manifest.fingerprints as Record<string, unknown>) : {};
+  const shaOf = new Map([...scan.hashes].flatMap(([sha, names]) => names.map((n) => [n, sha] as const)));
+  const names = [...shaOf.keys()];
+  return new Map(
+    components.map((c) => {
+      const own = declared[c.slug];
+      if (typeof own === "string" && own) return [c.slug, own];
+      const bases = c.files.filter((f) => /\.(stories|story)\./.test(f)).map((f) => f.split("/").pop()!.replace(/\.[jt]sx?$|\.mdx$/, ""));
+      const chunks = names.filter((n) => bases.some((b) => n.split("/").pop()!.startsWith(`${b}-`) || n.split("/").pop()!.startsWith(`${b}.`))).map((n) => shaOf.get(n));
+      return [c.slug, createHash("sha256").update(JSON.stringify([c.title, c.stories, chunks.sort()])).digest("hex")];
+    }),
+  );
+}
+
+/**
+ * The version of each component this deployment holds, made when its
+ * fingerprint is new at this mount: one seen before (a rollback, built
+ * again) is that version again, so only a change makes a new one.
+ */
+async function versionComponents(tx: Tx, siteId: string, path: string, deploymentId: string, actor: string, components: SiteComponent[], prints: Map<string, string>) {
+  const known = await tx.select().from(siteComponents).where(and(eq(siteComponents.siteId, siteId), eq(siteComponents.path, path)));
+  const ids: string[] = [];
+  for (const c of components) {
+    const fingerprint = prints.get(c.slug)!;
+    const same = known.find((k) => k.slug === c.slug && k.fingerprint === fingerprint);
+    if (same) {
+      ids.push(same.id);
+      continue;
+    }
+    const version = Math.max(0, ...known.filter((k) => k.slug === c.slug).map((k) => k.version)) + 1;
+    const [row] = await tx
+      .insert(siteComponents)
+      .values({ siteId, path, slug: c.slug, version, fingerprint, name: c.name, title: c.title, story: c.story, stories: c.stories, deploymentId, createdBy: actor })
+      .returning({ id: siteComponents.id });
+    ids.push(row.id);
+  }
+  return ids;
 }
 
 /**
@@ -745,8 +818,21 @@ export async function edgeRoute(host: string): Promise<{ slug: string; preview: 
 
 /** A site's live deployments (or one preview's), as serving reads them. */
 async function mountsOf(siteId: string, preview?: string | null): Promise<Mount[]> {
-  return db
-    .select({ path: siteDeployments.path, prefix: siteDeployments.prefix, rules: siteDeployments.rules })
+  const cols = { path: siteDeployments.path, prefix: siteDeployments.prefix, rules: siteDeployments.rules };
+  const found = await db
+    .select(cols)
     .from(siteDeployments)
     .where(and(eq(siteDeployments.siteId, siteId), preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
+  const kept = !found.length && preview ? KEPT_NAME.exec(preview)?.[1] : null;
+  if (!kept) return found;
+  // A kept deployment by its name (keptName): an older component version's preview, while its files are kept.
+  return db
+    .select(cols)
+    .from(siteDeployments)
+    .where(and(eq(siteDeployments.siteId, siteId), inArray(siteDeployments.state, ["live", "replaced"]), sql`replace(${siteDeployments.id}::text, '-', '') like ${`${kept}%`}`))
+    .limit(1);
 }
+
+const KEPT_NAME = /^d-([0-9a-f]{10})$/;
+/** A live or kept deployment as a preview name, answering at {name}--{site} as a pull request's does. */
+export const keptName = (deploymentId: string) => `d-${deploymentId.replaceAll("-", "").slice(0, 10)}`;

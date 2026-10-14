@@ -1655,7 +1655,7 @@ export const Insights = z.object({
 export const Fixes = z.object({
   days: z.number().int().describe("How far back stale and gaps go"),
   licenseDays: z.number().int().describe("How far ahead licenses are listed"),
-  open: z.number().int().describe("What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them"),
+  open: z.number().int().describe("What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them, sites on an old component"),
   stale: Insights.shape.stale.describe("Places still loading a replaced version, as Insights has them: done once `notified`"),
   gaps: Insights.shape.gaps.describe("Searches that found nothing, as Insights has them: done once `requested`"),
   licenses: z
@@ -1668,6 +1668,45 @@ export const Fixes = z.object({
       }),
     )
     .describe("Approved assets whose license ends within `licenseDays`, soonest first"),
+  components: z
+    .array(
+      z.object({
+        site: z.object({ id: uuid, name: z.string(), slug: z.string() }),
+        path: z.string().describe("Where the build is mounted"),
+        component: z.object({ id: uuid, name: z.string(), version: z.number().int() }).describe("The version its manifest names"),
+        current: z.object({ id: uuid, version: z.number().int() }).describe("The version its Storybook shows now"),
+        since: z.string().describe("When the current version came, ISO 8601"),
+      }),
+    )
+    .describe("This project's live builds made with a component version a newer one replaced: done once deployed with the current one"),
+});
+const ComponentVersionBase = {
+  id: uuid,
+  slug: z.string().describe("Storybook's id for it, e.g. ui-button"),
+  name: z.string(),
+  title: z.string().describe("Its Storybook title, e.g. UI/Button"),
+  version: z.number().int(),
+  story: z.string().describe("Its first story's id"),
+  stories: z.array(z.string()).describe("Its stories' names, in order"),
+  path: z.string().describe("Where its Storybook is mounted on the site"),
+  createdAt: z.string(),
+  createdBy: z.string().describe("Who deployed the build it came in"),
+  status: z.enum(["draft", "in_review", "current", "replaced", "archived"]).describe("current: in the live build; replaced: a newer version is; archived: gone from it"),
+  site: z.object({ id: uuid, slug: z.string(), name: z.string() }),
+  preview: z.string().nullable().describe("Its story alone (Storybook's iframe.html), on the site's own address; null once no kept build holds it"),
+  storybook: z.string().nullable().describe("Its story in Storybook's own UI"),
+};
+export const ComponentRow = z.object({ ...ComponentVersionBase, versions: z.number().int().describe("How many versions it has had") });
+export const ComponentDetail = z.object({
+  id: uuid,
+  address: z.string(),
+  name: z.string(),
+  title: z.string(),
+  site: z.object({ id: uuid, slug: z.string(), name: z.string() }).optional(),
+  path: z.string(),
+  versions: z
+    .array(z.object({ ...ComponentVersionBase, usedBy: z.array(z.object({ id: uuid, name: z.string(), address: z.string(), project: z.object({ id: uuid, slug: z.string(), name: z.string() }) })).describe("Sites built with this version that you reach") }))
+    .describe("Newest first"),
 });
 export const InsightNotice = z
   .strictObject({

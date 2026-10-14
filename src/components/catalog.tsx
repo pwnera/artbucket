@@ -140,8 +140,8 @@ export function CatalogExplorer({ projects, object, folder, tab }: { projects: T
   );
 }
 
-/** The tabs an object has: lineage where something links to it or from it, activity where it is recorded (an asset's versions, a brand's releases). */
-const tabsOf = (o: Described): Tab[] => TABS.filter((t) => (t === "lineage" ? o.lineage.up + o.lineage.down > 0 : t === "activity" ? o.type === "asset" || o.type === "brand" : true));
+/** The tabs an object has: lineage where something links to it or from it, activity where it is recorded (an asset's versions, a brand's releases, a component's versions). */
+const tabsOf = (o: Described): Tab[] => TABS.filter((t) => (t === "lineage" ? o.lineage.up + o.lineage.down > 0 : t === "activity" ? o.type === "asset" || o.type === "brand" || o.type === "component" : true));
 
 function ObjectView({
   object: o,

@@ -73,7 +73,7 @@ export type SavedSearch = { id: string; name: string; query: string };
 /**
  * The app's one sidebar, the same on every page: the places (Explore,
  * Catalog, Review, Fixes, Insights), the content (Brands, Collections,
- * Sites, Templates), and at the foot Connections, Automations, Settings and
+ * Sites, Components, Templates), and at the foot Connections, Automations, Settings and
  * BrandHub, which opens in a new tab. Every item is a link, and every view
  * it links to is a URL.
  *
@@ -118,6 +118,7 @@ export function AppSidebar({
     brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand" || pathname === "/imports" || pathname.startsWith("/imports/"),
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
     sites: pathname === "/sites",
+    components: pathname.startsWith("/components"),
     review: pathname === "/review",
     fixes: pathname === "/fixes",
     templates: pathname === "/templates",
@@ -200,6 +201,8 @@ export function AppSidebar({
               <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} badge={importCount || undefined} hint={signalHint(imports)} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
               {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
+              {/* What the project's Storybooks document, each component's versions and what is built with them. */}
+              <Place href="/components" label="Components" icon={<IconComponents />} active={at.components} />
               {/* What a release makes for people to use elsewhere: share cards, Office templates, the press kit. */}
               <Place href="/templates" label="Templates" icon={<IconTemplate />} active={at.templates} />
             </SidebarMenu>
