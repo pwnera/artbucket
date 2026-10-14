@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { rgb } from "./color.ts";
 import { fontStyle } from "./font.ts";
 
 /**
@@ -69,4 +70,14 @@ export function cardLogos<R extends { key: string; context: string | null }>(rul
     ...own.filter((r) => r.key === key),
   ];
   return [...new Set([...first, ...own.filter((r) => dark || !REVERSED.test(r.key)), ...own])];
+}
+
+/**
+ * The card's color field: the accent, at full strength, unless the paper swallows it (a white or near-white accent on
+ * a white card), then `fallback`. The accent is a fill here, never text, so a light one like a lime on white still
+ * stands as a field: only a color within a few steps of the paper on every channel does not.
+ */
+export function cardField(accent: string, paper: string, fallback: string) {
+  const [a, p] = [rgb(accent), rgb(paper)];
+  return Math.max(...a.map((c, i) => Math.abs(c - p[i]))) > 24 ? accent : fallback;
 }
