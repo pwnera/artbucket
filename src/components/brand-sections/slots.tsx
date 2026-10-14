@@ -71,7 +71,7 @@ export function Title({
 }: {
   as?: "h1" | "h2" | "h3";
   className?: string;
-  /** Each line after the first, as written, in the ground's quiet ink: a headline and its answer. Plain while it is typed. */
+  /** Each line after the first in the ground's quiet ink: a headline and its answer. */
   muted?: boolean;
 }) {
   const s = useSection();
@@ -80,13 +80,14 @@ export function Title({
   const heading = { id: titleOf(idOf(s.id)), className: cn(HEAD, "text-[length:min(var(--brand-h2),8cqi)] leading-tight text-balance", className) };
   if (typing) return <Plain as={H} {...heading} {...typing} label="Title" />;
   if (!s.title) return null;
+  // Every look keeps the lines as written: a line break is the writer's, never a space. Each line balances on its own.
   const [first, ...rest] = s.title.split("\n");
-  if (!muted || !rest.length) return <H {...heading}>{s.title}</H>;
+  if (!rest.length) return <H {...heading}>{s.title}</H>;
   return (
     <H {...heading}>
       {first}
       {rest.map((line, i) => (
-        <span key={i} className="block text-(--brand-muted)">
+        <span key={i} className={cn("block", muted && "text-(--brand-muted)")}>
           {line}
         </span>
       ))}
