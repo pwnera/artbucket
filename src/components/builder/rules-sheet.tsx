@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import {
   IconAlignLeft,
   IconArrowDown,
@@ -24,6 +24,7 @@ import { SpecForm } from "@/components/builder/spec-form";
 import type { BuilderApi } from "@/components/builder/use-builder";
 import { fieldIn, onceDrawn, RuleView, type Dnd, type Ed } from "@/components/brand-sections/rule-view";
 import { copy, Editable } from "@/components/brand-values";
+import { ColorCells, ColorHead } from "@/components/color-table";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
 import { Thumb } from "@/components/thumb";
@@ -43,6 +44,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import type { RuleRef } from "@/lib/builder-ops";
 import { keyFor, PRESETS, type Preset } from "@/lib/presets";
 import { assetUrl } from "@/lib/asset-url";
+import { colorRow, darkContext, type ColorRow } from "@/lib/color-table";
 import { contextLabel, fontValue, RULE_SPEC, ruleLabel, ruleName, section, type Rule } from "@/lib/rules";
 import type { ViewRule } from "@/lib/site";
 import { undoable } from "@/lib/undo";
@@ -146,6 +148,8 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
   });
 
   const taken = new Set(rules.map((r) => r.key));
+  /** Where colors keep their dark values: the color section's Dark column. */
+  const dark = darkContext(rules.map((r) => r.context));
   /** A section's keys as last dragged or moved here, ahead of the next load: the order PUT /brand/rules/order saved. */
   const [order, setOrder] = useState<Record<string, string[]>>({});
   /** The keys of each section, sections and keys in the brand's order. */
@@ -453,140 +457,162 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
       <div id={bodyId} className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-5">
         {!rules.length && <p className="text-muted-foreground text-sm">No rules yet. Start with a color, a typeface and the logo.</p>}
         {rules.length > 0 && !shownSections.length && <p className="text-muted-foreground text-sm">No rule by that name or value.</p>}
-        {shownSections.map(([name, keys]) => (
-          <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 id={`rules-${name}`} className="text-sm font-semibold">
-                {titleOf(name)}
-              </h3>
-              <span className="text-muted-foreground text-xs tabular-nums">{keys.length}</span>
-              <AddMenu
-                label="Add"
-                groups={groupsFor(name)}
-                open={adding === name}
-                onOpenChange={(o) => setAdding(o ? name : null)}
-                onPick={(p) => pick(p, name)}
-                className="ms-auto"
-              />
-            </div>
-            <ul
-              className="divide-y rounded-lg border"
-              onDragOver={(e) => {
-                // Past the last row: its section's end.
-                const d = drag.current;
-                if (d && section(d.key) === name && e.target === e.currentTarget) {
+        {shownSections.map(([name, keys]) => {
+          // The color section is a table: each key's light and dark values, by group.
+          const colors = name === "color" ? new Map(keys.map((k) => [k, colorRow(rules, k, dark)])) : null;
+          const grouped = !!colors && [...colors.values()].some((r) => r?.group);
+          return (
+            <section key={name} aria-labelledby={`rules-${name}`} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 id={`rules-${name}`} className="text-sm font-semibold">
+                  {titleOf(name)}
+                </h3>
+                <span className="text-muted-foreground text-xs tabular-nums">{keys.length}</span>
+                <AddMenu
+                  label="Add"
+                  groups={groupsFor(name)}
+                  open={adding === name}
+                  onOpenChange={(o) => setAdding(o ? name : null)}
+                  onPick={(p) => pick(p, name)}
+                  className="ms-auto"
+                />
+              </div>
+              <ul
+                className="divide-y rounded-lg border"
+                onDragOver={(e) => {
+                  // Past the last row: its section's end.
+                  const d = drag.current;
+                  if (d && section(d.key) === name && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    if (d.over !== null) setDragging({ key: d.key, over: null });
+                  }
+                }}
+                onDrop={(e) => {
+                  const d = drag.current;
+                  if (!d || section(d.key) !== name) return;
                   e.preventDefault();
-                  if (d.over !== null) setDragging({ key: d.key, over: null });
-                }
-              }}
-              onDrop={(e) => {
-                const d = drag.current;
-                if (!d || section(d.key) !== name) return;
-                e.preventDefault();
-                drop(d.key, d.over);
-                setDragging(null);
-              }}
-            >
-              {keys.map((key, i) => {
-                const vs = versionsOf(key);
-                const open = expanded === key;
-                const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
-                // Reordering only without a search narrowing the list: dropped between hidden rows, it would land somewhere unseen.
-                const movable = !needle && keys.length > 1;
-                return (
-                  <li
-                    key={key}
-                    data-rule={key}
-                    onDragOver={(e) => {
-                      const d = drag.current;
-                      if (!d || section(d.key) !== name) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                      // The lower half of a row drops after it.
-                      const box = e.currentTarget.getBoundingClientRect();
-                      const after = e.clientY > box.top + box.height / 2;
-                      const over = after ? (keys[i + 1] ?? null) : key;
-                      if (over !== d.over) setDragging({ key: d.key, over });
-                    }}
-                    className={cn(
-                      "relative",
-                      dragging?.key === key && "opacity-50",
-                      dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === key && "before:bg-primary before:absolute before:inset-x-0 before:-top-px before:h-0.5",
-                      dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === null && i === keys.length - 1 && "after:bg-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5",
-                    )}
-                  >
-                    <div className="flex items-center">
-                      {movable && (
-                        <span
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.effectAllowed = "move";
-                            e.dataTransfer.setData("text/plain", key);
-                            const row = e.currentTarget.closest("li");
-                            if (row) e.dataTransfer.setDragImage(row, 16, 16);
-                            setDragging({ key, over: key });
-                          }}
-                          onDragEnd={() => setDragging(null)}
-                          title="Drag to reorder"
-                          aria-hidden
-                          className="text-muted-foreground hover:text-foreground grid w-6 shrink-0 cursor-grab place-items-center self-stretch ps-1 active:cursor-grabbing"
-                        >
-                          <IconGripVertical className="size-4" />
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <RuleRow
-                          rule={vs[0]}
-                          versions={vs.length}
-                          pages={b.shownOn(key).length}
-                          open={open}
-                          onToggle={() => {
-                            setExpanded(open ? null : key);
-                            setDetails(open ? null : refOf(vs[0]));
-                          }}
-                        />
-                      </div>
-                      <RowMenu
-                        name={ruleName(vs[0])}
-                        first={i === 0}
-                        last={i === keys.length - 1}
-                        movable={movable}
-                        onUp={() => nudge(key, -1)}
-                        onDown={() => nudge(key, 1)}
-                        onDuplicate={() => duplicate(key)}
-                        onDelete={() => removeKey(key)}
-                      />
+                  drop(d.key, d.over);
+                  setDragging(null);
+                }}
+              >
+                {name === "color" && (
+                  <li aria-hidden className="flex items-center">
+                    {!needle && keys.length > 1 && <span className="w-6 shrink-0" />}
+                    <div className="flex flex-1 items-center gap-3 px-3 py-2">
+                      <ColorHead />
+                      <span className="size-4 shrink-0" />
                     </div>
-                    {open && (
-                      // Start padding: room for RuleView's gutter, its + and handle.
-                      <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
-                        <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
-                        <Details
-                          rule={shown}
-                          b={b}
-                          onHeading={(name) => rename(key, name)}
-                          onVersion={(c) => addVersion(shown, c)}
-                          onPatch={(fields) => patch(shown, fields)}
-                          onAssets={() => setPicking({ ref: refOf(shown), open: true })}
-                          onPage={(page) => {
-                            if (onOpenPage) return onOpenPage(page);
-                            b.open(page);
-                            onOpenChange(false);
-                          }}
-                          onClose={() => {
-                            setExpanded(null);
-                            setDetails(null);
-                          }}
-                        />
-                      </div>
-                    )}
+                    <span className="me-1 size-8 shrink-0" />
                   </li>
-                );
-              })}
-            </ul>
-            {draft(name)}
-          </section>
-        ))}
+                )}
+                {keys.map((key, i) => {
+                  const vs = versionsOf(key);
+                  const color = colors?.get(key) ?? null;
+                  // A color table's group, named where it starts (the brand's order keeps a group together).
+                  const group = color && grouped && (i === 0 || colors!.get(keys[i - 1])?.group !== color.group) ? color.group || "Other" : null;
+                  const open = expanded === key;
+                  const shown = (details?.key === key ? find(details) : undefined) ?? vs[0];
+                  // Reordering only without a search narrowing the list: dropped between hidden rows, it would land somewhere unseen.
+                  const movable = !needle && keys.length > 1;
+                  return (
+                    <Fragment key={key}>
+                      {group && <li className="bg-muted/30 px-3 py-1.5 text-xs font-medium">{group}</li>}
+                      <li
+                        data-rule={key}
+                        onDragOver={(e) => {
+                          const d = drag.current;
+                          if (!d || section(d.key) !== name) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          // The lower half of a row drops after it.
+                          const box = e.currentTarget.getBoundingClientRect();
+                          const after = e.clientY > box.top + box.height / 2;
+                          const over = after ? (keys[i + 1] ?? null) : key;
+                          if (over !== d.over) setDragging({ key: d.key, over });
+                        }}
+                        className={cn(
+                          "relative",
+                          dragging?.key === key && "opacity-50",
+                          dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === key && "before:bg-primary before:absolute before:inset-x-0 before:-top-px before:h-0.5",
+                          dragging && dragging.key !== key && section(dragging.key) === name && dragging.over === null && i === keys.length - 1 && "after:bg-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5",
+                        )}
+                      >
+                        <div className="flex items-center">
+                          {movable && (
+                            <span
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", key);
+                                const row = e.currentTarget.closest("li");
+                                if (row) e.dataTransfer.setDragImage(row, 16, 16);
+                                setDragging({ key, over: key });
+                              }}
+                              onDragEnd={() => setDragging(null)}
+                              title="Drag to reorder"
+                              aria-hidden
+                              className="text-muted-foreground hover:text-foreground grid w-6 shrink-0 cursor-grab place-items-center self-stretch ps-1 active:cursor-grabbing"
+                            >
+                              <IconGripVertical className="size-4" />
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <RuleRow
+                              rule={vs[0]}
+                              color={color}
+                              versions={vs.length}
+                              pages={b.shownOn(key).length}
+                              open={open}
+                              onToggle={() => {
+                                setExpanded(open ? null : key);
+                                setDetails(open ? null : refOf(vs[0]));
+                              }}
+                            />
+                          </div>
+                          <RowMenu
+                            name={ruleName(vs[0])}
+                            first={i === 0}
+                            last={i === keys.length - 1}
+                            movable={movable}
+                            onUp={() => nudge(key, -1)}
+                            onDown={() => nudge(key, 1)}
+                            onDuplicate={() => duplicate(key)}
+                            onDelete={() => removeKey(key)}
+                          />
+                        </div>
+                        {open && (
+                          // Start padding: room for RuleView's gutter, its + and handle.
+                          <div className="bg-muted/20 animate-in fade-in-0 slide-in-from-top-1 border-t py-4 ps-12 pe-4 duration-150">
+                            <RuleView rules={vs.map((r) => ({ ...r, id: idOf(r) }))} entering={key === made} selected={idOf(shown)} line={null} dragging={false} ed={edFor(key)} />
+                            <Details
+                              rule={shown}
+                              b={b}
+                              onHeading={(name) => rename(key, name)}
+                              onVersion={(c) => addVersion(shown, c)}
+                              dark={color && !color.dark.own ? dark : null}
+                              onPatch={(fields) => patch(shown, fields)}
+                              onAssets={() => setPicking({ ref: refOf(shown), open: true })}
+                              onPage={(page) => {
+                                if (onOpenPage) return onOpenPage(page);
+                                b.open(page);
+                                onOpenChange(false);
+                              }}
+                              onClose={() => {
+                                setExpanded(null);
+                                setDetails(null);
+                              }}
+                            />
+                          </div>
+                        )}
+                      </li>
+                    </Fragment>
+                  );
+                })}
+              </ul>
+              {draft(name)}
+            </section>
+          );
+        })}
         {naming && !sections.has(naming.section) && draft(naming.section)}
       </div>
 
@@ -840,7 +866,22 @@ function RulePreview({ r }: { r: ViewRule }) {
 }
 
 /** One rule in the list, closed: its preview, name, value, versions and where it shows; a click opens it to edit. */
-function RuleRow({ rule: r, versions, pages, open, onToggle }: { rule: ViewRule; versions: number; pages: number; open: boolean; onToggle: () => void }) {
+function RuleRow({
+  rule: r,
+  color,
+  versions,
+  pages,
+  open,
+  onToggle,
+}: {
+  rule: ViewRule;
+  /** A color's row of the table: its light and dark values in place of the line. */
+  color?: ColorRow | null;
+  versions: number;
+  pages: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       type="button"
@@ -849,17 +890,23 @@ function RuleRow({ rule: r, versions, pages, open, onToggle }: { rule: ViewRule;
       title={r.key}
       className="hover:bg-muted/50 focus-visible:ring-ring/50 flex w-full items-center gap-3 px-3 py-2 text-start outline-none focus-visible:ring-3 focus-visible:ring-inset"
     >
-      <RulePreview r={r} />
-      <span className="grid min-w-0 flex-1">
-        <span className="truncate text-sm font-medium">{ruleName(r)}</span>
-        <span className="text-muted-foreground truncate text-xs">{summaryOf(r)}</span>
-      </span>
-      {versions > 1 && (
+      {color ? (
+        <ColorCells row={color} label={r.label} />
+      ) : (
+        <>
+          <RulePreview r={r} />
+          <span className="grid min-w-0 flex-1">
+            <span className="truncate text-sm font-medium">{ruleName(r)}</span>
+            <span className="text-muted-foreground truncate text-xs">{summaryOf(r)}</span>
+          </span>
+        </>
+      )}
+      {!color && versions > 1 && (
         <Badge variant="outline" className="shrink-0">
           {versions} versions
         </Badge>
       )}
-      <span className={cn("hidden shrink-0 text-xs sm:inline", pages ? "text-muted-foreground" : "text-warning")}>
+      <span className={cn("hidden shrink-0 text-xs", !color && "sm:inline", pages ? "text-muted-foreground" : "text-warning")}>
         {pages ? `On ${pages} ${pages === 1 ? "page" : "pages"}` : "On no page"}
       </span>
       <IconChevronDown aria-hidden className={cn("text-muted-foreground size-4 shrink-0 transition-transform", open && "rotate-180")} />
@@ -873,6 +920,7 @@ function Details({
   b,
   onHeading,
   onVersion,
+  dark,
   onPatch,
   onAssets,
   onPage,
@@ -882,6 +930,8 @@ function Details({
   b: BuilderApi;
   onHeading: (name: string) => void;
   onVersion: (context: string) => void;
+  /** A color with no dark value yet: the context that would hold it. */
+  dark?: string | null;
   onPatch: (fields: Partial<ViewRule>) => void;
   onAssets: () => void;
   onPage: (slug: string) => void;
@@ -921,6 +971,11 @@ function Details({
             <IconPlus /> Add a version
           </Button>
         </form>
+        {dark && (
+          <Button variant="outline" size="sm" className="justify-self-start" onClick={() => onVersion(dark)}>
+            <IconPlus /> A dark value
+          </Button>
+        )}
       </Part>
       {r.type in RULE_SPEC && (
         <Part label="Spec">
