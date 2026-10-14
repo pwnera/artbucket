@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconLock, IconPlus, IconUserQuestion, IconUsers, IconWorld } from "@/components/icons";
@@ -18,6 +18,7 @@ import { useShell } from "@/components/shell";
 import { TokensDialog } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Confirm } from "@/components/confirm";
 import type { HeadBrand, Release } from "@/lib/brand-head";
 import { send } from "@/lib/send";
@@ -132,6 +133,8 @@ export function BrandSharing({
         </Group>
       )}
 
+      {release && <ShareCard brand={brand} origin={origin} hub={hub?.visibility === "public" && hub.published ? hub : null} />}
+
       {portals && <BrandPortals brand={brand} portals={portals} portalDomain={portalDomain} hub={hub} busy={busy} onLink={link} />}
 
       <Group title="For agents and code" info="The addresses an agent or a build reads the brand from.">
@@ -139,6 +142,37 @@ export function BrandSharing({
       </Group>
       <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
     </div>
+  );
+}
+
+/**
+ * The brand's share card (lib/core/cards.ts): its latest release drawn as a
+ * 1200x630 Open Graph image, from a URL any page's og:image can name. A
+ * public brand's is on BrandHub, keyless; a private one's is the API's,
+ * for whoever may read the brand. The title is tried here, the rest is the
+ * URL's (eyebrow, subtitle, image, theme), as the guide says.
+ */
+function ShareCard({ brand, origin, hub }: { brand: HeadBrand; origin: string; hub: BrandHub | null }) {
+  const [title, setTitle] = useState(brand.name);
+  // Drawn once typing stops, not per key.
+  const [shown, setShown] = useState(title);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(title.trim() || brand.name), 400);
+    return () => clearTimeout(t);
+  }, [title, brand.name]);
+  const url = hub
+    ? `${hub.url}/og.png?${new URLSearchParams({ title: shown })}`
+    : `${origin}/api/v1/brand/cards/og?${new URLSearchParams({ brand: brand.slug, title: shown })}`;
+  return (
+    <Group
+      title="Share card"
+      description={hub ? "Its latest release as a link preview, for any page's og:image. A release restyles every one." : "Its latest release as a link preview. Private: the URL takes a key, so save the picture in a build."}
+    >
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} aria-label="The card's title" className="max-w-md" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={`${brand.name}'s share card, titled ${shown}`} width={1200} height={630} className="h-auto w-full max-w-xl rounded-md border" />
+      <Snippet text={hub ? `<meta property="og:image" content="${url.replace(/&/g, "&amp;")}" />` : url} what={hub ? "the og:image tag" : "the card's URL"} />
+    </Group>
   );
 }
 

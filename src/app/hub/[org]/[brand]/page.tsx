@@ -35,7 +35,14 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   return {
     title: { absolute: `${b.org}/${b.brand}: ${b.name} brand on BrandHub` },
     description,
-    openGraph: { title: `${b.name} brand`, description, ...(b.logo && { images: [b.logo] }) },
+    // A public listing's link preview is its own share card (lib/core/cards.ts); a private one's, its logo.
+    openGraph: {
+      title: `${b.name} brand`,
+      description,
+      ...(b.visibility === "public"
+        ? { images: [{ url: `${b.url}/og.png?${new URLSearchParams({ title: `${b.name} brand`, eyebrow: `${b.org}/${b.brand}`, ...(b.tagline && { subtitle: b.tagline }) })}`, width: 1200, height: 630 }] }
+        : b.logo && { images: [b.logo] }),
+    },
     // A private brand is its people's; a community one may not come from the brand's owner: search engines leave both out.
     robots: b.visibility === "public" && b.verified ? undefined : { index: false, follow: true },
     // Read on the app's /hub too, by people signed in: the hub's own address is the one to list.

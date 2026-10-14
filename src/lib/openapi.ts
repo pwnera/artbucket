@@ -321,6 +321,27 @@ export function openapi(serverUrl: string) {
           ok: [200, "The template (binary)"],
         }),
       },
+      "/api/v1/brand/cards/{template}": {
+        parameters: [path("template", "The card: og, the 1200x630 Open Graph image")],
+        get: op({
+          summary: "A share card",
+          scope: "read",
+          description:
+            "The brand's latest release drawn as a picture: its paper, ink and accent, its logo and its faces, with the query's words. " +
+            "`og` is a 1200x630 PNG for a page's og:image. A public brand's is on BrandHub too, keyless: {org}/{brand}/og.png. " +
+            "Its ETag names everything it is drawn from; `If-None-Match` answers 304 without drawing it.",
+          query: {
+            title: { schema: str, description: "Required: the card's title, up to 140 characters" },
+            eyebrow: { schema: str, description: "A short line above the title, up to 60 characters" },
+            subtitle: { schema: str, description: "A line or two under the title, up to 200 characters" },
+            image: { schema: { type: "string", format: "uuid" }, description: "An asset's id: its picture beside the text. The release's own, or one the caller may see" },
+            theme: { schema: { type: "string", enum: ["light", "dark"], default: "light" }, description: "The card's ground" },
+            brand: { schema: str, description: "A brand's slug; the default brand without it" },
+            version: { schema: str, description: "live (the default): the release readers see; a number: that release" },
+          },
+          ok: [200, "The card, as image/png (binary)"],
+        }),
+      },
       "/api/v1/fonts/google": {
         get: op({
           summary: "Search Google Fonts",

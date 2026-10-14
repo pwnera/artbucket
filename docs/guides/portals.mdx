@@ -261,6 +261,7 @@ A brand's address is `{org}/{brand}`, and `@{n}` pins a version:
 | `/{org}/{brand}/tokens?format=css` | Design tokens, in any format of `GET /api/v1/brand/tokens` ([formats](/guides/brand-as-code/standards)); `&fonts=none` leaves out the `@font-face` rules for a site that serves its own fonts |
 | `/{org}/{brand}/press-kit.zip` | The press kit: every logo (an SVG with a PNG beside it), the palette (`colors.txt`, `colors.ase` for Adobe apps), `tokens.css` and `tokens.json`, the font files their license lets anyone pass on, and a README with the release, its source, each part's use and the brand's do's and don'ts |
 | `/{org}/{brand}/badge.svg` | A README badge in the brand's color, with its mark and name, the release that is live and a check when verified ("Acme @4 ✓"), not counted as a read |
+| `/{org}/{brand}/og.png?title=` | Its share card, a 1200x630 Open Graph image of its release, for any page's `og:image` ([share cards](/guides/cards)), not counted as a read |
 | `/index.json?q=` | The public brands, or what a search finds |
 | `/llms.txt` | How an agent finds a brand here, and the list |
 

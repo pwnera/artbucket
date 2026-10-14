@@ -1,9 +1,11 @@
-import { record, referrerOf } from "@/lib/core/events";
 import { handle } from "@/lib/api";
+import { brandCard } from "@/lib/core/cards";
+import { record, referrerOf } from "@/lib/core/events";
 import { hubBrand, hubViewer, listingBrandJson, type HubBrand } from "@/lib/core/hub";
 import { hubMoved } from "@/lib/core/hub-claims";
 import { pressKit } from "@/lib/core/press-kit";
 import { env } from "@/lib/env";
+import { CardQuery, isCardTemplate, queryIssues, type CardTemplate } from "@/lib/cards";
 import { brandText, hubBadge, hubHome, hubPath, markOf, parseRef } from "@/lib/hub";
 import { findAsset } from "@/lib/core/assets";
 import { renderAsset } from "@/lib/core/renditions";
@@ -20,7 +22,8 @@ import { TOKEN_FORMATS, type TokenRule, withoutFontFaces } from "@/lib/tokens";
  * /tokens?format=css (lib/tokens.ts, as GET /api/v1/brand/tokens; ?context=
  * resolves for one), /badge.svg for a README ("Acme | @4", lib/hub.ts hubBadge), and
  * /press-kit.zip (lib/core/press-kit.ts), the one a private listing's own people
- * get too, signed in, as they see its page. Files are
+ * get too, signed in, as they see its page, and /og.png?title=, its share card for
+ * any page's og:image (lib/core/cards.ts). Files are
  * signed for a day; a CDN keeps an answer five minutes, so a release reaches
  * agents and sites that load the tokens within minutes.
  *
@@ -35,8 +38,9 @@ const missing = (message: string) => Response.json({ error: { code: "not_found",
 
 export async function GET(req: Request, { params }: { params: Promise<{ org: string; brand: string; file: string }> }) {
   const { org, brand, file } = await params;
-  if (!["brand.json", "rules.json", "llms.txt", "tokens", "badge.svg", "press-kit.zip"].includes(file)) {
-    return missing("Not a file of a listing: brand.json, rules.json, llms.txt, tokens, badge.svg or press-kit.zip");
+  const template = file.endsWith(".png") ? file.slice(0, -4) : null;
+  if (!["brand.json", "rules.json", "llms.txt", "tokens", "badge.svg", "press-kit.zip"].includes(file) && !(template && isCardTemplate(template))) {
+    return missing("Not a file of a listing: brand.json, rules.json, llms.txt, tokens, badge.svg, press-kit.zip or og.png");
   }
   const kit = file === "press-kit.zip";
   const ref = parseRef(brand);
@@ -52,6 +56,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   }
   // A community listing may not come from the brand's owner: search engines leave its files out, as its page.
   const headers = b.verified ? BASE : { ...BASE, "X-Robots-Tag": "noindex" };
+  // Shown wherever a link to a page is, as the badge is: not a pull either.
+  if (template && isCardTemplate(template)) return card(req, b, template, headers);
   // Shown on every view of a README, so not a pull: nobody took the brand.
   if (file === "badge.svg") return new Response(hubBadge({ name: b.name, version: b.version, tint: b.tint, verified: !!b.verified, mark: await markPng(b.rules) }), { headers: { ...headers, "Content-Type": "image/svg+xml" } });
   record({ projectId: b.projectId, brandId: b.brandId, kind: "pull", surface: "hub", actor: "anonymous", subject: file, version: b.version, referrer: referrerOf(req) });
@@ -85,6 +91,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ org: str
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signed: _signed, logo: _logo, path: _path, id: _id, brandId: _brandId, projectId: _projectId, ...out } = b;
   return Response.json({ data: out }, { headers });
+}
+
+/**
+ * The listing's card `template`, as its release has it: what the query says,
+ * beside a picture of the release's or one made public. Cached as the other
+ * files are, and its ETag answers a revalidation without drawing it again.
+ */
+async function card(req: Request, b: HubBrand, template: CardTemplate, headers: Record<string, string>) {
+  const q = CardQuery.safeParse(Object.fromEntries(new URL(req.url).searchParams));
+  if (!q.success) return Response.json({ error: { code: "invalid", message: queryIssues(q.error) } }, { status: 400, headers });
+  try {
+    const c = await brandCard(b.projectId, b.brand, b.version, template, q.data, (a) => a.public);
+    const h = { ...headers, ETag: c.etag };
+    if (req.headers.get("if-none-match") === c.etag) return new Response(null, { status: 304, headers: h });
+    const png = await c.draw();
+    return new Response(new Uint8Array(png), { headers: { ...h, "Content-Type": "image/png", "Content-Length": String(png.length) } });
+  } catch (err) {
+    return handle(err);
+  }
 }
 
 /**

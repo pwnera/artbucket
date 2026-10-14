@@ -3416,6 +3416,126 @@
       }
     }
   },
+  "/api/v1/brand/cards/{template}": {
+    "parameters": [
+      {
+        "name": "template",
+        "in": "path",
+        "required": true,
+        "description": "The card: og, the 1200x630 Open Graph image",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "get": {
+      "summary": "A share card",
+      "description": "The brand's latest release drawn as a picture: its paper, ink and accent, its logo and its faces, with the query's words. `og` is a 1200x630 PNG for a page's og:image. A public brand's is on BrandHub too, keyless: {org}/{brand}/og.png. Its ETag names everything it is drawn from; `If-None-Match` answers 304 without drawing it.\n\nScope: `read`.",
+      "x-scope": "read",
+      "parameters": [
+        {
+          "name": "title",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "Required: the card's title, up to 140 characters"
+        },
+        {
+          "name": "eyebrow",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A short line above the title, up to 60 characters"
+        },
+        {
+          "name": "subtitle",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A line or two under the title, up to 200 characters"
+        },
+        {
+          "name": "image",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "An asset's id: its picture beside the text. The release's own, or one the caller may see"
+        },
+        {
+          "name": "theme",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "default": "light"
+          },
+          "description": "The card's ground"
+        },
+        {
+          "name": "brand",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "A brand's slug; the default brand without it"
+        },
+        {
+          "name": "version",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          },
+          "description": "live (the default): the release readers see; a number: that release"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "The card, as image/png (binary)"
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "/api/v1/fonts/google": {
     "get": {
       "summary": "Search Google Fonts",
@@ -13075,7 +13195,7 @@
                       "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "The original; add a rendition before the query, /a/{id}/w_800,f_webp?s=..., or ?download"
+                        "description": "The original, its name at the end; add a rendition after the id, /a/{id}/w_800,f_webp/summer-hero.webp?s=..., or ?download"
                       },
                       "expiresAt": {
                         "type": "string",
@@ -64076,7 +64196,7 @@
     ],
     "get": {
       "summary": "The original",
-      "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not there for this caller: 404.\n\nNo key needed.",
+      "description": "Bytes, exactly as uploaded, Content Credentials included; `?download` writes current metadata in, except into a file with Content Credentials, which it leaves as signed. What the asset is: GET /api/v1/assets/{id}/description. Private: served to whoever can see the asset in the library, by session or key. Anyone else needs `s`, a signature from POST /api/v1/assets/{id}/signed-url, a share link or a portal, or the asset made public. Signed or public, only while approved, unexpired and out of embargo, and cached for an hour at most, never past the last day of use. Expired or archived: 410. Not there for this caller: 404. A name may follow the id, or a transform, for people reading the link (/a/{id}/summer-hero.jpg, /a/{id}/w_800,f_webp/summer-hero.webp): any segment with a dot, never read.\n\nNo key needed.",
       "security": [],
       "parameters": [
         {
@@ -64085,7 +64205,7 @@
           "schema": {
             "type": "string"
           },
-          "description": "Present: attach, with metadata embedded"
+          "description": "Present: attach, saved as the asset's name, with metadata embedded (a rendition: in its format)"
         },
         {
           "name": "s",
@@ -64183,7 +64303,7 @@
     ],
     "get": {
       "summary": "The current version",
-      "description": "302 to /a/{current id}, with whatever follows the id (a transform) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
+      "description": "302 to /a/{current id}, with whatever follows the id (a transform, a name) and `?download` carried over: the stack's current version, or the asset a person replaced it with. For embedding: a new version reaches the page without editing it. Cached for a minute. Public when the asset is, else for whoever can see it in the library; /a/ then answers as it always does. Not there for this caller: 404.",
       "security": [],
       "responses": {
         "302": {
@@ -64312,6 +64432,7 @@
     ],
     "get": {
       "summary": "A rendition, generated once and cached",
+      "description": "A name may follow, for people reading the link (/a/{id}/w_800,f_webp/summer-hero.webp), never read. `?download` attaches it, saved as the asset's name in its format.",
       "security": [],
       "responses": {
         "200": {

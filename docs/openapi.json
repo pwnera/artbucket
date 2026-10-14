@@ -3452,6 +3452,126 @@
         }
       }
     },
+    "/api/v1/brand/cards/{template}": {
+      "parameters": [
+        {
+          "name": "template",
+          "in": "path",
+          "required": true,
+          "description": "The card: og, the 1200x630 Open Graph image",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "A share card",
+        "description": "The brand's latest release drawn as a picture: its paper, ink and accent, its logo and its faces, with the query's words. `og` is a 1200x630 PNG for a page's og:image. A public brand's is on BrandHub too, keyless: {org}/{brand}/og.png. Its ETag names everything it is drawn from; `If-None-Match` answers 304 without drawing it.\n\nScope: `read`.",
+        "x-scope": "read",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required: the card's title, up to 140 characters"
+          },
+          {
+            "name": "eyebrow",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A short line above the title, up to 60 characters"
+          },
+          {
+            "name": "subtitle",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A line or two under the title, up to 200 characters"
+          },
+          {
+            "name": "image",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "An asset's id: its picture beside the text. The release's own, or one the caller may see"
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "light",
+                "dark"
+              ],
+              "default": "light"
+            },
+            "description": "The card's ground"
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "A brand's slug; the default brand without it"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "live (the default): the release readers see; a number: that release"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card, as image/png (binary)"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/fonts/google": {
       "get": {
         "summary": "Search Google Fonts",
