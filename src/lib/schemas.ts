@@ -440,6 +440,7 @@ const portal = {
   name: z.string().trim().min(1).max(120).describe("What visitors see it called, e.g. Press kit"),
   slug: z.string().regex(PORTAL_SLUG).describe("Its address: /p/{slug}, and {slug}.PORTAL_DOMAIN when the server has one. Lowercase letters, digits and dashes"),
   intro: z.string().trim().max(4000).nullable().optional().describe("A few paragraphs under the name"),
+  url: z.url({ protocol: /^https?$/ }).max(2048).nullable().optional().describe("For kind external: where the site lives, e.g. https://app.example.com"),
   access: z.enum(PORTAL_ACCESS).describe("public: anyone; password: whoever has it; members: people with access to the project. Either of the last two takes access requests"),
   password: z.string().min(4).max(200).optional().describe("For access: password. Left out on a change, it stays"),
   expiresAt: z.iso.datetime({ offset: true }).nullable().optional().describe("It closes then"),
@@ -469,7 +470,7 @@ export const PortalInput = z.strictObject({
   kind: z
     .enum(SITE_KINDS)
     .default("portal")
-    .describe("portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once"),
+    .describe("portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy; external: a site hosted elsewhere whose CI records what it uses (artbucket site scan). Set once"),
 });
 export const PortalPatch = z.strictObject(portal).partial();
 export const PortalRequestInput = z.strictObject({
@@ -1486,10 +1487,11 @@ const domainState = z.object({
 });
 export const Portal = z.object({
   id: uuid,
-  kind: z.enum(SITE_KINDS).describe("portal: managed by Artbucket; the others are static files deployed to it"),
+  kind: z.enum(SITE_KINDS).describe("portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"),
   slug: z.string(),
   name: z.string(),
   intro: z.string().nullable(),
+  externalUrl: z.string().nullable().describe("An external site's own address"),
   access: z.enum(PORTAL_ACCESS),
   password: z.boolean(),
   expiresAt: date.nullable(),
@@ -1688,6 +1690,7 @@ const ComponentVersionBase = {
   version: z.number().int(),
   story: z.string().describe("Its first story's id"),
   stories: z.array(z.string()).describe("Its stories' names, in order"),
+  files: z.array(z.string()).describe("Its stories' and source files, as Storybook's index.json names them"),
   path: z.string().describe("Where its Storybook is mounted on the site"),
   createdAt: z.string(),
   createdBy: z.string().describe("Who deployed the build it came in"),
@@ -1696,7 +1699,11 @@ const ComponentVersionBase = {
   preview: z.string().nullable().describe("Its story alone (Storybook's iframe.html), on the site's own address; null once no kept build holds it"),
   storybook: z.string().nullable().describe("Its story in Storybook's own UI"),
 };
-export const ComponentRow = z.object({ ...ComponentVersionBase, versions: z.number().int().describe("How many versions it has had") });
+export const ComponentRow = z.object({
+  ...ComponentVersionBase,
+  address: z.string().describe("Its address without @n: in artbucket.site.json, the version current when the build is made"),
+  versions: z.number().int().describe("How many versions it has had"),
+});
 export const ComponentDetail = z.object({
   id: uuid,
   address: z.string(),

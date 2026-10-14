@@ -7,12 +7,18 @@
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const SITE_KINDS = ["portal", "guidelines", "landing", "docs", "storybook"] as const;
+export const SITE_KINDS = ["portal", "guidelines", "landing", "docs", "storybook", "external"] as const;
 export type SiteKind = (typeof SITE_KINDS)[number];
 
-/** The kinds that are static files someone built: every kind but the managed portal. */
-export const BUILD_KINDS = SITE_KINDS.filter((k): k is Exclude<SiteKind, "portal"> => k !== "portal");
+/** The kinds that are static files someone built: every kind but the managed portal and an external site, which serves nothing here. */
+export const BUILD_KINDS = SITE_KINDS.filter((k): k is Exclude<SiteKind, "portal" | "external"> => k !== "portal" && k !== "external");
 export type BuildKind = (typeof BUILD_KINDS)[number];
+/**
+ * A deployment's kind: a build's, or `external`, what an app hosted
+ * elsewhere was found to use (`artbucket site scan` from its CI): no files,
+ * only its lineage, re-checked like a build's.
+ */
+export type DeploymentKind = BuildKind | "external";
 
 export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   portal: "Brand portal",
@@ -20,6 +26,7 @@ export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   landing: "Landing",
   docs: "Docs",
   storybook: "Storybook",
+  external: "Hosted elsewhere",
 };
 
 /**
@@ -51,8 +58,8 @@ export function mountPath(raw: string): string | null {
  */
 export type SiteUse = { asset: string; how: "copy" | "link" | "current" | "declared"; file: string | null };
 
-const READS = /\.(html?|css|m?js|json|svg|xml|md|txt)$/i;
-/** Files read for the library's addresses: text a browser runs or shows, up to 2 MB (a larger bundle is left out). */
+const READS = /\.(html?|css|m?[jt]sx?|cjs|json|svg|xml|mdx?|txt|vue|svelte|astro|scss|less)$/i;
+/** Files read for the library's addresses: text a browser runs or shows, or the source an external site is built from (artbucket site scan), up to 2 MB (a larger bundle is left out). */
 export const readsLinks = (name: string, size: number) => READS.test(name) && size <= 2_000_000;
 
 const ADDRESS = /\/([ac])\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-z-])/gi;

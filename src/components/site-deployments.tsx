@@ -15,16 +15,18 @@ import { slugOf } from "@/lib/catalog";
 import { formatSize } from "@/lib/limits";
 import { PORTAL_ACCESS, type PortalAccess } from "@/lib/portal";
 import { send } from "@/lib/send";
-import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind } from "@/lib/sites";
+import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind, type DeploymentKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: BuildKind; state: "checking" | "live" | "failed" | "replaced" | "held" | "preview"; preview: string | null; url?: string | null; files: number; bytes: number; error: string | null; uses: { asset: string }[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
+type Deployment = { id: string; path: string; kind: DeploymentKind; state: "checking" | "live" | "failed" | "replaced" | "held" | "preview"; preview: string | null; url?: string | null; files: number; bytes: number; error: string | null; uses: { asset: string }[]; componentUses: string[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
 
-/** "uses 3 assets", from what the check found in its files: the library it reaches. */
+/** "uses 3 assets, 2 components", from what the check found in its files: the library it reaches. */
 const usesLine = (d: Deployment) => {
   const n = new Set(d.uses.map((u) => u.asset)).size;
-  return n ? ` · uses ${n} asset${n === 1 ? "" : "s"}` : "";
+  const c = d.componentUses?.length ?? 0;
+  const said = [n && `${n} asset${n === 1 ? "" : "s"}`, c && `${c} component${c === 1 ? "" : "s"}`].filter(Boolean);
+  return said.length ? ` · uses ${said.join(", ")}` : "";
 };
 
 const STATE: Record<Deployment["state"], "success" | "secondary" | "destructive" | "outline"> = { live: "success", checking: "secondary", failed: "destructive", replaced: "outline", held: "secondary", preview: "secondary" };
@@ -52,7 +54,8 @@ export function BuildSiteDialog({
 }) {
   const [made, setMade] = useState<Portal | null>(site);
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<BuildKind>("docs");
+  const [kind, setKind] = useState<BuildKind | "external">("docs");
+  const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const shown = made ?? site;
   return (
@@ -64,7 +67,9 @@ export function BuildSiteDialog({
             {shown
               ? shown.kind === "portal"
                 ? "Mount a build beside this brand portal's pages, at a path such as /docs."
-                : `A ${SITE_KIND_LABEL[shown.kind].toLowerCase()} site: drop a zip of its build to deploy it.`
+                : shown.kind === "external"
+                  ? "Hosted elsewhere: its CI records what it uses, so it shows in lineage and Fixes."
+                  : `A ${SITE_KIND_LABEL[shown.kind].toLowerCase()} site: drop a zip of its build to deploy it.`
               : "A site of static files you build anywhere (Claude, Lovable, your own code), deployed as a zip."}
           </DialogDescription>
         </DialogHeader>
@@ -89,7 +94,7 @@ export function BuildSiteDialog({
             onSubmit={async (e) => {
               e.preventDefault();
               setBusy(true);
-              const saved: Portal | null = await send("POST", "/api/v1/sites", { name, slug: slugOf(name), kind });
+              const saved: Portal | null = await send("POST", "/api/v1/sites", { name, slug: slugOf(name), kind, ...(kind === "external" && url && { url }) });
               setBusy(false);
               if (!saved) return;
               setMade(saved);
@@ -103,12 +108,12 @@ export function BuildSiteDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>Kind</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as BuildKind)}>
+              <Select value={kind} onValueChange={(v) => setKind(v as BuildKind | "external")}>
                 <SelectTrigger className="w-full" aria-label="Kind">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BUILD_KINDS.map((k) => (
+                  {[...BUILD_KINDS, "external" as const].map((k) => (
                     <SelectItem key={k} value={k}>
                       {SITE_KIND_LABEL[k]}
                     </SelectItem>
@@ -116,6 +121,12 @@ export function BuildSiteDialog({
                 </SelectContent>
               </Select>
             </div>
+            {kind === "external" && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="site-url">Where it lives</Label>
+                <Input id="site-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://app.acme.com" />
+              </div>
+            )}
             <DialogFooter>
               <Button type="submit" disabled={!name.trim() || busy}>
                 {busy && <Spinner />} Make the site
@@ -130,6 +141,7 @@ export function BuildSiteDialog({
 
 function Deployments({ site }: { site: Portal }) {
   const portal = site.kind === "portal";
+  const external = site.kind === "external";
   const [list, setList] = useState<Deployment[] | null>(null);
   const [path, setPath] = useState(portal ? "/docs" : "/");
   const [kind, setKind] = useState<BuildKind>(portal ? "docs" : (site.kind as BuildKind));
@@ -167,6 +179,16 @@ function Deployments({ site }: { site: Portal }) {
 
   return (
     <div className="grid gap-4">
+      {external ? (
+        <div className="bg-muted/40 grid gap-1 rounded-xl border px-4 py-3 text-sm">
+          <span className="font-medium">Recorded from its CI</span>
+          <span className="text-muted-foreground text-xs">
+            At the repository&apos;s root: <code>artbucket site scan src --site {site.slug}</code>. It finds the components its code imports and the assets it links or
+            copies; nothing is stored but what it uses.
+          </span>
+        </div>
+      ) : (
+        <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="mount">Path</Label>
@@ -214,8 +236,10 @@ function Deployments({ site }: { site: Portal }) {
         <span className="text-xs">index.html at its root. From a terminal: artbucket site push dist --site {site.slug}</span>
       </button>
       <input ref={input} type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void deploy(e.target.files?.[0])} />
+        </>
+      )}
       <section aria-label="Deployments" className="grid gap-2">
-        <h3 className="text-sm font-medium">Deployments</h3>
+        <h3 className="text-sm font-medium">{external ? "Scans" : "Deployments"}</h3>
         {list === null ? (
           <p className="text-muted-foreground text-sm">Loading</p>
         ) : list.length ? (
@@ -236,7 +260,7 @@ function Deployments({ site }: { site: Portal }) {
                       <span className="text-xs">{d.preview}</span>
                     ))}
                   <span className="text-muted-foreground text-xs">
-                    {SITE_KIND_LABEL[d.kind]} · {d.files} files · {formatSize(d.bytes)}
+                    {d.kind === "external" ? `${d.files} files scanned` : `${SITE_KIND_LABEL[d.kind]} · ${d.files} files · ${formatSize(d.bytes)}`}
                     {usesLine(d)}
                   </span>
                   <span className="text-muted-foreground ms-auto text-xs" suppressHydrationWarning>

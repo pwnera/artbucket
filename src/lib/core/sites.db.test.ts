@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import https from "node:https";
 import { mock, test } from "node:test";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
@@ -16,7 +16,7 @@ import { rebuildSites } from "@/lib/core/rebuild";
 import { addDomain, hostTarget, portalHome } from "@/lib/core/domains";
 import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
-import { checkBuild, deploy, edgeRoute, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
+import { checkBuild, deploy, edgeRoute, liveMounts, recordUses, enterSite, HELD_DAYS, KEEP_REPLACED, keyDoor, letIn, listDeployments, membersDoor, recheckSites, restoreDeployment, siteFile, unlockValue } from "@/lib/core/sites";
 import { usageOf } from "@/lib/core/usage";
 import { findObject, lineage, objectActivity, searchCatalog } from "@/lib/core/catalog";
 import { componentOf } from "@/lib/core/components";
@@ -678,4 +678,47 @@ test("a build names the components it is made with: its lineage, and a fix once 
 
   await deploy(ada.caller, app.id, uses(`${at}@2`));
   assert.ok(!(await fixesOf(ada.caller)).components.some((c) => c.site.id === app.id));
+});
+
+test("an external site records what its code uses: the component version its code is, and the assets it links; in lineage and Fixes, serving nothing", async () => {
+  const sb = await createPortal(ada.caller, { name: "UI", slug: `ui-${Date.now().toString(36)}`, kind: "storybook" });
+  const storybook = (fingerprint: string) =>
+    pack({
+      "index.html": "sb",
+      "index.json": JSON.stringify({ v: 5, entries: { "ui-chip--plain": { type: "story", id: "ui-chip--plain", title: "UI/Chip", name: "Plain", importPath: "./src/chip.stories.tsx", componentPath: "./src/chip.tsx" } } }),
+      "artbucket.site.json": JSON.stringify({ fingerprints: { "ui-chip": fingerprint } }),
+    });
+  await deploy(ada.caller, sb.id, storybook("code-1"));
+  await deploy(ada.caller, sb.id, storybook("code-2"));
+  const at = `${ada.caller.project.organization.slug}/${ada.caller.project.slug}/site/${sb.slug}/component/ui-chip`;
+  const [v1, v2] = [(await findObject(ada.caller, `${at}@1`))!, (await findObject(ada.caller, `${at}@2`))!];
+  assert.deepEqual((await componentOf(ada.caller, at))!.versions.map((v) => v.files), [["./src/chip.stories.tsx", "./src/chip.tsx"], ["./src/chip.stories.tsx", "./src/chip.tsx"]]);
+
+  const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: "#5a2e91" } }).png().toBuffer();
+  const logo = (await ingestBytes(ada.caller, { bytes: png, mime: "image/png", filename: "app-logo.png" })).asset;
+  const app = await createPortal(ada.caller, { name: "App", slug: `app-${Date.now().toString(36)}`, kind: "external", url: "https://app.example.com" } as Parameters<typeof createPortal>[1]);
+  await assert.rejects(deploy(ada.caller, app.id, pack({ "index.html": "x" })), /isn't deployed here/);
+  await assert.rejects(recordUses(ada.caller, sb.id, pack({ "a.ts": "x" })), /Only an external site/);
+
+  // Its code is still Chip's first version's: that one, not the current.
+  const scan = pack({
+    "src/header.tsx": `export const Logo = () => <img src="/c/${logo.id}/w_200" />;`,
+    "artbucket.site.json": JSON.stringify({ components: [{ component: at, fingerprint: "code-1" }] }),
+  });
+  const r = (await recordUses(ada.caller, app.id, scan))!;
+  assert.deepEqual(r.componentUses, [v1.id]);
+  assert.ok(r.uses.some((u) => u.asset === logo.id));
+  assert.equal(r.bytes, 0);
+  assert.deepEqual(await liveMounts(app.id), []);
+  const down = (await lineage(ada.caller, v1.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(down.edges.some((e) => e.from === v1.id && e.to === app.id && e.kind === "built"));
+  const up = (await lineage(ada.caller, logo.id, { depth: 1, direction: ["down"] }))!;
+  assert.ok(up.edges.some((e) => e.to === app.id && e.kind === "built"));
+  const fix = (await fixesOf(ada.caller)).components.find((c) => c.site.id === app.id)!;
+  assert.deepEqual([fix.component.version, fix.current.version], [1, 2]);
+
+  // Its code moved on, or it names no fingerprint: the current version, and nothing to fix.
+  await recordUses(ada.caller, app.id, pack({ "a.ts": "", "artbucket.site.json": JSON.stringify({ components: [{ component: at, fingerprint: "unknown" }] }) }));
+  assert.ok(!(await fixesOf(ada.caller)).components.some((c) => c.site.id === app.id));
+  assert.deepEqual((await db.select().from(siteDeployments).where(and(eq(siteDeployments.siteId, app.id), eq(siteDeployments.state, "live"))))[0].componentUses, [v2.id]);
 });

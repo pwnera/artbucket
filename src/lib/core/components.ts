@@ -5,7 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { findObject, lineage } from "@/lib/core/catalog";
 import { portalHome, previewAt } from "@/lib/core/domains";
 import { keptName } from "@/lib/core/sites";
-import type { CatalogStatus } from "@/lib/catalog";
+import { formatAddress, type CatalogStatus } from "@/lib/catalog";
 
 /**
  * The Components page (GET /api/v1/components): what a project's Storybooks
@@ -30,6 +30,7 @@ const columns = {
   version: siteComponents.version,
   story: siteComponents.story,
   stories: siteComponents.stories,
+  files: siteComponents.files,
   path: siteComponents.path,
   createdAt: siteComponents.createdAt,
   createdBy: siteComponents.createdBy,
@@ -50,7 +51,13 @@ export async function componentsOf(caller: Caller) {
     .where(and(eq(portals.projectId, caller.project.id), eq(catalogObjects.status, "current")))
     .orderBy(portals.name, siteComponents.path, siteComponents.title);
   const homes = new Map(await Promise.all([...new Set(rows.map((r) => r.site.slug))].map(async (s) => [s, (await portalHome(s))?.builds ?? null] as const)));
-  return rows.map((r) => ({ ...r, ...storyAt(homes.get(r.site.slug) ?? null, r.path, r.story) }));
+  const { organization, slug: project } = caller.project;
+  return rows.map((r) => ({
+    ...r,
+    // Its address without @n: the version current when something is built with it.
+    address: formatAddress({ org: organization.slug, project, type: "component", slug: r.slug, parent: { type: "site", slug: r.site.slug } }),
+    ...storyAt(homes.get(r.site.slug) ?? null, r.path, r.story),
+  }));
 }
 export type ComponentRow = Awaited<ReturnType<typeof componentsOf>>[number];
 

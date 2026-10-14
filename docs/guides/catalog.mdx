@@ -56,7 +56,9 @@ A build says which components it is made with in its `artbucket.site.json`:
 { "components": ["acme/corporate/site/storybook/component/ui-button"] }
 ```
 
-Without `@n`, that is the version current when it is deployed. Each one is
+Without `@n`, that is the version current when it is deployed. An app
+hosted elsewhere gets the same from its CI with `artbucket site scan`, which
+finds what its code imports ([Sites](/guides/sites#an-app-hosted-elsewhere-in-lineage)). Each one is
 upstream of the site in its lineage, and once a newer version is out, the site
 is listed in **Fixes** until it is deployed with it.
 

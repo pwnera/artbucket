@@ -33,7 +33,7 @@ import type { Scope } from "@/lib/scopes";
 import type { Resource } from "@/lib/access";
 import type { Status } from "@/lib/lifecycle";
 import type { PortalAccess, PortalPreset, PortalSite, PortalTheme } from "@/lib/portal";
-import type { BuildKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
+import type { DeploymentKind, DeploymentState, SiteKind, SiteUse } from "@/lib/sites";
 import type { SiteRules } from "@/lib/site-rules";
 
 export type AssetStatus = Status;
@@ -1179,6 +1179,8 @@ export const portals = pgTable(
     site: jsonb("site").$type<PortalSite>().notNull().default({}),
     /** What it is (lib/sites.ts): `portal`, managed by Artbucket, or a kind of build served from its deployments. */
     kind: text("kind").$type<SiteKind>().notNull().default("portal"),
+    /** An external site's own address: where it lives, since nothing is served here. */
+    url: text("url"),
     /**
      * A deploy hook (Vercel, Netlify, Cloudflare Pages...) called when the brand
      * named by rebuildBrandId is released, so a site built from it is built again
@@ -1197,7 +1199,7 @@ export const portals = pgTable(
     index("portals_project_idx").on(t.projectId),
     check("portals_access_check", sql`${t.access} in ('public', 'password', 'members')`),
     check("portals_password_check", sql`${t.access} <> 'password' or ${t.passwordHash} is not null`),
-    check("portals_kind_check", sql`${t.kind} in ('portal', 'guidelines', 'landing', 'docs', 'storybook')`),
+    check("portals_kind_check", sql`${t.kind} in ('portal', 'guidelines', 'landing', 'docs', 'storybook', 'external')`),
   ],
 );
 
@@ -1226,7 +1228,7 @@ export const siteDeployments = pgTable(
       .references(() => portals.id, { onDelete: "cascade" }),
     /** Where it is mounted: `/`, or a path such as `/docs`. */
     path: text("path").notNull().default("/"),
-    kind: text("kind").$type<BuildKind>().notNull(),
+    kind: text("kind").$type<DeploymentKind>().notNull(),
     state: text("state").$type<DeploymentState>().notNull().default("checking"),
     /** A preview's name (pr-12), when it is one: served at {name}--{site}.PORTAL_DOMAIN, never live. */
     preview: text("preview"),
@@ -1261,7 +1263,7 @@ export const siteDeployments = pgTable(
     index("site_deployments_site_idx").on(t.siteId, t.path, t.createdAt),
     uniqueIndex("site_deployments_live_unique").on(t.siteId, t.path).where(sql`${t.state} = 'live'`),
     check("site_deployments_state_check", sql`${t.state} in ('checking', 'live', 'failed', 'replaced', 'held', 'preview')`),
-    check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook')`),
+    check("site_deployments_kind_check", sql`${t.kind} in ('guidelines', 'landing', 'docs', 'storybook', 'external')`),
   ],
 );
 
@@ -1288,6 +1290,8 @@ export const siteComponents = pgTable(
     title: text("title").notNull(),
     story: text("story").notNull(),
     stories: jsonb("stories").$type<string[]>().notNull(),
+    /** Its stories' and source files, as index.json names them: what `artbucket site scan` matches imports against. */
+    files: jsonb("files").$type<string[]>().notNull().default([]),
     /** The deployment it first came in, and who made it. */
     deploymentId: uuid("deployment_id").references(() => siteDeployments.id, { onDelete: "set null" }),
     createdBy: text("created_by").notNull(),

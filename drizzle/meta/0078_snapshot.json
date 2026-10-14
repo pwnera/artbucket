@@ -1,5 +1,5 @@
 {
-  "id": "611bd3e7-e513-463a-815a-ccb0cfdd8203",
+  "id": "5cf6631d-2157-42a4-ac52-f602136ca271",
   "prevId": "f6059843-f1a5-4376-b736-77220fc9bb0a",
   "version": "7",
   "dialect": "postgresql",
@@ -5361,6 +5361,12 @@
           "notNull": true,
           "default": "'portal'"
         },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "rebuild_hook": {
           "name": "rebuild_hook",
           "type": "text",
@@ -5473,7 +5479,7 @@
         },
         "portals_kind_check": {
           "name": "portals_kind_check",
-          "value": "\"portals\".\"kind\" in ('portal', 'guidelines', 'landing', 'docs', 'storybook')"
+          "value": "\"portals\".\"kind\" in ('portal', 'guidelines', 'landing', 'docs', 'storybook', 'external')"
         }
       },
       "isRLSEnabled": false
@@ -6099,6 +6105,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "files": {
+          "name": "files",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "deployment_id": {
           "name": "deployment_id",
           "type": "uuid",
@@ -6409,7 +6422,7 @@
         },
         "site_deployments_kind_check": {
           "name": "site_deployments_kind_check",
-          "value": "\"site_deployments\".\"kind\" in ('guidelines', 'landing', 'docs', 'storybook')"
+          "value": "\"site_deployments\".\"kind\" in ('guidelines', 'landing', 'docs', 'storybook', 'external')"
         }
       },
       "isRLSEnabled": false

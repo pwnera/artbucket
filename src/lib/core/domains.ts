@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { resolve4, resolve6, resolveCname } from "node:dns/promises";
-import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { siteDeployments, domains, portalAliases, portals, sessions, projects } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
@@ -132,7 +132,8 @@ export async function portalHome(slug: string) {
   const { p } = named;
   const [[own], live] = await Promise.all([
     db.select({ host: domains.host, verifiedAt: domains.verifiedAt }).from(domains).where(eq(domains.portalId, p.id)),
-    db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live"))),
+    // An external site's record of what it uses serves nothing.
+    db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, p.id), eq(siteDeployments.state, "live"), ne(siteDeployments.kind, "external"))),
   ]);
   // Where its builds answer (lib/core/sites.ts): the proxy sends those paths to their files.
   return { slug: p.slug, access: p.access, kind: p.kind, mounts: live.map((m) => m.path), url: await portalUrl(p, own ?? null), builds: buildsAt(p, own ?? null) };

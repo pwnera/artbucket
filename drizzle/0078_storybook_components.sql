@@ -9,6 +9,7 @@ CREATE TABLE "site_components" (
 	"title" text NOT NULL,
 	"story" text NOT NULL,
 	"stories" jsonb NOT NULL,
+	"files" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"deployment_id" uuid,
 	"created_by" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -16,11 +17,16 @@ CREATE TABLE "site_components" (
 --> statement-breakpoint
 DROP VIEW "public"."catalog_edges";--> statement-breakpoint
 DROP VIEW "public"."catalog_objects";--> statement-breakpoint
+ALTER TABLE "portals" DROP CONSTRAINT "portals_kind_check";--> statement-breakpoint
+ALTER TABLE "site_deployments" DROP CONSTRAINT "site_deployments_kind_check";--> statement-breakpoint
+ALTER TABLE "portals" ADD COLUMN "url" text;--> statement-breakpoint
 ALTER TABLE "site_deployments" ADD COLUMN "components" uuid[];--> statement-breakpoint
 ALTER TABLE "site_deployments" ADD COLUMN "component_uses" uuid[];--> statement-breakpoint
 ALTER TABLE "site_components" ADD CONSTRAINT "site_components_site_id_portals_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."portals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "site_components" ADD CONSTRAINT "site_components_deployment_id_site_deployments_id_fk" FOREIGN KEY ("deployment_id") REFERENCES "public"."site_deployments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "site_components_version_unique" ON "site_components" USING btree ("site_id","path","slug","version");--> statement-breakpoint
+ALTER TABLE "portals" ADD CONSTRAINT "portals_kind_check" CHECK ("portals"."kind" in ('portal', 'guidelines', 'landing', 'docs', 'storybook', 'external'));--> statement-breakpoint
+ALTER TABLE "site_deployments" ADD CONSTRAINT "site_deployments_kind_check" CHECK ("site_deployments"."kind" in ('guidelines', 'landing', 'docs', 'storybook', 'external'));--> statement-breakpoint
 CREATE VIEW "public"."catalog_edges" AS (select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from "assets" a where a.superseded_by is not null
     union all
     select a.parent_asset_id, a.id, 'derived', null from "assets" a where a.parent_asset_id is not null

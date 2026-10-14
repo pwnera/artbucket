@@ -45,6 +45,7 @@ export type AuditAction =
   | "portal.request_denied"
   | "portal.request_removed"
   | "site.deployed"
+  | "site.scanned"
   | "site.problems"
   | "site.held"
   | "site.rebuilt"

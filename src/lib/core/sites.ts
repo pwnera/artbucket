@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, gt, inArray, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, brands, domains, portalRequests, portals, sessions, siteComponents, siteDeployments, siteTickets } from "@/lib/db/schema";
 import { findObject } from "@/lib/core/catalog";
@@ -53,6 +53,7 @@ const present = (d: Deployment, url?: string | null) => ({
   error: d.error,
   manifest: d.manifest,
   uses: d.uses ?? [],
+  componentUses: d.componentUses ?? [],
   problems: d.problems,
   flags: d.flags,
   checkedAt: d.checkedAt,
@@ -320,6 +321,7 @@ export async function deploy(
     if (!previewAt(site.slug, preview)) throw new AssetError("invalid", env.BUILD_DOMAIN || env.PORTAL_DOMAIN ? `preview: ${preview}--${site.slug} is too long for an address: pick a shorter name` : "Previews answer at {name}--{site}.BUILD_DOMAIN or PORTAL_DOMAIN: this server has neither");
   }
   if (site.kind === "portal" && path === "/") throw new AssetError("invalid", "A brand portal's root is drawn by Artbucket: mount a build at a path, such as /docs");
+  if (site.kind === "external") throw new AssetError("invalid", "An external site isn't deployed here: its CI records what it uses with artbucket site scan");
   const kind = (o.kind ?? (site.kind === "portal" ? null : site.kind)) as BuildKind | null;
   if (!kind || !BUILD_KINDS.includes(kind)) throw new AssetError("invalid", `kind: one of ${BUILD_KINDS.join(", ")}`);
   if (zip.length > MAX_SITE_BYTES) throw new AssetError("too_large", `A deployment is ${MAX_SITE_BYTES / 1024 / 1024} MB at most`);
@@ -411,12 +413,25 @@ export async function deploy(
 async function usedComponents(caller: Caller, refs: unknown): Promise<string[] | null> {
   if (!Array.isArray(refs) || !refs.length) return null;
   const ids = new Set<string>();
-  for (const ref of refs) {
+  for (const item of refs) {
+    // An address or id; or, from artbucket site scan, { component, fingerprint }: the version whose code that is, if one is.
+    const { component: ref, fingerprint } = typeof item === "string" ? { component: item, fingerprint: null } : ((item ?? {}) as { component?: unknown; fingerprint?: unknown });
     const o = typeof ref === "string" ? await findObject(caller, ref) : null;
     if (o?.type !== "component") throw new AssetError("invalid", `${MANIFEST} names ${typeof ref === "string" ? ref : "something"} as a component: it isn't one this key reaches`);
-    ids.add(o.id);
+    ids.add((typeof fingerprint === "string" && (await versionWithCode(o.id, fingerprint))) || o.id);
   }
   return [...ids];
+}
+
+/** The version of a component (at its mount) whose fingerprint this is, if one is. */
+async function versionWithCode(id: string, fingerprint: string) {
+  const [c] = await db.select({ siteId: siteComponents.siteId, path: siteComponents.path, slug: siteComponents.slug }).from(siteComponents).where(eq(siteComponents.id, id));
+  if (!c) return null;
+  const [v] = await db
+    .select({ id: siteComponents.id })
+    .from(siteComponents)
+    .where(and(eq(siteComponents.siteId, c.siteId), eq(siteComponents.path, c.path), eq(siteComponents.slug, c.slug), eq(siteComponents.fingerprint, fingerprint)));
+  return v?.id ?? null;
 }
 
 /**
@@ -458,7 +473,7 @@ async function versionComponents(tx: Tx, siteId: string, path: string, deploymen
     const version = Math.max(0, ...known.filter((k) => k.slug === c.slug).map((k) => k.version)) + 1;
     const [row] = await tx
       .insert(siteComponents)
-      .values({ siteId, path, slug: c.slug, version, fingerprint, name: c.name, title: c.title, story: c.story, stories: c.stories, deploymentId, createdBy: actor })
+      .values({ siteId, path, slug: c.slug, version, fingerprint, name: c.name, title: c.title, story: c.story, stories: c.stories, files: c.files, deploymentId, createdBy: actor })
       .returning({ id: siteComponents.id });
     ids.push(row.id);
   }
@@ -507,6 +522,56 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   const { uses, unknown } = await resolveUses(caller.project.id, scan, visible(caller));
   const problems = [...rulesOf(ruleTexts).errors, ...unknown, ...(await problemsWith(uses))];
   return { allowed: !problems.length, files: files.size, uses, problems, flags: signLines(scan.signs) };
+}
+
+/**
+ * What an app hosted elsewhere uses, from its CI (`artbucket site scan`):
+ * its files read as a build's are (copies of the library's files, `/a/` and
+ * `/c/` links), and the components its code imports, as the manifest the CLI
+ * adds says. Kept as the external site's live record, files not stored, so it
+ * is in lineage, in Fixes and re-checked as a live build is; never refused
+ * for what it uses, which is already out there: the answer says why.
+ */
+export async function recordUses(caller: Caller, siteId: string, zip: Uint8Array, o: { commit?: string | null; ref?: string | null } = {}) {
+  mayDeploy(caller);
+  const site = await siteOf(caller, siteId);
+  if (!site) return null;
+  if (site.kind !== "external") throw new AssetError("invalid", "Only an external site records what it uses: deploy this one's build instead");
+  if (zip.length > MAX_SITE_BYTES) throw new AssetError("too_large", `A scan is ${MAX_SITE_BYTES / 1024 / 1024} MB at most`);
+  let entries;
+  try {
+    entries = unzip(zip);
+  } catch {
+    throw new AssetError("invalid", "That isn't a zip");
+  }
+  const files = siteFiles(entries.map((e) => e.name));
+  if (!files || !files.size) throw new AssetError("invalid", files ? "That zip holds no files" : "A file in the zip names a path outside the site");
+  if (files.size > MAX_SITE_FILES) throw new AssetError("invalid", `A scan holds ${MAX_SITE_FILES} files at most`);
+  const byName = new Map(entries.map((e) => [e.name, e]));
+  const scan = buildScan(await brandNames(site.projectId));
+  let manifest: Manifest | null = null;
+  for (const [served, name] of files) {
+    const data = await byName.get(name)!.read();
+    if (served !== MANIFEST) scan.add(served, data);
+    else
+      try {
+        manifest = JSON.parse(new TextDecoder().decode(data)) as Manifest;
+      } catch {
+        throw new AssetError("invalid", `${MANIFEST} isn't JSON`);
+      }
+  }
+  if (manifest) scan.declare(manifest);
+  const componentUses = await usedComponents(caller, manifest?.components);
+  const { uses, unknown } = await resolveUses(site.projectId, scan);
+  const problems = [...unknown, ...(await problemsWith(uses))];
+  const id = randomUUID();
+  const [row] = await db.transaction(async (tx) => {
+    // Its prefix holds nothing: the sweep of a replaced one takes nothing.
+    await tx.insert(siteDeployments).values({ id, siteId: site.id, path: "/", kind: "external", prefix: `sites/${site.id}/${id}/`, commit: o.commit ?? null, ref: o.ref ?? null, createdBy: caller.actor });
+    return makeLive(tx, site.id, "/", id, { files: files.size, bytes: 0, manifest, uses, componentUses, problems, flags: [], checkedAt: new Date() });
+  });
+  await recordAudit(caller, "site.scanned", site.slug, { files: files.size, assets: new Set(uses.map((u) => u.asset)).size, components: componentUses?.length ?? 0 }, { projectId: site.projectId });
+  return present(row, null);
 }
 
 /**
@@ -769,7 +834,7 @@ export async function recheckSites(date = today()) {
 
 /** The live mount paths of a site, longest first: where its builds answer. For src/proxy.ts. */
 export async function liveMounts(siteId: string) {
-  const rows = await db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.state, "live")));
+  const rows = await db.select({ path: siteDeployments.path }).from(siteDeployments).where(and(eq(siteDeployments.siteId, siteId), eq(siteDeployments.state, "live"), served));
   return rows.map((r) => r.path).sort((a, b) => b.length - a.length);
 }
 
@@ -822,17 +887,19 @@ async function mountsOf(siteId: string, preview?: string | null): Promise<Mount[
   const found = await db
     .select(cols)
     .from(siteDeployments)
-    .where(and(eq(siteDeployments.siteId, siteId), preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
+    .where(and(eq(siteDeployments.siteId, siteId), served, preview ? and(eq(siteDeployments.state, "preview"), eq(siteDeployments.preview, preview)) : eq(siteDeployments.state, "live")));
   const kept = !found.length && preview ? KEPT_NAME.exec(preview)?.[1] : null;
   if (!kept) return found;
   // A kept deployment by its name (keptName): an older component version's preview, while its files are kept.
   return db
     .select(cols)
     .from(siteDeployments)
-    .where(and(eq(siteDeployments.siteId, siteId), inArray(siteDeployments.state, ["live", "replaced"]), sql`replace(${siteDeployments.id}::text, '-', '') like ${`${kept}%`}`))
+    .where(and(eq(siteDeployments.siteId, siteId), served, inArray(siteDeployments.state, ["live", "replaced"]), sql`replace(${siteDeployments.id}::text, '-', '') like ${`${kept}%`}`))
     .limit(1);
 }
 
 const KEPT_NAME = /^d-([0-9a-f]{10})$/;
+/** What answers requests: a build, never an external site's record of what it uses. */
+const served = ne(siteDeployments.kind, "external");
 /** A live or kept deployment as a preview name, answering at {name}--{site} as a pull request's does. */
 export const keptName = (deploymentId: string) => `d-${deploymentId.replaceAll("-", "").slice(0, 10)}`;

@@ -136,6 +136,7 @@ async function present(p: Row) {
     slug: p.slug,
     name: p.name,
     intro: p.intro,
+    externalUrl: p.url,
     access: p.access,
     password: !!p.passwordHash,
     expiresAt: p.expiresAt,
@@ -180,6 +181,8 @@ type Input = {
   name?: string;
   slug?: string;
   intro?: string | null;
+  /** An external site's own address. */
+  url?: string | null;
   access?: PortalAccess;
   password?: string;
   expiresAt?: string | null;
@@ -323,6 +326,7 @@ export async function createPortal(caller: Caller, input: Input & { name: string
       slug: input.slug,
       name: input.name,
       intro: input.intro || null,
+      url: input.url || null,
       access,
       passwordHash: input.password ? await hashPassword(input.password) : null,
       expiresAt: expiry(input.expiresAt) ?? null,
@@ -368,6 +372,7 @@ export async function updatePortal(caller: Caller, id: string, input: Input) {
       name: input.name ?? p.name,
       slug: input.slug ?? p.slug,
       intro: input.intro === undefined ? p.intro : input.intro || null,
+      url: input.url === undefined ? p.url : input.url || null,
       access,
       passwordHash,
       expiresAt: expiry(input.expiresAt) === undefined ? p.expiresAt : expiry(input.expiresAt),
