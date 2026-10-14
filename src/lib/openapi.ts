@@ -296,6 +296,7 @@ export function openapi(serverUrl: string) {
             brand: { schema: str, description: "A brand's slug; the default brand without it" },
             context: { schema: str, description: "Resolve for this context, e.g. dark-background" },
             version: { schema: str, description: "live: the release readers see, as a site built from the brand shows it; a number: that release. The draft without it" },
+            fonts: { schema: { type: "string", enum: ["none"] }, description: "none: leave out the @font-face rules, for a site that serves its own font files" },
           },
           ok: [200, "The tokens, as text: CSS, Sass, Less, JS, TypeScript or JSON"],
         }),

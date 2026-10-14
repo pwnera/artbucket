@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { brandTheme } from "./brand-theme.ts";
 import type { RuleSpec } from "./rules.ts";
-import { gradientCss, toCss, toDtcg, TOKEN_FORMATS, type TokenRule } from "./tokens.ts";
+import { gradientCss, toCss, toDtcg, TOKEN_FORMATS, type TokenRule, withoutFontFaces } from "./tokens.ts";
 
 const file = (id: string, filename: string) => ({ id, rendition: null, filename, mime: "font/ttf" });
 const RULES: TokenRule[] = [
@@ -43,6 +43,14 @@ test("CSS: one custom property per value, fonts with their files", () => {
   assert.ok(!css.includes("*/ body{}"));
   assert.equal(css.match(/@font-face/g)?.length, 2, "one face per file, however many rules carry it");
   assert.ok(!css.includes("tone"), "guidance is not a token");
+});
+
+test("fonts=none: the values without @font-face, for a site with its own font files", () => {
+  for (const f of ["css", "scss", "less"] as const) {
+    const text = withoutFontFaces(TOKEN_FORMATS[f].render(RULES, { origin: "https://dam.example", title: "t" }));
+    assert.ok(!text.includes("@font-face") && !text.includes("dam.example/a/"), `${f} keeps a font face`);
+  }
+  assert.ok(withoutFontFaces(toCss(RULES, { origin: "https://dam.example", title: "t" })).includes("--color-primary: #0f62fe;"));
 });
 
 test("DTCG: typed tokens, grouped by key; set-in rules alias the font", () => {
