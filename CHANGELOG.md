@@ -4,6 +4,18 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.3.0](https://github.com/pwnera/artbucket/compare/v2.2.0...v2.3.0) (2026-10-14)
+
+
+### Features
+
+* **app:** Automations, Templates and Fixes as places of their own ([#257](https://github.com/pwnera/artbucket/issues/257)) ([6262dc5](https://github.com/pwnera/artbucket/commit/6262dc557005598794dc3486798eae1dd0fba667))
+
+
+### Fixes
+
+* **brand:** a light accent stays the share card's field ([#256](https://github.com/pwnera/artbucket/issues/256)) ([bec0f22](https://github.com/pwnera/artbucket/commit/bec0f2230f7f3b48ebdadb37728427210f327d7f))
+
 ## [2.2.0](https://github.com/pwnera/artbucket/compare/v2.1.0...v2.2.0) (2026-10-14)
 
 
