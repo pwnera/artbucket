@@ -252,7 +252,7 @@ export function CommandPalette({
   const several = brands.length > 1;
   const team = can("member.manage") || can("share.manage");
   const sections = me ? allowedFor(me) : [];
-  const readable = can("brand.edit") ? pages : pages.filter((p) => !hidden(p, pages));
+  const readable = pages.filter((p) => can("brand.edit", p.brandInfo) || !hidden(p, pages));
   // Asked for as it opens and on each key: they read the page as it is now.
   const own = open && commands ? commands().filter((c) => term || c.top) : [];
   const ownGroups = [...new Set(own.map((c) => c.group))];

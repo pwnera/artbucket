@@ -29,7 +29,7 @@ async function Tab({ params }: Props) {
   if (!head?.status) notFound();
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
-      <BrandScore name={head.brand.name} slug={slug} status={head.status} />
+      <BrandScore name={head.brand.name} slug={slug} target={head.brand} status={head.status} />
     </div>
   );
 }

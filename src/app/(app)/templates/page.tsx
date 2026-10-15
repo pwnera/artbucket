@@ -27,7 +27,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   return (
     <Templates
       brands={list.map(({ slug, name }) => ({ slug, name }))}
-      brand={brand && { slug: brand.slug, name: brand.name }}
+      brand={brand && { id: brand.id, slug: brand.slug, name: brand.name, private: brand.private }}
       release={head?.release ?? null}
       hub={hub}
       own={own}

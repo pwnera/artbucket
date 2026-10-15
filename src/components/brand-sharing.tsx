@@ -78,7 +78,7 @@ export function BrandSharing({
     return !!done;
   };
   // Picking which portal BrandHub links takes publishing, as making it public does.
-  const link = hub && can("brand.publish") ? (portal: string | null) => void share({ portal }, `link:${portal ?? "*"}`) : undefined;
+  const link = hub && can("brand.publish", brand) ? (portal: string | null) => void share({ portal }, `link:${portal ?? "*"}`) : undefined;
 
   // Said while anyone outside the team reads it: public on BrandHub, or on a portal not just for members.
   const outside = hub?.visibility === "public" || !!portals?.some((p) => p.access !== "members");
@@ -95,7 +95,7 @@ export function BrandSharing({
           }
         >
           <div className="flex flex-wrap items-center gap-2">
-            {can("brand.publish") &&
+            {can("brand.publish", brand) &&
               (hub.visibility === "public" ? (
                 <Button variant="outline" size="sm" pending={busy === "hub"} onClick={() => void share({ visibility: "private" }, "hub")}>
                   Make private

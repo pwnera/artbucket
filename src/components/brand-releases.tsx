@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { Update } from "@/lib/history";
 import { sendResult } from "@/lib/send";
 import { brandPath, guidelinesPath } from "@/lib/site";
+import type { Target } from "@/lib/permissions";
 import { ago, exact } from "@/lib/time";
 
 /**
@@ -36,9 +37,9 @@ function changed({ rules, pages }: Update["changes"]) {
 }
 
 /** The Releases tab's list. `pending`: there are changes since the latest release. */
-export function ReleaseList({ slug, updates, pending }: { slug: string; updates: Update[]; pending: boolean }) {
+export function ReleaseList({ slug, target, updates, pending }: { slug: string; target: Target; updates: Update[]; pending: boolean }) {
   const can = useCan();
-  const edit = can("brand.edit");
+  const edit = can("brand.edit", target);
   return (
     <div className="grid gap-4">
       {(pending || !updates.length) && (
@@ -89,13 +90,14 @@ const transport = (method: string, url: string, body?: unknown) => sendResult(me
  * with the brand's status read on the server. Cancel goes back to the
  * brand; Done, to its releases.
  */
-export function NewRelease({ slug, name, status, comments }: { slug: string; name: string; status: Status | null; comments: number }) {
+export function NewRelease({ slug, target, name, status, comments }: { slug: string; target: Target; name: string; status: Status | null; comments: number }) {
   const router = useRouter();
   return (
     <div className="bg-card rounded-xl border p-5">
       <ReleaseForm
         host={{
           brand: slug,
+          target,
           name,
           transport,
           status,

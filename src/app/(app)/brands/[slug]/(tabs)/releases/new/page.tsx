@@ -40,7 +40,7 @@ async function Tab({ params }: Props) {
   const comments = await get(`brands/${encodeURIComponent(slug)}/comments`, (x: { data: (Row & { replies?: Row[] })[] }) => openCounts(x.data).open, 0);
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-16 md:px-6">
-      <NewRelease slug={slug} name={head.brand.name} status={head.status} comments={comments} />
+      <NewRelease slug={slug} target={head.brand} name={head.brand.name} status={head.status} comments={comments} />
     </div>
   );
 }

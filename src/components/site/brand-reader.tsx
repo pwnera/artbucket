@@ -138,7 +138,7 @@ export function BrandReader({ initial, brand, embed, status, version: fallback, 
   };
   // A page's address with one of them open: rendered on the server too, so from what the view says, never `location`.
   const also = (page: string | null, key: "ways" | "comments") => guidelinesPath(slug, { page, context, lang, version: asked, focus: focus ? "1" : null, [key]: "1" });
-  const commenting = can("brand.comment");
+  const commenting = can("brand.comment", brand);
   const commentsButton = commenting && (
     <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setOpen("comments", true)}>
       <IconMessageCircle aria-hidden /> Comments
@@ -211,6 +211,7 @@ export function BrandReader({ initial, brand, embed, status, version: fallback, 
       {commenting && (
         <ReaderComments
           view={view}
+          brand={brand}
           open={params.get("comments") === "1"}
           onOpenChange={(open) => setOpen("comments", open)}
           onPage={(page) => navigate(also(page, "comments"))}

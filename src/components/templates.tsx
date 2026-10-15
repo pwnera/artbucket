@@ -70,7 +70,8 @@ export function Templates({
   origin,
 }: {
   brands: Brand[];
-  brand: Brand | null;
+  /** The brand on show, with what decides who may release it. */
+  brand: (Brand & { id: string; private?: boolean }) | null;
   release: Release | null;
   hub: BrandHub | null;
   own: OwnTemplate[];
@@ -128,7 +129,7 @@ export function Templates({
               <EmptyTitle>Release {brand.name} first</EmptyTitle>
               <EmptyDescription>Templates are made from a release, so they always match what people see. Release the brand and they&apos;re ready here.</EmptyDescription>
             </EmptyHeader>
-            {can("brand.publish") && (
+            {can("brand.publish", brand) && (
               <EmptyContent>
                 <Button asChild>
                   <Link href={brandPath(brand.slug, "/releases/new")}>Release {brand.name}</Link>
