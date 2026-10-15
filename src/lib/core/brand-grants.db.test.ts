@@ -12,6 +12,7 @@ import { searchCatalog, whoCan } from "@/lib/core/catalog";
 import { acceptInvitation, createInvitation, setGrant } from "@/lib/core/people";
 import { handleMcp } from "@/lib/mcp";
 import { createPortal } from "@/lib/core/portals";
+import { exportBrand, importBrand } from "@/lib/core/brand-sync";
 
 const ada = await signUp("Ada");
 const ws = ada.caller.project;
@@ -91,6 +92,20 @@ test("a rule takes only assets its editor can see", async () => {
   await assert.rejects(createRule(sam, "kids", { key: "logo.leak", type: "text", value: "x", assets: [{ id: hidden.id, rendition: null }] }), /No such asset/);
   const rule = await createRule(sam, "kids", { key: "logo.open", type: "text", value: "x", assets: [{ id: open.id, rendition: null }] });
   assert.deepEqual(rule.assets.map((a) => a.id), [open.id]);
+});
+
+test("brand files take only assets their importer can see, or the brand already holds", async () => {
+  const png = (r: number) => sharp({ create: { width: 8, height: 8, channels: 3, background: { r, g: 9, b: 9 } } }).png().toBuffer();
+  const held = (await ingestBytes(ada.caller, { bytes: await png(3), mime: "image/png", filename: "held.png", private: true })).asset;
+  const other = (await ingestBytes(ada.caller, { bytes: await png(4), mime: "image/png", filename: "other.png", private: true })).asset;
+  // An admin puts a private logo on the brand in the app: the files going back and forth with Git keep it.
+  await createRule(ada.caller, "kids", { key: "logo.held", type: "text", value: "x", assets: [{ id: held.id, rendition: null }] });
+  const { files } = await exportBrand(ws.id, "kids");
+  const sam = await samHere();
+  await importBrand(sam, "kids", { files, dryRun: true });
+  // The same files naming another private asset, by id: not there for Sam, whatever the id says.
+  const swapped = Object.fromEntries(Object.entries(files).map(([p, t]) => [p, t.replaceAll(held.id, other.id)]));
+  await assert.rejects(importBrand(sam, "kids", { files: swapped, dryRun: true }), new RegExp(`no asset ${other.id}`));
 });
 
 test("who can reach it: the brand grant, said as such", async () => {
