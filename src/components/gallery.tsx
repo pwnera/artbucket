@@ -972,7 +972,11 @@ export function Gallery({
   if (!stocked && total > 0) setStocked(true);
 
   const picked = useMemo(() => assets.filter((a) => selected.has(a.id)), [assets, selected]);
-  const shareAsset = (a: Asset) => share({ kind: "view", asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public, path: assetLink(a) } });
+  const shareAsset = (a: Asset) =>
+    share({
+      kind: "view",
+      asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public, path: assetLink(a), shareable: a.status === "active" && can("asset.share", a) },
+    });
   const selectAll = () => setSelected(new Set(assets.map((a) => a.id)));
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
