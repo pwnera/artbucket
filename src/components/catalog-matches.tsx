@@ -5,7 +5,7 @@ import Link from "next/link";
 import { NavLink } from "@/components/app-sidebar";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
 import { Button } from "@/components/ui/button";
-import { TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
+import { openPath, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  * (GET /api/v1/catalog): brands, collections, sites, and brands' rules and
  * guideline pages, and Storybooks' components. A row of types to pick one,
  * then a first look at each as cards above the assets, or (`only`) every
- * match of one type, a page at a time. Each opens in the catalog.
+ * match of one type, a page at a time. Each opens where the app shows it.
  */
 
 const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page", "component"];
@@ -124,10 +124,11 @@ export function CatalogMatches({ q, only, assets }: { q: string; only: CatalogTy
   );
 }
 
+// Each type opens where the app shows it (lib/catalog.ts openPath), as it does from every other list; its catalog page is a tab away there.
 const Card = ({ i }: { i: CatalogResults["items"][number] }) => (
   <ObjectCard
     type={i.type}
-    href={`/catalog?o=${i.id}`}
+    href={openPath(i)}
     name={i.name}
     sub={`${TYPE_LABEL[i.type].one} · ${i.parent ? i.parent.name : i.project.name}`}
     status={i.status}

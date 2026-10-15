@@ -290,7 +290,7 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
     what: (
       <>
         Built with{" "}
-        <Link href={`/catalog?o=${c.component.id}`} className="font-medium underline-offset-2 hover:underline">
+        <Link href={`/components/${c.component.id}`} className="font-medium underline-offset-2 hover:underline">
           {c.component.name} @{c.component.version}
         </Link>
         : @{c.current.version} is current
@@ -305,7 +305,7 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
     done: null,
     action: (
       <Button size="xs" variant="outline" asChild>
-        <Link href={`/catalog?o=${c.current.id}`}>Open @{c.current.version}</Link>
+        <Link href={`/components/${c.current.id}`}>Open @{c.current.version}</Link>
       </Button>
     ),
   }));

@@ -202,7 +202,7 @@ function ObjectView({
             </div>
           </div>
           <div className="flex gap-2">
-            <PinButton size="icon" pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&]+/, "").replace(/\?$/, "") }} />
+            <PinButton size="icon" pin={{ id: o.id, type: o.type, label: o.name, href: o.open.replace(/[?&]project=[^&#]+/, "").replace(/\?(?=#|$)/, "") }} />
             <IconButton size="icon" label="Who can reach it, and grants" onClick={() => go(o.id, "access")}>
               <IconShieldLock />
             </IconButton>

@@ -159,7 +159,10 @@ export function impactLine(name: string, things: number, projects: number) {
   return `Changing ${name} reaches ${things} ${things === 1 ? "thing" : "things"} downstream, in ${projects} ${projects === 1 ? "project" : "projects"}.`;
 }
 
-/** Where the app shows it, in its own project (the proxy's `?project=` opens that one). */
+/**
+ * Where the app shows it, in its own project (the proxy's `?project=` opens
+ * that one): the one place a click on it goes, from every search and list.
+ */
 export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { id: string; slug: string } | null; project: { id: string } }) {
   const w = `project=${item.project.id}`;
   const brand = item.parent?.slug ?? "";
@@ -173,10 +176,10 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
     case "site":
       return `/sites?edit=${item.id}&${w}`;
     case "rule":
-      return `/brands/${brand}/rules?${w}`;
+      return `/brands/${brand}/rules?${w}#rule-${encodeURIComponent(item.slug)}`;
     case "page":
       return `/brands/${brand}/guidelines?page=${item.slug}&${w}`;
     case "component":
-      return `/sites?edit=${item.parent?.id ?? ""}&${w}`;
+      return `/components/${item.id}?${w}`;
   }
 }
