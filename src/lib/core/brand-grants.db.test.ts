@@ -9,6 +9,7 @@ import { parseQuery } from "@/lib/catalog";
 import { searchCatalog, whoCan } from "@/lib/core/catalog";
 import { acceptInvitation, createInvitation, setGrant } from "@/lib/core/people";
 import { handleMcp } from "@/lib/mcp";
+import { createPortal } from "@/lib/core/portals";
 
 const ada = await signUp("Ada");
 const ws = ada.caller.project;
@@ -59,6 +60,15 @@ test("MCP resources/read refuses a private brand's rules and pages to a reader w
   }
   assert.ok((await read("artbucket://brands/kids/rules")).result, "kids, Sam's grant");
   assert.ok((await read("artbucket://brands/acme/rules", ada.caller)).result, "an admin");
+});
+
+test("a portal shows a private brand only for whoever may release it", async () => {
+  // An editor of the project, with no grant on private Acme.
+  const editor = { ...ada.caller, scope: "write" as const };
+  const slug = () => `kit-${Math.random().toString(36).slice(2, 8)}`;
+  await assert.rejects(createPortal(editor, { name: "Kit", slug: slug(), access: "public", brands: ["acme"] }), /No brand "acme"/);
+  await createPortal(editor, { name: "Kit", slug: slug(), access: "public", brands: ["kids"] });
+  await createPortal(ada.caller, { name: "Kit", slug: slug(), access: "public", brands: ["acme"] });
 });
 
 test("who can reach it: the brand grant, said as such", async () => {
