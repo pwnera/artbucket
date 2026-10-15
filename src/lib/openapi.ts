@@ -214,6 +214,7 @@ export function openapi(serverUrl: string) {
             untagged: { schema: { type: "string", enum: ["true", "false"] }, description: "true: only assets carrying no tags" },
             limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 100 }, description: "Page size" },
             offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
+            facets: { schema: { type: "string", enum: ["true", "false"] }, description: "false: no facet counts, each empty, answered faster: for `total` alone" },
           },
           ok: [200, "Matching assets, with facet counts", S.Listing],
         }),

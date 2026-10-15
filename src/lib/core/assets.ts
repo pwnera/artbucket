@@ -517,6 +517,8 @@ export type AssetQuery = {
   untagged?: boolean;
   limit?: number;
   offset?: number;
+  /** False: no facet counts, each empty, for a count (`total`) alone. Never saved: parseAssetQuery leaves it out. */
+  facets?: boolean;
 };
 
 /** A day (YYYY-MM-DD, from its start in UTC) or a moment with its offset. */
@@ -673,11 +675,11 @@ export function assetWhere(
  */
 /** `surface`: where the search came in, for Insights; a search with words is recorded, found or not. */
 export async function searchAssets(caller: Caller, query: AssetQuery, surface: Surface = caller.key ? "api" : "app") {
-  const { q, limit = 100, offset = 0 } = query;
+  const { q, limit = 100, offset = 0, facets: counted = true } = query;
   const tsq = q ? prefixQuery(q) : null;
   const where = (except?: string, anyType = false, anyState = false) => assetWhere(caller, query, except, anyType, anyState);
 
-  const facetable = (await listFields(caller.project.id)).filter(isFacetable);
+  const facetable = counted ? (await listFields(caller.project.id)).filter(isFacetable) : [];
   // ponytail: facets count over every match, about 100 ms at 93,000 (docs: developers/benchmarks).
   // Cache them per query, or count a sample past some size, when libraries outgrow that.
   const [data, [{ total }], tagCounts, typeCounts, stateCounts, ...fieldCounts] = await Promise.all([
@@ -692,9 +694,9 @@ export async function searchAssets(caller: Caller, query: AssetQuery, surface: S
       .limit(Math.min(Math.max(limit, 1), 200))
       .offset(Math.max(offset, 0)),
     db.select({ total: count() }).from(assets).where(where()),
-    tagFacet(where()),
-    typeFacet(where(undefined, true)),
-    stateFacet(where(undefined, false, true)),
+    counted ? tagFacet(where()) : [],
+    counted ? typeFacet(where(undefined, true)) : [],
+    counted ? stateFacet(where(undefined, false, true)) : [],
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
   if (!offset) recordSearch(caller.project.id, q, total > 0, { surface, ...who(caller) });

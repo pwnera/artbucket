@@ -283,6 +283,18 @@
               "default": 0
             },
             "description": "Skip this many"
+          },
+          {
+            "name": "facets",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "false: no facet counts, each empty, answered faster: for `total` alone"
           }
         ],
         "responses": {

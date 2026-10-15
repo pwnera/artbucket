@@ -262,7 +262,7 @@ export function Shell({
       fetch(url)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
-    void Promise.all([json("/api/v1/collections"), json("/api/v1/assets?review=true&limit=1")]).then(([cols, review]) => {
+    void Promise.all([json("/api/v1/collections"), json("/api/v1/assets?review=true&limit=1&facets=false")]).then(([cols, review]) => {
       if (cols) setCollections(cols.data);
       if (review) setReviewCount(review.total);
     });

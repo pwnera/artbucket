@@ -139,7 +139,7 @@ export async function digestOf(caller: Caller, now = new Date()): Promise<Digest
   // Licenses as the library reads them, from the server's today: approved, not ended yet, ending within EXPIRING_DAYS.
   const [expiring, review, insights] = await Promise.all([
     searchAssets(caller, { status: ["active"], expiresBefore: ymd(new Date(Date.parse(today()) + (EXPIRING_DAYS + 1) * DAY)), limit: 50 }),
-    searchAssets(caller, { review: true, limit: 1 }),
+    searchAssets(caller, { review: true, limit: 1, facets: false }),
     featureOnIn("insights", caller.project.id).then((on) => (on ? insightsOf(caller) : null)),
   ]);
   // ponytail: the 50 newest of those, soonest first; search would need an order by `expires` for a project with more in a fortnight.
