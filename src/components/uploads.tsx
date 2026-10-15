@@ -176,7 +176,7 @@ export function UploadTray({
       )}
     >
       <header className="flex items-center gap-2 px-4 pt-3 pb-2">
-        {/* The header folds the list away and keeps the bar, for a long batch. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- The header folds the list away and keeps the bar, for a long batch. A raw button: the whole summary line is the hit target, which Button's fixed height and padding don't fit. */}
         <button
           type="button"
           onClick={() => setFolded((f) => !f)}
@@ -190,9 +190,10 @@ export function UploadTray({
           ) : (
             <IconCircleCheck className="text-success size-4 shrink-0" />
           )}
-          <p role="status" className="flex-1 truncate text-sm font-medium">
+          {/* A span: a button holds phrasing content only. */}
+          <span role="status" className="flex-1 truncate text-sm font-medium">
             {summary}
-          </p>
+          </span>
           <IconChevronDown className={cn("text-muted-foreground size-4 shrink-0 transition-transform", folded && "rotate-180")} />
         </button>
         {!active && missing > 0 && onShowMissing && (

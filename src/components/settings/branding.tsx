@@ -11,7 +11,7 @@ import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { Hint } from "@/components/settings/email";
-import { Group, useLeaveGuard } from "@/components/settings/panels";
+import { AdminsOnly, Group, useLeaveGuard } from "@/components/settings/panels";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,7 @@ export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /
   };
 
   return (
+    <AdminsOnly>
     <form onSubmit={save} className="space-y-6">
       <Group title="Name" info="What the product is called: page titles, the sign-in screen, email subjects.">
         <div className="grid max-w-md gap-2">
@@ -213,6 +214,7 @@ export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /
         />
       )}
     </form>
+    </AdminsOnly>
   );
 }
 
@@ -283,6 +285,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
   }, [waiting, router]);
 
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <Group
         title="Domains"
@@ -355,7 +358,10 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
                           <Fragment key={label}>
                             <dt className="text-muted-foreground">{label}</dt>
                             <dd className="font-mono break-all">{value}</dd>
-                            <CopyButton text={value} label={`Copy ${what}`} what={what} />
+                            {/* In a dd of its own: a dl holds only dt and dd. */}
+                            <dd>
+                              <CopyButton text={value} label={`Copy ${what}`} what={what} />
+                            </dd>
                           </Fragment>
                         ))}
                       </dl>
@@ -398,5 +404,6 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
         </form>
       </Group>
     </div>
+    </AdminsOnly>
   );
 }

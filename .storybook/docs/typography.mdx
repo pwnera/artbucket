@@ -1,0 +1,33 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { Faces, TypeRoles, TypeScale } from "./foundations";
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+The landing page's faces (artbucket.io), from `src/app/fonts.ts`: Funnel Display for page titles and section
+headings (`font-display`), Funnel Sans for everything else (`font-sans`), Geist Mono for codes and addresses
+(`font-mono`). Each is a CSS variable on `<html>`; the preview sets them as the app does.
+
+## Faces
+
+<Faces />
+
+## Scale
+
+Tailwind's scale with one step added below it, `text-2xs` (11px, for keys and badges), from `globals.css`. The app
+reads mostly at `text-sm` (controls, body) and `text-xs` (supporting text, counts). Sizes and line heights are what
+the browser computed.
+
+<TypeScale />
+
+## Roles
+
+<TypeRoles />
+
+## Rules
+
+- Headings are Funnel Display at `font-semibold` with `tracking-tight`; nothing else uses the display face.
+- Numbers that change or line up in columns (sizes, counts, scores) take `tabular-nums`.
+- Muted text is `text-muted-foreground`, never an opacity: it holds 4.5:1 on every surface (see Color).
+- A brand's own type (its site, its specimens) is the brand's, set by its theme, not by these.

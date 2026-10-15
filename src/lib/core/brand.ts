@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, getTableColumns, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, inArray, isNotNull, isNull, max, ne, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { visible } from "@/lib/core/assets";
 import { rebuildSites } from "@/lib/core/rebuild";
 import { brandReleased } from "@/lib/core/automations";
 import { assets, brandRuleAssets, brandRules, brands, brandSources, brandVersions, portalBrands } from "@/lib/db/schema";
@@ -16,7 +17,7 @@ import { hasPreview } from "@/lib/preview";
 import { renameThemeKey, type ThemeSettings } from "@/lib/brand-theme";
 import { diffRules, extendsLatest, summarize, updatesOf, type SnapRule, type VersionKind } from "@/lib/history";
 import { canon, changedPages, isLive, samePages, type SnapPage } from "@/lib/pages";
-import { can, needs } from "@/lib/permissions";
+import { can, needs, type Who } from "@/lib/permissions";
 import {
   renameInSpec,
   resolve,
@@ -136,14 +137,24 @@ async function assetsOf(ruleIds: string[], tx: Db = db) {
 
 /**
  * Replace a rule's assets. Every id must be a real asset, and a rendition
- * needs one that can be rendered: a typo is a 422, not a silent gap.
+ * needs one that can be rendered: a typo is a 422, not a silent gap. One the
+ * caller can't see is not there for them (a release would hand it to the
+ * brand's readers), unless the rule already holds it.
  */
-async function setAssets(tx: Tx, ws: string, ruleId: string, list: RuleAsset[]) {
+async function setAssets(tx: Tx, caller: Caller, ruleId: string, list: RuleAsset[]) {
   if (list.length) {
+    const had = (await tx.select({ id: brandRuleAssets.assetId }).from(brandRuleAssets).where(eq(brandRuleAssets.ruleId, ruleId))).map((r) => r.id);
     const found = await tx
       .select({ id: assets.id, mime: assets.mime, filename: assets.filename, probe: assets.probe })
       .from(assets)
-      .where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, list.map((a) => a.id))));
+      .where(
+        and(
+          eq(assets.projectId, caller.project.id),
+          had.length ? or(visible(caller), inArray(assets.id, had)) : visible(caller),
+          isNull(assets.deletedAt),
+          inArray(assets.id, list.map((a) => a.id)),
+        ),
+      );
     const missing = list.filter((a) => !found.some((f) => f.id === a.id));
     if (missing.length) throw new AssetError("invalid", `No such asset: ${missing.map((a) => a.id).join(", ")}`);
     const flat = found.find((f) => !hasPreview(f) && list.some((a) => a.id === f.id && a.rendition));
@@ -319,7 +330,8 @@ export async function tracked<T>(brandId: string, actor: string, changed: string
  * just gets the defaults. With an asset, only the rules that point at it,
  * across every brand unless one is named.
  */
-export async function listRules(ws: string, opts: { brand?: string; context?: string; asset?: string } = {}) {
+/** With `who`, only brands they may read: a private one takes a grant on it. */
+export async function listRules(ws: string, opts: { brand?: string; context?: string; asset?: string; who?: Who } = {}) {
   const { context, asset } = opts;
   if (context !== undefined && !ruleContext.safeParse(context).success) {
     throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
@@ -327,7 +339,7 @@ export async function listRules(ws: string, opts: { brand?: string; context?: st
   if (asset !== undefined && !z.uuid().safeParse(asset).success) throw new AssetError("invalid", `Not an asset id: "${asset}"`);
   const brand = asset !== undefined && opts.brand === undefined ? null : await resolveBrand(ws, opts.brand);
   const rows = await db
-    .select({ rule: brandRules, brand: brands.slug })
+    .select({ rule: brandRules, brand: brands.slug, private: brands.private })
     .from(brandRules)
     .innerJoin(brands, eq(brands.id, brandRules.brandId))
     .where(
@@ -342,7 +354,8 @@ export async function listRules(ws: string, opts: { brand?: string; context?: st
             ),
       ),
     )
-    .orderBy(...ORDER);
+    .orderBy(...ORDER)
+    .then((all) => all.filter((r) => !opts.who || can(opts.who, "brand.read", { id: r.rule.brandId, private: r.private })));
   const picked = context === undefined ? rows : resolve(rows.map((r) => ({ ...r, ...r.rule })), context);
   const refs = await assetsOf(picked.map((r) => r.rule.id));
   return picked.map((r) => toRule(r.rule, r.brand, refs.get(r.rule.id)!));
@@ -402,7 +415,7 @@ export async function createRule(caller: Caller, slug: string | undefined, input
       .onConflictDoNothing()
       .returning();
     if (!row) throw new AssetError("conflict", `${label(input.key, context)} already exists; edit it instead`);
-    await setAssets(tx, caller.project.id, row.id, input.assets ?? []);
+    await setAssets(tx, caller, row.id, input.assets ?? []);
     await checkSpecRefs(tx, caller.project.id, brand.id, [{ at: "spec", spec }]);
     return toRule(row, brand.slug, (await assetsOf([row.id], tx)).get(row.id)!);
   });
@@ -449,7 +462,7 @@ export async function updateRule(
       if (taken) throw new AssetError("conflict", `${label(current.key, patch.context)} already exists`);
       set.context = patch.context;
     }
-    if (patch.assets) await setAssets(tx, caller.project.id, id, patch.assets);
+    if (patch.assets) await setAssets(tx, caller, id, patch.assets);
     // A key is shared by a rule's context versions: renaming one renames them all.
     if (patch.key !== undefined && patch.key !== current.key) {
       const [taken] = await tx
@@ -735,7 +748,7 @@ export async function setRules(
         id = made.id;
         out.created.push(label(r.key, context));
       }
-      if (r.assets || !row) await setAssets(tx, caller.project.id, id!, r.assets ?? []);
+      if (r.assets || !row) await setAssets(tx, caller, id!, r.assets ?? []);
     }
     await checkSpecRefs(
       tx,

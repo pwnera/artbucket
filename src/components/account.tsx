@@ -273,7 +273,7 @@ export function MakeDialog({ kind, org, open = true, onClose }: { kind: "project
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" pending={busy}>
               {kind === "project" ? "Make project" : "Make organization"}
             </Button>
           </DialogFooter>

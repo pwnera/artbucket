@@ -89,6 +89,8 @@ function DialogContent({
   onEscapeKeyDown,
   onPointerDownOutside,
   onInteractOutside,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -96,6 +98,9 @@ function DialogContent({
   overlayClassName?: string
 }) {
   const [asking, setAsking] = React.useState(false)
+  // What had focus when it opened: Radix gives focus back to a DialogTrigger only, so a dialog opened otherwise (a
+  // shortcut, a button with setOpen) would leave it on the page's body.
+  const opener = React.useRef<HTMLElement | null>(null)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
@@ -125,6 +130,17 @@ function DialogContent({
         onInteractOutside={(e) => {
           if (inToaster(e) || guard?.dirty) e.preventDefault()
           onInteractOutside?.(e)
+        }}
+        onOpenAutoFocus={(e) => {
+          opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
+          onOpenAutoFocus?.(e)
+        }}
+        onCloseAutoFocus={(e) => {
+          onCloseAutoFocus?.(e)
+          // Gone (a menu item that opened it): Radix's own, the trigger, if there is one.
+          if (e.defaultPrevented || !opener.current?.isConnected) return
+          e.preventDefault()
+          opener.current.focus()
         }}
         {...props}
       >

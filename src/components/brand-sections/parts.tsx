@@ -247,7 +247,8 @@ export function Pairings({ colors, className }: { colors: Pick<Rule, "key" | "va
           Text in each row&apos;s color on each column&apos;s, graded for WCAG 2 at full opacity.
         </p>
       </div>
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      {/* Reachable by keyboard: on a phone the table scrolls sideways. */}
+      <div role="region" aria-label="Contrast pairings" tabIndex={0} className="focus-visible:ring-ring/50 -mx-1 overflow-x-auto rounded-md px-1 pb-1 outline-none focus-visible:ring-2">
         <table className="border-separate border-spacing-1 text-xs" onMouseLeave={() => setAt(null)}>
           <thead>
             <tr>
@@ -274,12 +275,14 @@ export function Pairings({ colors, className }: { colors: Pick<Rule, "key" | "va
                       key={bg.key}
                       onMouseEnter={() => setAt([i, j])}
                       className={cn(
-                        "h-16 min-w-20 rounded-lg p-2 align-top ring-1 ring-black/5 transition-opacity dark:ring-white/10",
-                        g === "fail" && "opacity-40",
+                        "h-16 min-w-20 rounded-lg p-2 align-top ring-1 ring-black/5 dark:ring-white/10",
                       )}
                       style={{ backgroundColor: hexes[j], color: hexes[i] }}
                     >
-                      <span className="block text-lg leading-none font-semibold">Aa</span>
+                      {/* A pair that fails fades its sample, never its grade, which stays legible on the page's own ground. */}
+                      <span data-specimen className={cn("block text-lg leading-none font-semibold", g === "fail" && "opacity-40")}>
+                        Aa
+                      </span>
                       <span className="bg-background text-foreground mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5">
                         <span className="font-mono tabular-nums">{ratio.toFixed(1)}</span>
                         <span className={cn("rounded px-1 text-2xs font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>{g}</span>

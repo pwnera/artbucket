@@ -1,0 +1,40 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction/Welcome" />
+
+# Artbucket's components
+
+Every control, pattern and screen part the Artbucket app draws, with the tokens they are made of. The app is built
+from these components and nothing else: a new control is added here first, then used. The published build is
+[storybook.artbucket.io](https://storybook.artbucket.io), in the app's theme with the Artbucket brand's live accent.
+
+## What is here
+
+| Section | What |
+| --- | --- |
+| Foundations | The tokens, read live from `src/app/globals.css`: [color](?path=/docs/foundations-color--docs), [type](?path=/docs/foundations-typography--docs), [space and radius](?path=/docs/foundations-space-and-radius--docs), [motion](?path=/docs/foundations-motion--docs) and [accessibility](?path=/docs/foundations-accessibility--docs) |
+| App / Primitives | `src/components/ui`: buttons, fields, menus, dialogs, one page per primitive |
+| App / Patterns | Small shared pieces built from primitives: copy button, confirm, combobox, save status |
+| App / Features | A screen's part with its data, answered by mock APIs: the gallery, a brand's header, the catalog's tree |
+| Brand site | What portals and the in-app reader draw, from the fixture brand books |
+| Kit | `@artbucket/ui`, drawing the brand's live release from BrandHub |
+
+The toolbar switches the theme (light or dark), the accent (the Artbucket brand's latest release, or the product's
+own violet) and the viewport (phone, tablet, laptop).
+
+## Running it
+
+```sh
+pnpm storybook          # http://localhost:6006
+pnpm test:stories       # every story as a test: render, axe, play
+pnpm test:stories:coverage
+pnpm storybook:build    # the static site, in storybook-static
+```
+
+Every story is a test: `pnpm test:stories` renders each one in headless Chromium, runs axe on it (a violation fails
+it) and runs its `play` function. CI runs them on each pull request.
+
+## Adding a story
+
+Stories sit beside their component (`thing.tsx`, `thing.stories.tsx`), in CSF Next. How to write one, where it goes
+and what it must cover: [Writing stories](?path=/docs/introduction-writing-stories--docs).

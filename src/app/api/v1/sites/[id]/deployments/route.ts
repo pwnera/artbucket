@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ok, route } from "@/lib/api";
+import { ok, route, zipBody } from "@/lib/api";
 import { deploy, listDeployments } from "@/lib/core/sites";
 
 /** GET /api/v1/sites/{id}/deployments - its deployments, newest first: where each is mounted, its state, and why one failed. */
@@ -18,7 +18,7 @@ export const GET = route<{ id: string }>("portal.manage", async (_req, { id }, c
 export const POST = route<{ id: string }>("portal.manage", async (req, { id }, caller) => {
   if (!z.uuid().safeParse(id).success) return null;
   const q = new URL(req.url).searchParams;
-  const zip = new Uint8Array(await req.arrayBuffer());
+  const zip = await zipBody(req);
   const data = await deploy(caller, id, zip, { path: q.get("path"), kind: q.get("kind"), commit: q.get("commit"), ref: q.get("ref"), preview: q.get("preview") });
   return data ? ok({ data }, { status: 201 }) : null;
 }, "No such site");

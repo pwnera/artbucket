@@ -469,11 +469,11 @@ function Embed({ f }: { f: Face }) {
   );
 }
 
-/** Code reads left to right on any page. */
+/** Code reads left to right on any page; a line too long for it scrolls, by keyboard too. */
 function Code({ text, what }: { text: string; what: string }) {
   return (
     <div dir="ltr" className="relative">
-      <pre className="bg-muted overflow-x-auto rounded-lg p-4 pe-12 font-mono text-xs leading-relaxed">
+      <pre role="group" aria-label={what[0].toUpperCase() + what.slice(1)} tabIndex={0} className="focus-visible:ring-ring/50 outline-none focus-visible:ring-2 bg-muted overflow-x-auto rounded-lg p-4 pe-12 font-mono text-xs leading-relaxed">
         <code>{text}</code>
       </pre>
       <CopyButton text={text} label={`Copy ${what}`} what={what} className="absolute top-2 end-2" />

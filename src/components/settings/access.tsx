@@ -51,6 +51,7 @@ import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
 import { useFlashNew } from "@/lib/motion";
 import { SavedMark } from "@/components/settings/panels";
+import { Writable } from "@/components/can";
 import { useKept } from "@/lib/motion";
 
 type Resource = "organization" | "project" | "collection" | "asset" | "brand";
@@ -175,6 +176,7 @@ export function People({
   );
 
   return (
+    <Writable do="member.manage" why="Only admins can invite people or change their access.">
     <div className="space-y-8">
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -312,6 +314,7 @@ export function People({
         </Dialog>
       )}
     </div>
+    </Writable>
   );
 }
 

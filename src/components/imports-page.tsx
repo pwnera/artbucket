@@ -12,7 +12,9 @@ import { AppHeader, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { IconButton } from "@/components/icon-button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { sendResult } from "@/lib/send";
 import { cn } from "@/lib/utils";
@@ -91,20 +93,13 @@ const day = (iso: string) =>
 /** A choice of a few, as the Brands page draws one. */
 function Segments<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Record<T, string>; onChange: (v: T) => void }) {
   return (
-    <div role="radiogroup" aria-label={label} className="bg-muted flex rounded-md p-0.5">
+    <ToggleGroup type="single" spacing={0.5} aria-label={label} value={value} onValueChange={(v) => v && onChange(v as T)} className="bg-muted rounded-md p-0.5">
       {(Object.keys(options) as T[]).map((o) => (
-        <button
-          key={o}
-          type="button"
-          role="radio"
-          aria-checked={value === o}
-          onClick={() => onChange(o)}
-          className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap aria-checked:shadow-sm"
-        >
+        <ToggleGroupItem key={o} value={o} className="text-muted-foreground hover:text-muted-foreground data-[state=on]:bg-background dark:data-[state=on]:bg-background data-[state=on]:text-foreground h-auto min-w-0 rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-transparent data-[state=on]:shadow-sm">
           {options[o]}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
@@ -362,7 +357,7 @@ function ImportRowLine({
       tabIndex={0}
       onClick={() => onOpen(i.id)}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen(i.id)}
-      className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
+      className="hover:bg-accent/60 focus-visible:outline-ring cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
     >
       <td className="w-full max-w-0 min-w-40 px-4 py-2.5 lg:max-w-56 lg:w-auto">
         <span className="flex min-w-0 items-center gap-2.5" title={i.filename}>
@@ -452,22 +447,9 @@ function ImportRowLine({
 /** One action of a row's group: an icon, its meaning said on hover and to screen readers. */
 function Act({ label, onClick, className, children }: { label: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          onClick={onClick}
-          className={cn(
-            "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent grid size-8 place-items-center outline-none [&_svg]:size-4",
-            className,
-          )}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <IconButton label={label} variant="ghost" onClick={onClick} className={cn("text-muted-foreground hover:text-foreground focus-visible:bg-accent rounded-none", className)}>
+      {children}
+    </IconButton>
   );
 }
 

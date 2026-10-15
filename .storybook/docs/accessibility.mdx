@@ -1,0 +1,85 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { IconPencil, IconSearch } from "../../src/components/icons";
+import { IconButton } from "../../src/components/icon-button";
+import { Button } from "../../src/components/ui/button";
+import { Checkbox } from "../../src/components/ui/checkbox";
+import { Input } from "../../src/components/ui/input";
+import { Kbd } from "../../src/components/ui/kbd";
+import { Switch } from "../../src/components/ui/switch";
+import { TooltipProvider } from "../../src/components/ui/tooltip";
+import { Frame } from "./foundations";
+
+<Meta title="Foundations/Accessibility" />
+
+# Accessibility
+
+What every component holds to, and what the tests check. Each story is run through axe in headless Chromium
+(`pnpm test:stories`), and a violation fails it: the fix goes in the component (a label, a role, a token with enough
+contrast), never in the test.
+
+## Focus
+
+One ring for everything you can tab to: 2px solid `--ring`, 2px off the element, shown only for the keyboard
+(`:focus-visible` in `globals.css`). Fields draw their own, a 3px ring inside their border. Tab through these:
+
+<Frame className="not-prose">
+  <TooltipProvider delayDuration={400}>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
+      <Button>Upload</Button>
+      <Button variant="outline">Cancel</Button>
+      <Input aria-label="Search the library" placeholder="Search" className="w-40" />
+      <Checkbox aria-label="Required at upload" />
+      <Switch aria-label="Approved" />
+      <a href="#focus" className="text-sm underline underline-offset-4">A link</a>
+      <IconButton label="Edit" variant="ghost">
+        <IconPencil />
+      </IconButton>
+    </div>
+  </TooltipProvider>
+</Frame>
+
+## Names
+
+- Every control has a name a screen reader can say: its words, its `<Label>`, or `aria-label` on an icon-only one.
+  `IconButton` takes `label`, which is both its tooltip and its name.
+- Stories query by role and name (`getByRole("button", { name: "Upload" })`), as a screen reader would: a control
+  the test can't find that way is a bug in the component.
+- Images carry `alt`; a decorative one, `alt=""`.
+
+## Keys
+
+Every frequent action has a key, shown in its tooltip and its menu. `mod` is Cmd on a Mac, Ctrl elsewhere.
+
+<Frame className="not-prose">
+  <TooltipProvider delayDuration={400}>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
+      <Kbd keys={["mod", "K"]} />
+      <Kbd keys={["mod", "B"]} />
+      <Kbd keys={["mod", "Z"]} />
+      <Kbd keys={["?"]} />
+      <Kbd keys={["Esc"]} />
+      <IconButton label="Search" shortcut={["mod", "K"]}>
+        <IconSearch />
+      </IconButton>
+    </div>
+  </TooltipProvider>
+</Frame>
+
+Menus, dialogs, comboboxes and tabs are Radix: arrows move, Enter picks, Escape closes and focus goes back to what
+opened them.
+
+## Contrast
+
+Text tokens clear 4.5:1 on every surface text sits on, in both modes (`lib/color.test.ts`, and the table on
+[Color](?path=/docs/foundations-color--docs)); the focus ring and an organization's accent clear 3:1. Color never
+carries meaning alone: a status says its word, an error its message.
+
+## Motion
+
+Asked for less motion, it all but stops ([Motion](?path=/docs/foundations-motion--docs)). Nothing flashes more than
+once a second.
+
+## Screen sizes
+
+Every screen works at 390px wide (the toolbar's Phone viewport): nothing scrolls sideways, and hit targets are at
+least 24px, 36px for the main actions.

@@ -113,6 +113,43 @@ test("builds count as storage, and only a few replaced are kept per path", async
   assert.equal((await usageOf(ada.caller)).used.storage - before, (KEEP_REPLACED + 1) * 1000);
 });
 
+test("previews count as storage as builds do, one per name", async (t) => {
+  const was = env.PORTAL_DOMAIN;
+  env.PORTAL_DOMAIN = "sites.test";
+  t.after(() => void (env.PORTAL_DOMAIN = was));
+  const site = await createPortal(ada.caller, { name: "Counted", slug: `counted-${Date.now().toString(36)}`, kind: "docs" });
+  const before = (await usageOf(ada.caller)).used.storage;
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-1" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-1" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-2" });
+  assert.equal((await usageOf(ada.caller)).used.storage - before, 2000);
+});
+
+/** A zip of `n` files of `mb` MB of zeros each, deflated: a few KB that inflate far past what they weigh. */
+async function bomb(n: number, mb: number) {
+  const packed = new Uint8Array(await new Response(new Blob([new Uint8Array(mb * 1024 * 1024)]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  const out = zip([{ name: "index.html", data: text("x") }, ...Array.from({ length: n }, (_, i) => ({ name: `f${i}.bin`, data: packed }))]);
+  const v = new DataView(out.buffer);
+  let at = v.getUint32(out.length - 22 + 16, true);
+  for (let i = 0; i <= n; i++) {
+    if (i > 0) {
+      v.setUint16(at + 10, 8, true);
+      v.setUint16(v.getUint32(at + 42, true) + 8, 8, true);
+    }
+    at += 46 + v.getUint16(at + 28, true);
+  }
+  return out;
+}
+
+test("a zip is unpacked within the build's total: files each under one file's limit, past it together, are refused", async () => {
+  const b = await bomb(4, 60);
+  assert.ok(b.length < 1024 * 1024);
+  await assert.rejects(checkBuild(ada.caller, b), { code: "too_large" });
+  await assert.rejects(deploy(ada.caller, docs.id, b), { code: "too_large" });
+  const app = await createPortal(ada.caller, { name: "Scanned", slug: `scanned-${Date.now().toString(36)}`, kind: "external", url: "https://scanned.example.com" } as Parameters<typeof createPortal>[1]);
+  await assert.rejects(recordUses(ada.caller, app.id, b), { code: "too_large" });
+});
+
 test("every file is matched against the library: a copy or a pinned link of a replaced or expired asset fails, with no manifest", async () => {
   const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
   const oldBytes = await png("#a1b2c3");

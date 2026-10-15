@@ -36,12 +36,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ago as since } from "@/lib/hub";
 import { REASON } from "@/lib/insights";
-import { cappedScope, type Grantable } from "@/lib/oauth";
 import { brandPath } from "@/lib/site";
 import { contextLabel } from "@/lib/rules";
-import { SCOPES, type Scope } from "@/lib/scopes";
+import { cappedScope, SCOPES, type Grantable, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -251,15 +251,25 @@ export function Agents({
             <div className="flex flex-wrap items-center gap-3">
               {/* Eight groups don't fit a phone: they scroll sideways instead of wrapping. */}
               <div className="-mx-4 min-w-0 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
-                <Tabs value={needle ? "" : group} onValueChange={(g) => (setGroup(g as Group | "All"), setQ(""))}>
-                  <TabsList>
-                    {(["All", ...GROUPS] as const).map((g) => (
-                      <TabsTrigger key={g} value={g}>
-                        {g === "All" ? "All apps" : g}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
+                {/* A filter, not tabs: no panel of its own for each. Picking the one picked keeps it (never none). */}
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Group"
+                  value={needle ? "" : group}
+                  onValueChange={(g) => {
+                    if (!g) return;
+                    setGroup(g as Group | "All");
+                    setQ("");
+                  }}
+                >
+                  {(["All", ...GROUPS] as const).map((g) => (
+                    <ToggleGroupItem key={g} value={g}>
+                      {g === "All" ? "All apps" : g}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </div>
               <div className="relative w-full sm:ms-auto sm:w-56">
                 <IconSearch className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
@@ -785,13 +795,15 @@ function KeyList({
   return (
     <ul className="divide-y rounded-lg border">
       {keys.map((k) => {
-        const whose = k.owner ? `${k.owner}'s ${k.name}` : k.name;
+        // OAuth names an agent after its client and its person, "Claude (Ada Lovelace)": the person is said beside it.
+        const name = k.owner ? k.name.replace(` (${k.owner})`, "") : k.name;
+        const whose = k.owner ? `${k.owner}'s ${name}` : name;
         const several = !!k.projects && k.projects.length > 1;
         return (
           // The key just made stays where the API lists it, last, and flashes so it is found.
           <li key={k.id} data-api-key={k.id} data-flash={k.id === fresh || undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
             {k.owner ? <Initials name={k.owner} className="size-5 text-[9px]" /> : <IconKey className="text-muted-foreground size-4 shrink-0" />}
-            <span className="min-w-0 truncate font-medium">{k.name}</span>
+            <span className="min-w-0 truncate font-medium">{name}</span>
             {k.owner && <span className="text-muted-foreground min-w-0 truncate text-xs">{k.owner}</span>}
             <Badge variant="secondary">{scopeLabel(k.scope)}</Badge>
             {showPrefix && <code className="text-muted-foreground hidden font-mono text-xs sm:inline">{k.prefix}…</code>}
@@ -809,7 +821,7 @@ function KeyList({
               {k.lastUsedAt ? `${ago(k.lastUsedAt)}, ${k.calls.toLocaleString()} call${k.calls === 1 ? "" : "s"}` : "Never called"}
             </span>
             {k.projects && onEdit && (
-              <IconButton variant="ghost" label={`Projects ${k.name} works in`} className="text-muted-foreground" onClick={() => onEdit(k)}>
+              <IconButton variant="ghost" label={`Projects ${whose} works in`} className="text-muted-foreground" onClick={() => onEdit(k)}>
                 <IconStack2 />
               </IconButton>
             )}

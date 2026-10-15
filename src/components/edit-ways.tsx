@@ -35,7 +35,7 @@ export function EditWays({ brand, ways, open, onOpenChange }: { brand: string; w
         <p className="text-muted-foreground">{text}</p>
       </div>
       <div className="grid min-w-0 gap-1.5">{body}</div>
-      <a href={docs} target="_blank" rel="noreferrer" className="text-primary justify-self-start text-sm underline-offset-4 hover:underline">
+      <a href={docs} target="_blank" rel="noreferrer" className="text-primary-ink justify-self-start text-sm underline-offset-4 hover:underline">
         {more}
       </a>
     </section>

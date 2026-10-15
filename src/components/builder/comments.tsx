@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { z } from "zod";
 import { useCan, useMe } from "@/components/can";
 import { Confirm } from "@/components/confirm";
+import { IconButton } from "@/components/icon-button";
 import type { Transport } from "@/components/builder/use-builder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -386,13 +387,13 @@ function ThreadCard({
   const may = useMay(comments.on);
   const done = !!t.resolvedAt;
   return (
-    <article className={cn("bg-card grid gap-2 rounded-lg border p-3", done && "bg-muted/40", t.pending && "opacity-70")}>
+    <article aria-busy={t.pending || undefined} className={cn("bg-card grid gap-2 rounded-lg border p-3", done && "bg-muted/40")}>
       {(onPick || done) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {onPick && sectionName && (
-            <button type="button" onClick={onPick} className="text-primary-ink truncate text-xs font-medium hover:underline">
+            <Button variant="link" size="xs" onClick={onPick} className="h-auto min-w-0 justify-start truncate px-0">
               {sectionName}
-            </button>
+            </Button>
           )}
           {done && (
             <Badge variant="success" title={t.resolvedAt ? exact(t.resolvedAt) : undefined}>
@@ -403,15 +404,9 @@ function ThreadCard({
       )}
       <Entry c={t} comments={comments} now={now}>
         {may("brand.comment") && !t.pending && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={done ? "Reopen the thread" : "Resolve the thread"}
-            title={done ? "Reopen" : "Resolve"}
-            onClick={() => void comments.resolve(t.id, !done)}
-          >
+          <IconButton variant="ghost" size="icon-xs" label={done ? "Reopen the thread" : "Resolve the thread"} onClick={() => void comments.resolve(t.id, !done)}>
             {done ? <IconRestore /> : <IconCheck />}
-          </Button>
+          </IconButton>
         )}
       </Entry>
       {t.replies.length > 0 && (
@@ -441,7 +436,8 @@ function Entry({ c, comments, now, children }: { c: BrandComment; comments: Comm
   const replies = c.parent ? 0 : comments.threads.find((t) => t.id === c.id)?.replies.length ?? 0;
 
   return (
-    <div className={cn("grid gap-1", c.pending && "opacity-70")}>
+    // On its way: "Posting" where its time goes says so; faded, its text would fall under 4.5:1.
+    <div aria-busy={c.pending || undefined} className="grid gap-1">
       <div className="flex items-center gap-2">
         <span className="truncate font-medium">{c.author}</span>
         <time dateTime={c.createdAt} title={exact(c.createdAt)} className="text-muted-foreground shrink-0 text-xs">
@@ -453,9 +449,9 @@ function Entry({ c, comments, now, children }: { c: BrandComment; comments: Comm
           {!c.pending && (c.mine || deletable) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-xs" aria-label="Comment actions">
+                <IconButton variant="ghost" size="icon-xs" label="Comment actions">
                   <IconDots />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="app-tokens">
                 {c.mine && <DropdownMenuItem onSelect={() => setEditing(true)}>Edit</DropdownMenuItem>}
@@ -589,6 +585,7 @@ function Composer({
 export function CommentBadge({ count, onClick, className }: { count: number; onClick(): void; className?: string }) {
   const label = count ? `${count} open ${count === 1 ? "comment" : "comments"}` : "Comment";
   return (
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: a pill in the app's colors laid over a brand's page, sized to its count, which no Button size is.
     <button
       type="button"
       aria-label={label}

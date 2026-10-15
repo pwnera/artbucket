@@ -9,9 +9,9 @@ import type { Media, NavPage, PageView, ViewAsset, ViewRule } from "../site.ts";
  * Brand books to build from, written as an agent would send them: rules for
  * set_rules, pages for save_page, settings for set_theme. scripts/mcp-eval.ts
  * builds them over MCP; theme tests read them as data; and fixtureView makes
- * a page of one into the view the renderers draw, for /design/pages.
+ * a page of one into the view the renderers draw, for the Brand site stories.
  *
- * Pure: `pnpm test` runs it under plain Node, and the dev page loads it as is.
+ * Pure: `pnpm test` runs it under plain Node, and Storybook loads it as is.
  */
 
 export type BrandBook = {
@@ -785,7 +785,7 @@ export function rtl(a: BookAssets = PLACEHOLDERS): BrandBook {
 
 // ---- views --------------------------------------------------------------------
 
-/** Every book by name, for `/design/pages?fixture=`. */
+/** Every book by name, for the Brand site stories' fixture control. */
 export const FIXTURES: Record<string, (a?: BookAssets) => BrandBook> = { blender, big, ugly, hairline, rtl };
 
 /** When a view says the fixtures changed: fixed, so the server and the browser draw the same page. */

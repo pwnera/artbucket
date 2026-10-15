@@ -2,11 +2,11 @@ title: Color
 lede: One accent a week. Ink and paper hold it steady.
 sections:
   - template: cover
-    eyebrow: 02 / The palette
+    eyebrow: 02 / Color
     title: |-
-      A little color.
-      A lot of character.
-    lede: This week's accent leads. Ink and paper set the pace.
+      Ink, paper,
+      and one accent a week.
+    lede: Most of every page is Paper and Ink. The accent marks what matters, and it changes every Monday.
     props:
       mark: never
       strip: true
@@ -28,6 +28,10 @@ sections:
     props:
       show: [hex]
     columns: 3
+  - id: print
+    template: text
+    title: When a deadline crosses a Monday.
+    keys: [color.printed]
   - id: rest
     template: statement
     title: The empty space is part of the palette.
@@ -48,7 +52,7 @@ sections:
       show: [hex, css]
   - id: contrast
     template: palette
-    title: Looks good. Reads clearly.
+    title: Which text goes on which color.
     lede: Compare text and background pairs before you use them.
     keys:
       - color.primary
@@ -74,20 +78,17 @@ sections:
     title: Keep exploring.
     items:
       - link: /logo
-        text: Explore its anatomy. Find the right version. Download the originals.
-        title: 01 / The mark
-      - link: /color
-        text: Copy a color. Compare contrast. Try another view.
-        title: 02 / The palette
+        text: Three files, and what to leave alone.
+        title: 01 / Logo
       - link: /type
-        text: Type your own specimen and explore the scale.
-        title: 03 / The words
+        text: Three faces and one scale.
+        title: 03 / Type
       - link: /voice
-        text: See the rewrites. Borrow a line. Make it yours.
-        title: 04 / The voice
+        text: Habits, examples and copy to paste.
+        title: 04 / Voice
       - link: /playground
-        text: Pattern, spacing and motion. The identity in action.
-        title: 05 / The playground
+        text: The pattern, spacing, corners, motion and charts, drawn.
+        title: 05 / Playground
       - link: /resources
-        text: Current files, useful links and a way to ask.
-        title: 06 / The essentials
+        text: Every file, and a way to ask for more.
+        title: 06 / Resources

@@ -16,16 +16,22 @@ function PopoverTrigger({
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+/** A PopoverTitle names its popover (a dialog to a screen reader); one without a title needs an aria-label. */
+const TitleContext = React.createContext<((id: string | undefined) => void) | null>(null)
+
 function PopoverContent({
   className,
   align = "center",
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const [titleId, setTitleId] = React.useState<string>()
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
+        aria-labelledby={props["aria-label"] ? undefined : titleId}
         align={align}
         sideOffset={sideOffset}
         className={cn(
@@ -33,7 +39,9 @@ function PopoverContent({
           className
         )}
         {...props}
-      />
+      >
+        <TitleContext.Provider value={setTitleId}>{children}</TitleContext.Provider>
+      </PopoverPrimitive.Content>
     </PopoverPrimitive.Portal>
   )
 }
@@ -55,8 +63,16 @@ function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function PopoverTitle({ className, ...props }: React.ComponentProps<"h2">) {
+  const setTitleId = React.useContext(TitleContext)
+  const ownId = React.useId()
+  const id = props.id ?? ownId
+  React.useLayoutEffect(() => {
+    setTitleId?.(id)
+    return () => setTitleId?.(undefined)
+  }, [id, setTitleId])
   return (
     <div
+      id={id}
       data-slot="popover-title"
       className={cn("font-medium", className)}
       {...props}

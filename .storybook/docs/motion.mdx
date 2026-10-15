@@ -1,0 +1,72 @@
+import { Canvas, Meta } from "@storybook/addon-docs/blocks";
+import * as MotionStories from "../../src/lib/motion.stories";
+import { Token } from "./foundations";
+
+<Meta of={MotionStories} />
+
+# Motion
+
+One motion language: things arrive on a quick ease-out and leave faster on an ease-in. Motion is decoration, so
+asked for less (`prefers-reduced-motion`) it all but stops. What moves and how is CSS (`globals.css`); the helpers in
+`src/lib/motion.ts` start it from code.
+
+## Easing
+
+- <Token name="--ease-out" />: arriving, and every transition without its own ease (`--tw-ease`).
+- <Token name="--ease-in" />: leaving (a row folding away).
+- <Token name="--ease-in-out" />: what moves on screen and stays.
+
+<Canvas of={MotionStories.Easing} />
+
+## Durations
+
+| Duration | Where |
+| --- | --- |
+| <Token name="--default-transition-duration" /> | Every `transition-*` utility: hovers, colors, a row collapsing |
+| 200ms | View transitions, a `details` folding open, a checkbox's check drawing in, a dialog fading out |
+| 250ms | A shake |
+| 600 to 800ms | A chart drawing in, a breakdown's bars growing, a number counting up |
+| 1.6s | A flash fading |
+
+## Helpers
+
+### flash()
+
+Where something just landed, changed or came back lights up and fades: a replaced asset, a rule you jumped to, the
+rows a refresh brought in (`useFlashNew`). A tile with its own ground rings instead.
+
+<Canvas of={MotionStories.Flash} />
+
+### shake()
+
+A small no: what was typed was refused, an empty name or a wrong password.
+
+<Canvas of={MotionStories.Shake} />
+
+### collapse() and undo
+
+A row on its way out folds its height away, so the rows below close the gap instead of jumping into it; a review
+decision leaves in its color. A soft delete offers Undo for 8 seconds, and Cmd/Ctrl+Z while the toast shows
+(`undoable` in `lib/undo.ts`).
+
+<Canvas of={MotionStories.CollapseAndUndo} />
+
+### transition()
+
+Runs a change as a view transition: what it moves glides from where it was (elements keep their identity by
+`data-vt`), the rest crossfades. Never under a modal, and plain with less motion. `Morph` moves one thing between two
+places, a tile and the viewer.
+
+<Canvas of={MotionStories.Rearrange} />
+
+### useCountUp()
+
+A score or a total counts to its value, from where it was after the first time.
+
+<Canvas of={MotionStories.CountUp} />
+
+## Less motion
+
+With `prefers-reduced-motion: reduce`, animations and transitions run in 1ms, view transitions and press scaling are
+off, and `still()` tells code to skip what it would animate. A spinner keeps turning, since it is a status, not
+decoration, and delays stay, since a delay is not motion.

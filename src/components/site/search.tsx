@@ -7,9 +7,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { TYPING } from "@/components/site/anchors";
 import { useSite } from "@/components/site/site-context";
 import type { SitePortal } from "@/components/site/site-view";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { depthFirst, type Hit, type Media, searchSite, tree } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 type Found = Hit & { to: string; brand?: string };
 type Answer = { q: string; hits: Found[]; assets: Media[] };
@@ -106,6 +107,7 @@ export function SiteSearch({
 
   const shown = local ?? answer;
   const ready = !!term && shown.q === term;
+  const found = ready && shown.hits.length + shown.assets.length > 0;
   const several = (portal?.brands.length ?? 0) > 1;
   const brandName = (b?: string) => portal?.brands.find((x) => x.slug === b)?.name;
   const pick = (to: string) => {
@@ -133,7 +135,8 @@ export function SiteSearch({
       >
         <DialogTitle className="sr-only">Search {portal ? "this portal" : view.brand.name}</DialogTitle>
         <DialogDescription className="sr-only">Pages, sections and rules{portal ? ", and assets" : ""}. Arrows move through the results; Enter opens one.</DialogDescription>
-        <Command shouldFilter={false} loop>
+        {/* cmdk names its input by its own label (aria-labelledby), over the input's aria-label: give it the word. */}
+        <Command shouldFilter={false} loop label="Search">
           <div className="flex items-center gap-2 border-b px-3">
             {term && !ready ? (
               <Spinner aria-hidden className="size-4 shrink-0 opacity-50" />
@@ -148,9 +151,14 @@ export function SiteSearch({
               className="placeholder:text-muted-foreground flex h-12 w-full bg-transparent py-3 text-base outline-hidden"
             />
           </div>
-          <CommandList className="max-h-[min(60svh,28rem)]">
-            {ready && <CommandEmpty>Nothing found for &ldquo;{term}&rdquo;.</CommandEmpty>}
-            {!term && <p className="text-muted-foreground px-4 py-6 text-center text-sm">Type a word or two: every one must match.</p>}
+          {/* Words, not an empty listbox, when there is nothing to pick. */}
+          {!term && <p className="text-muted-foreground px-4 py-6 text-center text-sm">Type a word or two: every one must match.</p>}
+          {ready && !found && (
+            <p role="status" className="py-6 text-center text-sm">
+              Nothing found for &ldquo;{term}&rdquo;.
+            </p>
+          )}
+          <CommandList className={cn("max-h-[min(60svh,28rem)]", !found && "hidden")}>
             {ready && shown.hits.length > 0 && (
               <CommandGroup heading="Pages">
                 {shown.hits.map((h, i) => {

@@ -286,6 +286,8 @@ function FieldRow({
             <SavedMark at={savedAt} />
             <Label className="text-muted-foreground shrink-0 font-normal">
               <Switch
+                // Named for its field: a list of switches all called "Required" says nothing of which.
+                aria-label={`${f.label} required`}
                 checked={required}
                 onCheckedChange={async (on) => {
                   setRequired(on);

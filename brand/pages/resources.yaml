@@ -2,7 +2,7 @@ title: Resources
 lede: The originals, the next steps, and a way to ask.
 sections:
   - template: cover
-    eyebrow: 06 / The essentials
+    eyebrow: 06 / Resources
     title: Here you go.
     lede: Current logo files, words to borrow, and the people behind the brand.
     props:
@@ -27,6 +27,10 @@ sections:
         title: Where are the font specimens and embed code?
       - text: Use the copyable lines on [Voice](/voice). Keep the description concrete and the sentences short.
         title: How should I describe Artbucket?
+      - text: Use Iris, the accent that never changes, for anything printed. A file already approved in another week's accent goes to print as approved. See [Color](/color#print).
+        title: My print deadline crosses a Monday. Which accent?
+      - text: No. The app adds the Powered by Artbucket pill to Free plan portals itself. Never recreate it; write that you use Artbucket and link to artbucket.io. See [Logo](/logo#powered-by).
+        title: Can I add the Powered by Artbucket pill to my site?
   - template: request
     title: Missing something?
     props:

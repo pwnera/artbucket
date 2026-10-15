@@ -66,13 +66,24 @@ export function maxAge(a: Pick<Lived, "rights">, now = new Date()) {
 export const isReview = (from: Status, to: Status) =>
   !(to === "draft" || to === "proposed") || from === "active" || from === "archived";
 
+/** Who is asking, as a proposal is compared: their name, and the id of their key or person (none signed out). */
+export type Proposer = { actor: string; id: string | null };
+type Proposed = { proposedBy: string | null; proposedById?: string | null };
+
+/**
+ * Whether `who` proposed it: by `proposedById`, which a rename doesn't change, and by name only for a proposal
+ * made before it was kept. `proposedBy` is how history names them.
+ */
+export const proposedByThem = (a: Proposed, who: Proposer) =>
+  a.proposedById ? a.proposedById === who.id : a.proposedBy !== null && a.proposedBy === who.actor;
+
 /**
  * Whether this approves the caller's own proposal (a rejected one taken back
  * too). Whoever proposed it, a key or a person, never decides it: someone
- * else does (decision 0005). `proposedBy` is how history names them.
+ * else does (decision 0005).
  */
-export const approvesOwn = (a: { status: Status; proposedBy: string | null }, to: Status, actor: string) =>
-  to === "active" && (a.status === "proposed" || a.status === "rejected") && a.proposedBy === actor;
+export const approvesOwn = (a: Proposed & { status: Status }, to: Status, who: Proposer) =>
+  to === "active" && (a.status === "proposed" || a.status === "rejected") && proposedByThem(a, who);
 
 /**
  * "Expires in 5 days": how an approved asset's last day of use reads when it

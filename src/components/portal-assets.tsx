@@ -305,9 +305,10 @@ export function PortalAssets({
   );
 }
 
-/** A collection, as the site's tabs are drawn: the line under the one showing. */
+/** A collection, as the site's tabs are drawn: the line under the one showing. Raw: drawn in the site's look, not the app's. */
 function Tab({ active, count, onClick, children }: { active: boolean; count?: number; onClick: () => void; children: React.ReactNode }) {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- drawn in the site's look, not the app's
     <button
       type="button"
       onClick={onClick}
@@ -328,6 +329,7 @@ function Collections({ collections, onPick }: { collections: AssetsView["portal"
       <ul className="grid grid-cols-2 gap-4 @3xl/site:grid-cols-3 @6xl/site:grid-cols-4">
         {collections.map((c) => (
           <li key={c.id}>
+            {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the whole card, covers and name, is the hit target. */}
             <button
               type="button"
               onClick={() => onPick(c.id)}

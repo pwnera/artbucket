@@ -9,6 +9,6 @@ motion.reveal:
   type: number
   label: A quiet entrance
   value: 320
-  usage: A proposed duration for larger reveals. Respect reduced motion.
+  usage: Larger reveals, such as a section or a panel coming in. With reduced motion, nothing moves.
   spec:
     unit: ms

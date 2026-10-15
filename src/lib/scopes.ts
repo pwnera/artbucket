@@ -39,3 +39,14 @@ export function parseAnonymous(raw: string | undefined): Scope | null | undefine
   if ((SCOPES as readonly string[]).includes(v)) return v as Scope;
   throw new Error(`ANONYMOUS_SCOPE must be none, ${SCOPES.join(", ")}; got "${v}"`);
 }
+
+/** What a person can grant an agent on the consent screen. Admin stays with keys an admin makes. */
+export const GRANTABLE = ["propose", "read", "write"] as const satisfies readonly Scope[];
+export type Grantable = (typeof GRANTABLE)[number];
+
+/** The scope a request asks for (OAuth's space-separated `scope`): the first grantable one, or null. */
+export const askedScope = (scope: string | null | undefined): Grantable | null =>
+  scope?.split(" ").find((s): s is Grantable => (GRANTABLE as readonly string[]).includes(s)) ?? null;
+
+/** What the consent screen picks first: the scope asked, brought down to the most the person may give. */
+export const cappedScope = (asked: Grantable, max: Grantable): Grantable => (SCOPES.indexOf(asked) <= SCOPES.indexOf(max) ? asked : max);

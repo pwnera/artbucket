@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import {
   IconCheck,
   IconChevronRight,
@@ -142,6 +141,7 @@ export function FontPlayground({ id, sample, flow }: { id: string; sample?: stri
           aria-label="Sample text"
           className="min-w-48 flex-1"
         />
+        {/* Raw range inputs: there is no slider among the primitives (components/ui). */}
         <label className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs tabular-nums">
           <span className="sr-only">Size</span>
           <input
@@ -292,11 +292,11 @@ export function GoogleFontImport({
 
   return (
     <>
-{controlled === undefined && (
-      <Button variant="outline" size="sm" className="ml-auto" title="Import a family from Google Fonts" onClick={() => setOpen(true)}>
-        <IconTypography />
-        <span className="hidden sm:inline">Google Fonts</span>
-      </Button>
+      {controlled === undefined && (
+        <Button variant="outline" size="sm" className="ml-auto" title="Import a family from Google Fonts" onClick={() => setOpen(true)}>
+          <IconTypography />
+          <span className="hidden sm:inline">Google Fonts</span>
+        </Button>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-4 sm:max-w-3xl md:h-[min(760px,calc(100dvh-2rem))]">
@@ -367,10 +367,11 @@ export function GoogleFontImport({
                     <Button
                       size="sm"
                       variant={imported.has(f.family) ? "ghost" : "outline"}
+                      pending={importing === f.family}
                       disabled={importing !== null || imported.has(f.family)}
                       onClick={() => add(f.family)}
                     >
-                      {importing === f.family ? <Spinner /> : imported.has(f.family) ? <IconCheck /> : null}
+                      {imported.has(f.family) && <IconCheck />}
                       {imported.has(f.family) ? "Imported" : "Import"}
                     </Button>
                   </li>
@@ -386,43 +387,6 @@ export function GoogleFontImport({
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-/** A font rule with no files yet: fetch its family from Google Fonts and attach every style, in one click. */
-/** A file the import made, as POST /fonts/google answers it. */
-type Imported = { id: string; filename: string; mime: string; size: number };
-
-export function ImportFamily({ family, onImported }: { family: string; onImported: (family: string, files: Imported[]) => void }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      <span>Shown only where {family} is installed.</span>
-      <Button
-        variant="outline"
-        size="xs"
-        pending={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            const res = await fetch("/api/v1/fonts/google", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ family }),
-            });
-            const body = await res.json();
-            if (!res.ok) return void toast.error(body.error?.message ?? "Couldn't import it", { description: "Add its files with Assets instead." });
-            toast.success(`Imported ${body.family}`, { description: `${body.data.length} ${body.data.length === 1 ? "style" : "styles"}, now on this rule` });
-            onImported(body.family, body.data);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy ? <Spinner /> : <IconTypography />} Import from Google Fonts
-      </Button>
-      <span>or add its files with Assets.</span>
-    </div>
   );
 }
 
@@ -455,6 +419,8 @@ export function FontStyleChip({
       <a
         href={url(id, "?download")}
         download
+        // Named for what it does: the style's name alone ("Bold") reads as a toggle, not a download.
+        aria-label={`Download ${label}`}
         title={`Download ${filename || label}`}
         className={cn(chip, "hover:bg-muted transition-colors")}
       >
@@ -467,14 +433,15 @@ export function FontStyleChip({
     <span className={chip} title={filename}>
       {name}
       {onRemove && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={onRemove}
           aria-label={`Take ${label} off the rule`}
-          className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/chip:opacity-100 pointer-fine:focus-visible:opacity-100"
+          className="text-muted-foreground hover:text-foreground size-5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/chip:opacity-100 pointer-fine:focus-visible:opacity-100"
         >
           <IconX className="size-3.5" />
-        </button>
+        </Button>
       )}
     </span>
   );
@@ -507,6 +474,7 @@ export function FontStyles({
   const italics = styles.some((s) => s.italic);
   return (
     <div className="grid gap-1.5 pt-1">
+      {/* eslint-disable-next-line no-restricted-syntax -- Raw: a line of muted text that folds the chips, not a button's box. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

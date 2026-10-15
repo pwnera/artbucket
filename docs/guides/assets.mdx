@@ -195,7 +195,7 @@ curl -X POST https://assets.example.com/api/v1/assets/{id}/restore -H "Authoriza
 
 After 30 days it is purged, and its file with it, unless another asset, in any
 project, holds the same bytes. Uploading the same bytes again in the
-meantime makes a new asset, and the deleted one is gone for good.
+meantime restores it, for whoever may restore it; anyone else gets `409`.
 
 ## Next
 

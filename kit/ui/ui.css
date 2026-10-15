@@ -4,7 +4,8 @@
 .ab-palette > li, .ab-type > li, .ab-logos > li, .ab-dodont > li { display: grid; gap: 0.35rem; align-content: start; }
 .ab-chip { display: grid; place-items: end start; height: 7rem; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid var(--ab-line, rgb(0 0 0 / 0.08)); font-weight: 600; }
 .ab-values { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.75rem; margin: 0; font-size: 0.85rem; }
-.ab-values dt { opacity: 0.6; }
+/* Quiet, and still 4.5:1 in the page's own ink on its ground. */
+.ab-values dt { opacity: 0.72; }
 .ab-values dd { margin: 0; font-variant-numeric: tabular-nums; }
 .ab-usage { margin: 0; font-size: 0.9rem; opacity: 0.75; }
 .ab-sample { font-size: 4.5rem; line-height: 1; }

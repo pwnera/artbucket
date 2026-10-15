@@ -1,0 +1,28 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { Radii, Shadows, Spacing, Token } from "./foundations";
+
+<Meta title="Foundations/Space and radius" />
+
+# Space and radius
+
+## Space
+
+Tailwind's spacing, every step a multiple of <Token name="--spacing" />. Controls sit 2 apart (`gap-2`), fields and
+groups 4 to 6, sections 8 and more. Widths below are what the browser computed.
+
+<Spacing />
+
+## Radius
+
+One radius, <Token name="--radius" />, and steps around it (`globals.css`): `sm` and `md` for small controls and
+fields, `lg` for cards, buttons and menus, `xl` for dialogs and tiles, `full` for pills and avatars. A brand site's
+square look sets `--radius` to 0 and squares every step with it, `xl` included.
+
+<Radii />
+
+## Elevation
+
+Tailwind's shadows, by what floats: `xs` under fields and outline buttons, `sm` under cards, `md` under menus and
+popovers, `lg` under dialogs and toasts. Borders do most of the separating; a shadow says something is above the page.
+
+<Shadows />
