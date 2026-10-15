@@ -9,10 +9,10 @@ import type { CatalogResults } from "@/lib/core/catalog";
 /**
  * What else a search in Explore finds, beside the assets below it
  * (GET /api/v1/catalog): brands, collections, portals, and brands' rules and
- * guideline pages, as cards above the assets. Each opens in the catalog.
+ * guideline pages, and Storybooks' components, as cards above the assets. Each opens in the catalog.
  */
 
-const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page"];
+const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page", "component"];
 const SHOWN = 8;
 
 export function CatalogMatches({ q }: { q: string }) {

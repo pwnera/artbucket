@@ -18,10 +18,15 @@ test("REST params are the same query", () => {
 
 test("addresses: an object, a release, a part; anything else is none", () => {
   assert.deepEqual(parseAddress("acme/corporate/asset/logo-primary@4"), { org: "acme", project: "corporate", type: "asset", slug: "logo-primary", release: 4 });
-  assert.deepEqual(parseAddress("acme/corporate/brand/acme/rule/logo.primary")?.part, { type: "rule", slug: "logo.primary" });
+  assert.deepEqual(parseAddress("acme/corporate/brand/acme/rule/logo.primary")?.part, { type: "rule", slug: "logo.primary", release: null });
+  assert.deepEqual(parseAddress("acme/corporate/site/storybook/component/ui-button@3")?.part, { type: "component", slug: "ui-button", release: 3 });
   assert.equal(parseAddress("acme/corporate/thing/x"), null);
   assert.equal(parseAddress("acme/corporate/asset"), null);
   assert.equal(formatAddress({ org: "acme", project: "corporate", type: "rule", slug: "logo.primary", parent: { type: "brand", slug: "acme" } }), "acme/corporate/brand/acme/rule/logo.primary");
+  assert.equal(
+    formatAddress({ org: "acme", project: "corporate", type: "component", slug: "ui-button", release: 3, parent: { type: "site", slug: "storybook" } }),
+    "acme/corporate/site/storybook/component/ui-button@3",
+  );
   assert.equal(slugOf("Press kit 2026!"), "press-kit-2026");
 });
 

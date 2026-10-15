@@ -15829,7 +15829,8 @@
                 "asset",
                 "site",
                 "rule",
-                "page"
+                "page",
+                "component"
               ]
             },
             "description": "Repeat for several"
@@ -15980,7 +15981,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -16079,7 +16081,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -16267,7 +16270,8 @@
                                     "asset",
                                     "site",
                                     "rule",
-                                    "page"
+                                    "page",
+                                    "component"
                                   ]
                                 },
                                 "slug": {
@@ -16366,7 +16370,8 @@
                                             "asset",
                                             "site",
                                             "rule",
-                                            "page"
+                                            "page",
+                                            "component"
                                           ]
                                         },
                                         "slug": {
@@ -16504,7 +16509,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -16603,7 +16609,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -16755,7 +16762,8 @@
                         "asset",
                         "site",
                         "rule",
-                        "page"
+                        "page",
+                        "component"
                       ]
                     },
                     "slug": {
@@ -16854,7 +16862,8 @@
                                 "asset",
                                 "site",
                                 "rule",
-                                "page"
+                                "page",
+                                "component"
                               ]
                             },
                             "slug": {
@@ -16901,7 +16910,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -17000,7 +17010,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -17257,7 +17268,8 @@
                               "asset",
                               "site",
                               "rule",
-                              "page"
+                              "page",
+                              "component"
                             ]
                           },
                           "slug": {
@@ -17356,7 +17368,8 @@
                                       "asset",
                                       "site",
                                       "rule",
-                                      "page"
+                                      "page",
+                                      "component"
                                     ]
                                   },
                                   "slug": {
@@ -17796,6 +17809,782 @@
                         ],
                         "additionalProperties": false
                       }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sites/{id}/uses": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "An external site's id",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Record what an external site uses",
+        "description": "For a site of kind external, hosted elsewhere: its files as a zip (`Content-Type: application/zip`), read as a deployment's are and not stored, and the components its artbucket.site.json names (`components`: addresses, or { component, fingerprint } to name the version whose code it has). Kept as the site's live record: in lineage, in Fixes, and re-checked daily. `problems` says what of it may no longer be used. artbucket site scan does all of it from CI.\n\nScope: `write`.",
+        "x-scope": "write",
+        "parameters": [
+          {
+            "name": "commit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The commit scanned, when CI says"
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The branch or tag of that commit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "Where it is mounted"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "guidelines",
+                            "landing",
+                            "docs",
+                            "storybook",
+                            "external"
+                          ],
+                          "description": "external: an external site's record of what it uses, no files"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "checking",
+                            "live",
+                            "failed",
+                            "replaced",
+                            "held",
+                            "preview"
+                          ],
+                          "description": "held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"
+                        },
+                        "preview": {
+                          "description": "A preview's name, such as pr-12; null for any other deployment",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "url": {
+                          "description": "Where a preview answers: {name}--{site}.{PORTAL_DOMAIN}, at its mount. Given for previews only",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "files": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "commit": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ref": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "error": {
+                          "description": "Why it failed, or why it is held",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "manifest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "artbucket.site.json, when the zip held one"
+                        },
+                        "uses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "how": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "link",
+                                  "current",
+                                  "declared"
+                                ],
+                                "description": "copy: a file is the asset's bytes; link: /a/{id}; current: /c/{id}, the version it served; declared: named by artbucket.site.json"
+                              },
+                              "file": {
+                                "description": "The build's file it was found in",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "asset",
+                              "how",
+                              "file"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "What it uses of the project's library, found in its files: its lineage"
+                        },
+                        "componentUses": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The component versions it is built with, as its artbucket.site.json names them (artbucket site scan adds them for an external site)"
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"
+                        },
+                        "flags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"
+                        },
+                        "checkedAt": {
+                          "description": "When it was last checked",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "path",
+                        "kind",
+                        "state",
+                        "preview",
+                        "files",
+                        "bytes",
+                        "commit",
+                        "ref",
+                        "error",
+                        "manifest",
+                        "uses",
+                        "componentUses",
+                        "problems",
+                        "flags",
+                        "checkedAt",
+                        "createdBy",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/components": {
+      "get": {
+        "summary": "Components",
+        "description": "Every component the project's Storybooks show now, at its current version: one per Storybook title, read from the index.json of each Storybook deployed to a site, with a new version whenever a deploy changes it.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Components",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "description": "Storybook's id for it, e.g. ui-button"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Its Storybook title, e.g. UI/Button"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "story": {
+                            "type": "string",
+                            "description": "Its first story's id"
+                          },
+                          "stories": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Its stories' names, in order"
+                          },
+                          "files": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Its stories' and source files, as Storybook's index.json names them"
+                          },
+                          "path": {
+                            "type": "string",
+                            "description": "Where its Storybook is mounted on the site"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "string",
+                            "description": "Who deployed the build it came in"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "in_review",
+                              "current",
+                              "replaced",
+                              "archived"
+                            ],
+                            "description": "current: in the live build; replaced: a newer version is; archived: gone from it"
+                          },
+                          "site": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "slug",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "preview": {
+                            "description": "Its story alone (Storybook's iframe.html), on the site's own address; null once no kept build holds it",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "storybook": {
+                            "description": "Its story in Storybook's own UI",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "address": {
+                            "type": "string",
+                            "description": "Its address without @n: in artbucket.site.json, the version current when the build is made"
+                          },
+                          "versions": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "How many versions it has had"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "slug",
+                          "name",
+                          "title",
+                          "version",
+                          "story",
+                          "stories",
+                          "files",
+                          "path",
+                          "createdAt",
+                          "createdBy",
+                          "status",
+                          "site",
+                          "preview",
+                          "storybook",
+                          "address",
+                          "versions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "detail": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/components/{ref}": {
+      "parameters": [
+        {
+          "name": "ref",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "An id, or an address"
+        }
+      ],
+      "get": {
+        "summary": "A component's versions",
+        "description": "Every version of a component at its mount, newest first, each with its story's preview while a kept build holds it and the sites whose artbucket.site.json names it in `components`.\n\nScope: `read`.",
+        "x-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Component",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "address": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "site": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "versions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "slug": {
+                                "type": "string",
+                                "description": "Storybook's id for it, e.g. ui-button"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "Its Storybook title, e.g. UI/Button"
+                              },
+                              "version": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "story": {
+                                "type": "string",
+                                "description": "Its first story's id"
+                              },
+                              "stories": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Its stories' names, in order"
+                              },
+                              "files": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Its stories' and source files, as Storybook's index.json names them"
+                              },
+                              "path": {
+                                "type": "string",
+                                "description": "Where its Storybook is mounted on the site"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "createdBy": {
+                                "type": "string",
+                                "description": "Who deployed the build it came in"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "in_review",
+                                  "current",
+                                  "replaced",
+                                  "archived"
+                                ],
+                                "description": "current: in the live build; replaced: a newer version is; archived: gone from it"
+                              },
+                              "site": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "slug",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "preview": {
+                                "description": "Its story alone (Storybook's iframe.html), on the site's own address; null once no kept build holds it",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "storybook": {
+                                "description": "Its story in Storybook's own UI",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "usedBy": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "address": {
+                                      "type": "string"
+                                    },
+                                    "project": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "slug",
+                                        "name"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "address",
+                                    "project"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "description": "Sites built with this version that you reach"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "slug",
+                              "name",
+                              "title",
+                              "version",
+                              "story",
+                              "stories",
+                              "files",
+                              "path",
+                              "createdAt",
+                              "createdBy",
+                              "status",
+                              "site",
+                              "preview",
+                              "storybook",
+                              "usedBy"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Newest first"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "address",
+                        "name",
+                        "title",
+                        "path",
+                        "versions"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -41862,7 +42651,7 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991,
-                          "description": "What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them"
+                          "description": "What isn't done yet: places not told, searches not requested, licenses ending with nothing to replace them, sites on an old component"
                         },
                         "stale": {
                           "type": "array",
@@ -42243,6 +43032,99 @@
                             "additionalProperties": false
                           },
                           "description": "Approved assets whose license ends within `licenseDays`, soonest first"
+                        },
+                        "components": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "site": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "slug"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "path": {
+                                "type": "string",
+                                "description": "Where the build is mounted"
+                              },
+                              "component": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "version"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The version its manifest names"
+                              },
+                              "current": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "version": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "version"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The version its Storybook shows now"
+                              },
+                              "since": {
+                                "type": "string",
+                                "description": "When the current version came, ISO 8601"
+                              }
+                            },
+                            "required": [
+                              "site",
+                              "path",
+                              "component",
+                              "current",
+                              "since"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "This project's live builds made with a component version a newer one replaced: done once deployed with the current one"
                         }
                       },
                       "required": [
@@ -42251,7 +43133,8 @@
                         "open",
                         "stale",
                         "gaps",
-                        "licenses"
+                        "licenses",
+                        "components"
                       ],
                       "additionalProperties": false
                     }
@@ -48499,9 +49382,10 @@
                               "guidelines",
                               "landing",
                               "docs",
-                              "storybook"
+                              "storybook",
+                              "external"
                             ],
-                            "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                            "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                           },
                           "slug": {
                             "type": "string"
@@ -48510,6 +49394,13 @@
                             "type": "string"
                           },
                           "intro": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "externalUrl": {
+                            "description": "An external site's own address",
                             "type": [
                               "string",
                               "null"
@@ -48915,6 +49806,7 @@
                           "slug",
                           "name",
                           "intro",
+                          "externalUrl",
                           "access",
                           "password",
                           "expiresAt",
@@ -49007,6 +49899,19 @@
                       {
                         "type": "string",
                         "maxLength": 4000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "url": {
+                    "description": "For kind external: where the site lives, e.g. https://app.example.com",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
                       },
                       {
                         "type": "null"
@@ -49262,14 +50167,15 @@
                   },
                   "kind": {
                     "default": "portal",
-                    "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once",
+                    "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy; external: a site hosted elsewhere whose CI records what it uses (artbucket site scan). Set once",
                     "type": "string",
                     "enum": [
                       "portal",
                       "guidelines",
                       "landing",
                       "docs",
-                      "storybook"
+                      "storybook",
+                      "external"
                     ]
                   }
                 },
@@ -49305,9 +50211,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
+                            "storybook",
+                            "external"
                           ],
-                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                          "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -49316,6 +50223,13 @@
                           "type": "string"
                         },
                         "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "externalUrl": {
+                          "description": "An external site's own address",
                           "type": [
                             "string",
                             "null"
@@ -49721,6 +50635,7 @@
                         "slug",
                         "name",
                         "intro",
+                        "externalUrl",
                         "access",
                         "password",
                         "expiresAt",
@@ -49824,9 +50739,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
+                            "storybook",
+                            "external"
                           ],
-                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                          "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -49835,6 +50751,13 @@
                           "type": "string"
                         },
                         "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "externalUrl": {
+                          "description": "An external site's own address",
                           "type": [
                             "string",
                             "null"
@@ -50240,6 +51163,7 @@
                         "slug",
                         "name",
                         "intro",
+                        "externalUrl",
                         "access",
                         "password",
                         "expiresAt",
@@ -50331,6 +51255,19 @@
                       {
                         "type": "string",
                         "maxLength": 4000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "url": {
+                    "description": "For kind external: where the site lives, e.g. https://app.example.com",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
                       },
                       {
                         "type": "null"
@@ -50612,9 +51549,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
+                            "storybook",
+                            "external"
                           ],
-                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                          "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -50623,6 +51561,13 @@
                           "type": "string"
                         },
                         "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "externalUrl": {
+                          "description": "An external site's own address",
                           "type": [
                             "string",
                             "null"
@@ -51028,6 +51973,7 @@
                         "slug",
                         "name",
                         "intro",
+                        "externalUrl",
                         "access",
                         "password",
                         "expiresAt",
@@ -51487,9 +52433,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
+                            "storybook",
+                            "external"
                           ],
-                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                          "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -51498,6 +52445,13 @@
                           "type": "string"
                         },
                         "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "externalUrl": {
+                          "description": "An external site's own address",
                           "type": [
                             "string",
                             "null"
@@ -51903,6 +52857,7 @@
                         "slug",
                         "name",
                         "intro",
+                        "externalUrl",
                         "access",
                         "password",
                         "expiresAt",
@@ -52006,9 +52961,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
+                            "storybook",
+                            "external"
                           ],
-                          "description": "portal: managed by Artbucket; the others are static files deployed to it"
+                          "description": "portal: managed by Artbucket; external: hosted elsewhere, what it uses recorded by artbucket site scan; the others are static files deployed to it"
                         },
                         "slug": {
                           "type": "string"
@@ -52017,6 +52973,13 @@
                           "type": "string"
                         },
                         "intro": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "externalUrl": {
+                          "description": "An external site's own address",
                           "type": [
                             "string",
                             "null"
@@ -52422,6 +53385,7 @@
                         "slug",
                         "name",
                         "intro",
+                        "externalUrl",
                         "access",
                         "password",
                         "expiresAt",
@@ -52717,8 +53681,10 @@
                               "guidelines",
                               "landing",
                               "docs",
-                              "storybook"
-                            ]
+                              "storybook",
+                              "external"
+                            ],
+                            "description": "external: an external site's record of what it uses, no files"
                           },
                           "state": {
                             "type": "string",
@@ -52827,6 +53793,15 @@
                             },
                             "description": "What it uses of the project's library, found in its files: its lineage"
                           },
+                          "componentUses": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "description": "The component versions it is built with, as its artbucket.site.json names them (artbucket site scan adds them for an external site)"
+                          },
                           "problems": {
                             "type": "array",
                             "items": {
@@ -52868,6 +53843,7 @@
                           "error",
                           "manifest",
                           "uses",
+                          "componentUses",
                           "problems",
                           "flags",
                           "checkedAt",
@@ -52999,8 +53975,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
-                          ]
+                            "storybook",
+                            "external"
+                          ],
+                          "description": "external: an external site's record of what it uses, no files"
                         },
                         "state": {
                           "type": "string",
@@ -53109,6 +54087,15 @@
                           },
                           "description": "What it uses of the project's library, found in its files: its lineage"
                         },
+                        "componentUses": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The component versions it is built with, as its artbucket.site.json names them (artbucket site scan adds them for an external site)"
+                        },
                         "problems": {
                           "type": "array",
                           "items": {
@@ -53150,6 +54137,7 @@
                         "error",
                         "manifest",
                         "uses",
+                        "componentUses",
                         "problems",
                         "flags",
                         "checkedAt",
@@ -53406,8 +54394,10 @@
                             "guidelines",
                             "landing",
                             "docs",
-                            "storybook"
-                          ]
+                            "storybook",
+                            "external"
+                          ],
+                          "description": "external: an external site's record of what it uses, no files"
                         },
                         "state": {
                           "type": "string",
@@ -53516,6 +54506,15 @@
                           },
                           "description": "What it uses of the project's library, found in its files: its lineage"
                         },
+                        "componentUses": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The component versions it is built with, as its artbucket.site.json names them (artbucket site scan adds them for an external site)"
+                        },
                         "problems": {
                           "type": "array",
                           "items": {
@@ -53557,6 +54556,7 @@
                         "error",
                         "manifest",
                         "uses",
+                        "componentUses",
                         "problems",
                         "flags",
                         "checkedAt",

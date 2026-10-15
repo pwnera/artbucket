@@ -20,7 +20,9 @@ const DAY = 86_400_000;
  * loading a replaced version (Insights' stale, done once told), searches
  * that found nothing (its gaps, done once requested) and approved assets
  * whose license ends within EXPIRING_DAYS (done once something replaces
- * them; renewed or archived, they leave the list). `open` counts what isn't
+ * them; renewed or archived, they leave the list), and the project's sites
+ * built with a component version that a newer one replaced (they leave the
+ * list once deployed with the current one). `open` counts what isn't
  * done, for the sidebar. Insights' readers, as Insights.
  */
 export async function fixesOf(caller: Caller) {
@@ -28,9 +30,10 @@ export async function fixesOf(caller: Caller) {
   const day = today();
   const before = new Date(Date.parse(day) + (EXPIRING_DAYS + 1) * DAY).toISOString().slice(0, 10);
   const expires = sql<string>`${assets.rights} ->> 'expires'`;
-  const [stale, gaps, ending] = await Promise.all([
+  const [stale, gaps, components, ending] = await Promise.all([
     staleIn(caller.project.id),
     gapsIn(caller.project.id),
+    oldComponentsIn(caller.project.id),
     // As the library reads a license: approved, the current version, not ended yet (status active), ending before `before`.
     db
       .select({ id: assets.id, expires })
@@ -52,9 +55,42 @@ export async function fixesOf(caller: Caller) {
   return {
     days: INSIGHT_DAYS,
     licenseDays: EXPIRING_DAYS,
-    open: placesOpen + gaps.filter((g) => !g.requested).length + licenses.filter((l) => !l.replacement).length,
+    open: placesOpen + gaps.filter((g) => !g.requested).length + licenses.filter((l) => !l.replacement).length + components.length,
     stale,
     gaps,
+    components,
     licenses,
   };
+}
+
+/** A project's live builds that name a component version no longer the one its Storybook shows, oldest replacement first. */
+async function oldComponentsIn(projectId: string) {
+  const rows = await db.execute<{
+    site_id: string;
+    site_name: string;
+    site_slug: string;
+    path: string;
+    id: string;
+    name: string;
+    version: number;
+    current_id: string;
+    current_version: number;
+    since: string;
+  }>(sql`
+    select d.site_id, p.name as site_name, p.slug as site_slug, d.path, c.id, c.name, c.version, n.id as current_id, n.version as current_version, n.created_at as since
+    from site_deployments d
+    join portals p on p.id = d.site_id
+    cross join unnest(d.component_uses) u(id)
+    join site_components c on c.id = u.id
+    join site_deployments l on l.site_id = c.site_id and l.path = c.path and l.state = 'live'
+    join site_components n on n.id = any(l.components) and n.slug = c.slug and n.id <> c.id
+    where d.state = 'live' and p.project_id = ${projectId}
+    order by n.created_at, p.name, c.name`);
+  return [...rows].map((r) => ({
+    site: { id: r.site_id, name: r.site_name, slug: r.site_slug },
+    path: r.path,
+    component: { id: r.id, name: r.name, version: r.version },
+    current: { id: r.current_id, version: r.current_version },
+    since: new Date(r.since).toISOString(),
+  }));
 }

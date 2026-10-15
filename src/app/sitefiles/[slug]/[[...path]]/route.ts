@@ -5,6 +5,7 @@ import { keyDoor, letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unloc
 import { ENTER_PATH, unlockCookie } from "@/lib/sites";
 import { localPath } from "@/lib/markdown";
 import { siteHeaders } from "@/lib/site-serve";
+import { env } from "@/lib/env";
 import { getStream } from "@/lib/storage";
 
 /**
@@ -113,8 +114,8 @@ export async function POST(req: Request, ctx: Params) {
   });
 }
 
-/** The headers a build's answer carries (lib/site-serve.ts, as an edge in front sends them). */
-const own = siteHeaders;
+/** The headers a build's answer carries (lib/site-serve.ts, as an edge in front sends them): the app may frame it. */
+const own = (rules: [string, string][], open: boolean, preview: string | null) => siteHeaders(rules, open, preview, new URL(env.APP_URL).origin);
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 

@@ -15,6 +15,7 @@ import {
   organizations,
   portals,
   shareLinks,
+  siteComponents,
   users,
   projects,
 } from "@/lib/db/schema";
@@ -212,7 +213,10 @@ async function resolve(caller: Caller, ref: string): Promise<string | null> {
     found[0];
   if (!object) return null;
   if (!a.part) return object.id;
-  const [part] = await pick(a.part.type, a.part.slug, object.id);
+  // A component's @n is that version; without one, the current one, else the newest.
+  const parts = await pick(a.part.type, a.part.slug, object.id);
+  const { release } = a.part;
+  const part = release ? parts.find((f) => f.release === release) : (parts.find((f) => f.status === "current") ?? parts[0]);
   return part?.id ?? null;
 }
 
@@ -625,6 +629,7 @@ export type ActivityLine = { at: Date; who: string; what: string; agent: boolean
 export async function objectActivity(caller: Caller, ref: string, limit = 30): Promise<ActivityLine[] | null> {
   const item = await findObject(caller, ref);
   if (!item) return null;
+  if (item.type === "component") return componentHistory(item, limit);
   const id = item.parent?.id ?? item.id;
   const type = item.parent?.type ?? item.type;
   if (type === "asset") {
@@ -650,6 +655,25 @@ export async function objectActivity(caller: Caller, ref: string, limit = 30): P
     ]);
   }
   return [{ at: item.createdAt, who: "", agent: false, what: "created it" }];
+}
+
+/** A component's versions at its mount, newest first: when each came, who deployed it, its stories, and which is live. */
+async function componentHistory(item: CatalogItem, limit: number): Promise<ActivityLine[]> {
+  const [c] = await db.select({ siteId: siteComponents.siteId, path: siteComponents.path, slug: siteComponents.slug }).from(siteComponents).where(eq(siteComponents.id, item.id));
+  if (!c) return [];
+  const versions = await db
+    .select({ id: siteComponents.id, version: siteComponents.version, stories: siteComponents.stories, at: siteComponents.createdAt, who: siteComponents.createdBy, status: o.status })
+    .from(siteComponents)
+    .innerJoin(o, eq(o.id, siteComponents.id))
+    .where(and(eq(siteComponents.siteId, c.siteId), eq(siteComponents.path, c.path), eq(siteComponents.slug, c.slug)))
+    .orderBy(desc(siteComponents.version))
+    .limit(limit);
+  return versions.map((v) => ({
+    at: v.at,
+    who: v.who,
+    agent: false,
+    what: `deployed @${v.version}${v.status === "current" ? " (live)" : ""}${v.stories.length ? `: ${v.stories.join(", ")}` : ""}`,
+  }));
 }
 
 /** What other projects shared into the caller's: each object as it is at home, said to come from there. */

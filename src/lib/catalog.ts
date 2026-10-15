@@ -9,7 +9,7 @@
 /** Objects: what a grant can be on and the explorer lists. */
 export const OBJECT_TYPES = ["brand", "collection", "asset", "site"] as const;
 /** Parts: addressed inside their object, found by search, governed by it. */
-export const PART_TYPES = ["rule", "page"] as const;
+export const PART_TYPES = ["rule", "page", "component"] as const;
 export const CATALOG_TYPES = [...OBJECT_TYPES, ...PART_TYPES] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export type CatalogType = (typeof CATALOG_TYPES)[number];
@@ -21,6 +21,7 @@ export const TYPE_LABEL: Record<CatalogType, { one: string; many: string }> = {
   site: { one: "Site", many: "Sites" },
   rule: { one: "Rule", many: "Rules" },
   page: { one: "Guideline page", many: "Guideline pages" },
+  component: { one: "Component", many: "Components" },
 };
 
 export const isPart = (t: CatalogType) => (PART_TYPES as readonly string[]).includes(t);
@@ -62,11 +63,12 @@ export const slugOf = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-export type Address = { org: string; project: string; type: CatalogType; slug: string; release: number | null; part?: { type: CatalogType; slug: string } };
+export type Address = { org: string; project: string; type: CatalogType; slug: string; release: number | null; part?: { type: CatalogType; slug: string; release: number | null } };
 
 /**
  * {org}/{project}/{type}/{slug}[@release], and a part after its object:
- * acme/corporate/brand/acme/rule/logo.primary. Null when it isn't one.
+ * acme/corporate/brand/acme/rule/logo.primary, a component's version
+ * acme/corporate/site/storybook/component/ui-button@3. Null when it isn't one.
  */
 export function parseAddress(raw: string): Address | null {
   const segs = raw.trim().replace(/^\/+|\/+$/g, "").split("/");
@@ -78,15 +80,16 @@ export function parseAddress(raw: string): Address | null {
   if (!org || !project || !at) return null;
   const address: Address = { org, project, type: type as CatalogType, slug: at[1], release: at[2] ? Number(at[2]) : null };
   if (segs.length === 6) {
-    if (!(PART_TYPES as readonly string[]).includes(partType) || !partSlug) return null;
-    address.part = { type: partType as CatalogType, slug: partSlug };
+    const p = partSlug?.match(/^(.+?)(?:@(\d+))?$/);
+    if (!(PART_TYPES as readonly string[]).includes(partType) || !p) return null;
+    address.part = { type: partType as CatalogType, slug: p[1], release: p[2] ? Number(p[2]) : null };
   }
   return address;
 }
 
 export function formatAddress(a: { org: string; project: string; type: CatalogType; slug: string; release?: number | null; parent?: { type: CatalogType; slug: string } | null }) {
   const at = a.release ? `@${a.release}` : "";
-  return a.parent ? `${a.org}/${a.project}/${a.parent.type}/${a.parent.slug}/${a.type}/${a.slug}` : `${a.org}/${a.project}/${a.type}/${a.slug}${at}`;
+  return a.parent ? `${a.org}/${a.project}/${a.parent.type}/${a.parent.slug}/${a.type}/${a.slug}${at}` : `${a.org}/${a.project}/${a.type}/${a.slug}${at}`;
 }
 
 export type CatalogQuery = {
@@ -157,7 +160,7 @@ export function impactLine(name: string, things: number, projects: number) {
 }
 
 /** Where the app shows it, in its own project (the proxy's `?project=` opens that one). */
-export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { slug: string } | null; project: { id: string } }) {
+export function openPath(item: { id: string; type: CatalogType; slug: string; parent: { id: string; slug: string } | null; project: { id: string } }) {
   const w = `project=${item.project.id}`;
   const brand = item.parent?.slug ?? "";
   switch (item.type) {
@@ -173,5 +176,7 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
       return `/brands/${brand}/rules?${w}`;
     case "page":
       return `/brands/${brand}/guidelines?page=${item.slug}&${w}`;
+    case "component":
+      return `/sites?edit=${item.parent?.id ?? ""}&${w}`;
   }
 }

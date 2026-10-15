@@ -66,6 +66,7 @@ const TINT: Record<CatalogType, string> = {
   site: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   rule: "bg-muted text-muted-foreground",
   page: "bg-muted text-muted-foreground",
+  component: "bg-muted text-muted-foreground",
 };
 
 const fetchHop = async (id: string, direction: string) => {

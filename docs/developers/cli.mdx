@@ -63,6 +63,7 @@ artbucket site push storybook-static --site acme --path /storybook --kind storyb
 artbucket site push dist --site acme-docs --preview pr-12
 artbucket site eject acme-guidelines --brand acme
 artbucket site check dist
+artbucket site scan src --site acme-app --packages @acme/ui
 ```
 
 `--preview pr-12` keeps the build as a preview at its own address, printed

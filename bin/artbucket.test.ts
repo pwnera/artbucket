@@ -105,3 +105,90 @@ test("url names the link after the asset, in the format asked", async () => {
     await s.close();
   }
 });
+
+test("site push hashes a Storybook's components' code into artbucket.site.json, beside what it already says", async () => {
+  const src = mkdtempSync(join(tmpdir(), "artbucket-sb-src-"));
+  writeFileSync(join(src, "button.tsx"), "export const Button = 1");
+  const dist = mkdtempSync(join(tmpdir(), "artbucket-sb-"));
+  writeFileSync(join(dist, "index.html"), "sb");
+  writeFileSync(join(dist, "artbucket.site.json"), JSON.stringify({ brand: "acme" }));
+  writeFileSync(
+    join(dist, "index.json"),
+    JSON.stringify({ v: 5, entries: { "ui-button--primary": { id: "ui-button--primary", title: "UI/Button", componentPath: join(src, "button.tsx"), importPath: join(src, "missing.stories.tsx") } } }),
+  );
+  let body = Buffer.alloc(0);
+  const s = await server((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      if (req.method === "GET") return res.end(JSON.stringify({ data: [{ id: "s1", slug: "sb", url: "http://sb.example" }] }));
+      body = Buffer.concat(chunks);
+      res.end(JSON.stringify({ data: { path: "/", state: "live" } }));
+    });
+  });
+  try {
+    const { err } = await run(s.url, "site", "push", dist, "--site", "sb");
+    assert.equal(err, "");
+    const { unzip } = await import("../src/lib/zip.ts");
+    const manifest = unzip(new Uint8Array(body)).find((e) => e.name === "artbucket.site.json")!;
+    const m = JSON.parse(new TextDecoder().decode(await manifest.read()));
+    assert.equal(m.brand, "acme");
+    assert.match(m.fingerprints["ui-button"], /^[0-9a-f]{64}$/);
+  } finally {
+    await s.close();
+  }
+});
+
+test("site scan finds the Storybook components a codebase imports, through tsconfig paths and relative imports, stories aside", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "artbucket-scan-"));
+  mkdirSync(join(repo, "src", "ui"), { recursive: true });
+  mkdirSync(join(repo, "src", "app"), { recursive: true });
+  writeFileSync(join(repo, "tsconfig.json"), `{ // the app's\n "compilerOptions": { "paths": { "@/*": ["./src/*"] }, }, }`);
+  writeFileSync(join(repo, "src", "ui", "button.tsx"), "export const Button = 1");
+  writeFileSync(join(repo, "src", "ui", "button.stories.tsx"), 'import { Button } from "./button";');
+  writeFileSync(join(repo, "src", "ui", "card.tsx"), "export const Card = 1");
+  // A stories file of several, naming no component: it stands for what it imports from its folder, but Button, documented on its own.
+  writeFileSync(join(repo, "src", "ui", "chip.tsx"), "export const Chip = 1");
+  writeFileSync(join(repo, "src", "ui", "bits.stories.tsx"), 'import { Chip } from "./chip";\nimport { Button } from "./button";');
+  writeFileSync(join(repo, "src", "app", "tags.tsx"), 'import { Chip } from "@/ui/chip";');
+  // Through packages: one asked for, one not (said on stderr), one whose names are no component (left alone).
+  writeFileSync(join(repo, "src", "app", "shop.tsx"), 'import { Card as Tile, type CardProps } from "@acme/ui";\nimport Button from "@other/kit/button";\nimport { useState } from "react";');
+  writeFileSync(join(repo, "src", "app", "page.tsx"), 'import { Button } from "@/ui/button";\nexport default () => null;');
+  writeFileSync(join(repo, "src", "app", "other.tsx"), 'const B = await import("../ui/button");');
+  const button = { address: "acme/web/site/ui/component/ui-button", name: "Button", version: 2, files: ["./src/ui/button.stories.tsx", "./src/ui/button.tsx"] };
+  const card = { address: "acme/web/site/ui/component/ui-card", name: "Card", version: 1, files: ["./src/ui/card.tsx"] };
+  const bits = { address: "acme/web/site/ui/component/ui-bits", name: "Bits", version: 1, files: ["./src/ui/bits.stories.tsx"] };
+  let body = Buffer.alloc(0);
+  const s = await server((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      if (req.url === "/api/v1/sites") return res.end(JSON.stringify({ data: [{ id: "s1", slug: "app", kind: "external" }] }));
+      if (req.url === "/api/v1/components") return res.end(JSON.stringify({ data: [bits, button, card] }));
+      body = Buffer.concat(chunks);
+      res.end(JSON.stringify({ data: { files: 6, uses: [], problems: [] } }));
+    });
+  });
+  try {
+    const config = mkdtempSync(join(tmpdir(), "artbucket-cli-"));
+    const env: NodeJS.ProcessEnv = { ...process.env, XDG_CONFIG_HOME: config, ARTBUCKET_URL: s.url, ARTBUCKET_KEY: "ab_test" };
+    const { out, err } = await new Promise<{ out: string; err: string }>((done) =>
+      execFile(process.execPath, ["--experimental-strip-types", "--no-warnings", CLI, "site", "scan", "src", "--site", "app", "--packages", "@acme/ui"], { env, cwd: repo }, (_e, o, e) => done({ out: o, err: e })),
+    );
+    assert.equal(err, "! @other/kit brings in Button (1 file) and isn't followed. If it is your design system, scan it too: --packages @other/kit\n");
+    assert.match(out, /Recorded for app: 6 files, 0 assets of the library, 3 components\n/);
+    assert.match(out, / {2}Card +app\/shop\.tsx\n/);
+    assert.match(out, / {2}Button +app\/(page|other)\.tsx and 1 more\n/);
+    assert.match(out, / {2}Bits +app\/tags\.tsx\n/);
+    const { unzip } = await import("../src/lib/zip.ts");
+    const manifest = unzip(new Uint8Array(body)).find((e) => e.name === "artbucket.site.json")!;
+    const m = JSON.parse(new TextDecoder().decode(await manifest.read()));
+    const named = new Map(m.components.map((c: { component: string; fingerprint: string }) => [c.component, c.fingerprint]));
+    assert.deepEqual([...named.keys()].sort(), [bits.address, button.address, card.address]);
+    assert.match(named.get(button.address) as string, /^[0-9a-f]{64}$/);
+  } finally {
+    await s.close();
+  }
+});
