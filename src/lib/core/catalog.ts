@@ -36,6 +36,7 @@ import {
 import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/core/access";
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 import { assetType } from "@/lib/core/assets";
+import { prefixQuery } from "@/lib/search";
 import type { AssetType } from "@/lib/filters";
 
 /**
@@ -235,16 +236,8 @@ async function walk(ids: string[], direction: "down" | "up", depth = 6): Promise
   return seenIds;
 }
 
-/** `logo:*` & `prim:*`: every word, as a prefix, so "log" finds the logo as it is typed. */
-const prefixQuery = (words: string) =>
-  words
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)
-    .map((w) => `${w}:*`)
-    .join(" & ");
-
 async function whereOf(caller: Caller, q: CatalogQuery, reaches: Reach[]): Promise<{ where: SQL; rank: SQL | null }> {
+  // Every word as a prefix, as asset search reads them (lib/search.ts): "café" and "log" match the same way in both.
   const ts = prefixQuery(q.words);
   const tsq = ts ? sql`to_tsquery('simple', ${ts})` : null;
   const ids = async (refs: string[]) => (await Promise.all(refs.map((r) => resolve(caller, r)))).filter((x): x is string => !!x);
