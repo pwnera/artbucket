@@ -16,7 +16,7 @@ import { hasPreview } from "@/lib/preview";
 import { renameThemeKey, type ThemeSettings } from "@/lib/brand-theme";
 import { diffRules, extendsLatest, summarize, updatesOf, type SnapRule, type VersionKind } from "@/lib/history";
 import { canon, changedPages, isLive, samePages, type SnapPage } from "@/lib/pages";
-import { can, needs } from "@/lib/permissions";
+import { can, needs, type Who } from "@/lib/permissions";
 import {
   renameInSpec,
   resolve,
@@ -319,7 +319,8 @@ export async function tracked<T>(brandId: string, actor: string, changed: string
  * just gets the defaults. With an asset, only the rules that point at it,
  * across every brand unless one is named.
  */
-export async function listRules(ws: string, opts: { brand?: string; context?: string; asset?: string } = {}) {
+/** With `who`, only brands they may read: a private one takes a grant on it. */
+export async function listRules(ws: string, opts: { brand?: string; context?: string; asset?: string; who?: Who } = {}) {
   const { context, asset } = opts;
   if (context !== undefined && !ruleContext.safeParse(context).success) {
     throw new AssetError("invalid", `Not a context: "${context}". Contexts are slugs, e.g. dark-background`);
@@ -327,7 +328,7 @@ export async function listRules(ws: string, opts: { brand?: string; context?: st
   if (asset !== undefined && !z.uuid().safeParse(asset).success) throw new AssetError("invalid", `Not an asset id: "${asset}"`);
   const brand = asset !== undefined && opts.brand === undefined ? null : await resolveBrand(ws, opts.brand);
   const rows = await db
-    .select({ rule: brandRules, brand: brands.slug })
+    .select({ rule: brandRules, brand: brands.slug, private: brands.private })
     .from(brandRules)
     .innerJoin(brands, eq(brands.id, brandRules.brandId))
     .where(
@@ -342,7 +343,8 @@ export async function listRules(ws: string, opts: { brand?: string; context?: st
             ),
       ),
     )
-    .orderBy(...ORDER);
+    .orderBy(...ORDER)
+    .then((all) => all.filter((r) => !opts.who || can(opts.who, "brand.read", { id: r.rule.brandId, private: r.private })));
   const picked = context === undefined ? rows : resolve(rows.map((r) => ({ ...r, ...r.rule })), context);
   const refs = await assetsOf(picked.map((r) => r.rule.id));
   return picked.map((r) => toRule(r.rule, r.brand, refs.get(r.rule.id)!));

@@ -464,7 +464,7 @@ const TOOLS: Record<ToolName, Tool> = {
         outside: await outsideReach(caller, a),
         proposedTags: a.proposedTags,
         proposedFields: a.proposedFields,
-        brandRules: (await listRules(caller.project.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
+        brandRules: (await listRules(caller.project.id, { asset: id, who: caller })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
           brand,
           key,
           label,

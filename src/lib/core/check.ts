@@ -71,7 +71,7 @@ export async function checkUse(caller: Caller, { asset: id, context, brand, ...u
 
   if (context) {
     // Rules whose default points at this asset, and the variant they have for this context.
-    const pointing = (await listRules(ws, { asset: id, brand })).filter((r) => r.context === null);
+    const pointing = (await listRules(ws, { asset: id, brand, who: caller })).filter((r) => r.context === null);
     const variants = new Map<string, Awaited<ReturnType<typeof listRules>>>();
     for (const r of pointing) {
       const b = r.brand!;

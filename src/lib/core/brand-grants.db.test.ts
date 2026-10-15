@@ -3,7 +3,9 @@ import { test } from "node:test";
 import { request, signUp } from "@/test/db";
 import { authorize } from "@/lib/api";
 import { callerFrom } from "@/lib/core/access";
-import { createBrand } from "@/lib/core/brand";
+import { createBrand, createRule, listRules } from "@/lib/core/brand";
+import { ingestBytes } from "@/lib/core/assets";
+import sharp from "sharp";
 import { listBrands, resolveBrand, updateBrand } from "@/lib/core/brands";
 import { parseQuery } from "@/lib/catalog";
 import { searchCatalog, whoCan } from "@/lib/core/catalog";
@@ -69,6 +71,16 @@ test("a portal shows a private brand only for whoever may release it", async () 
   await assert.rejects(createPortal(editor, { name: "Kit", slug: slug(), access: "public", brands: ["acme"] }), /No brand "acme"/);
   await createPortal(editor, { name: "Kit", slug: slug(), access: "public", brands: ["kids"] });
   await createPortal(ada.caller, { name: "Kit", slug: slug(), access: "public", brands: ["acme"] });
+});
+
+test("rules found by their asset leave out a private brand the caller can't read", async () => {
+  const bytes = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 9, g: 9, b: 9 } } }).png().toBuffer();
+  const { asset } = await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "logo.png" });
+  await createRule(ada.caller, "acme", { key: "logo.secret", type: "text", value: "The launch logo", assets: [{ id: asset.id, rendition: null }] });
+  await createRule(ada.caller, "kids", { key: "logo.kids", type: "text", value: "The kids logo", assets: [{ id: asset.id, rendition: null }] });
+  const ws = ada.caller.project.id;
+  assert.deepEqual((await listRules(ws, { asset: asset.id, who: await samHere() })).map((r) => r.key), ["logo.kids"]);
+  assert.deepEqual((await listRules(ws, { asset: asset.id, who: ada.caller })).map((r) => r.key).sort(), ["logo.kids", "logo.secret"]);
 });
 
 test("who can reach it: the brand grant, said as such", async () => {
