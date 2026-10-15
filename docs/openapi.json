@@ -40513,7 +40513,11 @@
                                   "sso",
                                   "branding",
                                   "domains",
-                                  "rebuilds"
+                                  "rebuilds",
+                                  "automations",
+                                  "fixes",
+                                  "templates",
+                                  "digest"
                                 ]
                               }
                             },

@@ -31,6 +31,11 @@ Two of the lists take a button, so a finding becomes something done. [Fixes](#fi
 
 ## Fixes
 
+On Artbucket Cloud from Team; every self-hosted install has it. A server that
+sells plans leaves `fixes` out of a plan's [features](/configuration/limits):
+Fixes, Notify and Request it then leave the app, and `GET /api/v1/fixes` and
+`POST /api/v1/insights/notices` answer `403`. Insights itself stays.
+
 **Fixes**, in the sidebar beside Review for the same people as Insights, is one list of what needs a hand, with the button for each, built from what Insights and the library already know:
 
 - **A place still showing an old version**: a site or an agent from Old versions, one row a place with every replaced version it loads, since the first day it did. **Notify** tells it, as above.
@@ -40,6 +45,10 @@ Two of the lists take a button, so a finding becomes something done. [Fixes](#fi
 What isn't done comes first; what is stays below, saying when ("Notified 2 days ago", "Requested just now"), while it is in Insights' 30 days. The sidebar counts what isn't done. `GET /api/v1/fixes` answers the same lists, with `open`, the count.
 
 ## Weekly digest
+
+On Artbucket Cloud from Team; every self-hosted install has it. A server that
+sells plans leaves `digest` out of a plan's [features](/configuration/limits),
+and that organization's projects are left out of everyone's digest.
 
 On Mondays, each editor and admin of a project gets an email about the week before, Monday to Sunday (UTC). It only has the sections with something in them, each linking where to act:
 

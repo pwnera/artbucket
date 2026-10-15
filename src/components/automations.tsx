@@ -4,11 +4,13 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconBolt, IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconSend, IconTrash } from "@/components/icons";
-import { useCan } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { AppHeader, PageHeader } from "@/components/page";
+import { PlanGate } from "@/components/plan-gate";
+import { has } from "@/components/settings/sections";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -120,6 +122,9 @@ export function Automations({ automations, brands }: { automations: AutomationRo
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; secret: string } | null>(null);
   const can = useCan();
+  const me = useMe();
+  // Without the plan's automations (lib/limits.ts) they are kept and listed, never fired: nothing to make, change or test.
+  const planned = !me || has(me, "automations");
   // An editor starts only from what they may make: a brand's releases.
   const recipes = can("automation.manage_all") ? RECIPES : RECIPES.filter((r) => r.trigger === "brand.released");
   const edit = (of: AutomationRow | null, recipe?: Recipe) => {
@@ -135,7 +140,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
           title="Automations"
           description="Let people, Slack, Teams or your other tools know when a brand is released, a license is about to end, or who may do what changes."
         >
-          {automations.length > 0 && (
+          {planned && automations.length > 0 && (
             <div className="flex items-center gap-2">
               {recipes.length > 0 && (
               <DropdownMenu>
@@ -174,13 +179,25 @@ export function Automations({ automations, brands }: { automations: AutomationRo
             </div>
           </div>
         )}
+        {!planned && (
+          <PlanGate
+            icon={<IconBolt />}
+            title={automations.length ? "Your automations are paused" : "Automations aren't in your plan"}
+            description={
+              automations.length
+                ? "They are kept, with their run logs, but none fires, and none can be made, changed or tested on this organization's plan."
+                : "Email your team when a brand is released, warn legal before a license runs out, or post a webhook to Slack, Teams or your own tools."
+            }
+          />
+        )}
         {automations.length ? (
           <ul className="divide-y rounded-lg border">
             {automations.map((a) => (
-              <AutomationItem key={a.id} a={a} brands={brands} onEdit={() => edit(a)} />
+              <AutomationItem key={a.id} a={a} brands={brands} planned={planned} onEdit={() => edit(a)} />
             ))}
           </ul>
         ) : (
+          planned && (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -208,6 +225,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
             </div>
             )}
           </Empty>
+          )
         )}
       </div>
       {editing && (
@@ -451,7 +469,7 @@ function AutomationDialog({
   );
 }
 
-function AutomationItem({ a, brands, onEdit }: { a: AutomationRow; brands: Brand[]; onEdit: () => void }) {
+function AutomationItem({ a, brands, planned, onEdit }: { a: AutomationRow; brands: Brand[]; planned: boolean; onEdit: () => void }) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [open, setOpen] = useState(false);
@@ -494,17 +512,21 @@ function AutomationItem({ a, brands, onEdit }: { a: AutomationRow; brands: Brand
               {STATUS[a.last.status].label} {ago(a.last.at)}
             </Badge>
           )}
-          <Button size="xs" variant="outline" pending={testing} onClick={test} title="Send it now with a sample, without releasing anything">
-            <IconSend /> Send a test
-          </Button>
-          <Switch
-            checked={a.enabled}
-            aria-label={`${a.name} on`}
-            onCheckedChange={async (enabled) => (await send("PATCH", `/api/v1/automations/${a.id}`, { enabled })) && router.refresh()}
-          />
-          <IconButton variant="ghost" size="icon-sm" label={`Change ${a.name}`} className="text-muted-foreground" onClick={onEdit}>
-            <IconPencil />
-          </IconButton>
+          {planned && (
+            <>
+              <Button size="xs" variant="outline" pending={testing} onClick={test} title="Send it now with a sample, without releasing anything">
+                <IconSend /> Send a test
+              </Button>
+              <Switch
+                checked={a.enabled}
+                aria-label={`${a.name} on`}
+                onCheckedChange={async (enabled) => (await send("PATCH", `/api/v1/automations/${a.id}`, { enabled })) && router.refresh()}
+              />
+              <IconButton variant="ghost" size="icon-sm" label={`Change ${a.name}`} className="text-muted-foreground" onClick={onEdit}>
+                <IconPencil />
+              </IconButton>
+            </>
+          )}
           <Confirm
             title={`Delete ${a.name}?`}
             says="It stops at once, and its run log goes with it."
@@ -524,7 +546,7 @@ function AutomationItem({ a, brands, onEdit }: { a: AutomationRow; brands: Brand
       {open && (
         <div className="ms-9">
           {!runs ? null : !runs.length ? (
-            <p className="text-muted-foreground">It hasn&apos;t run yet. Send a test to see what it sends.</p>
+            <p className="text-muted-foreground">It hasn&apos;t run yet.{planned && " Send a test to see what it sends."}</p>
           ) : (
             <ul className="space-y-2">
               {runs.map((r) => (

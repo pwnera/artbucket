@@ -26,7 +26,8 @@ import {
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
-import { useCan } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
+import { has } from "@/components/settings/sections";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
@@ -360,6 +361,9 @@ const OFFICE = [
  */
 export function BrandAddresses({ brand, origin, hub, release, onTokens }: { brand: BrandInfo; origin: string; hub: Pick<NonNullable<Status["hub"]>, "visibility" | "url"> | null; release: Release | null; onTokens: () => void }) {
   const open = hub?.visibility === "public" ? hub.url : null;
+  const me = useMe();
+  // Office templates are a plan's (lib/limits.ts `templates`); Templates says how to get them.
+  const office = !me || has(me, "templates");
   const designMd = open ? `${open}/tokens?format=designmd` : `${origin}${tokensPath(brand, undefined, "designmd")}`;
   const rows = [
     { label: "Connect an agent (MCP)", text: `${origin}/api/v1/mcp` },
@@ -403,6 +407,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
           </Button>
         </li>
         {release &&
+          office &&
           OFFICE.map((t) => (
             <li key={t.format} className="flex items-center gap-3">
               <span className="grid min-w-0 flex-1">

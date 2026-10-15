@@ -5,6 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { assetWhere } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { describe, gapsIn, staleIn } from "@/lib/core/insights";
+import { checkFeature } from "@/lib/core/usage";
 import { EXPIRING_DAYS } from "@/lib/catalog";
 import { INSIGHT_DAYS } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
@@ -23,10 +24,12 @@ const DAY = 86_400_000;
  * them; renewed or archived, they leave the list), and the project's sites
  * built with a component version that a newer one replaced (they leave the
  * list once deployed with the current one). `open` counts what isn't
- * done, for the sidebar. Insights' readers, as Insights.
+ * done, for the sidebar. Insights' readers, as Insights, where the plan has
+ * Fixes (lib/limits.ts `fixes`).
  */
 export async function fixesOf(caller: Caller) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Fixes take ${needs("insights.read")}`);
+  await checkFeature(caller.project.organizationId, "fixes");
   const day = today();
   const before = new Date(Date.parse(day) + (EXPIRING_DAYS + 1) * DAY).toISOString().slice(0, 10);
   const expires = sql<string>`${assets.rights} ->> 'expires'`;
