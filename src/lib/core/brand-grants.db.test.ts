@@ -83,6 +83,16 @@ test("rules found by their asset leave out a private brand the caller can't read
   assert.deepEqual((await listRules(ws, { asset: asset.id, who: ada.caller })).map((r) => r.key).sort(), ["logo.kids", "logo.secret"]);
 });
 
+test("a rule takes only assets its editor can see", async () => {
+  const png = (r: number) => sharp({ create: { width: 8, height: 8, channels: 3, background: { r, g: 7, b: 7 } } }).png().toBuffer();
+  const hidden = (await ingestBytes(ada.caller, { bytes: await png(1), mime: "image/png", filename: "embargo.png", private: true })).asset;
+  const open = (await ingestBytes(ada.caller, { bytes: await png(2), mime: "image/png", filename: "open.png" })).asset;
+  const sam = await samHere();
+  await assert.rejects(createRule(sam, "kids", { key: "logo.leak", type: "text", value: "x", assets: [{ id: hidden.id, rendition: null }] }), /No such asset/);
+  const rule = await createRule(sam, "kids", { key: "logo.open", type: "text", value: "x", assets: [{ id: open.id, rendition: null }] });
+  assert.deepEqual(rule.assets.map((a) => a.id), [open.id]);
+});
+
 test("who can reach it: the brand grant, said as such", async () => {
   const w = (await whoCan(ada.caller, kids.id))!;
   const s = w.holders.find((h) => h.who === "Sam")!;
