@@ -60,10 +60,19 @@ test("an approved asset says when its last day is close", () => {
 });
 
 test("whoever proposed an asset can't approve it, and anyone else with approve can", () => {
-  const a = { status: "proposed" as const, proposedBy: "Claude" };
-  assert.ok(approvesOwn(a, "active", "Claude"));
-  assert.ok(approvesOwn({ ...a, status: "rejected" }, "active", "Claude"));
-  assert.ok(!approvesOwn(a, "rejected", "Claude"), "turning your own proposal down is withdrawing it");
-  assert.ok(!approvesOwn(a, "active", "Ada"));
-  assert.ok(!approvesOwn({ status: "draft", proposedBy: null }, "active", "Ada"));
+  const a = { status: "proposed" as const, proposedBy: "Claude", proposedById: "key-1" };
+  const claude = { actor: "Claude", id: "key-1" };
+  assert.ok(approvesOwn(a, "active", claude));
+  assert.ok(approvesOwn({ ...a, status: "rejected" }, "active", claude));
+  assert.ok(!approvesOwn(a, "rejected", claude), "turning your own proposal down is withdrawing it");
+  assert.ok(!approvesOwn(a, "active", { actor: "Ada", id: "user-1" }));
+  assert.ok(!approvesOwn({ status: "draft", proposedBy: null }, "active", { actor: "Ada", id: "user-1" }));
+});
+
+test("a proposal is its proposer's by id: renamed, they still can't approve it; someone of the same name can", () => {
+  const a = { status: "proposed" as const, proposedBy: "Ana", proposedById: "user-1" };
+  assert.ok(approvesOwn(a, "active", { actor: "Ana B", id: "user-1" }));
+  assert.ok(!approvesOwn(a, "active", { actor: "Ana", id: "user-2" }));
+  // Made before ids were kept: by name, as then.
+  assert.ok(approvesOwn({ status: "proposed", proposedBy: "Ana", proposedById: null }, "active", { actor: "Ana", id: "user-2" }));
 });

@@ -31,7 +31,7 @@ import type { Surface } from "@/lib/insights";
 import { fontLicense } from "@/lib/font-license";
 import { isDownloadable, isEmpty, RightsInput, type Origin, type Rights } from "@/lib/rights";
 import { hasPreview, isRenderable, parseLink } from "@/lib/preview";
-import { approvesOwn, isReview, STATES, type State } from "@/lib/lifecycle";
+import { approvesOwn, isReview, proposedByThem, STATES, type Proposer, type State } from "@/lib/lifecycle";
 import { gate } from "@/lib/pool";
 import { MAX_UPLOAD_BYTES, tooLargeToUpload } from "@/lib/filename";
 import { allows, SCOPES, type Scope } from "@/lib/scopes";
@@ -62,9 +62,22 @@ import {
  * grant says it may.
  */
 
-// The search vector is an index, not data: it never leaves the database.
+// The search vector is an index, not data: it never leaves the database. Nor does a proposer's id (isProposer).
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { search: _search, ...own } = getTableColumns(assets);
+const { search: _search, proposedById: _proposedById, ...own } = getTableColumns(assets);
+
+/** The caller as a proposal is compared (lib/lifecycle.ts proposedByThem): their name, and their key's or their own id. */
+const proposer = (caller: Caller): Proposer => ({ actor: caller.actor, id: caller.key ?? caller.user?.id ?? null });
+
+/** The first proposer's id, set with proposedBy's coalesce: kept once there, as their name is. */
+const firstProposer = (caller: Caller) => sql`(case when ${assets.proposedBy} is null then ${proposer(caller).id} else ${assets.proposedById} end)`;
+
+const proposerIdOf = async (id: string) => (await db.select({ id: assets.proposedById }).from(assets).where(eq(assets.id, id)))[0]?.id ?? null;
+
+/** Whether the caller proposed this asset or its suggestions: someone else decides them. */
+export async function isProposer(caller: Caller, a: Pick<Asset, "id" | "proposedBy">) {
+  return proposedByThem({ proposedBy: a.proposedBy, proposedById: await proposerIdOf(a.id) }, proposer(caller));
+}
 /** Assets in collections: the lowest scope over them decides what an upload into them becomes. */
 const lowest = (scopes: (Scope | null)[]) =>
   scopes.some((s) => s === null) ? null : (SCOPES[Math.min(...scopes.map((s) => SCOPES.indexOf(s!)))] ?? null);
@@ -89,7 +102,7 @@ export const columns = {
     from ${collectionAssets} ca where ca.asset_id = ${assets.id}
   )`,
 };
-export type Asset = Omit<typeof assets.$inferSelect, "search"> & { collections: string[]; state: State };
+export type Asset = Omit<typeof assets.$inferSelect, "search" | "proposedById"> & { collections: string[]; state: State };
 
 /**
  * Private, as SQL: its own flag, or it is in collections and every one of
@@ -355,6 +368,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
         fields: values as FieldValues,
         status,
         proposedBy: proposed ? caller.actor : null,
+        proposedById: proposed ? proposer(caller).id : null,
         private: prior?.private ?? input.private ?? false,
         public: open,
         rights: rights && !isEmpty(rights) ? rights : null,
@@ -897,7 +911,7 @@ export async function updateAsset(
   const others = Object.entries({ tags, status, reviewNote, proposedTags, proposedFields, custom, rights, origin, parentAssetId, generator, prompt, supersededBy, hidden, focus, ...fields });
   if (others.some(([, v]) => v !== undefined) && !can(caller, action, current)) throw new AssetError("forbidden", `You need ${needs(action)}`);
   if (publishing && !can(caller, "asset.share", current)) throw new AssetError("forbidden", `Making it public takes ${needs("asset.share")}`);
-  if (status && approvesOwn(current, status, caller.actor)) {
+  if (status && approvesOwn({ ...current, proposedById: await proposerIdOf(current.id) }, status, proposer(caller))) {
     throw new AssetError("forbidden", "You proposed it, so someone else approves it");
   }
   const ws = caller.project.id;
@@ -1025,6 +1039,7 @@ export async function proposeTags(caller: Caller, id: string, suggested: string[
       )`,
       // Whoever first proposed something about it: shown in Review, and in their my_proposals.
       proposedBy: sql`coalesce(${assets.proposedBy}, ${actor})`,
+      proposedById: firstProposer(caller),
       // What it was working toward has landed.
       working: null,
       updatedAt: sql`now()`,
@@ -1082,6 +1097,7 @@ export async function proposeFields(caller: Caller, id: string, suggested: Recor
     .set({
       proposedFields: sql`${assets.proposedFields} || ${JSON.stringify(fresh)}::jsonb`,
       proposedBy: sql`coalesce(${assets.proposedBy}, ${caller.actor})`,
+      proposedById: firstProposer(caller),
       working: null,
       updatedAt: sql`now()`,
     })

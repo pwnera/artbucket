@@ -8,6 +8,7 @@ import {
   describeAsset,
   getAsset,
   ingestFromUrl,
+  isProposer,
   parseAssetQuery,
   proposeFields,
   proposeTags,
@@ -253,7 +254,7 @@ async function reviewOne(caller: Caller, { id, decision, note, fields, acceptTag
   }
   const suggested = Object.keys(a.proposedFields);
   const [take, drop] = [every(acceptFields, suggested), every(dismissFields, suggested)];
-  if (a.proposedBy === caller.actor && (accept.length || take.length)) {
+  if ((accept.length || take.length) && (await isProposer(caller, a))) {
     throw new AssetError("forbidden", "You proposed this asset or its suggestions, so someone else accepts them");
   }
   const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));

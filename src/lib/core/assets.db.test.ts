@@ -79,6 +79,15 @@ test("the same bytes again never purge a deleted asset: they restore it for whoe
   assert.deepEqual(again.asset.collections, [collection]);
 });
 
+test("whoever proposed an asset can't approve it under another name, and a namesake can", async () => {
+  const proposing = { ...ada.caller, scope: "propose" as const };
+  const { asset } = await ingestBytes(proposing, { bytes: await png(), mime: "image/png", filename: "draft.png" });
+  assert.equal(asset.status, "proposed");
+  await assert.rejects(updateAsset({ ...ada.caller, actor: "Ada B" }, asset.id, { status: "active" }), { code: "forbidden" });
+  const namesake = { ...ada.caller, user: { ...ada.caller.user!, id: grace.user.id } };
+  assert.equal((await updateAsset(namesake, asset.id, { status: "active" }))?.status, "active");
+});
+
 test("a public portal shows its collections' usable assets, and never a private one", async () => {
   const { id: collection } = await createCollection(ada.caller, { name: "Press" });
   const open = await upload("press.png", { collections: [collection] });
