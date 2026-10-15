@@ -1,11 +1,14 @@
 ---
-title: The canon
-description: The brand as records an agent can query.
+title: Brand rules and guidelines
+sidebarTitle: Rules and guidelines
+description: The brand as rules people and agents can read, the guideline pages drawn from them, and releases.
 ---
 
-Brand rules are records, not a PDF: a dotted key, a typed value (`color`,
-`text`, `number`, `list` or `font`), a sentence on how to use it, and the assets
-it points at.
+Each rule is one fact about your brand: the primary color, the minimum logo
+size, a word to avoid. A rule has a key (`color.primary`), a typed value
+(`color`, `text`, `number`, `list` or `font`), a sentence on when to use it,
+and any files it points at. The guideline pages are drawn from these rules, so
+changing a color in one place changes it on every page.
 
 In the app, open the brand under **Brands**: its **Rules** tab holds every
 rule, and **Release** in its header puts them in front of readers. A new brand
@@ -23,51 +26,42 @@ the context's own where it has one, the default otherwise.
 
 ## The guidelines page
 
-Each brand, under Brands in the sidebar, opens on its page, a repository's:
-the header names it (its mark, whether its organization is verified, whether
-it is public on BrandHub, a link to its page there, `{org}/{brand}`, what is live and whether it is
-the latest: "@4 live · Unreleased changes", "@4 live · Up to date" or "Never
-released", where it is live, "@4 live on BrandHub, Press and Partners" or "Only the team", each place a
-link out in a popover (portals only for whoever manages them), and the
-release's note), with **Use this brand** (the MCP server, `brand.json` and `llms.txt` on
-BrandHub, the tokens, `DESIGN.md`, the [Office templates](#office-templates) once released, and a copy as a new brand), **Edit** (the
-three ways to change the pages, [below](#brand-pages)) and, while readers don't see the latest, **Release** beside it, the one
-filled button; the rest is in the brand's menu at the header's end (Theme, Insights, Settings,
-Connect Git, pinning it to the sidebar, opening it in the catalog). Every tab stays in the page,
-under the same header (folded to one
-line over Guidelines, the tabs inline or, when narrow, in a menu on the
-brand's name, so the pages get the screen). Six tabs, one job each, in the order a brand is made: Overview,
-Rules (its rules by section, edited in place by whoever may edit the brand,
-dragged into the order its pages show them or moved and deleted from each
-rule's menu, and read by everyone else; its
-tokens in every format above them, at `/brands/{slug}/rules`), Assets (the files its rules hold and its
-pages show, at `/brands/{slug}/assets`, from `GET /api/v1/brands/{slug}/assets`),
-Guidelines (the brand's pages as readers see them, at `/brands/{slug}/guidelines`:
-the live release, or the draft to whoever may edit it while it has
-unreleased changes, always labeled, with a switch between them),
-Releases, Sharing (who reads it outside the team, at `/brands/{slug}/sharing`:
-BrandHub, public or private, the portals showing it with the one BrandHub
-links as its guidelines, and the addresses agents and code read). In the menu:
-Theme (the look of its pages, at `/brands/{slug}/theme`), Insights (at `/brands/{slug}/insights`;
-its summary is the Overview's Health) and Settings (its name, address and domain,
-the default, its repository, deleting it, at `/brands/{slug}/settings`). The Overview says what the brand is (its line, the usage terms of
-the portal BrandHub links, the BrandHub brand it started from), its colors,
-its latest release with what it changed, its typefaces, and its Health: the
-Brand Agent Score and the signals that say it is read, each opening its own page. Its
-guidelines (`?focus=1` on the reader shows the pages on their own) are drawn
-from those records, and the records are edited in place on the Rules tab:
-click a value to change it, press `/` to add a rule from named building blocks
-(brand color, clear space, logo don'ts, type scale, words to avoid), give it
-context versions, a spec and files, drag to reorder or use a rule's menu (Move
-up, Move down, Duplicate, Delete, with Undo). `/brands/{slug}/rules#rule-{key}`
-opens that rule there. Colors are a table, by their spec's group: each token's
-light value beside its dark one (its `dark-background` version, or the brand's own
-`dark` context; **Inherits Light** without one, and **A dark value** in its
-details adds it). Text colors (`ink`, `muted`, `nightInk`, or a color's `pair`)
-show their contrast on their group's ground (`paper`, `surface`, `night`) in
-both themes. Opened, a color shows its contrast on white and black; a numeric `type.scale`
-renders as a specimen. An attached asset can name a rendition (`w_512,f_png`):
-agents then get that exact URL.
+Open a brand from **Brands** in the sidebar. The header shows which release
+readers see, whether there are unreleased changes, and where the brand is
+live (BrandHub, portals, or only the team). It has three buttons:
+
+- **Use this brand**: the MCP address, `brand.json` and `llms.txt` on BrandHub,
+  the design tokens, `DESIGN.md`, the [Office templates](#office-templates)
+  once released, and **Start from this brand** to copy it into a new one.
+- **Edit**: the three ways to change the pages, [below](#brand-pages).
+- **Release**: puts the changes in front of readers. It shows only while
+  readers don't see the latest.
+
+The brand's menu, at the end of the header, has the rest: **Theme**,
+**Insights**, **Settings**, Connect Git, pinning it to the sidebar and opening
+it in the catalog. Below the header are six tabs, in the order a brand is made:
+
+| Tab | What it is for | Address |
+|---|---|---|
+| Overview | What the brand is, its colors and typefaces, its latest release, and its health: the Brand Agent Score and whether it is read | `/brands/{slug}` |
+| Rules | Every rule, by section, edited in place by whoever may edit the brand; its tokens in every format above them | `/brands/{slug}/rules` |
+| Assets | The files its rules hold and its pages show | `/brands/{slug}/assets` |
+| Guidelines | The pages as readers see them: the live release, or the draft for editors, labeled, with a switch between them | `/brands/{slug}/guidelines` |
+| Releases | Each release with its note and what it changed, and the form for the next | `/brands/{slug}/releases` |
+| Sharing | Who reads it outside the team: BrandHub, public or private, the portals showing it, and the addresses agents and code read | `/brands/{slug}/sharing` |
+
+On the Rules tab, click a value to change it. **Add a rule**, or `/`, adds one
+from named building blocks such as a brand color, clear space, logo don'ts, a
+type scale or words to avoid. A rule's details take versions for a context, a
+spec and files; drag a rule to reorder it, or use its menu to move, duplicate
+or delete it, with Undo. `/brands/{slug}/rules#rule-{key}` opens one rule.
+
+Colors show as a table, by their spec's group, each light value beside its dark
+one: its `dark-background` version, or the brand's own `dark` context.
+**A dark value**, in a color's details, adds one. Text colors (`ink`, `muted`,
+`nightInk`, or a color's `pair`) show their contrast on their group's ground in
+both themes. An attached asset can name a rendition (`w_512,f_png`): agents
+then get that exact URL.
 
 ## Brand pages
 
@@ -149,11 +143,11 @@ the sweep patches its releases only, and its next push releases what the
 repository holds. Only the font picker and a brand's setup, in the app, show
 families straight from Google while someone chooses.
 
-## Publishing
+## Releasing
 
-Every edit to the rules, the pages or the theme is a draft. Publishing makes
+Every edit to the rules, the pages or the theme is a draft. Releasing makes
 the brand as it stands the version [portals](/guides/portals) show, until the
-next publish:
+next release. The command and the endpoint are still called `publish`:
 
 ```bash
 artbucket publish --note "A warmer primary, and a page on motion"
@@ -162,12 +156,11 @@ curl -X POST https://assets.example.com/api/v1/brands/default/publish \
 ```
 
 The note (and an optional `image` beside it) is what readers see in What's
-new, with what the publish changed since the one before: rules and pages
+new, with what the release changed since the one before: rules and pages
 added, changed and removed. The answer names the portals showing the brand.
-Publishing with nothing changed does nothing. It takes write on the
-project, with sharing not turned off.
+Releasing with nothing changed does nothing. It takes Editor on the brand.
 
-In the app, a publish is a release, numbered as its version (`@5`). The
+A release is numbered as its version (`@5`). The
 brand's **Releases** tab (`/brands/{slug}/releases`) lists them, each with its
 note and what it changed; **Release** in the brand's header opens the form (`/brands/{slug}/releases/new`): the
 note, what changes since the last release line by line (a color's value
@@ -175,7 +168,7 @@ before and after, a page's sections edited), and the Brand Agent Score before
 and after. While only the team reads the brand (no portal shows it, and it is
 private on BrandHub), the form asks who should see it: a portal of its own,
 open to the project's members or to anyone, for whoever manages portals,
-and **Public on BrandHub, for agents too** for whoever may publish there,
+and **Public on BrandHub** for whoever may release the brand,
 applied once the release lands.
 
 ## Design tokens
@@ -280,11 +273,28 @@ PowerPoint; Design, Colors and Fonts in Word) and the library's logo.
 
 A project can hold several brands, one of them the default. Every change is
 kept, like a shared doc: edits close together are one version, a named version
-is a checkpoint, and any version can be restored, as a new version. Published
+is a checkpoint, and any version can be restored, as a new version. Released
 versions are marked; a restore is a draft like any edit, until it is
-published.
+released.
 
 ```bash
 curl https://assets.example.com/api/v1/brands/default/versions
 curl -X POST https://assets.example.com/api/v1/brands/default/versions/3/restore
 ```
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Set up your brand" icon="palette" href="/use-cases/set-up-your-brand">
+    From an empty project to a released brand.
+  </Card>
+  <Card title="Run a rebrand" icon="arrows-rotate" href="/use-cases/run-a-rebrand">
+    Draft, review and release on one day.
+  </Card>
+  <Card title="Portals" icon="globe" href="/guides/portals">
+    Where people outside the team read the brand.
+  </Card>
+  <Card title="Brand as code" icon="code-branch" href="/guides/brand-as-code">
+    The brand in a Git repository, synced both ways.
+  </Card>
+</CardGroup>

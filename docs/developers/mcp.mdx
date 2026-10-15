@@ -45,18 +45,18 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `import_icons` | propose | Icons from a set, one SVG each, carrying its license and author |
 | `propose_tags` | propose | Suggest tags for a person to accept |
 | `list_fields` | read | The library's custom fields: keys, types, options |
-| `create_field` | write, setup | Define a custom field: key, label, type, options, required |
-| `update_field` | write, setup | Change a field's label, options, whether it is required, or its position |
-| `delete_field` | write, setup | Delete a field and every value stored under it |
+| `create_field` | write | Define a custom field: key, label, type, options, required |
+| `update_field` | write | Change a field's label, options, whether it is required, or its position |
+| `delete_field` | write | Delete a field and every value stored under it |
 | `list_collections` | read | The collections you can see, with their ids, field values and how many assets each holds |
 | `create_collection` | write | Make a collection, with field values its assets inherit, private or not |
 | `update_collection` | write | Rename it, change its icon or privacy, merge its field values; its assets inherit at once |
 | `update_collection_assets` | write | Put assets in a collection and take others out, in one call |
-| `delete_collection` | write, delete | Delete a collection; its assets stay in the library |
+| `delete_collection` | write | Delete a collection; its assets stay in the library |
 | `propose_fields` | propose | Suggest custom field values for a person to accept |
 | `my_proposals` | propose | What this key proposed, and what became of it |
-| `review_asset` | write, approve | Approve or reject a proposal, with a note; apply or drop suggested tags and field values. Never one the caller proposed itself |
-| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a publish, a portal; each step with how to do it, the Brand Agent Score, and every brand's slug |
+| `review_asset` | write | Approve or reject a proposal, with a note; apply or drop suggested tags and field values. Never one the caller proposed itself |
+| `brand_status` | read | What a brand still lacks before it is worth sharing: essentials in its rules, pages, a release, a portal; each step with how to do it, the Brand Agent Score, and every brand's slug |
 | `create_brand` | write | Make a brand, empty, as a copy of another's rules, pages and theme, or from a public BrandHub brand (`from: "rust-lang/rust@12"`) |
 | `update_brand` | write | Rename a brand, change its slug, or make it the default |
 | `delete_brand` | write | Delete a brand with its rules, pages and history; never the default |
@@ -72,7 +72,7 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `delete_page` | write | Delete a page that has no pages under it; the brand's history keeps it |
 | `generate_pages` | write | Lay out a brand with no pages from its rules; with none, it makes a cover and warns |
 | `set_theme` | write | Change the look a setting at a time; `null` clears one |
-| `list_versions` | read | A brand's history, newest first: who changed what, named checkpoints, what was published |
+| `list_versions` | read | A brand's history, newest first: who changed what, named checkpoints, what was released |
 | `get_version` | read | One version's rules, and what changed from the one before, from another, or since |
 | `name_version` | write | Keep a version as a named checkpoint |
 | `restore_version` | write | Bring a brand back to an earlier version, as a new version: nothing is lost |
@@ -80,30 +80,31 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `add_comment` | propose | Start a thread on a page or section, or reply in one |
 | `update_comment` | propose | Resolve or reopen a thread, or edit your own comment |
 | `delete_comment` | propose | Delete your own comment, or anyone's with write on the brand |
-| `publish` | write, share | Put the brand's pages, rules and theme, as they stand, in front of portal visitors, with a note for readers; answers with the portals showing it |
-| `list_sites` | write, share | The project's portals: who gets in, the brands they show and whether each is published, and their site |
-| `create_site` | write, share | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
-| `update_site` | write, share | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
-| `close_site` | write, share | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
+| `publish` | write | Release the brand (the app's **Release**): its pages, rules and theme, as they stand, go in front of portal visitors, with a note for readers; answers with the portals showing it |
+| `set_brand_hub` | write | Who sees the brand on BrandHub (private to the project by default, or public to anyone and any agent once it has a release), and which portal it links as its guidelines |
+| `list_sites` | write | The project's portals: who gets in, the brands they show and whether each is released, and their site |
+| `create_site` | write | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
+| `update_site` | write | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
+| `close_site` | write | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
 | `check_site` | read | Check a site you built, hosted anywhere, against the library: what it uses, and why any of it may not be shown. Nothing is stored |
 | `deploy_site` | write | Publish a site you built to a site's address, checked first; its files as text, or base64 for the rest |
 | `list_deployments` | write | A site's deployments, newest first: where each is mounted, its state, and why one failed or is held |
 | `restore_deployment` | write | Put a replaced deployment back live at its path, undoing a bad deploy without building again |
-| `delete_site` | write, share | Delete a portal; its address and domain stop answering |
-| `list_site_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
-| `decide_site_request` | write, share | Approve or deny a request; approved access gets a link of its own |
+| `delete_site` | write | Delete a portal; its address and domain stop answering |
+| `list_site_requests` | write | Who asked to get into a password or members portal, or asked for something through it |
+| `decide_site_request` | write | Approve or deny a request; approved access gets a link of its own |
 | `update_asset` | write | Rename an asset, fix its caption, credit or copyright, set or change its tags, field values, rights, or what replaced it |
 | `update_assets` | write | The same tags and field values on up to 50 assets; each succeeds or fails on its own |
-| `review_assets` | write, approve | `review_asset` for up to 50 assets in one call; `"all"` takes every suggestion an asset has |
+| `review_assets` | write | `review_asset` for up to 50 assets in one call; `"all"` takes every suggestion an asset has |
 | `delete_asset` | write | Delete an asset, restorable for 30 days; answers with what used it and the last day to restore it |
 | `restore_asset` | write | Bring back an asset deleted in the last 30 days |
 | `asset_versions` | read | Every version of an asset, newest first, and which one is current |
-| `make_version_current` | write, approve | Roll an asset back or forward to an approved version |
+| `make_version_current` | write | Roll an asset back or forward to an approved version |
 | `get_activity` | read | Who did what in the project, newest first, paged with `before` |
 | `get_insights` | write | The most fetched assets, searches that found nothing, adoption and traffic |
 | `asset_insights` | write | Where one asset is used, and its fetches over 30 days |
 | `brand_insights` | write | A brand's reads, page views, answers and release adoption |
-| `brand_updates` | read | A brand's latest publishes, each with what it changed |
+| `brand_updates` | read | A brand's latest releases, each with what it changed |
 | `brand_assets` | read | The files a brand uses, with the rules and pages each is in |
 | `brand_tokens` | read | A brand as design tokens: CSS variables, Tailwind, JSON and more |
 | `create_share` | write | A view or upload link for people without an account, with a password and an expiry |
@@ -130,8 +131,7 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `automation_runs` | write | An automation's latest runs and every attempt, with the webhook's status or the error |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
-tools, only for a key that may manage portals (write on the project, with
-sharing not turned off).
+tools, only for a key with write on the project.
 
 Brands, collections, custom fields, reviews, brand history, comments and
 portals (passwords and branding included) are run over MCP as in the app.
@@ -172,12 +172,12 @@ same text.
    (accent, grounds, ink, faces, logo) and sets the measure and chrome: radius,
    width, density, type scale, navigation, numbering, motion. It merges, and
    `null` clears a setting back to what the rules give.
-4. **Check before publishing.** Every page write, and `get_page`, returns
+4. **Check before releasing.** Every page write, and `get_page`, returns
    `warnings` (a link to no page, a key with no rule) and `url`, the page in the
    app as readers will see it.
-5. **Publish when asked.** Edits are drafts. `publish` takes a `note` for
-   readers (up to 2000 characters) and an `image` beside it; portals show the
-   publish, never the draft, and `portals` in its answer names where.
+5. **Release when asked.** Edits are drafts. `publish` releases them, with a
+   `note` for readers (up to 2000 characters) and an `image` beside it; portals
+   show the release, never the draft, and `portals` in its answer names where.
 6. **Put it in front of people.** `create_site` makes a portal: `name`, the
    `brands` (by slug) and `collections` (by id) it shows, and `access`:
    `members`, `password` (with the `password` the person gives you) or
@@ -185,7 +185,7 @@ same text.
    approved image asset), accent and background; `domain`, one of the
    organization's verified domains. Its `slug` comes from the name when left
    out. `list_sites` says which portals show which
-   brands, and whether each brand was ever published (`publishedAt: null`:
+   brands, and whether each brand was ever released (`publishedAt: null`:
    visitors see nothing of it). `update_site` takes the portal's slug and
    what changes: `brands` and `collections` (each the whole list, in order),
    `access` and `password`, `theme` (a setting left out stays; `null` clears
@@ -213,7 +213,7 @@ text in them through `@font-face`.
 ## The skill
 
 `npx skills add pwnera/artbucket` installs a skill that teaches an agent the
-workflow: brand rules first, `check_use` before publishing, provenance on
+workflow: brand rules first, `check_use` before handing an asset out, provenance on
 anything generated. In Claude Code, the plugin brings the MCP server and the
 skill together:
 

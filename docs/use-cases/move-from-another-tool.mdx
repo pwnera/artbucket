@@ -1,0 +1,96 @@
+---
+title: Move from Frontify, Bynder, Brandfolder or Google Drive
+sidebarTitle: Move from another tool
+description: What moves into Artbucket, how, and what you redo by hand. There is no direct connector to another tool.
+---
+
+You are leaving another DAM, a brand portal tool or a shared Drive. Artbucket
+has no connector that pulls from Frontify, Bynder, Brandfolder or Google
+Drive. You download your files from the old tool and bring them in. This page
+says what comes across and what you redo.
+
+## Bring the files in
+
+Pick one of these, by how much you have.
+
+### A few hundred files
+
+Drop the folder into Explore, or open **New** in the
+sidebar and choose **Upload a folder**. Every file inside lands in the
+library; the folders themselves don't become collections. Make the
+collections you need afterwards and add files to them.
+
+### Your brand kit, with its folders
+
+If your server offers it, open
+**Brands**, **New brand** and choose **Import your brand**. Upload a `.zip` of
+everything, or just the guidelines PDF, and choose **Upload and read**.
+Artbucket reads it into a plan before anything is added:
+
+- the zip's folders become collections,
+- a brand book in it is read into rules (colors, typography, logos, voice) and
+  draft guideline pages,
+- logos can be cut from the book when there is no separate file.
+
+Review the plan, untick what you don't want, and choose **Apply the plan**.
+Opening a plan takes Contributor, applying it Editor. Changed your mind? **Undo
+import** removes what it added, within 30 days.
+
+### Thousands of files
+
+Ask a developer to script it with the command line:
+
+```bash
+npx artbucket login app.artbucket.io --scope write
+npx artbucket ingest ./export/*.jpg --collection {collection-id} --tag spring-2026
+```
+
+`ingest` takes files or public URLs. The same file uploaded twice is stored
+once.
+
+## What comes across
+
+- Titles, captions, credits, copyright and keywords written inside the files
+  (EXIF, IPTC and XMP) are read on upload. Keywords become tags.
+- Content Credentials (C2PA) are kept.
+- Figma and Google Docs links can be added as links, with **Add a link** in
+  the **New** menu.
+
+## What you redo
+
+- Custom metadata: fields your old tool kept outside the files, like a
+  campaign or a region, don't travel. Define them in **Settings**, **Custom
+  fields**, then fill them in. A collection can carry values its files inherit.
+- Licenses: enter each licensed photo's terms in its **Rights** fold, so
+  the use check works. See [Check a photo](/use-cases/check-a-photo).
+- Guidelines: unless the import read your PDF, set the brand up as rules:
+  [Set up your brand](/use-cases/set-up-your-brand) takes an afternoon. An AI
+  tool connected with **Edit** can read the PDF and write the rules for you to
+  check.
+- Links: links into the old tool stop working when you close it, and
+  nothing redirects them. Replace them with Artbucket links, which end in
+  `/c/` and keep working through new versions.
+- People: invite them in **Settings**, **Members**.
+
+## When it worked
+
+Search in Explore for a keyword from your old tool and the files come up with
+their tags. The Brand Agent Score on the brand's **Overview** shows what the
+brand still lacks.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Assets" icon="images" href="/guides/assets">
+    Uploading, finding, review and versions.
+  </Card>
+  <Card title="Set up your brand" icon="palette" href="/use-cases/set-up-your-brand">
+    Rules, pages and a release, from scratch.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/developers/cli">
+    Every command, for scripted imports.
+  </Card>
+  <Card title="Catalog" icon="sitemap" href="/guides/catalog">
+    Find anything by address once it is all in.
+  </Card>
+</CardGroup>

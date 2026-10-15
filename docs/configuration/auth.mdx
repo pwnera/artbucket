@@ -177,8 +177,8 @@ EMAIL_API_KEY=re_...
 ```
 
 Set this way, email is the server's alone: every organization sends through
-it, none can change the sender, the key or the provider, and Settings, Email is
-not offered (`PATCH /api/v1/settings/email` answers `403`). A hosted server
+it, none can change the sender, the key or the provider, and Settings, Email sending
+is not offered (`PATCH /api/v1/settings/email` answers `403`). A hosted server
 sends from its own domain with its own account, and no organization borrows it
 to send as someone else.
 

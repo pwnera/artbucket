@@ -116,7 +116,7 @@ humanist sans, charcoal and a signal yellow, a mascot everyone loves.
    \`publish\`.
 `;
 
-/** The docs page (docs/guides/playbook.mdx), written by `pnpm docs:playbook`: the same text under the docs' front matter. */
+/** The docs page (docs/guides/playbook.mdx), written by `pnpm docs:playbook`: the same text under the docs' front matter, with the docs' Next links after it. */
 /**
  * Markdown as MDX reads it: outside code, a brace opens an expression and a
  * `<` before a letter a tag, so prose like set_theme { look: "bold" } breaks
@@ -133,4 +133,18 @@ title: The brand site playbook
 description: What a good brand site is, for an agent (or a person) about to build one in Artbucket.
 ---
 
-${mdxSafe(PLAYBOOK.replace(/^# .*\n\n/, ""))}`;
+${mdxSafe(PLAYBOOK.replace(/^# .*\n\n/, ""))}
+## Next
+
+<CardGroup cols={2}>
+  <Card title="MCP" icon="robot" href="/developers/mcp">
+    Connecting an agent, and the tools it builds pages with.
+  </Card>
+  <Card title="Brand pages" icon="palette" href="/guides/canon#brand-pages">
+    Pages, sections and templates, for people.
+  </Card>
+  <Card title="Guidelines for AI tools" icon="globe" href="/use-cases/brand-for-ai">
+    What a brand team sets up so agents read the brand.
+  </Card>
+</CardGroup>
+`;

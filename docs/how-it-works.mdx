@@ -1,14 +1,15 @@
 ---
 title: How it works
-description: One server, three ways in, and the brand as data.
+description: How the app, the API, the MCP server and the CLI fit together, and where files are stored.
 ---
 
 ## One core, three adapters
 
 All the logic lives in one place inside the server, its core. The REST API,
 the MCP server and the CLI are thin adapters over it, and the web app is a
-client of the REST API like any other. If the app needs something the API can't do, the API isn't
-finished.
+client of the REST API like any other: it has no private endpoints, so
+anything it does, a script or an agent can do too. If the app needs something
+the API can't do, the API isn't finished.
 
 ```
 web app ─┐
@@ -39,10 +40,11 @@ handlers validate with, so it can't drift from the code. It is the
 
 Uploads go straight from the client to object storage through a presigned PUT;
 the server never proxies them. The server then hashes what arrived (SHA-256)
-and files it under that hash, so identical bytes are stored once.
+and files it under that hash, so identical bytes are stored once: upload the
+same file twice and you get one asset.
 
-Delivery is a URL: `/a/{id}` is the original, `/a/{id}/w_800,f_webp` a
-rendition, made on first request and cached in storage for 30 days (a side
+Delivery is a URL, with no export step: `/a/{id}` is the original,
+`/a/{id}/w_800,f_webp` a rendition, made on first request and cached in storage for 30 days (a side
 snaps up to the next of a fixed ladder of sizes: `w_801` is `w_828`). The bytes
 are private: they go to people who can see the asset, by session or key.
 Anyone else needs a signed URL, which share links and portals hand out, or the
@@ -50,14 +52,19 @@ asset made public ([0012](/decisions/0012-private-delivery)). Either way only
 an approved, unexpired asset leaves: an archived, expired or deleted one
 answers `410 Gone`, so embeds stop on time.
 
-## The canon
+## The brand as data
 
 Brand rules are structured records, not a PDF: a dotted key like
 `color.primary`, a typed value, a sentence on how to use it, and the assets it
 points at. A rule can have a variant per context (`dark-background`,
 `instagram-story`). The guidelines page is drawn from these records, and
 agents read the same records over MCP. The same brand can also live as
-files in a Git repository: see [Brand as code](/guides/brand-as-code).
+files in a Git repository: see [Brand as code](/guides/brand-as-code). It is
+served in open formats too: an AdCP brand.json, W3C design tokens and
+DESIGN.md ([Open standards](/guides/brand-as-code/standards)).
+
+`POST /api/v1/check` answers whether an asset may run in a given place, time
+and context, and names what to use instead ([May I use this?](/guides/check)).
 
 ## Agents
 

@@ -1,0 +1,91 @@
+---
+title: Run a rebrand
+description: Change colors, type, logo and pages as a draft, get them reviewed, and release them on one day without breaking what is live.
+---
+
+The new colors and the redrawn logo launch on the 1st. Until then the old
+brand stays live for partners, the website and public AI tools. On the day,
+one release switches them over, and you can see who is still on the old one.
+
+<Note>
+On Artbucket Cloud, **Fixes**, **Automations**, **Templates** and rebuilding
+sites on release are on the Team and Business plans. A server of your own has
+all of it.
+</Note>
+
+## Before launch day
+
+1. Edit the brand. Change the colors and fonts on the **Rules** tab, the look
+   in **Theme**, and the pages through **Edit**. All of it is a draft: portals
+   and BrandHub keep showing the current release. AI tools your team connected
+   over MCP read the rules as they stand, draft included, so tell the team
+   when you start.
+2. Upload the new logo as a new version of the old one, with **New version**
+   and **Upload as a draft** in the asset's **Versions** fold. A draft stays
+   out of the library and off every link.
+3. Ask for review. Reviewers open the brand's **Guidelines** tab and leave
+   notes with **Comments**, on a page or a section. Anyone with Contributor
+   access can comment.
+
+## On launch day
+
+1. Approve the new logo: open the draft version and choose **Approve**. From
+   that moment every `/c/` link and embed shows it.
+2. Point the logo rule at it: on **Rules**, open the logo rule's details and
+   pick the new version under **Assets**.
+3. Choose **Release** in the brand's header. The form shows every change since
+   the live release, line by line: a color's value before and after, each page
+   edited. It also shows the Brand Agent Score before and after, and links to
+   comments still open.
+4. Write the **Note for readers**: what changed and why. Portals show it under
+   What's new.
+5. Choose **Release**.
+
+## What changes at once
+
+- Portals and BrandHub show the new release.
+- AI tools that read the brand from BrandHub, its brand.json or its
+  `llms.txt` get the new colors, fonts and logo on their next question.
+- The PowerPoint and Word templates on **Templates** are made from the new
+  release.
+- Design tokens and `/c/` links pick up the change without a deploy.
+
+## Sites that need a rebuild
+
+A website that copies the colors into its code at build time keeps the old
+ones until it is built again. Give each such site a deploy hook: in **Sites**,
+open the site and fill in **Rebuild on release**. Each release then starts a
+build. Your developers can also use the **Rebuild a site on each release**
+recipe in **Automations** to call their CI.
+
+## After launch
+
+Open **Fixes** a few days later. Each site or agent still loading an old file
+is a row; **Notify** emails whoever answers for it, with links that always lead
+to the current version. The brand's **Insights** shows how much of its traffic
+is on the latest release.
+
+## If you need to go back
+
+Every edit is kept as a version of the brand. To bring an earlier one back,
+ask a developer to run `artbucket restore <version> --brand <slug>`, or ask a
+connected AI tool to restore it. The restore is a new draft: release it to put
+it live. On the logo, **Make current** on the old version in **Versions**
+switches the links back.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Replace the logo" icon="image" href="/use-cases/replace-the-logo">
+    The logo on its own, and who still loads the old one.
+  </Card>
+  <Card title="Releasing" icon="rocket" href="/guides/canon#releasing">
+    Drafts, releases, notes and history in detail.
+  </Card>
+  <Card title="Rebuilt on release" icon="arrows-rotate" href="/guides/sites#built-again-when-the-brand-is-released">
+    Deploy hooks for Vercel, Netlify, Cloudflare Pages and CI.
+  </Card>
+  <Card title="Automations" icon="bolt" href="/guides/automations">
+    An email or a Slack message on each release.
+  </Card>
+</CardGroup>

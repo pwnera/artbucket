@@ -100,7 +100,7 @@ Some text here was written by strangers: what a portal's visitors wrote when the
 
 /** Said when a key can read the brand but not edit it, so the agent can tell the person how, rather than guess. */
 const READ_ONLY_BRAND =
-  "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the project, and publish and set_brand_hub need write with sharing, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
+  "\n\nThis key can't edit brands: create_brand, update_brand, delete_brand, set_rules, save_page, edit_page, delete_page, generate_pages, set_theme, name_version and restore_version need write on the project, and publish and set_brand_hub need write on the brand, so they are hidden. To edit, the person reconnects and picks Edit on the consent screen, or connects with a key whose scope is write.";
 
 /** An asset's URL, named for whoever it is handed to: /a/{id}/w_800,f_webp/summer-hero.webp (lib/asset-url.ts). */
 const link = (a: Parameters<typeof assetLink>[0], rest = "") => `${env.APP_URL}${assetLink(a, rest)}`;
