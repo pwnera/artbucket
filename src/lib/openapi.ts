@@ -321,6 +321,39 @@ export function openapi(serverUrl: string) {
           ok: [200, "The template (binary)"],
         }),
       },
+      "/api/v1/brand/office/templates": {
+        get: op({
+          summary: "The brand's own Office templates",
+          scope: "read",
+          description:
+            "The PowerPoint, Word and Excel files (pptx, potx, docx, dotx, xlsx, xltx) on a release's rules, each at its " +
+            "latest version, approved and usable now, that the caller may see. Put one on a rule (a `templates.slides` " +
+            "rule, say) as a logo is. Each says what in it won't follow the brand: colors and faces written on shapes " +
+            "and runs instead of taken from its theme, and images the library doesn't have.",
+          query: {
+            brand: { schema: str, description: "A brand's slug; the default brand without it" },
+            version: { schema: str, description: "A release's number; live, the release readers see, without it" },
+          },
+          ok: [200, "The templates", data(z.array(S.OfficeTemplate))],
+        }),
+      },
+      "/api/v1/brand/office/templates/{id}": {
+        parameters: [path("id", "The template's asset id, as the list gives it")],
+        get: op({
+          summary: "Download one of the brand's own templates",
+          scope: "read",
+          description:
+            "The file wearing the release: the theme's twelve colors and its heading and text families in every theme " +
+            "part, and each image that is a library asset replaced by that asset's current version (drawn in the " +
+            "image's format when the new one's differs). Layouts, placeholders, text and effects stay as the designer " +
+            "made them. One release is one file byte for byte: send its ETag back for a 304.",
+          query: {
+            brand: { schema: str, description: "A brand's slug; the default brand without it" },
+            version: { schema: str, description: "A release's number; live, the release readers see, without it" },
+          },
+          ok: [200, "The template (binary)"],
+        }),
+      },
       "/api/v1/brand/cards/{template}": {
         parameters: [path("template", "The card: og, the 1200x630 Open Graph image")],
         get: op({
@@ -1828,6 +1861,28 @@ export function openapi(serverUrl: string) {
             "behind the same door as the portal (see GET /api/v1/portal/{slug}); a brand never published is a 404. " +
             "What it carries: GET /api/v1/brand/office.",
           query: { format: { schema: { type: "string", enum: OFFICE_FORMAT_IDS, default: "potx" }, description: "potx: a PowerPoint template; dotx: a Word template" } },
+          ok: [200, "The template (binary)"],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/brands/{brand}/office/templates": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug")],
+        get: op({
+          summary: "A brand's own Office templates, in a portal",
+          scope: "public",
+          description:
+            "The PowerPoint, Word and Excel files on the brand's latest publish, behind the portal's door, only those " +
+            "that may leave the team, each with its check: GET /api/v1/brand/office/templates.",
+          ok: [200, "The templates", data(z.array(S.OfficeTemplate))],
+          extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
+        }),
+      },
+      "/api/v1/portal/{slug}/brands/{brand}/office/templates/{id}": {
+        parameters: [path("slug", "The portal's address"), path("brand", "One of its brands, by slug"), path("id", "The template's asset id, or the one a rule names it by")],
+        get: op({
+          summary: "Download one of a brand's own templates, in a portal",
+          scope: "public",
+          description: "The file wearing the brand's latest publish, behind the portal's door: GET /api/v1/brand/office/templates/{id}.",
           ok: [200, "The template (binary)"],
           extra: { 401: { description: "Not in yet: how to get in", content: json(S.PortalGate) } },
         }),

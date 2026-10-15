@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconDownload, IconTemplate } from "@/components/icons";
+import { IconAlertTriangle, IconCircleCheck, IconDownload, IconTemplate } from "@/components/icons";
 import { Snippet } from "@/components/agent-access";
 import type { BrandHub } from "@/components/brands";
 import { useCan } from "@/components/can";
@@ -19,6 +19,20 @@ import type { Release } from "@/lib/brand-head";
 import { brandPath } from "@/lib/site";
 
 type Brand = { slug: string; name: string };
+/** One of the brand's own Office files (GET /api/v1/brand/office/templates). */
+export type OwnTemplate = {
+  id: string;
+  filename: string;
+  title: string | null;
+  kind: string;
+  app: string;
+  error: string | null;
+  themes: number;
+  colors: { value: string; count: number }[];
+  fonts: { name: string; count: number }[];
+  images: { total: number; library: number; updated: number };
+  follows: boolean;
+};
 
 /** The live release as Office templates (GET /api/v1/brand/office), and what each holds, as the guide says. */
 const OFFICE = [
@@ -38,8 +52,9 @@ const OFFICE = [
  * Templates: what a brand's latest release makes for people to use
  * elsewhere, one brand at a time (`?brand=`, picked here): its share card,
  * tried live and copied as an og:image tag or a URL; its PowerPoint and Word
- * templates; and its press kit, once it is on BrandHub (`hub`: null on a
- * server without one). Nothing until the
+ * templates; its own Office files (`own`), each wearing the release when
+ * downloaded, with what in them won't; and its press kit, once it is on
+ * BrandHub (`hub`: null on a server without one). Nothing until the
  * brand is released: every one of them is drawn from a release.
  */
 export function Templates({
@@ -47,12 +62,14 @@ export function Templates({
   brand,
   release,
   hub,
+  own,
   origin,
 }: {
   brands: Brand[];
   brand: Brand | null;
   release: Release | null;
   hub: BrandHub | null;
+  own: OwnTemplate[];
   origin: string;
 }) {
   const router = useRouter();
@@ -133,6 +150,40 @@ export function Templates({
               </ul>
               <p className="text-muted-foreground text-xs">Office can&apos;t load web fonts from a template: install the brand&apos;s fonts for the real thing.</p>
             </Group>
+            <Group
+              title="Your own templates"
+              description="Your designers' PowerPoint, Word and Excel files, put on one of the brand's rules as a logo is. Each download wears this release: its colors, its fonts and its current logo. The layouts stay as they made them."
+            >
+              {own.length ? (
+                <ul className="divide-y rounded-lg border">
+                  {own.map((t) => (
+                    <li key={t.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
+                      <div className="grid min-w-0 flex-1 basis-56 gap-0.5">
+                        <span className="truncate text-sm font-medium">
+                          {t.title ?? t.filename} <span className="text-muted-foreground font-normal">{t.app}</span>
+                        </span>
+                        <TemplateCheck t={t} />
+                      </div>
+                      {!t.error && (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={`/api/v1/brand/office/templates/${t.id}?${new URLSearchParams({ brand: brand.slug })}`} download>
+                            <IconDownload aria-hidden /> Download .{t.kind}
+                          </a>
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  None yet. Upload a deck, a letterhead or a sheet to the library, then add it to a rule of {brand.name}&apos;s, a Templates rule say, on its{" "}
+                  <Link href={brandPath(brand.slug, "/rules")} className="text-foreground underline underline-offset-4">
+                    Rules
+                  </Link>{" "}
+                  tab, and release it.
+                </p>
+              )}
+            </Group>
             {/* A server without BrandHub has no press kit: it is a listing's. */}
             {hub && (
               <Group
@@ -163,6 +214,32 @@ export function Templates({
         )}
       </div>
     </>
+  );
+}
+
+/** What a template's check found, in a line: that it follows the brand, or what won't. */
+function TemplateCheck({ t }: { t: OwnTemplate }) {
+  const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+  const notes = t.error
+    ? [t.error]
+    : [
+        ...(!t.themes ? ["no theme, so only its images follow"] : []),
+        ...(t.colors.length ? [`${plural(t.colors.length, "color")} set by hand (${t.colors.slice(0, 3).map((c) => c.value).join(", ")})`] : []),
+        ...(t.fonts.length ? [`${plural(t.fonts.length, "font")} set by hand (${t.fonts.slice(0, 3).map((f) => f.name).join(", ")})`] : []),
+        ...(t.images.library < t.images.total ? [`${plural(t.images.total - t.images.library, "image")} not in the library`] : []),
+      ];
+  const updated = t.images.updated ? ` ${plural(t.images.updated, "image")} updated to the current version on download.` : "";
+  return t.follows ? (
+    <span className="text-muted-foreground flex items-center gap-1 text-xs">
+      <IconCircleCheck aria-hidden className="size-3.5 shrink-0" /> Follows the brand.{updated}
+    </span>
+  ) : (
+    <span className="text-muted-foreground flex items-start gap-1 text-xs text-pretty">
+      <IconAlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        Won&apos;t follow everywhere: {notes.join("; ")}.{updated}
+      </span>
+    </span>
   );
 }
 

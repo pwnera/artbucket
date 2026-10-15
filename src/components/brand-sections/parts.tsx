@@ -8,14 +8,18 @@ import { CopyButton } from "@/components/copy-button";
 import { FontThumb } from "@/components/font-preview";
 import { IconButton } from "@/components/icon-button";
 import { RenditionMenu } from "@/components/rendition-menu";
+import { saveFile } from "@/components/save-zip";
 import { useAssetUrl } from "@/components/site/asset-url";
+import { useSiteIfAny } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ExternalLink } from "@/components/external-link";
+import { toast } from "sonner";
 import { colorsOf } from "@/lib/brand-theme";
 import { contrast, grade, inkOn } from "@/lib/color";
 import { isFont } from "@/lib/font";
@@ -402,6 +406,9 @@ export function DoCards({ assets, look }: { assets: RuleAsset[]; look: "do" | "d
  * page it opens the asset; in the panel, a menu changes the size, copies the
  * URL, or takes it off the rule.
  */
+/** Office documents and templates, which a release restyles (lib/office-template.ts TEMPLATE_KINDS; named here so the browser doesn't take that file). */
+const OFFICE = /\.(potx|pptx|dotx|docx|xltx|xlsx)$/i;
+
 export function AssetTile({
   asset: a,
   onChange,
@@ -413,8 +420,25 @@ export function AssetTile({
   onRemove?: () => void;
 }) {
   const url = useAssetUrl();
+  const site = useSiteIfAny();
+  const [saving, setSaving] = useState(false);
   const path = a.rendition ? url(a.id, `/${a.rendition}`) : url(a.id);
   const name = a.title || a.filename || "Asset";
+  // An Office file on a released brand's rule is one of its templates: it downloads wearing the release (GET .../office/templates/{id}).
+  const template = !a.kept && OFFICE.test(a.filename ?? "") && site?.view.version ? site : null;
+  async function saveTemplate() {
+    if (!template) return;
+    setSaving(true);
+    const brand = encodeURIComponent(template.view.brand.slug);
+    const at = template.portal
+      ? `/api/v1/portal/${encodeURIComponent(template.portal.slug)}/brands/${brand}/office/templates/${a.id}`
+      : `/api/v1/brand/office/templates/${a.id}?brand=${brand}&version=${template.view.version!.number}`;
+    const res = await fetch(at, { headers: template.portal?.headers?.() }).catch(() => null);
+    const blob = res?.ok ? await res.blob().catch(() => null) : null;
+    setSaving(false);
+    if (!blob) return void toast.error(`${name} couldn't be downloaded`, { description: "Try again in a moment." });
+    saveFile(blob, a.filename ?? name);
+  }
   const tile =
     "bg-checker focus-visible:ring-ring/50 hover:border-foreground/30 relative block size-28 overflow-hidden rounded-lg border transition-colors outline-none focus-visible:ring-2";
   const face =
@@ -438,6 +462,16 @@ export function AssetTile({
       )}
     </>
   );
+  if ((!onChange || !onRemove) && template)
+    return (
+      <button type="button" onClick={saveTemplate} disabled={saving} aria-busy={saving} className="grid w-28 gap-0.5 text-start" title={`Download ${name}, in this release's colors, fonts and logo`}>
+        <span className={tile}>
+          {face}
+          <span className="bg-background/80 absolute end-1 bottom-1 rounded p-0.5">{saving ? <Spinner /> : <IconDownload className="size-3.5" />}</span>
+        </span>
+        {caption}
+      </button>
+    );
   if (!onChange || !onRemove)
     // Shown, not handed out: its original doesn't open for this reader.
     return a.kept ? (

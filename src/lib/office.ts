@@ -123,7 +123,11 @@ const contentTypes = (overrides: Record<string, string>) =>
 /** What Office picks a stand-in by when a family isn't installed: its pitch and family byte, and the PANOSE of Arial, Times New Roman or Courier New. */
 const PITCH = { swiss: 34, roman: 18, modern: 49 } as const;
 const PANOSE = { swiss: "020B0604020202020204", roman: "02020603050405020304", modern: "02070309020205020404" } as const;
-const latin = (f: OfficeFont) => `<a:latin typeface="${x(f.family)}" panose="${PANOSE[f.kind]}" pitchFamily="${PITCH[f.kind]}" charset="0"/><a:ea typeface=""/><a:cs typeface=""/>`;
+/** A family as a theme's `<a:latin>` names it. */
+export const latinTag = (f: OfficeFont) => `<a:latin typeface="${x(f.family)}" panose="${PANOSE[f.kind]}" pitchFamily="${PITCH[f.kind]}" charset="0"/>`;
+const latin = (f: OfficeFont) => `${latinTag(f)}<a:ea typeface=""/><a:cs typeface=""/>`;
+/** The look's twelve colors as a theme's `<a:clrScheme>`. */
+export const clrScheme = (l: OfficeLook) => `<a:clrScheme name="${x(l.name)}">${SLOTS.map((s) => `<a:${s}><a:srgbClr val="${hex(l.colors[s])}"/></a:${s}>`).join("")}</a:clrScheme>`;
 const three = (s: string) => s + s + s;
 
 /** theme1.xml, one for both: the colors, the fonts, and the plainest format scheme the schema allows (three of each). */
@@ -131,7 +135,7 @@ export function themeXml(l: OfficeLook) {
   const solid = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>';
   return (
     `${XML}<a:theme${xmlns("a")} name="${x(l.name)}"><a:themeElements>` +
-    `<a:clrScheme name="${x(l.name)}">${SLOTS.map((s) => `<a:${s}><a:srgbClr val="${hex(l.colors[s])}"/></a:${s}>`).join("")}</a:clrScheme>` +
+    clrScheme(l) +
     `<a:fontScheme name="${x(l.name)}"><a:majorFont>${latin(l.head)}</a:majorFont><a:minorFont>${latin(l.body)}</a:minorFont></a:fontScheme>` +
     `<a:fmtScheme name="${x(l.name)}"><a:fillStyleLst>${three(solid)}</a:fillStyleLst><a:lnStyleLst>${three(`<a:ln w="6350">${solid}</a:ln>`)}</a:lnStyleLst>` +
     `<a:effectStyleLst>${three("<a:effectStyle><a:effectLst/></a:effectStyle>")}</a:effectStyleLst><a:bgFillStyleLst>${three(solid)}</a:bgFillStyleLst></a:fmtScheme>` +

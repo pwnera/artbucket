@@ -102,6 +102,9 @@ export function ContextScope({ context, children }: { context: string | null; ch
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
 }
 
+/** The site, or null outside one (a tile shown in the app's own panels). */
+export const useSiteIfAny = (): Site | null => useContext(SiteContext);
+
 export function useSite(): Site {
   const site = useContext(SiteContext);
   if (!site) throw new Error("useSite needs a SiteProvider above it");
