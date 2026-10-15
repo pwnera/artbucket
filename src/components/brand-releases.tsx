@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconWorldUpload } from "@/components/icons";
-import { ReleaseForm } from "@/components/builder/publish-dialog";
+import { ReleaseForm } from "@/components/builder/release-form";
 import type { Status } from "@/components/builder/use-status";
 import { useCan } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
