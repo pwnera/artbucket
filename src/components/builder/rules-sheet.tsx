@@ -11,7 +11,6 @@ import {
   IconGripVertical,
   IconHash,
   IconList,
-  IconListDetails,
   IconPhoto,
   IconPlus,
   IconSearch,
@@ -40,7 +39,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { RuleRef } from "@/lib/builder-ops";
 import { keyFor, PRESETS, type Preset } from "@/lib/presets";
 import { assetUrl } from "@/lib/asset-url";
@@ -60,17 +58,10 @@ import { cn } from "@/lib/utils";
  *
  * Props:
  * - b: the builder.
- * - open, onOpenChange: a controlled sheet; the builder opens it for
- *   b.panel "rules".
- * - inline: the same list in the page, no sheet (the brand's Rules tab);
- *   onOpenPage then says where a page that shows a rule opens.
+ * - onOpenPage: where a page that shows a rule opens.
  */
 export type RulesSheetProps = {
   b: BuilderApi;
-  open: boolean;
-  onOpenChange(open: boolean): void;
-  /** In the page rather than a sheet: the brand's Rules tab. */
-  inline?: boolean;
   /** A page that shows a rule, opened: the builder's own page by default (b.open). */
   onOpenPage?(slug: string): void;
 };
@@ -122,7 +113,7 @@ const blockIn = (root: HTMLElement | null, key: string) => rowIn(root, key)?.que
 // The rules op keeps each rule where it is, so a block here has nowhere to be dropped.
 const NO_DRAG: Dnd = { onDragStart() {}, onDragEnd() {}, onDragOver() {}, onDrop() {} };
 
-export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }: RulesSheetProps) {
+export function RulesSheet({ b, onOpenPage }: RulesSheetProps) {
   const rules = b.state.rules;
   // The list, found by id when it is needed: a ref read from a handler that render hands on reads as read in render.
   const bodyId = useId();
@@ -193,8 +184,8 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
       },
     );
 
-  // A #rule-{key} deep link, or a rule picked elsewhere: open in Details as the sheet opens, and scrolled to.
-  const target = open ? b.state.selection.rule : null;
+  // A #rule-{key} deep link, or a rule picked elsewhere: open in Details, and scrolled to.
+  const target = b.state.selection.rule;
   const [seen, setSeen] = useState<string | null>(null);
   if (target !== seen) {
     setSeen(target);
@@ -597,7 +588,6 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
                               onPage={(page) => {
                                 if (onOpenPage) return onOpenPage(page);
                                 b.open(page);
-                                onOpenChange(false);
                               }}
                               onClose={() => {
                                 setExpanded(null);
@@ -635,32 +625,7 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
       )}
     </>
   );
-  if (inline) return <div className="bg-card flex flex-col overflow-hidden rounded-xl border">{list}</div>;
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="app-tokens flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
-        // Esc in a field puts the field back; only outside one does it close the sheet.
-        onEscapeKeyDown={(e) => {
-          const el = document.activeElement;
-          if (!(el instanceof HTMLElement) || !el.matches("input, textarea, [contenteditable=true]")) return;
-          e.preventDefault();
-          // The sheet hears Esc before the rich editor can: leaving the editor saves it.
-          if (el.isContentEditable) el.blur();
-        }}
-      >
-        <SheetHeader className="border-b">
-          <SheetTitle className="flex items-center gap-2">
-            <IconListDetails className="size-5" /> Rules
-          </SheetTitle>
-          <SheetDescription>Colors, type, logo and words, as data.</SheetDescription>
-        </SheetHeader>
-
-        {list}
-      </SheetContent>
-    </Sheet>
-  );
+  return <div className="bg-card flex flex-col overflow-hidden rounded-xl border">{list}</div>;
 }
 
 /** A rule's own actions, beside its row: move it (the keyboard's way to reorder), copy it, delete it. */
