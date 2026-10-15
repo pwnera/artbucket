@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { crc32, uniqueNames, unzip, zip } from "./zip.ts";
+import { crc32, readAtMost, uniqueNames, unzip, zip } from "./zip.ts";
 
 test("crc32 matches the standard check value", () => {
   assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
@@ -83,4 +83,20 @@ test("no entry name can reach outside the folder it is extracted to", () => {
 test("a stored entry is held to the limit too", async () => {
   const [e] = unzip(zip([{ name: "big.png", data: new Uint8Array(2048) }]));
   await assert.rejects(e.read(1024), RangeError);
+});
+
+test("an entry whose data another entry points at is not read: one stream inflated once per name", async () => {
+  const two = zip([{ name: "a.txt", data: new Uint8Array(10) }, { name: "b.txt", data: new Uint8Array(10) }]);
+  const v = new DataView(two.buffer);
+  const cd = v.getUint32(two.length - 22 + 16, true);
+  const second = cd + 46 + "a.txt".length;
+  v.setUint32(second + 42, 0, true); // b.txt's local header is a.txt's
+  for (const e of unzip(two)) await assert.rejects(e.read(), RangeError, e.name);
+});
+
+test("readAtMost holds a body up to its limit, and nothing past it", async () => {
+  const body = (n: number) => new Blob([new Uint8Array(n)]).stream();
+  assert.equal((await readAtMost(body(1000), 1000))?.length, 1000);
+  assert.equal(await readAtMost(body(1001), 1000), null);
+  assert.equal((await readAtMost(null, 1000))?.length, 0);
 });

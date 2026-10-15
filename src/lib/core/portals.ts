@@ -224,13 +224,20 @@ async function checkCollections(caller: Caller, ids: string[]) {
   return unique;
 }
 
-/** Brands it may publish, by slug: this project's. Publishing guidelines is managing portals; reading them is anyone's in the library. */
+/** Brands it may publish, by slug: this project's, ones the caller could release themselves (a private one takes a grant on it). */
 async function checkBrands(caller: Caller, slugs: string[]) {
   const unique = [...new Set(slugs)];
   if (!unique.length) return [];
-  const found = await db.select({ id: brands.id, slug: brands.slug }).from(brands).where(and(eq(brands.projectId, caller.project.id), inArray(brands.slug, unique)));
+  const rows = await db
+    .select({ id: brands.id, slug: brands.slug, name: brands.name, private: brands.private })
+    .from(brands)
+    .where(and(eq(brands.projectId, caller.project.id), inArray(brands.slug, unique)));
+  // One the caller can't read isn't there for them, as in the API.
+  const found = rows.filter((b) => can(caller, "brand.read", b));
   const missing = unique.filter((slug) => !found.some((f) => f.slug === slug));
   if (missing.length) throw new AssetError("invalid", `No brand ${missing.map((m) => `"${m}"`).join(", ")}`);
+  const denied = found.find((b) => !can(caller, "brand.publish", b));
+  if (denied) throw new AssetError("forbidden", `Publishing ${denied.name} takes write on it`);
   return unique.map((slug) => found.find((f) => f.slug === slug)!.id);
 }
 

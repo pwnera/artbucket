@@ -1,4 +1,4 @@
-import { ok, route } from "@/lib/api";
+import { ok, route, zipBody } from "@/lib/api";
 import { checkBuild } from "@/lib/core/sites";
 
 /**
@@ -8,4 +8,4 @@ import { checkBuild } from "@/lib/core/sites";
  * addresses, and why any of it may not be shown, as a deployment would be
  * checked. A question, not a change, so the read scope asks it.
  */
-export const POST = route("asset.read", async (req, _p, caller) => ok({ data: await checkBuild(caller, new Uint8Array(await req.arrayBuffer())) }));
+export const POST = route("asset.read", async (req, _p, caller) => ok({ data: await checkBuild(caller, await zipBody(req)) }));

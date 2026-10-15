@@ -125,6 +125,7 @@ export const INFLATE_LIMIT = 64 * 1024 * 1024;
  * every design file that is a zip (Sketch, XD, Keynote, pptx, .fig, dotLottie).
  * Corrupt input throws a RangeError, and so does an entry that inflates past
  * `limit` (or is stored larger): its declared size is the zip's say-so, so the bytes are counted.
+ * So does reading an entry whose data another entry points at too: a small zip would inflate it once per name.
  *
  * ponytail: no ZIP64, like the writer: previews sit in archives far under 4 GB.
  */
@@ -138,6 +139,7 @@ export function unzip(bytes: Uint8Array): ZipEntry[] {
 
   const dec = new TextDecoder();
   const out: ZipEntry[] = [];
+  const places = new Map<number, number>();
   let at = v.getUint32(end + 16, true);
   for (let i = v.getUint16(end + 10, true); i > 0 && v.getUint32(at, true) === 0x02014b50; i--) {
     const method = v.getUint16(at + 10, true);
@@ -147,10 +149,12 @@ export function unzip(bytes: Uint8Array): ZipEntry[] {
     const local = v.getUint32(at + 42, true);
     const name = dec.decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + nameLength + v.getUint16(at + 30, true) + v.getUint16(at + 32, true);
+    places.set(local, (places.get(local) ?? 0) + 1);
     out.push({
       name,
       size,
       read: async (limit = INFLATE_LIMIT) => {
+        if (places.get(local)! > 1) throw new RangeError(`${name}: its data is another entry's too`);
         // The local header's own name and extra lengths can differ from the central copy's.
         const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
         if (method === 0 && packed > limit) throw new RangeError(`${name}: more than ${limit} bytes`);
@@ -168,6 +172,25 @@ export function unzip(bytes: Uint8Array): ZipEntry[] {
         return new Uint8Array(await new Blob(parts).arrayBuffer());
       },
     });
+  }
+  return out;
+}
+
+/** A body's bytes, `max` at most: null as soon as it runs past, so nothing more is held or read. */
+export async function readAtMost(body: ReadableStream<Uint8Array> | null, max: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for await (const c of (body ?? []) as AsyncIterable<Uint8Array>) {
+    total += c.length;
+    // Leaving the loop cancels the stream.
+    if (total > max) return null;
+    parts.push(c);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
   }
   return out;
 }
