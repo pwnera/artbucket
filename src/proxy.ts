@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ENTER_PATH, servesBuild } from "@/lib/sites";
+import { answersFramed, ENTER_PATH, FRAMED_HEADER, servesBuild } from "@/lib/sites";
 import { ipOf } from "@/lib/client-ip";
 import { hostTarget, portalHome } from "@/lib/core/domains";
 import { suspendedAt } from "@/lib/core/suspension";
@@ -144,10 +144,16 @@ async function portalRoute(req: NextRequest, target: Target, init?: { request: {
   if (asked && target?.builds) {
     if (!home) return new NextResponse("There is no site here", { status: 404 });
     if (servesBuild(home, rest) || rest === ENTER_PATH) {
-      if (home.builds && new URL(home.builds).host !== host) return new NextResponse(null, { status: 308, headers: { Location: `${home.builds}${rest}${search}` } });
+      // At its own domain when it has one; but a public build the app frames answers here (lib/sites.ts answersFramed), uncached.
+      const elsewhere = !!home.builds && new URL(home.builds).host !== host;
+      const framed = elsewhere && answersFramed(home.access, req.headers.get("sec-fetch-dest"), req.headers.get("sec-fetch-site"));
+      if (elsewhere && !framed) return new NextResponse(null, { status: 308, headers: { Location: `${home.builds}${rest}${search}` } });
       const url = req.nextUrl.clone();
       url.pathname = `/sitefiles/${home.slug}${rest || "/"}`;
-      const res = NextResponse.rewrite(url, init);
+      const headers = new Headers(init?.request.headers ?? req.headers);
+      if (framed) headers.set(FRAMED_HEADER, "1");
+      else headers.delete(FRAMED_HEADER);
+      const res = NextResponse.rewrite(url, { request: { headers } });
       builds.add(res);
       return res;
     }

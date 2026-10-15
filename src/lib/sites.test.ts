@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assetAddresses, BUILD_KINDS, candidates, contentTypeOf, mountPath, PREVIEW_NAME, previewLabel, readsLinks, servesBuild, siteFiles, storybookComponents, unlockCookie } from "./sites.ts";
+import { answersFramed, assetAddresses, BUILD_KINDS, candidates, contentTypeOf, mountPath, PREVIEW_NAME, previewLabel, readsLinks, servesBuild, siteFiles, storybookComponents, unlockCookie } from "./sites.ts";
 import { previewAtHost } from "./portal.ts";
 
 test("a mount path is / or lowercase segments, no trailing slash", () => {
@@ -89,4 +89,18 @@ test("a Storybook's index.json: one component per title, its stories in order, d
   assert.deepEqual(storybookComponents({ v: 3, stories: { "a--b": { id: "a--b", title: "A", name: "B" } } }), [{ slug: "a", name: "A", title: "A", story: "a--b", stories: ["B"], files: [] }]);
   assert.deepEqual(storybookComponents(null), []);
   assert.deepEqual(storybookComponents("nope"), []);
+});
+
+test("a build with a domain of its own answers at BUILD_DOMAIN only when a public site's is framed, with what the framed page loads", () => {
+  assert.equal(answersFramed("public", "iframe", "cross-site"), true);
+  // What the framed story loads from its own address: scripts, styles, its fetches.
+  assert.equal(answersFramed("public", "script", "same-origin"), true);
+  assert.equal(answersFramed("public", "empty", "same-origin"), true);
+  // A visit, or a link followed from it, goes on to the site's own domain.
+  assert.equal(answersFramed("public", "document", "none"), false);
+  assert.equal(answersFramed("public", "document", "same-origin"), false);
+  assert.equal(answersFramed("public", "script", "cross-site"), false);
+  assert.equal(answersFramed("public", null, null), false);
+  assert.equal(answersFramed("password", "iframe", "cross-site"), false);
+  assert.equal(answersFramed("members", "script", "same-origin"), false);
 });

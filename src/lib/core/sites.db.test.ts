@@ -6,7 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { plan, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets, grants, portals, sessions, siteDeployments } from "@/lib/db/schema";
+import { assets, domains, grants, portals, sessions, siteDeployments } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { ENTER_PATH } from "@/lib/sites";
 import { ingestBytes } from "@/lib/core/assets";
@@ -721,4 +721,18 @@ test("an external site records what its code uses: the component version its cod
   await recordUses(ada.caller, app.id, pack({ "a.ts": "", "artbucket.site.json": JSON.stringify({ components: [{ component: at, fingerprint: "unknown" }] }) }));
   assert.ok(!(await fixesOf(ada.caller)).components.some((c) => c.site.id === app.id));
   assert.deepEqual((await db.select().from(siteDeployments).where(and(eq(siteDeployments.siteId, app.id), eq(siteDeployments.state, "live"))))[0].componentUses, [v2.id]);
+});
+
+test("a Storybook with a domain of its own is previewed at its BUILD_DOMAIN address, which the app may frame; Storybook opens at its domain", async (t) => {
+  const before = env.BUILD_DOMAIN;
+  env.BUILD_DOMAIN = "builds.test";
+  t.after(() => void (env.BUILD_DOMAIN = before));
+  const sb = await createPortal(ada.caller, { name: "Own SB", slug: `osb-${Date.now().toString(36)}`, kind: "storybook" });
+  await deploy(ada.caller, sb.id, pack({ "index.html": "sb", "index.json": JSON.stringify({ v: 5, entries: { "ui-tab--one": { type: "story", id: "ui-tab--one", title: "UI/Tab", name: "One" } } }) }));
+  const host = `sb-${Date.now().toString(36)}.example.com`;
+  await db.insert(domains).values({ host, organizationId: ada.caller.project.organizationId, portalId: sb.id, token: "t", verifiedAt: new Date() });
+  assert.equal((await portalHome(sb.slug))!.builds, `http://${host}`);
+  const c = (await componentOf(ada.caller, `${ada.caller.project.organization.slug}/${ada.caller.project.slug}/site/${sb.slug}/component/ui-tab`))!;
+  assert.equal(c.versions[0].preview, `http://${sb.slug}.builds.test:3000/iframe.html?id=ui-tab--one&viewMode=story`);
+  assert.equal(c.versions[0].storybook, `http://${host}/?path=/story/ui-tab--one`);
 });
