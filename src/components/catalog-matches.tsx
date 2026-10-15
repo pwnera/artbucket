@@ -7,6 +7,7 @@ import { StatusBadge, TypeIcon } from "@/components/catalog";
 import { Button } from "@/components/ui/button";
 import { openPath, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
+import type { Narrow } from "@/lib/view";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,21 +24,23 @@ const PAGE = 40;
 
 type Found = { key: string; r: CatalogResults; items: CatalogResults["items"] };
 
-const fetchCatalog = (q: string, types: CatalogType[], cursor: number, signal?: AbortSignal) => {
+const fetchCatalog = (q: string, types: CatalogType[], narrow: Narrow, cursor: number, signal?: AbortSignal) => {
   const params = new URLSearchParams({ q, limit: String(PAGE), cursor: String(cursor) });
   for (const t of types) params.append("type", t);
+  for (const t of narrow.tags) params.append("tag", t);
+  if (narrow.statuses.length) params.set("status", narrow.statuses.join(","));
   return fetch(`/api/v1/catalog?${params}`, { signal }).then((r) => (r.ok ? (r.json() as Promise<CatalogResults>) : null));
 };
 
 /** The matches of `types` for `q` (none asked: nothing), and the next page of them on `more`. */
-function useFound(q: string, types: CatalogType[] | null) {
-  const key = types && `${q}|${types.join()}`;
+function useFound(q: string, types: CatalogType[] | null, narrow: Narrow) {
+  const key = types && `${q}|${types.join()}|${narrow.tags.join()}|${narrow.statuses.join()}`;
   const [found, setFound] = useState<Found | null>(null);
   useEffect(() => {
     if (!key || !types) return;
     const ac = new AbortController();
     const wait = setTimeout(() => {
-      fetchCatalog(q, types, 0, ac.signal)
+      fetchCatalog(q, types, narrow, 0, ac.signal)
         .then((r) => r && setFound({ key, r, items: r.items }))
         .catch(() => {});
     }, 200);
@@ -45,21 +48,22 @@ function useFound(q: string, types: CatalogType[] | null) {
       clearTimeout(wait);
       ac.abort();
     };
-    // `key` is q and types.
+    // `key` is q, types and narrow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const now = found?.key === key ? found : null;
   const more = () =>
     now?.r.next != null &&
-    fetchCatalog(q, types!, now.r.next)
+    fetchCatalog(q, types!, narrow, now.r.next)
       .then((r) => r && setFound((f) => (f?.key === key ? { key, r, items: [...f.items, ...r.items] } : f)))
       .catch(() => {});
   return now && { ...now, more };
 }
 
-export function CatalogMatches({ q, only, assets }: { q: string; only: CatalogType | null; assets: number }) {
-  const all = useFound(q, OTHERS);
-  const one = useFound(q, only && only !== "asset" ? [only] : null);
+/** `narrow`: Explore's tags and states, which narrow every type as they narrow the assets below. */
+export function CatalogMatches({ q, only, assets, narrow }: { q: string; only: CatalogType | null; assets: number; narrow: Narrow }) {
+  const all = useFound(q, OTHERS, narrow);
+  const one = useFound(q, only && only !== "asset" ? [only] : null, narrow);
   if (!all) return null;
   const types = OTHERS.filter((t) => all.r.counts[t] || t === only);
   if (!types.length) return null;
