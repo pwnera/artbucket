@@ -33,7 +33,7 @@ export function Team({
 }) {
   const me = useMe()!;
   const can = useCan();
-  const { collections } = useShell();
+  const { collections, brands } = useShell();
   const params = useSearchParams();
   const tabs = [members && "people", shares && "sharing", audit && "audit"].filter(Boolean) as string[];
   const asked = params.get("tab") ?? tab;
@@ -83,7 +83,7 @@ export function Team({
           {members && (
             <TabsContent value="people" className="pt-4">
               {/* The live URL, not the server's: tabs remount People, and close() has dropped ?invite by then. */}
-              <People me={me} members={members} collections={collections} inviting={params.has("invite")} />
+              <People me={me} members={members} collections={collections} brands={brands} inviting={params.has("invite")} />
             </TabsContent>
           )}
           {shares && (
