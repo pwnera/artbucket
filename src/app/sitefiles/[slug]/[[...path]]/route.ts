@@ -2,7 +2,7 @@ import { handle } from "@/lib/api";
 import { AssetError } from "@/lib/core/errors";
 import { enterPortal, passOf } from "@/lib/core/portals";
 import { keyDoor, letIn, MEMBER_HOURS, membersDoor, siteFile, UNLOCK_DAYS, unlockValue } from "@/lib/core/sites";
-import { ENTER_PATH, unlockCookie } from "@/lib/sites";
+import { ENTER_PATH, FRAMED_HEADER, unlockCookie } from "@/lib/sites";
 import { localPath } from "@/lib/markdown";
 import { siteHeaders } from "@/lib/site-serve";
 import { env } from "@/lib/env";
@@ -67,7 +67,8 @@ export async function GET(req: Request, ctx: Params) {
       return new Response(null, { status: f.status, headers });
     }
     const { body, length } = await getStream(f.key);
-    const headers = own(f.headers, f.open, preview);
+    // Framed at BUILD_DOMAIN rather than its own domain (src/proxy.ts): never cached, so a visit there still goes on.
+    const headers = own(f.headers, f.open && req.headers.get(FRAMED_HEADER) !== "1", preview);
     headers.set("Content-Type", f.contentType);
     headers.set("Content-Length", String(length));
     return new Response(body, { status: f.status, headers });

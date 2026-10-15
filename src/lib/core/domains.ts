@@ -116,6 +116,8 @@ export async function portalUrl(p: PortalRef, own: { host: string; verifiedAt: D
  * in from the app (lib/core/sites.ts enterSite).
  */
 export const buildsAt = (p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null) => subdomainAt(p, own, buildDomain());
+/** A site's builds at BUILD_DOMAIN, its own domain or not: where the app frames them (src/proxy.ts answers a framed build there). */
+export const buildsAddress = (p: { slug: string }) => subdomainAt(p, null, buildDomain());
 
 /** Its own domain once verified, else {slug}.{domain} when there is one and the slug may be a subdomain. */
 function subdomainAt(p: { slug: string }, own: { host: string; verifiedAt: Date | null } | null, domain: string | undefined) {

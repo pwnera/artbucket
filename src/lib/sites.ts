@@ -188,6 +188,21 @@ export function candidates(rest: string): string[] {
  * than Artbucket's pages: every path of a site that is all build, else a
  * path under one of its mounts (never /, which a brand portal keeps).
  */
+/**
+ * Whether a build asked at its BUILD_DOMAIN address, when its site has a
+ * domain of its own, answers there anyway rather than sending the visitor on:
+ * only a public site's, framed (the app's Components page shows a
+ * Storybook's stories from there, and can't know to frame a customer's
+ * domain), and what that framed page loads from the same address (its
+ * scripts, styles, fonts: never a page of its own, which a visit is). A visit
+ * is sent on before anything of it loads here. Sec-Fetch-Dest and
+ * Sec-Fetch-Site are the browser's to send, never a page's.
+ */
+export const answersFramed = (access: string, dest: string | null, site: string | null) =>
+  access === "public" && (dest === "iframe" || (site === "same-origin" && !!dest && dest !== "document"));
+/** Set by src/proxy.ts on a build it answers framed: the answer is never cached, so a visit there is still sent to the site's own domain. */
+export const FRAMED_HEADER = "x-artbucket-framed";
+
 export const servesBuild = (site: { kind: string; mounts: string[] }, rest: string) =>
   site.kind !== "portal" || site.mounts.some((m) => m !== "/" && (rest === m || rest.startsWith(`${m}/`)));
 
