@@ -150,7 +150,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
             ]
           : []),
       ],
-      bulk.remove ? [{ id: "delete", label: `Delete ${bulk.count}…`, icon: <IconTrash />, run: bulk.remove, destructive: true }] : [],
+      bulk.remove ? [{ id: "delete", label: `Delete ${bulk.count}`, icon: <IconTrash />, run: bulk.remove, destructive: true }] : [],
     ];
   }
 

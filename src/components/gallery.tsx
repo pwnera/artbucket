@@ -401,7 +401,6 @@ export function Gallery({
   // The shift-click anchor and the keyboard cursor are ids: the list reorders under indexes.
   const anchor = useRef<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const folder = useRef<HTMLInputElement>(null);
   const searchBox = useRef<HTMLInputElement>(null);
@@ -1021,19 +1020,16 @@ export function Gallery({
   const editable = collections.filter((c) => can("collection.edit", c));
   const deletable = (list: Asset[]) => list.length > 0 && list.every((a) => can("asset.delete", a)) && list.some((a) => a.state !== "deleted");
 
-  /** Delete from the keyboard: the selection, or the asset under the cursor; asked first, like the bar. */
-  const askDelete = (a: Asset) => {
-    const targets = selected.has(a.id) ? picked : [a];
+  /** Delete at once, like the bar: soft for 30 days, and the toast offers Undo. */
+  const deleteNow = (targets: Asset[]) => {
     if (!deletable(targets)) return;
-    if (!selected.has(a.id)) {
-      setSelected(new Set([a.id]));
-      anchor.current = a.id;
-    }
-    setDeleting(true);
+    void bulk.deleteLive(targets.filter((a) => a.state !== "deleted")).then((ok) => ok && clearSelection());
   };
+  /** Delete from the keyboard: the selection, or the asset under the cursor. */
+  const askDelete = (a: Asset) => deleteNow(selected.has(a.id) ? picked : [a]);
 
   // Tiles and rows move like Finder's: arrows (J and K too), Shift extends,
-  // Enter or Space opens, X selects, Delete asks to delete.
+  // Enter or Space opens, X selects, Delete deletes (with Undo).
   const onGridKey = (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.defaultPrevented || e.altKey) return;
     const el = e.target as HTMLElement;
@@ -1181,7 +1177,7 @@ export function Gallery({
             into: editable,
             add: (c: Collection) => void bulk.members(c, "add"),
             download: () => void bulk.download(),
-            remove: deletable(picked) ? () => setDeleting(true) : undefined,
+            remove: deletable(picked) ? () => deleteNow(picked) : undefined,
           }
         : undefined,
   });
@@ -1767,8 +1763,6 @@ export function Gallery({
         current={inCollection}
         review={view.review}
         bulk={bulk}
-        deleting={deleting}
-        onDeletingChange={setDeleting}
         onSelectAll={selectAll}
         onClear={clearSelection}
         onOpenCollection={(c) => go({ collection: c.id }, true)}
