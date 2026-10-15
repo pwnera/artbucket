@@ -1372,7 +1372,7 @@ export function Gallery({
         </PageHeader>
 
         {/* Explore searches everything: what else matches, as folders above the files, or one type on its own. */}
-        {everything && narrow && <CatalogMatches q={view.q.trim()} only={only} assets={total} narrow={narrow} />}
+        {everything && narrow && <CatalogMatches q={view.q.trim()} only={only} assets={total} narrow={narrow} onOpenAsset={openAsset} />}
         {everything && !only && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
 
         {!othersOnly && (

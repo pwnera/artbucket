@@ -95,6 +95,13 @@ export const STORYBOOK_INDEX = "index.json";
  */
 export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[]; files: string[]; tags: string[] };
 
+/** A story, as Storybook shows it alone (`iframe.html`, framed from `framed`), and in its own UI, at the site's own address. */
+export const storyAt = (framed: string | null, home: string | null, path: string, story: string) => {
+  const at = (base: string | null) => base && `${base}${path === "/" ? "" : path}`;
+  const id = encodeURIComponent(story);
+  return { preview: framed && `${at(framed)}/iframe.html?id=${id}&viewMode=story`, storybook: (home ?? framed) && `${at(home ?? framed)}/?path=/story/${id}` };
+};
+
 /** Tags Storybook sets or reads itself: about where a story shows, not what it is. */
 const STORYBOOK_TAGS = new Set(["dev", "test", "autodocs", "manifest", "play-fn", "vitest", "attached-mdx", "unattached-mdx", "stories-mdx", "docs-only"]);
 

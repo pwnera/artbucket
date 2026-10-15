@@ -16122,6 +16122,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -16411,6 +16418,13 @@
                                 },
                                 "updatedAt": {
                                   "type": "string"
+                                },
+                                "preview": {
+                                  "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -16650,6 +16664,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "sharedFrom": {
                             "type": "object",
@@ -16904,6 +16925,13 @@
                     "updatedAt": {
                       "type": "string"
                     },
+                    "preview": {
+                      "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "usedBy": {
                       "type": "array",
                       "items": {
@@ -17051,6 +17079,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -17409,6 +17444,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "up": {
                             "type": "integer",

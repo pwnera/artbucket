@@ -6,6 +6,7 @@ import { findObject, lineage } from "@/lib/core/catalog";
 import { buildsAddress, portalHome, previewAt } from "@/lib/core/domains";
 import { keptName } from "@/lib/core/sites";
 import { formatAddress, type CatalogStatus } from "@/lib/catalog";
+import { storyAt } from "@/lib/sites";
 
 /**
  * The Components page (GET /api/v1/components): what a project's Storybooks
@@ -16,13 +17,6 @@ import { formatAddress, type CatalogStatus } from "@/lib/catalog";
  * BUILD_DOMAIN address even when it has a domain of its own, which the app
  * can't know to frame (src/proxy.ts answers a framed build there).
  */
-
-/** A story, as Storybook shows it alone (`iframe.html`, framed from `framed`), and in its own UI, at the site's own address. */
-const storyAt = (framed: string | null, home: string | null, path: string, story: string) => {
-  const at = (base: string | null) => base && `${base}${path === "/" ? "" : path}`;
-  const id = encodeURIComponent(story);
-  return { preview: framed && `${at(framed)}/iframe.html?id=${id}&viewMode=story`, storybook: (home ?? framed) && `${at(home ?? framed)}/?path=/story/${id}` };
-};
 
 const columns = {
   id: siteComponents.id,

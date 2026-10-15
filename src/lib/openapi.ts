@@ -44,6 +44,7 @@ const CatalogItem = z.object({
   parent: z.object({ id: z.uuid(), type: z.enum(CATALOG_TYPES), slug: z.string(), name: z.string() }).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  preview: z.string().nullable().optional().describe("A component in search results: its story alone (Storybook's iframe.html) on its site's builds address"),
 });
 const catalogRef = { name: "ref", in: "path", required: true, schema: { type: "string" }, description: "An id, or an address" } as const;
 

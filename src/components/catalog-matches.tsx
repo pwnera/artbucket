@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavLink } from "@/components/app-sidebar";
+import { useMe } from "@/components/can";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
 import { Button } from "@/components/ui/button";
 import { openPath, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
@@ -11,14 +12,16 @@ import type { Narrow } from "@/lib/view";
 import { cn } from "@/lib/utils";
 
 /**
- * What else a search in Explore finds, beside the assets below it
- * (GET /api/v1/catalog): brands, collections, sites, and brands' rules and
- * guideline pages, and Storybooks' components. A row of types to pick one,
- * then a first look at each as cards above the assets, or (`only`) every
- * match of one type, a page at a time. Each opens where the app shows it.
+ * What a search in Explore finds of every type (GET /api/v1/catalog): a row
+ * of types to pick one, then the top results as one ranked list, assets
+ * among brands, collections, sites, rules, guideline pages and components,
+ * each drawn as the same card, above the assets to work on; or (`only`)
+ * every match of one type, a page at a time. Each opens where the app shows
+ * it; an asset of this project in the viewer, in place.
  */
 
 const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page", "component"];
+const EVERY: CatalogType[] = [...OTHERS, "asset"];
 const SHOWN = 8;
 const PAGE = 40;
 
@@ -61,13 +64,26 @@ function useFound(q: string, types: CatalogType[] | null, narrow: Narrow) {
 }
 
 /** `narrow`: Explore's tags and states, which narrow every type as they narrow the assets below. */
-export function CatalogMatches({ q, only, assets, narrow }: { q: string; only: CatalogType | null; assets: number; narrow: Narrow }) {
-  const all = useFound(q, OTHERS, narrow);
+export function CatalogMatches({
+  q,
+  only,
+  assets,
+  narrow,
+  onOpenAsset,
+}: {
+  q: string;
+  only: CatalogType | null;
+  assets: number;
+  narrow: Narrow;
+  onOpenAsset: (id: string) => void;
+}) {
+  const here = useMe()?.project.id;
+  const all = useFound(q, EVERY, narrow);
   const one = useFound(q, only && only !== "asset" ? [only] : null, narrow);
+  const card = (i: Item) => <ResultCard key={i.id} i={i} {...(i.type === "asset" && i.project.id === here ? { onClick: () => onOpenAsset(i.id) } : { href: openPath(i) })} />;
   if (!all) return null;
   const types = OTHERS.filter((t) => all.r.counts[t] || t === only);
   if (!types.length) return null;
-  const total = OTHERS.reduce((n, t) => n + (all.r.counts[t] ?? 0), 0);
   const href = (t: CatalogType | null) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
@@ -100,11 +116,7 @@ export function CatalogMatches({ q, only, assets, narrow }: { q: string; only: C
           {one && !one.items.length ? (
             <p className="text-muted-foreground text-sm">No {TYPE_LABEL[only].many.toLowerCase()} match.</p>
           ) : (
-            <CardGrid>
-              {(one?.items ?? []).map((i) => (
-                <Card key={i.id} i={i} />
-              ))}
-            </CardGrid>
+            <CardGrid>{(one?.items ?? []).map(card)}</CardGrid>
           )}
           {one?.r.next != null && (
             <Button variant="outline" size="sm" onClick={one.more}>
@@ -113,31 +125,67 @@ export function CatalogMatches({ q, only, assets, narrow }: { q: string; only: C
           )}
         </Section>
       ) : (
-        <Section title="Brands, collections and more" count={total}>
-          <CardGrid>
-            {OTHERS.flatMap((t) => all.items.filter((i) => i.type === t))
-              .slice(0, SHOWN)
-              .map((i) => (
-                <Card key={i.id} i={i} />
-              ))}
-          </CardGrid>
-          {total > SHOWN && <p className="text-muted-foreground text-xs">and {total - SHOWN} more: pick a type above to see them all</p>}
+        // Ranked together, whatever their type: a strong component comes before a weak asset.
+        <Section title="Top results">
+          <CardGrid>{all.items.slice(0, SHOWN).map(card)}</CardGrid>
+          {all.r.total > SHOWN && <p className="text-muted-foreground text-xs">Pick a type above to see every match of it</p>}
         </Section>
       )}
     </>
   );
 }
 
-// Each type opens where the app shows it (lib/catalog.ts openPath), as it does from every other list; its catalog page is a tab away there.
-const Card = ({ i }: { i: CatalogResults["items"][number] }) => (
-  <ObjectCard
-    type={i.type}
-    href={openPath(i)}
-    name={i.name}
-    sub={`${TYPE_LABEL[i.type].one} · ${i.parent ? i.parent.name : i.project.name}`}
-    status={i.status}
-  />
-);
+type Item = CatalogResults["items"][number];
+
+/**
+ * A search result of any type, drawn one way: what it looks like on top (an
+ * asset's rendition, a component's story, else its type's icon), then its
+ * name, what it is and where, and its status when not current. It opens
+ * where the app shows it (lib/catalog.ts openPath), as from every other list.
+ */
+export function ResultCard({ i, href, onClick }: { i: Item; href?: string; onClick?: () => void }) {
+  const [broken, setBroken] = useState(false);
+  const look =
+    i.type === "asset" && !broken ? (
+      // eslint-disable-next-line @next/next/no-img-element -- a rendition, already sized
+      <img src={`/a/${i.id}/w_320,f_webp`} alt="" loading="lazy" onError={() => setBroken(true)} className="size-full object-contain" />
+    ) : i.type === "component" && i.preview ? (
+      // The story at a desk's width, shrunk to the card: never interactive here, so the card stays one link.
+      <iframe src={i.preview} title={i.name} loading="lazy" tabIndex={-1} sandbox="allow-scripts allow-same-origin" className="pointer-events-none absolute top-0 left-0 h-[250%] w-[250%] origin-top-left scale-[0.4] border-0" />
+    ) : (
+      <span className="text-muted-foreground [&_svg]:size-6">
+        <TypeIcon type={i.type} />
+      </span>
+    );
+  const body = (
+    <>
+      <span className="bg-muted relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b">{look}</span>
+      <span className="flex items-center gap-2 px-3 py-2">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{i.name}</span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {TYPE_LABEL[i.type].one} · {i.parent ? i.parent.name : i.project.name}
+          </span>
+        </span>
+        {i.status !== "current" && <StatusBadge status={i.status} />}
+      </span>
+    </>
+  );
+  const cls = "bg-card hover:bg-accent focus-visible:ring-ring/50 flex w-full flex-col overflow-hidden rounded-xl border text-start transition-colors outline-none focus-visible:ring-2";
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className={cls}>
+          {body}
+        </Link>
+      ) : (
+        <button type="button" onClick={onClick} className={cls}>
+          {body}
+        </button>
+      )}
+    </li>
+  );
+}
 
 /** A titled part of Explore or the catalog: "Brands and collections", "Assets for you". */
 export function Section({ title, count, aside, children }: { title: string; count?: number; aside?: React.ReactNode; children: React.ReactNode }) {

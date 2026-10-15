@@ -37,6 +37,8 @@ import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/c
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 import { assetType } from "@/lib/core/assets";
 import { prefixQuery } from "@/lib/search";
+import { buildsAddress } from "@/lib/core/domains";
+import { storyAt } from "@/lib/sites";
 import type { AssetType } from "@/lib/filters";
 
 /**
@@ -156,6 +158,8 @@ export type CatalogItem = Omit<Row, "org" | "projectId" | "parentId"> & {
   sharedFrom?: { id: string; name: string };
   /** An asset's type, in the tree, which folds its assets by it. */
   kind?: AssetType;
+  /** A component's story alone, framed from its site's builds address (lib/sites.ts storyAt): what a search result shows of it. */
+  preview?: string | null;
 };
 
 const rows = (where: SQL) =>
@@ -318,10 +322,23 @@ export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 3
     total: Object.values(counts).reduce((s, n) => s + (n ?? 0), 0),
     counts,
     projects: [...perProject.values()].sort((a, b) => b.count - a.count),
-    items: await items(page),
+    items: await withPreviews(await items(page)),
     hidden: hidden.length ? { count: hidden[0].n, example: await retiredWhy(hidden[0].row) } : { count: 0, example: null },
     next: found.length > limit ? cursor + limit : null,
   };
+}
+
+/** Components with their story to show, as a search result draws them. */
+async function withPreviews(list: CatalogItem[]): Promise<CatalogItem[]> {
+  const ids = list.filter((i) => i.type === "component").map((i) => i.id);
+  if (!ids.length) return list;
+  const found = new Map(
+    (await db.select({ id: siteComponents.id, path: siteComponents.path, story: siteComponents.story }).from(siteComponents).where(inArray(siteComponents.id, ids))).map((c) => [c.id, c]),
+  );
+  return list.map((i) => {
+    const c = found.get(i.id);
+    return c && i.parent ? { ...i, preview: storyAt(buildsAddress({ slug: i.parent.slug }), null, c.path, c.story).preview } : i;
+  });
 }
 
 /** "logo-primary.svg @3 matches too, but it was replaced by @4." */
