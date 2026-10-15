@@ -63,6 +63,22 @@ test("deleting is soft: the asset leaves search, stays restorable, and comes bac
   assert.ok((await listed()).includes(asset.id));
 });
 
+test("the same bytes again never purge a deleted asset: they restore it for whoever may, and are refused to anyone else", async () => {
+  const { id: collection } = await createCollection(ada.caller, { name: "Logos" });
+  const bytes = await png();
+  const first = await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "logo.png", collections: [collection] });
+  await deleteAsset(ada.caller, first.asset.id);
+  // A guest's upload link proposes: it can't restore, so the deleted one stays as it was.
+  const guest = { ...ada.caller, scope: "propose" as const };
+  await assert.rejects(ingestBytes(guest, { bytes, mime: "image/png", filename: "logo.png" }), { code: "conflict" });
+  assert.ok((await findAsset(first.asset.id))?.deletedAt);
+  const again = await ingestBytes(ada.caller, { bytes, mime: "image/png", filename: "logo.png" });
+  assert.equal(again.asset.id, first.asset.id);
+  assert.equal(again.deduped, true);
+  assert.equal(again.asset.deletedAt, null);
+  assert.deepEqual(again.asset.collections, [collection]);
+});
+
 test("a public portal shows its collections' usable assets, and never a private one", async () => {
   const { id: collection } = await createCollection(ada.caller, { name: "Press" });
   const open = await upload("press.png", { collections: [collection] });
