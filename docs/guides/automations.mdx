@@ -5,6 +5,13 @@ description: An email, a signed webhook, or a Slack or Teams message when a bran
 
 An automation tells someone when something happens in a project. People make, change and test them on the **Automations** page, in the sidebar (Settings, Project, Automations leads there too), or at `/api/v1/automations`. An editor of a brand (the project's Editor role, or a write grant on the brand) manages the automations for that brand's releases; the project's admins manage every one, and alone make those for any brand and every other trigger, since those reach private assets, brands and the audit log. Each person sees the ones they may manage.
 
+<Note>
+On Artbucket Cloud from Team; every self-hosted install has it. A server that
+sells plans leaves `automations` out of a plan's [features](/configuration/limits):
+there, automations already made are kept and can be deleted, but none fires,
+and none can be made, changed or tested.
+</Note>
+
 ## When
 
 - **A brand is released** (`brand.released`): any brand of the project, or one named by `brand`. Each release fires once.

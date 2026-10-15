@@ -5,7 +5,7 @@ import { assets, brandPages, brandRules, brands, brandVersions, domains, grants,
 import type { Caller } from "@/lib/core/access";
 import { AssetError } from "@/lib/core/errors";
 import { effective } from "@/lib/core/settings";
-import { FEATURES, formatSize, held, organizationsFromEnv, over, type Feature, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, held, organizationsFromEnv, over, planHas, type Feature, type Limits } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
 import { RENDITION_DAYS } from "@/lib/storage";
 
@@ -197,7 +197,28 @@ const FEATURE_LABEL: Record<Feature, string> = {
   branding: "Custom branding",
   domains: "Custom domains",
   rebuilds: "Rebuilding sites when a brand is released",
+  automations: "Running automations",
+  fixes: "The Fixes list",
+  templates: "Making share cards and Office templates",
+  digest: "The weekly digest",
 };
+
+const featureOff = (f: Feature) => new AssetError("limit_reached", `${FEATURE_LABEL[f]} is off for this organization${manage()}`, { limit: f });
+
+/**
+ * Refuse what takes a feature the organization's plan doesn't have, with what
+ * checkLimit says. Reading too, and on a read-only organization: for what is
+ * the feature itself (Fixes, a template), not something it adds.
+ */
+export async function checkFeature(organizationId: string, f: Feature) {
+  if (!planHas((await limitsOf(organizationId)).features, f)) throw featureOff(f);
+}
+
+/** Whether the plan of the organization project `projectId` is in has `f`. */
+export async function projectHas(projectId: string, f: Feature) {
+  const [w] = await db.select({ org: projects.organizationId }).from(projects).where(eq(projects.id, projectId));
+  return !!w && planHas((await limitsOf(w.org)).features, f);
+}
 
 /**
  * Refuse, before anything moves, what would take the organization past a
@@ -219,9 +240,7 @@ export async function checkLimit(organizationId: string, what: Limited, { adding
     throw new AssetError("limit_reached", message + manage(), { limit: what, max: limit });
   };
   // A feature switched off refuses before any count: domains is both.
-  if (l.features && (FEATURES as readonly string[]).includes(what) && !l.features.includes(what as Feature)) {
-    throw new AssetError("limit_reached", `${FEATURE_LABEL[what as Feature]} is off for this organization${manage()}`, { limit: what });
-  }
+  if ((FEATURES as readonly string[]).includes(what) && !planHas(l.features, what as Feature)) throw featureOff(what as Feature);
   const q = tx ?? db;
   const counted = what === "editors" || what === "projects" || what === "brands" || what === "domains";
   if (tx && counted && l[what] !== null) {

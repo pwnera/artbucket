@@ -1,5 +1,6 @@
 import { route } from "@/lib/api";
 import { officeResponse, releasedOffice } from "@/lib/core/office";
+import { checkFeature } from "@/lib/core/usage";
 import { OfficeQuery } from "@/lib/schemas";
 
 /**
@@ -10,6 +11,7 @@ import { OfficeQuery } from "@/lib/schemas";
  * the one readers see.
  */
 export const GET = route("brand.read", async (req, _p, caller) => {
+  await checkFeature(caller.project.organizationId, "templates");
   const q = new URL(req.url).searchParams;
   const { format, version } = OfficeQuery.parse(Object.fromEntries(q));
   return officeResponse(req, await releasedOffice(caller.project.id, q.get("brand") ?? undefined, version, format));

@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { IconAlertTriangle, IconCircleCheck, IconDownload, IconTemplate } from "@/components/icons";
 import { Snippet } from "@/components/agent-access";
 import type { BrandHub } from "@/components/brands";
-import { useCan } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
+import { PlanGate } from "@/components/plan-gate";
 import { Group } from "@/components/settings/panels";
+import { has } from "@/components/settings/sections";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
@@ -55,7 +57,9 @@ const OFFICE = [
  * templates; its own Office files (`own`), each wearing the release when
  * downloaded, with what in them won't; and its press kit, once it is on
  * BrandHub (`hub`: null on a server without one). Nothing until the
- * brand is released: every one of them is drawn from a release.
+ * brand is released: every one of them is drawn from a release. Share cards
+ * and Office templates are a plan's (lib/limits.ts `templates`); BrandHub's
+ * own card and the press kit are everyone's.
  */
 export function Templates({
   brands,
@@ -74,7 +78,10 @@ export function Templates({
 }) {
   const router = useRouter();
   const can = useCan();
+  const me = useMe();
+  const planned = !me || has(me, "templates");
   const published = hub?.published ? hub : null;
+  const listed = published?.visibility === "public" ? published : null;
   return (
     <>
       <AppHeader trail={[{ label: "Templates" }]} />
@@ -131,7 +138,16 @@ export function Templates({
           </Empty>
         ) : (
           <>
-            <ShareCard key={brand.slug} brand={brand} origin={origin} hub={published?.visibility === "public" ? published : null} hubbed={!!hub} />
+            {(planned || listed) && <ShareCard key={brand.slug} brand={brand} origin={origin} hub={listed} hubbed={!!hub} />}
+            {!planned && (
+              <PlanGate
+                icon={<IconTemplate />}
+                title="Templates aren't in your plan"
+                description={`${listed ? "" : "Share cards for any page, and "}PowerPoint and Word templates that wear each release: its colors, its fonts and its current logo, your designers' own files included.`}
+              />
+            )}
+            {planned && (
+            <>
             <Group title="Slides and documents" description={`Release ${release.number}, ready to open in PowerPoint or Word. Each new release makes new ones.`}>
               <ul className="divide-y rounded-lg border">
                 {OFFICE.map((t) => (
@@ -184,6 +200,8 @@ export function Templates({
                 </p>
               )}
             </Group>
+            </>
+            )}
             {/* A server without BrandHub has no press kit: it is a listing's. */}
             {hub && (
               <Group

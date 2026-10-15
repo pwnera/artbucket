@@ -16,7 +16,7 @@ next to what they use.
 | `brands` | Brands, across its projects; a project's default brand counts once it holds rules, pages or a release | One is made |
 | `domains` | Custom domains, the app's and its portals', verified or not | One is added |
 | `emails` | Emails a day: invitations, share links and tests. Sign-up codes, password resets and portal requests to its own admins never count. Counted in each process's memory | One would be sent: an invitation still gives its link to copy, sending a link or a test answers `429` |
-| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains), `rebuilds` (a site's deploy hook called on each brand release). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added; a rebuild hook is set, and a release calls none |
+| `features` | What it may use: `agents` (keys and connecting agents), `shares` (share and upload links), `sso` (the organization's own single sign-on), `branding` (its own name and look), `domains` (custom domains), `rebuilds` (a site's deploy hook called on each brand release), `automations` ([automations](/guides/automations)), `fixes` ([Fixes](/guides/insights#fixes) and Notify), `templates` ([share cards](/guides/cards) and [Office templates](/guides/canon#office-templates); BrandHub's own card and press kit stay), `digest` (the [weekly digest](/guides/insights#weekly-digest)). Unset: everything | A key, an agent connection or a link is made; single sign-on or branding is set up; a domain is added; a rebuild hook is set, and a release calls none; an automation is made, changed or tested, and none fires; Fixes is read or a notice sent; a card or a template is asked for; the digest is sent |
 | `readOnly` | Everyone there can look, nobody can change anything; its admins can still manage people and settings | Every request |
 | `siteReview` | A built site that looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download) waits for you instead of going live. For organizations nobody vouches for yet, such as a free tier with open sign-up: set `LIMIT_SITE_REVIEW`, and `"siteReview": false` in a plan's row, which would otherwise take the server's. See [Held for review](/guides/sites#held-for-review) | A build is deployed |
 | `suspended` | A reason, or `true`: nothing it serves reaches the public, and it is read-only. Only in the database, see [Suspending an organization](#suspending-an-organization) | Every request |
@@ -45,7 +45,7 @@ LIMIT_PROJECTS=3
 LIMIT_BRANDS=5
 LIMIT_DOMAINS=2
 LIMIT_EMAILS=50          # a day
-LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso, branding, domains, rebuilds), or none
+LIMIT_FEATURES=agents     # comma-separated (agents, shares, sso, branding, domains, rebuilds, automations, fixes, templates, digest), or none
 LIMIT_SITE_REVIEW=true    # hold built sites that look like phishing for you to review
 ```
 

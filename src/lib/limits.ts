@@ -12,9 +12,17 @@ import { z } from "zod";
  * Relative imports only: `pnpm test` runs this under plain Node.
  */
 
-/** What can be switched off for an organization. Off, nobody there can make new ones, or set it up. `rebuilds`: a site's deploy hook called on each brand release. */
-export const FEATURES = ["agents", "shares", "sso", "branding", "domains", "rebuilds"] as const;
+/**
+ * What can be switched off for an organization. Off, nobody there can make new ones, or set it up. `rebuilds`: a
+ * site's deploy hook called on each brand release. `automations`: they neither fire nor change. `fixes`: the Fixes list
+ * and Notify. `templates`: share cards and Office templates (BrandHub's own share card and press kit stay). `digest`:
+ * the weekly email.
+ */
+export const FEATURES = ["agents", "shares", "sso", "branding", "domains", "rebuilds", "automations", "fixes", "templates", "digest"] as const;
 export type Feature = (typeof FEATURES)[number];
+
+/** Whether a plan's `features` (null: every one) has `f`. */
+export const planHas = (features: readonly Feature[] | null, f: Feature) => !features || features.includes(f);
 
 const UNITS: Record<string, number> = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12 };
 

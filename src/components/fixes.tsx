@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconCertificate, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
+import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
+import { PlanGate } from "@/components/plan-gate";
+import { has } from "@/components/settings/sections";
 import { ShareDialog } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +59,7 @@ const Done = ({ children, at, by }: { children: React.ReactNode; at?: string; by
  */
 export function Fixes({ data, collections, issueUrl = null }: { data: FixesData | null; collections: { id: string; name: string }[]; issueUrl?: string | null }) {
   const router = useRouter();
+  const me = useMe();
   const [notifying, setNotifying] = useState<Place | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
   const rows = data ? rowsOf(data, setNotifying, setRequesting, issueUrl) : [];
@@ -71,7 +75,13 @@ export function Fixes({ data, collections, issueUrl = null }: { data: FixesData 
           aside={data && data.open > 0 ? <Badge variant="secondary">{data.open} to do</Badge> : undefined}
           description="What needs a hand: sites showing an old version or built with an old component, searches that found nothing, licenses about to end."
         />
-        {!data ? (
+        {me && !has(me, "fixes") ? (
+          <PlanGate
+            icon={<IconTool />}
+            title="Fixes aren't in your plan"
+            description="See which sites still show an old logo, which searches found nothing and which licenses are about to end, and tell whoever can fix each in a click."
+          />
+        ) : !data ? (
           <p className="text-muted-foreground text-sm">Fixes couldn&apos;t load. Try again in a moment.</p>
         ) : !rows.length ? (
           <Empty>
