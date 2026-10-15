@@ -4,6 +4,16 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.6.0](https://github.com/pwnera/artbucket/compare/v2.5.0...v2.6.0) (2026-10-15)
+
+
+### Features
+
+* **automations:** governance, refusals, Fixes and waiting reviews as triggers; Slack and Teams formats ([#266](https://github.com/pwnera/artbucket/issues/266)) ([83dd85b](https://github.com/pwnera/artbucket/commit/83dd85b7a515a9e07efb6a75d3c4baf2bde93d6e))
+* **automations:** recipes, ready-made automations to start from ([#269](https://github.com/pwnera/artbucket/issues/269)) ([dec3ac0](https://github.com/pwnera/artbucket/commit/dec3ac0bdfddb4efd6ae18723fa107466527d0ad))
+* **fixes:** FIX_ISSUE_URL, an issue tracker Fixes can open issues in ([#270](https://github.com/pwnera/artbucket/issues/270)) ([a3fd2bb](https://github.com/pwnera/artbucket/commit/a3fd2bbd0c6d964fea527325c012e622c0b59853))
+* **templates:** a brand's own Office templates, wearing each release when downloaded ([#268](https://github.com/pwnera/artbucket/issues/268)) ([9fdd374](https://github.com/pwnera/artbucket/commit/9fdd3746d848c810246695ceac784820712c8760))
+
 ## [2.5.0](https://github.com/pwnera/artbucket/compare/v2.4.0...v2.5.0) (2026-10-14)
 
 
