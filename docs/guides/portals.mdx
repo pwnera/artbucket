@@ -35,7 +35,7 @@ a switch between brands. Brands go in by slug, in order
 
 Visitors read a brand's **latest publish, never the draft**. Edit as much as
 you like: nothing reaches a portal until someone publishes, and a brand that
-was never published shows nothing at all. The Portals page says so beside
+was never released shows nothing at all. The Sites page says so beside
 each brand: the version visitors read and when it was published, or "not
 published". Publishing answers with the portals now showing the brand.
 
@@ -67,7 +67,7 @@ portal shows yet gets one in the same step as its publish, if you like: the
 publish dialog offers a portal named for the brand, open to the project's
 members or to anyone with the address.
 
-A portal's menu on the Portals page takes it offline at once (its address
+A portal's menu on the Sites page takes it offline at once (its address
 says it is closed, and nothing about it is lost), brings it back, or deletes
 it. Over the API, `POST /api/v1/sites/{id}/close` takes it offline and
 `PATCH` with `expiresAt: null` reopens it.
@@ -162,8 +162,8 @@ picked, and lists the portals showing it.
 
 ## Around the pages
 
-The portal's `site` holds what sits around the pages, set under **Around the
-pages** or in the API, where it replaces the whole set:
+The portal's `site` holds what sits around the pages, set under **Header
+links, footer and terms** in the portal's form, or in the API, where it replaces the whole set:
 
 ```json
 {
