@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useSelectedLayoutSegments } from "next/navigation";
 import { toast } from "sonner";
@@ -52,6 +52,8 @@ import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, guidelinesPath } from "@/lib/site";
 import { LinkIcon } from "@/components/link-pending";
+import { SaveStatus } from "@/components/save-status";
+import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { usePins } from "@/components/sidebar-prefs";
 import { IconButton } from "@/components/icon-button";
 
@@ -90,6 +92,14 @@ export const releaseDate = (iso: string) => new Date(iso).toLocaleDateString(und
 export function BrandHeader({ brand, origin, rules, status, release, at, compact }: BrandHeaderProps) {
   const can = useCan();
   const params = useSearchParams();
+  const router = useRouter();
+  // A write on any tab may have made a draft: while the header says all is released, ask the server again, so Release shows.
+  const { savedAt } = useSyncExternalStore(subscribe, snapshot, () => IDLE);
+  const [before] = useState(snapshot().savedAt);
+  const released = status?.publish === "current";
+  useEffect(() => {
+    if (released && savedAt && savedAt !== before) router.refresh();
+  }, [released, savedAt, before, router]);
   // Edit opens the ways to change the pages (an agent, Git, Eject to code) over the page on show, else the first.
   const editing = at === "guidelines" ? { page: params.get("page"), context: params.get("context"), ways: "1" } : { ways: "1" };
   const hub = status?.hub ?? null;
@@ -121,6 +131,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     // Under the name on a phone, the full header's buttons wrap rather than run past the screen's edge.
     <div className={cn("flex shrink-0 items-center gap-2", !compact && "max-w-full flex-wrap")}>
       {/* Its repository, with whether it is in step: only once there is one. Connecting is in the menu. */}
+      {can("brand.edit", brand) && <SaveStatus />}
       {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit", brand)} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit", brand) && (
