@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPlus, IconTrash, IconUsersGroup, IconX } from "@/components/icons";
+import { Confirm } from "@/components/confirm";
 import { IconButton } from "@/components/icon-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,15 +65,20 @@ function GroupCard({ g, people, places, done }: { g: GroupRow; people: Person[];
         <IconUsersGroup aria-hidden className="text-muted-foreground size-4" />
         <h3 className="font-medium">{g.name}</h3>
         <span className="text-muted-foreground text-sm tabular-nums">{g.members.length}</span>
-        <IconButton
-          variant="ghost"
-          size="icon-sm"
-          label={`Delete ${g.name}`}
-          className="text-muted-foreground hover:text-destructive ms-auto"
-          onClick={async () => done(await send("DELETE", `/api/v1/groups/${g.id}`))}
+        <Confirm
+          title={`Delete ${g.name}?`}
+          says="Its members lose every role the group gave them."
+          action="Delete"
+          run={async () => {
+            const r = await send("DELETE", `/api/v1/groups/${g.id}`);
+            done(r);
+            return r;
+          }}
         >
-          <IconTrash />
-        </IconButton>
+          <IconButton variant="ghost" size="icon-sm" label={`Delete ${g.name}`} className="text-muted-foreground hover:text-destructive ms-auto">
+            <IconTrash />
+          </IconButton>
+        </Confirm>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {g.members.map((m) => (
