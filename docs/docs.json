@@ -38,6 +38,19 @@
         ]
       },
       {
+        "group": "Use cases",
+        "pages": [
+          "use-cases/set-up-your-brand",
+          "use-cases/share-with-partners",
+          "use-cases/replace-the-logo",
+          "use-cases/check-a-photo",
+          "use-cases/run-a-rebrand",
+          "use-cases/brand-for-ai",
+          "use-cases/move-from-another-tool",
+          "use-cases/choose-a-cloud-plan"
+        ]
+      },
+      {
         "group": "Guides",
         "pages": [
           "guides/assets",
