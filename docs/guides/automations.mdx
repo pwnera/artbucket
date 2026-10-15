@@ -129,3 +129,17 @@ It answers the run, `delivered` or `failed` with the error, and a 422 when there
 Each thing that fires an automation is a run, delivered at once. A webhook answering 2xx, or every email sent, delivers it. Anything else is tried again 5 minutes later, then an hour after that: three attempts in all, then the run is failed. An automation turned off fires nothing, and its runs waiting for a retry wait with it.
 
 The run log, under each automation on the Automations page and at `GET /api/v1/automations/{id}/runs`, keeps its latest 50 runs: what set each off, and every attempt with the webhook's status or the error. Making, changing and deleting an automation is in the audit log.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Check a photo" icon="circle-check" href="/use-cases/check-a-photo">
+    Licenses recorded, and the expiry recipe.
+  </Card>
+  <Card title="Insights and Fixes" icon="chart-line" href="/guides/insights">
+    What the Fixes trigger watches.
+  </Card>
+  <Card title="Run a rebrand" icon="arrows-rotate" href="/use-cases/run-a-rebrand">
+    Releases, rebuilds and who to tell.
+  </Card>
+</CardGroup>
