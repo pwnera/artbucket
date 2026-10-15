@@ -33,7 +33,7 @@ import { AssetError } from "@/lib/core/errors";
 import { record, recordSearch } from "@/lib/core/events";
 import { appUrlFor, assignable, assignHost, cnameFor, forgetHosts, portalNamed, portalUrl, proveHost } from "@/lib/core/domains";
 import { portalAccessEmail, portalRequestEmail, sendAs } from "@/lib/core/mail";
-import { checkLimit, limitsOf } from "@/lib/core/usage";
+import { checkLimit, limitsOf, projectHas } from "@/lib/core/usage";
 import { suspended, suspendedIn } from "@/lib/core/suspension";
 import { featureOn, featureOnIn, requireFeature } from "@/lib/core/features";
 import { accessIn, highest } from "@/lib/access";
@@ -788,12 +788,18 @@ export async function viewPortalBrand(slug: string, pass: Pass, brandSlug: strin
   return readBrand(p.projectId, brand, p.expiresAt, { ...o, by: byPortal(p.id) });
 }
 
+/** A portal's Office templates are its organization's plan's (lib/limits.ts `templates`): without, a visitor finds none. */
+async function templated(p: Row) {
+  if (!(await projectHas(p.projectId, "templates"))) throw new AssetError("not_found", "This portal has no Office templates");
+}
+
 /**
  * One of a portal's brands as an Office template (lib/core/office.ts), from
  * its latest publish, behind the same door as the portal.
  */
 export async function portalOffice(slug: string, pass: Pass, brandSlug: string, format: OfficeFormat) {
   const { p } = await open(slug, pass);
+  await templated(p);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
   const src = await publishedSource(p.projectId, brand.slug);
@@ -804,6 +810,7 @@ export async function portalOffice(slug: string, pass: Pass, brandSlug: string, 
 /** One of a portal's brands' own Office templates (lib/core/office-templates.ts), from its latest publish, behind the portal's door: only files that may leave. */
 async function portalTemplateSource(slug: string, pass: Pass, brandSlug: string) {
   const { p } = await open(slug, pass);
+  await templated(p);
   const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
   if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
   const src = await publishedSource(p.projectId, brand.slug);

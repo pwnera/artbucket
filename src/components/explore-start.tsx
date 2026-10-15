@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { IconArrowRight, IconClock, IconInbox, IconSearch, IconX } from "@/components/icons";
 import { useNavigate, type SavedSearch } from "@/components/app-sidebar";
+import { brandHref } from "@/components/brand-switcher";
 import { useMe } from "@/components/can";
 import { TypeIcon } from "@/components/catalog";
 import { CardGrid, ObjectCard, Section } from "@/components/catalog-matches";
 import { TYPE_LABEL } from "@/lib/catalog";
 import type { Collection } from "@/components/collections";
+import { useShell } from "@/components/shell";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -44,12 +46,17 @@ const ext = (name: string) => /\.([a-z0-9]{1,5})$/i.exec(name)?.[1].toUpperCase(
 export function ExploreStart({ latest, collections, searches, setup }: { latest: Latest[]; collections: Collection[]; searches: SavedSearch[]; setup: React.ReactNode }) {
   const navigate = useNavigate();
   const project = useMe()?.project.name;
+  const { brands } = useShell();
   const [stored] = useRecents();
   const recents = liveRecents(stored, collections, searches);
 
   const opened = recents.filter((r) => r.kind === "brand" || r.kind === "collection");
   const folders = [
     ...opened.map((r) => ({ key: `${r.kind}:${r.id}`, type: r.kind as "brand" | "collection", name: r.label, sub: `${r.kind === "brand" ? "Brand" : "Collection"} · opened ${short(r.at)} ago`, href: r.href })),
+    // Then the project's brands and collections, so someone new sees them before opening any.
+    ...brands
+      .filter((b) => !opened.some((r) => r.id === b.id || r.href === brandHref(b)))
+      .map((b) => ({ key: `brand:${b.id}`, type: "brand" as const, name: b.name, sub: "Brand", href: brandHref(b) })),
     ...collections
       .filter((c) => !opened.some((r) => r.id === c.id))
       .map((c) => ({ key: `collection:${c.id}`, type: "collection" as const, name: c.name, sub: "Collection", href: `/?collection=${c.id}` })),

@@ -9,10 +9,12 @@ import { resolveBrand } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
 import { signHook } from "@/lib/core/features";
 import { gapsIn, staleIn } from "@/lib/core/insights";
+import { checkFeature, limitsOf } from "@/lib/core/usage";
 import { automationEmail, expiringEmail, releasedEmail, sendAs } from "@/lib/core/mail";
 import { bodyIn, summaryOf, takes, type AutomationTrigger } from "@/lib/automations";
 import { env } from "@/lib/env";
 import { postPublic } from "@/lib/fetch-public";
+import { planHas } from "@/lib/limits";
 import { can, needs } from "@/lib/permissions";
 import { today } from "@/lib/rights";
 import type { AutomationInput, AutomationPatch } from "@/lib/schemas";
@@ -27,7 +29,9 @@ import { seal, unseal } from "@/lib/settings";
  * (its `key`), and delivered at once; a failed delivery is tried again by
  * runAutomations, after BACKOFF, MAX_ATTEMPTS in all, each attempt kept as
  * the run log. A brand's editors manage its release automations; the
- * project's admins every one (mayManage).
+ * project's admins every one (mayManage). A plan's (lib/limits.ts
+ * `automations`): without it they are kept, listed and can be deleted, but
+ * none is made, changed or tested, and none fires.
  */
 
 type Row = typeof automations.$inferSelect;
@@ -61,6 +65,12 @@ const RUNS_SHOWN = 50;
 const manage = (caller: Caller) => {
   if (!can(caller, "automation.manage")) throw new AssetError("forbidden", `Automations take ${needs("automation.manage")}`);
 };
+
+/** Making, changing or testing one: the plan's too. */
+const planned = (caller: Caller) => checkFeature(caller.project.organizationId, "automations");
+
+/** Why a run of an organization whose plan lost automations went nowhere. */
+export const UNPLANNED = "Not sent: automations aren't in this organization's plan";
 
 /**
  * Whether the caller may see and change this one: an admin any, an editor of
@@ -189,6 +199,7 @@ async function columns(caller: Caller, was: Row | null, input: z.infer<typeof Au
 /** POST /api/v1/automations. A webhook's signing secret is in the answer, this once. */
 export async function createAutomation(caller: Caller, input: z.infer<typeof AutomationInput>) {
   manage(caller);
+  await planned(caller);
   const { set, secret } = await columns(caller, null, input);
   if (!(await mayManage(caller, { trigger: input.trigger, brandId: set.brandId ?? null }))) throw refused();
   const [row] = await db
@@ -202,6 +213,7 @@ export async function createAutomation(caller: Caller, input: z.infer<typeof Aut
 /** PATCH /api/v1/automations/{id}: what is sent leaves the rest as it is. Turned into a webhook, it gets a secret, given once. */
 export async function updateAutomation(caller: Caller, id: string, input: z.infer<typeof AutomationPatch>) {
   manage(caller);
+  await planned(caller);
   const was = await automationOf(caller, id);
   const { set, secret } = await columns(caller, was, input);
   if (!(await mayManage(caller, { trigger: set.trigger!, brandId: set.brandId === undefined ? was.brandId : set.brandId }))) throw refused();
@@ -261,13 +273,16 @@ async function enqueue(made: (Fired & { key: string; payload: Record<string, unk
   return rows.map((r) => r.id);
 }
 
-/** The enabled automations of `trigger`, in a project or (null) in every one, each with its project. */
-const enabledIn = (projectId: string | null, trigger: Row["trigger"]) =>
-  db
-    .select({ automation: automations, project: { id: projects.id, slug: projects.slug, name: projects.name } })
+/** The enabled automations of `trigger`, in a project or (null) in every one, each with its project: only where the plan has automations. */
+async function enabledIn(projectId: string | null, trigger: Row["trigger"]): Promise<Fired[]> {
+  const rows = await db
+    .select({ automation: automations, project: { id: projects.id, slug: projects.slug, name: projects.name }, organizationId: projects.organizationId })
     .from(automations)
     .innerJoin(projects, eq(projects.id, automations.projectId))
     .where(and(projectId ? eq(automations.projectId, projectId) : undefined, eq(automations.trigger, trigger), eq(automations.enabled, true)));
+  const planned = await Promise.all(rows.map((r) => limitsOf(r.organizationId).then((l) => planHas(l.features, "automations"))));
+  return rows.filter((_, i) => planned[i]).map(({ automation, project }) => ({ automation, project }));
+}
 
 const assetName = { id: assets.id, filename: assets.filename, title: sql<string | null>`${assets.metadata} ->> 'title'` };
 
@@ -520,9 +535,11 @@ export async function deliverDue(ids?: string[]) {
       .innerJoin(projects, eq(projects.id, automations.projectId))
       .where(eq(automations.id, run.automationId));
     if (!a) continue;
-    const attempt = await attemptRun(a.automation, a.organizationId, run.payload);
+    // One left waiting when the plan lost automations goes nowhere, and says why: never sent late, once the plan is back.
+    const planned = planHas((await limitsOf(a.organizationId)).features, "automations");
+    const attempt = planned ? await attemptRun(a.automation, a.organizationId, run.payload) : { at: new Date().toISOString(), ok: false, code: null, error: UNPLANNED };
     const attempts = [...run.attempts, attempt];
-    const status = attempt.ok ? "delivered" : attempts.length >= MAX_ATTEMPTS ? "failed" : "pending";
+    const status = attempt.ok ? "delivered" : !planned || attempts.length >= MAX_ATTEMPTS ? "failed" : "pending";
     const nextAt = status === "pending" ? new Date(Date.now() + BACKOFF[attempts.length - 1] * 60_000) : null;
     await db.update(automationRuns).set({ attempts, status, nextAt }).where(eq(automationRuns.id, run.id));
     if (attempt.ok) delivered++;
@@ -636,6 +653,7 @@ async function sampleOf(caller: Caller, a: Row): Promise<Record<string, unknown>
  */
 export async function testAutomation(caller: Caller, id: string) {
   manage(caller);
+  await planned(caller);
   const a = await automationOf(caller, id);
   const runId = randomUUID();
   const payload = bodyOf(runId, { automation: a, project: { id: caller.project.id, slug: caller.project.slug, name: caller.project.name }, payload: { ...(await sampleOf(caller, a)), test: true } });

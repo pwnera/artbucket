@@ -12,6 +12,7 @@ import { AssetError } from "@/lib/core/errors";
 import { canEmail, digestEmail, sendAs } from "@/lib/core/mail";
 import { limitsOf } from "@/lib/core/usage";
 import { accessIn, highest } from "@/lib/access";
+import { planHas } from "@/lib/limits";
 import { env } from "@/lib/env";
 import { today } from "@/lib/rights";
 import { allows } from "@/lib/scopes";
@@ -138,7 +139,7 @@ export async function digestOf(caller: Caller, now = new Date()): Promise<Digest
   // Licenses as the library reads them, from the server's today: approved, not ended yet, ending within EXPIRING_DAYS.
   const [expiring, review, insights] = await Promise.all([
     searchAssets(caller, { status: ["active"], expiresBefore: ymd(new Date(Date.parse(today()) + (EXPIRING_DAYS + 1) * DAY)), limit: 50 }),
-    searchAssets(caller, { review: true, limit: 1 }),
+    searchAssets(caller, { review: true, limit: 1, facets: false }),
     featureOnIn("insights", caller.project.id).then((on) => (on ? insightsOf(caller) : null)),
   ]);
   // ponytail: the 50 newest of those, soonest first; search would need an order by `expires` for a project with more in a fortnight.
@@ -174,7 +175,8 @@ const readers = () =>
  * to each editor and admin of each project, once. A run finds who is due,
  * builds what they see, and claims the week before sending, so two
  * instances sweeping at once send it once. Only where the organization can
- * email (lib/core/mail.ts canEmail), and not to a read-only one. How many went.
+ * email (lib/core/mail.ts canEmail), whose plan has the digest (lib/limits.ts
+ * `digest`), and not to a read-only one. How many went.
  *
  * ponytail: every person's digest is built on its own, a handful of queries
  * each. Fine to some thousands of people; past that, build once per project
@@ -189,7 +191,7 @@ export async function sendDigests(now = new Date()) {
     emails
       .set(
         organizationId,
-        Promise.all([canEmail(organizationId), limitsOf(organizationId)]).then(([can, limits]) => can && !limits.readOnly),
+        Promise.all([canEmail(organizationId), limitsOf(organizationId)]).then(([can, limits]) => can && !limits.readOnly && planHas(limits.features, "digest")),
       )
       .get(organizationId)!;
   let sent = 0;

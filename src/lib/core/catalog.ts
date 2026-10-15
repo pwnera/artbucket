@@ -463,13 +463,13 @@ export async function describeObject(caller: Caller, ref: string) {
 /** The tree's rows: every object of every project the caller reaches, and their parts (a brand's rules and pages), retired aside. */
 export async function catalogTree(caller: Caller) {
   const reaches = await reachOf(caller);
-  const found = (await rows(and(seen(reaches), ne(o.status, "replaced"))!).orderBy(asc(o.type), asc(o.name))) as Row[];
+  const where = and(seen(reaches), ne(o.status, "replaced"))!;
+  const found = (await rows(where).orderBy(asc(o.type), asc(o.name))) as Row[];
   const list = await items(found);
-  // Assets fold by type in the tree: image, video, font...
-  const assetIds = list.filter((i) => i.type === "asset").map((i) => i.id);
-  const kinds = new Map(
-    assetIds.length ? (await db.select({ id: assets.id, kind: assetType }).from(assets).where(inArray(assets.id, assetIds))).map((r) => [r.id, r.kind]) : [],
-  );
+  // Assets fold by type in the tree: image, video, font... Picked by the tree's own filter, never by id: a parameter
+  // per asset grows the statement with the library, and past 65,535 of them Postgres refuses it.
+  const listed = db.select({ id: o.id }).from(o).where(and(where, eq(o.type, "asset")));
+  const kinds = new Map((await db.select({ id: assets.id, kind: assetType }).from(assets).where(inArray(assets.id, listed))).map((r) => [r.id, r.kind]));
   for (const i of list) if (kinds.has(i.id)) i.kind = kinds.get(i.id);
   const byId = new Map(list.map((i) => [i.id, i]));
   // What was shared into each project, beside its own: the same object, said to come from home.

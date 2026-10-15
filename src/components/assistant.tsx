@@ -158,6 +158,8 @@ type Action = {
   error?: string;
   note?: string;
   details?: { label: string; value: string }[];
+  /** A webhook's signing secret, made by the change: shown on its card this once, never kept (the server keeps it from the model and the history). */
+  secret?: string;
 };
 type Step = { tool: string } | { said: string };
 /**
@@ -415,9 +417,9 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
           setActions((as) => ({ ...as, [id]: { name: String(ev.name ?? ""), label: String(ev.label ?? "A change"), input: ev.input, state: "waiting", ...(typeof ev.note === "string" && { note: ev.note }), ...(Array.isArray(ev.details) && { details: rowsOf(ev.details) }) } }));
           current((t) => ({ ...t, answer: `${t.answer}\n\n[[action:${id}]]\n\n` }));
         } else if (ev.type === "action" && typeof ev.id === "string") {
-          const { id, state, error } = ev as { id: string; state: Action["state"]; error?: string };
+          const { id, state, error, secret } = ev as { id: string; state: Action["state"]; error?: string; secret?: unknown };
           if (state === "done") changed = true;
-          setActions((as) => (as[id] ? { ...as, [id]: { ...as[id], state, error } } : as));
+          setActions((as) => (as[id] ? { ...as, [id]: { ...as[id], state, error, ...(typeof secret === "string" && { secret }) } } : as));
           setStatus("Writing");
         } else if (ev.type === "error" && typeof ev.message === "string") {
           const message = ev.message;
@@ -872,6 +874,17 @@ function ActionCard({
           <summary className="text-muted-foreground hover:text-foreground w-fit cursor-pointer list-none text-xs group-open:hidden">Show {rows.length - SHOWN} more</summary>
           <dl className="grid grid-cols-[minmax(4.5rem,max-content)_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">{rows.slice(SHOWN).map((r, i) => row(r, SHOWN + i))}</dl>
         </details>
+      )}
+      {a.secret && a.state === "done" && (
+        <div className="bg-warning/10 mx-3.5 mt-2.5 grid gap-1.5 rounded-lg px-2.5 py-2 text-xs">
+          <p className="text-warning leading-relaxed">
+            Each POST is signed with this secret, in <code>Artbucket-Signature</code>. Copy it now: it isn&apos;t shown again.
+          </p>
+          <div className="flex items-center gap-1.5">
+            <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1">{a.secret}</code>
+            <CopyButton text={a.secret} label="Copy the secret" what="the secret" size="icon-sm" />
+          </div>
+        </div>
       )}
       {a.state === "waiting" ? (
         <div className="bg-muted/40 mt-3 flex gap-2 border-t px-3.5 py-2.5">

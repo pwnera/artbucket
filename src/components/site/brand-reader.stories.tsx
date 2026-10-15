@@ -4,6 +4,9 @@ import { inApp } from "../../../.storybook/fixtures/library";
 import { BrandReader } from "@/components/site/brand-reader";
 import { bookView } from "@/components/site/story-site";
 
+/** The brand the pages are of, as GET /api/v1/brands lists it: who may edit it is decided on it. */
+const blender = { id: "brd_blender", slug: "blender", name: "Blender", default: true, rules: 12 };
+
 /**
  * A brand's pages as readers see them, inside the app (/brands/{slug}/guidelines?focus=1): the brand's site under
  * the app's bar, which says whether it shows the draft or the live release, with the contexts, comments, Theme and
@@ -13,7 +16,7 @@ const meta = preview.meta({
   title: "Brand site/Parts/Brand reader",
   component: BrandReader,
   parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/brands/blender/guidelines", query: { focus: "1" } } } },
-  args: { initial: bookView("blender", "voice"), status: { publish: "current" as const, live: 2 }, version: "draft" as const },
+  args: { initial: bookView("blender", "voice"), brand: blender, status: { publish: "current" as const, live: 2 }, version: "draft" as const },
   decorators: [inApp],
 });
 

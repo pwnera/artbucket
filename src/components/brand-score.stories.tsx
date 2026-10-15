@@ -1,12 +1,12 @@
 import preview from "#.storybook/preview";
-import { emptyStatus, me, status, viewer, withMe } from "#.storybook/fixtures/brands";
+import { acme, emptyStatus, me, northwind, status, viewer, withMe } from "#.storybook/fixtures/brands";
 import { expect, screen, spyOn, waitFor } from "storybook/test";
 import { BrandScore } from "@/components/brand-score";
 
 const meta = preview.meta({
   title: "App/Features/Brands/Score",
   component: BrandScore,
-  args: { name: "Acme", slug: "acme", status },
+  args: { name: "Acme", slug: "acme", target: acme, status },
   decorators: [withMe(me)],
 });
 
@@ -24,7 +24,7 @@ export const Playground = meta.story({
 
 /** Fix with an agent: a prompt for the fixes worth the most, to paste to an agent connected over MCP. */
 export const FixWithAnAgent = meta.story({
-  args: { status: emptyStatus, name: "Northwind", slug: "northwind" },
+  args: { status: emptyStatus, name: "Northwind", slug: "northwind", target: northwind },
   beforeEach: () => {
     const clip = spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     return () => clip.mockRestore();
@@ -40,7 +40,7 @@ export const FixWithAnAgent = meta.story({
 });
 
 /** Nothing done yet (Northwind): every step to do, and no public score to share. */
-export const Empty = meta.story({ args: { status: emptyStatus, name: "Northwind", slug: "northwind" } });
+export const Empty = meta.story({ args: { status: emptyStatus, name: "Northwind", slug: "northwind", target: northwind } });
 
 /** Everything done: nothing to fix. */
 export const Complete = meta.story({

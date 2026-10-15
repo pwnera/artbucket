@@ -8,6 +8,7 @@ import { AssetError } from "@/lib/core/errors";
 import { pageSnapshot } from "@/lib/core/page-store";
 import type { Caller } from "@/lib/core/access";
 import { collectionItems, presentAsset, type Sign } from "@/lib/core/section-assets";
+import { projectHas } from "@/lib/core/usage";
 import { deriveTheme } from "@/lib/brand-theme";
 import { planView, type Level, type Source } from "@/lib/page-view";
 import { assetRefs, liveProps } from "@/lib/pages";
@@ -127,7 +128,7 @@ export async function viewPage(
   if (plan.kind === "redirect") return { ...(await viewPage(ws, src, plan.slug, o)), redirect: plan.slug };
   const { view } = plan;
   const editor = o.level === "editor";
-  const updates = plan.updates > 0 ? await listUpdates(src.brandId, plan.updates) : undefined;
+  const [updates, office] = await Promise.all([plan.updates > 0 ? listUpdates(src.brandId, plan.updates) : undefined, projectHas(ws, "templates")]);
 
   // Every asset in one query, the publishes' pictures too. Preview equals portal: editors see what readers see, and are told what they don't.
   const ids = [...new Set([...plan.assets, ...(updates ?? []).flatMap((u) => u.image ?? [])])];
@@ -215,5 +216,6 @@ export async function viewPage(
     ...(updates && { updates: updates.map((u) => ({ ...u, image: u.image && usable.has(u.image) ? u.image : null })) }),
     signed,
     warnings: [...view.warnings, ...dropped],
+    ...(!office && { office: false as const }),
   };
 }

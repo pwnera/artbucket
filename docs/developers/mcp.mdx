@@ -87,6 +87,8 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `close_site` | write, share | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
 | `check_site` | read | Check a site you built, hosted anywhere, against the library: what it uses, and why any of it may not be shown. Nothing is stored |
 | `deploy_site` | write | Publish a site you built to a site's address, checked first; its files as text, or base64 for the rest |
+| `list_deployments` | write | A site's deployments, newest first: where each is mounted, its state, and why one failed or is held |
+| `restore_deployment` | write | Put a replaced deployment back live at its path, undoing a bad deploy without building again |
 | `delete_site` | write, share | Delete a portal; its address and domain stop answering |
 | `list_site_requests` | write, share | Who asked to get into a password or members portal, or asked for something through it |
 | `decide_site_request` | write, share | Approve or deny a request; approved access gets a link of its own |
@@ -117,6 +119,15 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `object_activity` | read | What happened to one catalog object, newest first |
 | `shared_with_us` | read | What other projects shared into this one |
 | `list_projects` | read | Every project you reach, your role there, and how much each holds |
+| `create_project` | admin (organization) | A new project in the organization |
+| `rename_project` | admin | Rename a project; its address stays |
+| `get_fixes` | write | What needs doing, as Fixes lists it: places on replaced versions, searches that found nothing, licenses ending soon |
+| `list_automations` | write | The automations you may manage, their last run, and ready-made recipes to start from |
+| `create_automation` | write | An email or a signed webhook when a brand is released, a license nears its end, and more; a webhook's secret comes back once |
+| `update_automation` | write | Change an automation, or turn it off and on |
+| `delete_automation` | write | Delete an automation and its run log |
+| `test_automation` | write | Send an automation now with a sample event, marked as a test |
+| `automation_runs` | write | An automation's latest runs and every attempt, with the webhook's status or the error |
 
 A tool shows up in `tools/list` only when the key may run it: the portal
 tools, only for a key that may manage portals (write on the project, with

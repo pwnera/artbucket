@@ -63,7 +63,7 @@ export const Invite = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Invite people" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite someone" });
-    await userEvent.type(within(dialog).getByLabelText("Email"), "lin@acme.test");
+    await userEvent.type(within(dialog).getByLabelText("Emails"), "lin@acme.test");
     await userEvent.click(within(dialog).getByRole("combobox", { name: "As" }));
     await userEvent.click(await screen.findByRole("option", { name: /^Editor/ }));
     await userEvent.click(await within(dialog).findByRole("button", { name: "Send invitation" }));

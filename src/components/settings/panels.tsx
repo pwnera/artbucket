@@ -5,7 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { IconArrowRight, IconCheck, IconDots, IconPlus, IconRefresh, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { MakeDialog, pickProject, useGo, type Me } from "@/components/account";
-import { Writable } from "@/components/can";
+import { useMe, Writable } from "@/components/can";
 import { FieldsEditor } from "@/components/field-manager";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -28,7 +28,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import type { FieldDef } from "@/lib/fields";
-import { FEATURES, formatSize, type Feature, type Limits } from "@/lib/limits";
+import { FEATURES, formatSize, planHas, type Feature, type Limits } from "@/lib/limits";
 import { roleName, type Scope } from "@/lib/scopes";
 import { send } from "@/lib/send";
 import { cn } from "@/lib/utils";
@@ -324,12 +324,25 @@ export function NotificationsPanel({ weekly }: { weekly: boolean }) {
   const id = useId();
   const [on, setOn] = useState(weekly);
   const [busy, setBusy] = useState(false);
+  // The digest is a plan's (lib/limits.ts `digest`): the switch is the person's, for every organization whose plan has it.
+  const me = useMe();
+  const to = me?.upgrade ?? me?.billing;
   return (
     <Group
       title="Weekly digest"
       description="On Mondays, what happened last week in each project you edit: brands released, new assets, licenses about to end, searches that found nothing, and what waits for review."
       info="Only editors and admins get it, and only for a week with something in it."
     >
+      {me && !planHas(me.features, "digest") && (
+        <p className="text-muted-foreground text-sm">
+          {me.project.organization.name}&apos;s plan doesn&apos;t include it: you get none for its projects.{" "}
+          {to && (
+            <a href={to} className="text-foreground underline underline-offset-2">
+              Upgrade
+            </a>
+          )}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <Switch
           id={id}
@@ -566,7 +579,7 @@ export type Usage = {
 };
 
 /** How the Usage panel names a feature the limits switch off. */
-const OFF: Record<Feature, string> = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on", branding: "custom branding", domains: "custom domains", rebuilds: "rebuilding sites when a brand is released" };
+const OFF: Record<Feature, string> = { agents: "connecting agents and API keys", shares: "share and upload links", sso: "setting up single sign-on", branding: "custom branding", domains: "custom domains", rebuilds: "rebuilding sites when a brand is released", automations: "automations", fixes: "Fixes", templates: "share cards and Office templates", digest: "the weekly digest" };
 
 /** What the organization uses, against the limits whoever runs the server set. */
 export function UsagePanel({ usage }: { usage: Usage }) {

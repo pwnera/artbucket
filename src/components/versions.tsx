@@ -176,16 +176,25 @@ export function Lifecycle({
   );
 }
 
+/** How many places show an asset (Used in: brand rules, pages, portals), which follow its current version; null when unknown. */
+async function following(id: string): Promise<number | null> {
+  const r = await fetch(`/api/v1/assets/${id}/insights`).catch(() => null);
+  const d: { rules: unknown[]; pages: unknown[]; portals: unknown[] } | null = r?.ok ? ((await r.json().catch(() => null))?.data ?? null) : null;
+  return d ? d.rules.length + d.pages.length + d.portals.length : null;
+}
+
 /**
  * A new file for this asset: uploaded, then added to its stack with
- * versionOf, current at once or as a draft. Shared by the New version menu
- * and a file dropped on the open asset. `onOpen` shows the version made.
+ * versionOf, current at once or as a draft. Shared by the New version menu,
+ * a file dropped on the open asset and the asset's menu, which names the
+ * asset (`of`) where the hook has none. `onOpen` shows the version made.
  */
-export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
+export function useVersionUpload(asset: Asset | null, onOpen: (id: string) => void) {
   const [busy, setBusy] = useState(false);
   // How far the file is, shown where it was asked for (the button, the dropped-on preview), not in a toast.
   const [pct, setPct] = useState<number | null>(null);
-  async function upload(f: File, draft = false) {
+  async function upload(f: File, draft = false, of = asset) {
+    if (!of) return;
     setBusy(true);
     setPct(0);
     const mime = f.type || "application/octet-stream";
@@ -203,17 +212,19 @@ export function useVersionUpload(asset: Asset, onOpen: (id: string) => void) {
       const res = await fetch("/api/v1/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, filename: f.name, mime, versionOf: asset.id, ...(draft && { status: "draft" }) }),
+        body: JSON.stringify({ token, filename: f.name, mime, versionOf: of.id, ...(draft && { status: "draft" }) }),
       });
       if (!res.ok) throw new Error(await refusal(res, "Couldn't add the version"));
       const body = await res.json().catch(() => null);
       if (!body) throw new Error("Couldn't add the version");
       const v: Asset = body.data;
+      // Current: where it shows, said when the asset's insights can tell.
+      const places = !body.deduped && v.status === "active" ? await following(of.id) : null;
       toast.success(
         body.deduped
           ? "That file is already a version of this"
           : v.status === "active"
-            ? `Version ${v.version} is current`
+            ? `Version ${v.version} is current${places ? `: ${places} ${places === 1 ? "place follows" : "places follow"} it` : ""}`
             : `Version ${v.version} added as ${STATE_LABEL[v.state].toLowerCase()}`,
       );
       onOpen(v.id);

@@ -26,7 +26,8 @@ import {
 import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
-import { useCan } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
+import { has } from "@/components/settings/sections";
 import { CopyButton } from "@/components/copy-button";
 import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
@@ -120,16 +121,16 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     // Under the name on a phone, the full header's buttons wrap rather than run past the screen's edge.
     <div className={cn("flex shrink-0 items-center gap-2", !compact && "max-w-full flex-wrap")}>
       {/* Its repository, with whether it is in step: only once there is one. Connecting is in the menu. */}
-      {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />}
+      {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit", brand)} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
-      {can("brand.edit") && (
+      {can("brand.edit", brand) && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={guidelinesPath(brand.slug, editing)}>
             <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
           </Link>
         </Button>
       )}
-      {can("brand.edit") && status?.publish !== "current" && (
+      {can("brand.edit", brand) && status?.publish !== "current" && (
         <Button asChild size="sm" title={compact ? "Release" : undefined}>
           <Link href={brandPath(brand.slug, "/releases/new")}>
             <LinkIcon icon={<IconWorldUpload aria-hidden />} /> <span className={word}>Release</span>
@@ -309,7 +310,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
         </PopoverTrigger>
         <PopoverContent align="end" aria-label="Use this brand" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
           <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
-          {can("brand.edit") && (
+          {can("brand.create") && (
             <>
               <Separator />
               <div className="flex items-center gap-3">
@@ -361,6 +362,9 @@ const OFFICE = [
  */
 export function BrandAddresses({ brand, origin, hub, release, onTokens }: { brand: BrandInfo; origin: string; hub: Pick<NonNullable<Status["hub"]>, "visibility" | "url"> | null; release: Release | null; onTokens: () => void }) {
   const open = hub?.visibility === "public" ? hub.url : null;
+  const me = useMe();
+  // Office templates are a plan's (lib/limits.ts `templates`); Templates says how to get them.
+  const office = !me || has(me, "templates");
   const designMd = open ? `${open}/tokens?format=designmd` : `${origin}${tokensPath(brand, undefined, "designmd")}`;
   const rows = [
     { label: "Connect an agent (MCP)", text: `${origin}/api/v1/mcp` },
@@ -404,6 +408,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
           </Button>
         </li>
         {release &&
+          office &&
           OFFICE.map((t) => (
             <li key={t.format} className="flex items-center gap-3">
               <span className="grid min-w-0 flex-1">
@@ -502,7 +507,7 @@ function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; con
           );
         })}
         {more.length > 0 && <DropdownMenuSeparator />}
-        {connect && can("brand.edit") && (
+        {connect && can("brand.edit", brand) && (
           <DropdownMenuItem asChild>
             <a href={connect}>
               <IconBrandGit aria-hidden /> Connect Git

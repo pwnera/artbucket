@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ExternalLink } from "@/components/external-link";
 import { brandPath, guidelinesPath, rulesPath } from "@/lib/site";
+import type { Target } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 /** Where a step is taken in the app: rules on the Rules tab, the look on Theme, pages by the ways to change them. */
@@ -41,7 +42,7 @@ function prompt(name: string, slug: string, fixes: Status["steps"]) {
  * for those fixes; Share public score links BrandHub's public score for the
  * domain the organization proved.
  */
-export function BrandScore({ name, slug, status }: { name: string; slug: string; status: Status }) {
+export function BrandScore({ name, slug, target, status }: { name: string; slug: string; target: Target; status: Status }) {
   const can = useCan();
   const { fixes, to } = nextFixes(status);
   const hub = status.hub;
@@ -69,7 +70,7 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
               <ExternalLink href={`${base}/score?${new URLSearchParams({ domain })}`}>Share public score</ExternalLink>
             </Button>
           )}
-          {fixes.length > 0 && can("brand.edit") && (
+          {fixes.length > 0 && can("brand.edit", target) && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm">

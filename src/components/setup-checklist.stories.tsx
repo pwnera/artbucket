@@ -5,7 +5,8 @@ import { useState } from "react";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { SetupChecklist } from "@/components/setup-checklist";
 
-const KEY = "artbucket:setup";
+/** Kept per person and organization: Ada's, in Acme. */
+const KEY = `artbucket:setup:${me.user!.id}:${me.project.organization.id}`;
 
 /** What this browser kept of the setup (its path, whether the first run was seen, hidden), for the story; put back after. */
 const stored = (value: object | null) => () => {

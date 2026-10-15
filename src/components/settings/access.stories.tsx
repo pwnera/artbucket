@@ -49,7 +49,7 @@ export const Invite = meta.story({
   beforeEach: ({ msw }) => void msw.use(sent.on("post", "/api/v1/invitations", { url: "https://app.artbucket.test/invite/n7p2w4", emailed: true })),
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Invite people" }));
-    await userEvent.type(await screen.findByLabelText("Email"), "joan@acme.test");
+    await userEvent.type(await screen.findByLabelText("Emails"), "joan@acme.test");
     await userEvent.click(screen.getByRole("combobox", { name: "As" }));
     await userEvent.click(await screen.findByRole("option", { name: /^Editor/ }));
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
@@ -68,10 +68,10 @@ export const InviteFails = meta.story({
   args: { inviting: true },
   beforeEach: ({ msw }) => void msw.use(sent.on("post", "/api/v1/invitations", { code: "conflict", message: "joan@acme.test is already a member" }, 422)),
   play: async ({ userEvent }) => {
-    await userEvent.type(await screen.findByLabelText("Email"), "joan@acme.test");
+    await userEvent.type(await screen.findByLabelText("Emails"), "joan@acme.test");
     await userEvent.click(screen.getByRole("button", { name: "Send invitation" }));
     await expect(await screen.findByText("joan@acme.test is already a member")).toBeInTheDocument();
-    await expect(screen.getByLabelText("Email")).toHaveValue("joan@acme.test");
+    await expect(screen.getByLabelText("Emails")).toHaveValue("joan@acme.test");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },

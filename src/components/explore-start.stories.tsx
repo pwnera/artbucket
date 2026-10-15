@@ -1,7 +1,7 @@
 import preview from "#.storybook/preview";
-import { me, NOW, viewer, withMe } from "#.storybook/fixtures/brands";
-import { collections, renditions } from "#.storybook/fixtures/library";
-import { expect, fn, spyOn, waitFor } from "storybook/test";
+import { NOW } from "#.storybook/fixtures/brands";
+import { collections, inApp, renditions } from "#.storybook/fixtures/library";
+import { expect, fn, spyOn, waitFor, within } from "storybook/test";
 import { ExploreStart } from "@/components/explore-start";
 
 const RECENTS = "artbucket:recents:prj_acme";
@@ -48,7 +48,8 @@ const meta = preview.meta({
   component: ExploreStart,
   args: { latest, collections, searches: [], setup: null },
   parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/" } } },
-  decorators: [withMe(me)],
+  // In the app: the project's brands come from its shell (Acme, as the sidebar lists it).
+  decorators: [inApp],
   beforeEach: async ({ msw }) => {
     msw.use(...renditions);
     // On Explore, its links move within the page (pushState), not through the router: caught here, so the frame stays put.
@@ -102,9 +103,10 @@ export const Browse = meta.story({
   },
 });
 
-/** A new project: nothing opened, nothing added, no collections. Only the box and the types. */
+/** A new project: no brand, nothing opened, nothing added, no collections. Only the box and the types. */
 export const Empty = meta.story({
   args: { latest: [], collections: [] },
+  parameters: { app: { sidebar: { brands: [], collections: [] } } },
   beforeEach: prefs({}),
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("region", { name: "Brands and collections" })).not.toBeInTheDocument();
@@ -121,8 +123,18 @@ export const LongNames = meta.story({
   beforeEach: prefs({}),
 });
 
+/** Someone new: nothing opened yet, and the project's brands come before its collections. */
+export const NewMember = meta.story({
+  beforeEach: prefs({}),
+  play: async ({ canvas }) => {
+    const cards = within(canvas.getByRole("region", { name: "Brands and collections" })).getAllByRole("button");
+    await expect(cards[0]).toHaveAccessibleName(/^Acme Brand/);
+    await expect(cards[1]).toHaveAccessibleName(new RegExp(`^${collections[0].name} Collection`));
+  },
+});
+
 /** A viewer sees the same start: it only opens things. */
-export const Viewer = meta.story({ decorators: [withMe(viewer)] });
+export const Viewer = meta.story({ parameters: { app: { scope: "read" } } });
 
 /** On a phone the list keeps only the names. */
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });

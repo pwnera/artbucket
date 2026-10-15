@@ -57,7 +57,7 @@ export const Playground = meta.story({
 export const FromScratch = meta.story({
   play: async ({ args, userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await expect(d.getByRole("radio", { name: "Blank" })).toBeChecked();
     await userEvent.type(d.getByRole("textbox", { name: "Name" }), "Acme Kids");
     await userEvent.click(d.getByRole("button", { name: "Create brand" }));
@@ -70,7 +70,7 @@ export const FromScratch = meta.story({
 export const NeedsAName = meta.story({
   play: async ({ userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await expect(d.getByRole("button", { name: "Create brand" })).toBeDisabled();
     await userEvent.type(d.getByRole("textbox", { name: "Name" }), "   ");
     await expect(d.getByRole("button", { name: "Create brand" })).toBeDisabled();
@@ -83,7 +83,7 @@ export const NeedsAName = meta.story({
 export const FromATemplate = meta.story({
   play: async ({ userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await userEvent.click(d.getByRole("radio", { name: "Rust" }));
     await expect(d.getByRole("textbox", { name: "Name" })).toHaveValue("Rust");
     // A name of your own stays when another template is picked.
@@ -100,7 +100,7 @@ export const FromATemplate = meta.story({
 export const FromADomain = meta.story({
   play: async ({ userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await userEvent.click(d.getByRole("radio", { name: "From a domain" }));
     await expect(d.getByRole("button", { name: "Look it up" })).toBeDisabled();
     await userEvent.type(d.getByRole("textbox", { name: "Domain" }), "acme.test{Enter}");
@@ -121,7 +121,7 @@ export const DomainNotFound = meta.story({
     void msw.use(http.get("/api/v1/brand-json", () => HttpResponse.json({ error: { code: "not_found", message: "No brand.json at northwind.test" } }, { status: 404 }))),
   play: async ({ userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await userEvent.click(d.getByRole("radio", { name: "From a domain" }));
     await userEvent.type(d.getByRole("textbox", { name: "Domain" }), "northwind.test");
     await userEvent.click(d.getByRole("button", { name: "Look it up" }));
@@ -136,7 +136,7 @@ export const CreateFails = meta.story({
   beforeEach: ({ msw }) => void msw.use(sent.on("post", "/api/v1/brands", { code: "conflict", message: "A brand is named Acme already" }, 409)),
   play: async ({ args, userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await userEvent.type(d.getByRole("textbox", { name: "Name" }), "Acme");
     await userEvent.click(d.getByRole("button", { name: "Create brand" }));
     await expect(await screen.findByText("A brand is named Acme already")).toBeInTheDocument();
@@ -149,7 +149,7 @@ export const CreateFails = meta.story({
 export const KeepItInGit = meta.story({
   play: async ({ userEvent }) => {
     await userEvent.click(within(await dialog()).getByRole("button", { name: "Continue" }));
-    const d = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const d = within(await screen.findByRole("dialog", { name: "New brand" }));
     await userEvent.type(d.getByRole("textbox", { name: "Name" }), "Acme");
     await userEvent.click(d.getByRole("checkbox", { name: /Keep it in a Git repository too/ }));
     await expect(d.getByRole("button", { name: "Create and pick a repository" })).toBeEnabled();
@@ -165,7 +165,7 @@ export const FromARepository = meta.story({
     const d = within(await screen.findByRole("dialog", { name: "From a Git repository" }));
     await expect(d.getByRole("link", { name: /Bring in a brand from a repository/ })).toHaveAttribute("href", me.git!);
     await userEvent.click(d.getByRole("button", { name: /Start a new brand, kept in a repository/ }));
-    const next = within(await screen.findByRole("dialog", { name: "Start here" }));
+    const next = within(await screen.findByRole("dialog", { name: "New brand" }));
     await expect(next.getByRole("checkbox", { name: /Keep it in a Git repository too/ })).toBeChecked();
   },
 });

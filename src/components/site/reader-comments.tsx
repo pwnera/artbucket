@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { PageView } from "@/lib/site";
 import { sendResult } from "@/lib/send";
+import type { Target } from "@/lib/permissions";
 
 const transport = (method: string, url: string, body?: unknown) => sendResult(method, url, body, { quiet: true });
 
@@ -17,8 +18,21 @@ const transport = (method: string, url: string, body?: unknown) => sendResult(me
  * click from theirs. Where comments are read and answered now that pages
  * are no longer edited in a builder; agents read and write them over MCP.
  */
-export function ReaderComments({ view, open, onOpenChange, onPage }: { view: PageView; open: boolean; onOpenChange(open: boolean): void; onPage(slug: string): void }) {
-  const comments = useComments(view.brand.slug, transport);
+export function ReaderComments({
+  view,
+  brand,
+  open,
+  onOpenChange,
+  onPage,
+}: {
+  view: PageView;
+  /** The brand, by id and whether it is private: who may comment is decided on it. */
+  brand: Target;
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  onPage(slug: string): void;
+}) {
+  const comments = useComments(view.brand.slug, brand, transport);
   const page = view.page;
   const title = (slug: string) => view.nav.find((p) => p.slug === slug)?.title ?? slug;
   const elsewhere = [...comments.byPage].filter(([slug, n]) => n > 0 && slug !== page?.slug);

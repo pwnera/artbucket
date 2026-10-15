@@ -15,7 +15,7 @@
  *   [[open:asset/ID|label]]           a place in the app (asset/ID, brand/SLUG[/TAB], brand/SLUG/guidelines/PAGE[/edit],
  *                                     catalog[/ID[/TAB]], site/ID[/requests], settings[/CONTEXT/SECTION],
  *                                     insights[/activity|checks], team[/TAB], review, collections, brands, activity,
- *                                     sites, connections, library), inline; lib/assistant-place.ts says where it may go
+ *                                     sites, connections, fixes, automations, library), inline; lib/assistant-place.ts says where it may go
  *   [[action:ID]]                     a change waiting for the person's approval, on a line of its own
  *   [[facts:Label|value;...]]         a key and value grid, up to 8 rows, values may hold inline blocks; own line
  *   [[date:YYYY-MM-DD|until]]         a date in the person's locale, inline; "until" or "since" adds the word
@@ -77,6 +77,8 @@ const PLACES: Record<string, string> = {
   catalog: "/catalog",
   connections: "/connections",
   settings: "/settings",
+  fixes: "/fixes",
+  automations: "/automations",
 };
 /** A grid shows this many; the rest are counted. */
 export const GRID_MAX = 12;

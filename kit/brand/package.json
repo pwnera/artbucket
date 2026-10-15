@@ -1,6 +1,6 @@
 {
   "name": "@artbucket/brand",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "One release of a brand from Artbucket, read at build time, and the manifest of what the site used.",
   "license": "MIT",
   "repository": {

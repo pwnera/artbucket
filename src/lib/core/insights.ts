@@ -9,6 +9,7 @@ import { resolveBrand } from "@/lib/core/brands";
 import { appUrlFor, hostTarget, portalNamed } from "@/lib/core/domains";
 import { sendAs, staleVersionEmail } from "@/lib/core/mail";
 import { adminsOf, publicPortalsShowing } from "@/lib/core/portals";
+import { checkFeature } from "@/lib/core/usage";
 import { latestVersion } from "@/lib/core/versions";
 import { AssetError } from "@/lib/core/errors";
 import { adoptionDays, connectionsOf, fillWeeks, INSIGHT_DAYS, onCurrent, releaseOfAssets, taken, WEEKS, type Surface } from "@/lib/insights";
@@ -167,10 +168,12 @@ async function requestsFor(projectId: string, qs: string[]) {
  * versions where the current ones are, by email: whoever answers for it
  * (ownersOf) and anyone named. One email names every version given; each
  * version and place is told once, so a second Notify for them is a conflict.
- * Insights' readers, as it acts on what Insights shows.
+ * Insights' readers, as it acts on what Insights shows, where the plan has Fixes.
  */
 export async function notifyStale(caller: Caller, input: { referrer?: string; client?: string; assets: string[]; emails?: string[] }) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Notifying takes ${needs("insights.read")}`);
+  // Notify is Fixes' (lib/limits.ts `fixes`), wherever it is asked from.
+  await checkFeature(caller.project.organizationId, "fixes");
   const where: Place = { referrer: input.referrer?.toLowerCase() ?? null, client: input.referrer ? null : (input.client ?? null) };
   const place = placeOf(where);
   if (!place) throw new AssetError("invalid", "Name the place: a referrer's host, or an agent's key name");
@@ -223,9 +226,10 @@ export async function notifyStale(caller: Caller, input: { referrer?: string; cl
  * release that hasn't reached them, over INSIGHT_DAYS: by place, most first,
  * each with its replacement, how many people answer for the place
  * (ownersOf) and when it was told (notifyStale). Insights' Old versions and
- * Fixes read it.
+ * Fixes read it. Without `owners`, nobody is looked up and each says 0: for
+ * a count, which never reads them.
  */
-export async function staleIn(projectId: string) {
+export async function staleIn(projectId: string, { owners: withOwners = true } = {}) {
   const stale = await db
     .select({
       asset: eventCounts.assetId,
@@ -258,7 +262,7 @@ export async function staleIn(projectId: string) {
           .where(inArray(insightNotices.assetId, [...new Set(stale.map((s) => s.asset!))]))
       : [],
     // Each place's people, counted: who a Notify reaches without being told (ownersOf).
-    Promise.all([...new Map(stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])))].map(async ([p, s]) => [p, (await ownersOf(projectId, s)).length] as const)).then(
+    Promise.all([...new Map(withOwners ? stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])) : [])].map(async ([p, s]) => [p, (await ownersOf(projectId, s)).length] as const)).then(
       (xs) => new Map<string | null, number>(xs),
     ),
   ]);

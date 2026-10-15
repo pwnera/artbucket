@@ -1,6 +1,7 @@
 import { route } from "@/lib/api";
 import { officeResponse } from "@/lib/core/office";
 import { brandTemplateFile } from "@/lib/core/office-templates";
+import { checkFeature } from "@/lib/core/usage";
 import { OfficeTemplatesQuery } from "@/lib/schemas";
 
 /**
@@ -10,6 +11,7 @@ import { OfficeTemplatesQuery } from "@/lib/schemas";
  * of the file as its designer made it.
  */
 export const GET = route<{ id: string }>("brand.read", async (req, { id }, caller) => {
+  await checkFeature(caller.project.organizationId, "templates");
   const q = new URL(req.url).searchParams;
   const { version } = OfficeTemplatesQuery.parse(Object.fromEntries(q));
   return officeResponse(req, await brandTemplateFile(caller, q.get("brand") ?? undefined, version, id));

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import type { BrandInfo } from "@/components/brand-switcher";
-import type { Status } from "@/components/builder/use-status";
+import type { Source, Status } from "@/components/builder/use-status";
 import { releaseLines, type ReleaseLine, type SnapRule } from "@/lib/history";
 import type { SnapPage } from "@/lib/pages";
 import type { Rule } from "@/lib/rules";
@@ -32,6 +32,9 @@ export const brandHead = cache(async (slug: string) => {
   const releases = versions.filter((v): v is VersionRow & Release => !!v.publishedAt);
   return { brand, rules, status, versions, releases, release: (releases[0] as Release | undefined) ?? null };
 });
+
+/** Where the brand comes from (a repository, a domain), once per request: the tabs' layout and the tab both ask it. */
+export const brandSource = cache((slug: string) => get(`brands/${encodeURIComponent(slug)}/source`, (x: { data: Source }) => x.data, null));
 
 type Snapshot = { rules: SnapRule[]; pages: SnapPage[] | null };
 const snapshot = (slug: string, n: number) => get(`brands/${encodeURIComponent(slug)}/versions/${n}`, (x: { data: Snapshot }) => x.data, null);

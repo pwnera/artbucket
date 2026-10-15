@@ -1,5 +1,5 @@
 import preview from "#.storybook/preview";
-import { emptyStatus, freezeNow, me, rules, status, updates, versions, viewer, withMe } from "#.storybook/fixtures/brands";
+import { acme, emptyStatus, freezeNow, me, northwind, rules, status, updates, versions, viewer, withMe } from "#.storybook/fixtures/brands";
 import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
 import { http, HttpResponse } from "msw";
 import { expect, waitFor } from "storybook/test";
@@ -8,7 +8,7 @@ import { NewRelease, ReleaseList } from "@/components/brand-releases";
 const meta = preview.meta({
   title: "App/Features/Brands/Releases",
   component: ReleaseList,
-  args: { slug: "acme", updates, pending: true },
+  args: { slug: "acme", target: acme, updates, pending: true },
   decorators: [withMe(me)],
   beforeEach: freezeNow,
 });
@@ -33,7 +33,7 @@ export const UpToDate = meta.story({
 
 /** Never released (Northwind): what a release is for, and the first one. */
 export const NeverReleased = meta.story({
-  args: { slug: "northwind", updates: [], pending: false },
+  args: { slug: "northwind", target: northwind, updates: [], pending: false },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Not released yet")).toBeInTheDocument();
   },
@@ -61,7 +61,7 @@ const history = [
 
 /** Publish a release, as a page: a note, what changes since @12, and Release @13. */
 export const NewReleasePage = meta.story({
-  render: () => <NewRelease slug="acme" name="Acme" status={status} comments={2} />,
+  render: () => <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={2} />,
   beforeEach: ({ msw }) => {
     body = undefined;
     msw.use(
@@ -87,7 +87,7 @@ export const NewReleasePage = meta.story({
 
 /** The publish refused: the API's words under the form, which stays for another try. */
 export const NewReleaseFails = meta.story({
-  render: () => <NewRelease slug="acme" name="Acme" status={status} comments={0} />,
+  render: () => <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={0} />,
   beforeEach: ({ msw }) =>
     void msw.use(...history, http.post(`${base}/publish`, () => HttpResponse.json({ error: { code: "invalid", message: "A release is already on its way" } }, { status: 422 }))),
   play: async ({ canvas, userEvent }) => {
@@ -99,7 +99,7 @@ export const NewReleaseFails = meta.story({
 
 /** Cancel goes back to the brand. */
 export const NewReleaseCancel = meta.story({
-  render: () => <NewRelease slug="acme" name="Acme" status={status} comments={0} />,
+  render: () => <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={0} />,
   beforeEach: ({ msw }) => void msw.use(...history),
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(await canvas.findByRole("button", { name: "Cancel" }));
@@ -109,7 +109,7 @@ export const NewReleaseCancel = meta.story({
 
 /** The first release of a brand only the team reads: who should see it, asked in the same step. */
 export const FirstRelease = meta.story({
-  render: () => <NewRelease slug="northwind" name="Northwind" status={{ ...emptyStatus, portals: [] }} comments={0} />,
+  render: () => <NewRelease slug="northwind" target={northwind} name="Northwind" status={{ ...emptyStatus, portals: [] }} comments={0} />,
   beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/brands/northwind/versions", () => HttpResponse.json({ data: [] }))),
   play: async ({ canvas }) => {
     await expect(await canvas.findByText("First release: every page and rule.")).toBeInTheDocument();
@@ -119,6 +119,6 @@ export const FirstRelease = meta.story({
 
 /** While the draft is read: lines held in place. */
 export const NewReleaseLoading = meta.story({
-  render: () => <NewRelease slug="acme" name="Acme" status={status} comments={0} />,
+  render: () => <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={0} />,
   beforeEach: ({ msw }) => void msw.use(http.get(`${base}/versions`, () => new Promise<Response>(() => {}))),
 });

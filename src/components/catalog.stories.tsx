@@ -73,7 +73,8 @@ export const KeyboardWalk = meta.story({
 
     tabs.getByRole("button", { name: /lineage/ }).focus();
     await userEvent.keyboard("{Enter}");
-    await expect(await canvas.findByText("Changing acme-logo.svg reaches 3 things downstream, in 1 project.")).toBeInTheDocument();
+    // Lineage loads React Flow on first use: under the whole suite's load that chunk can take a while.
+    await expect(await canvas.findByText("Changing acme-logo.svg reaches 3 things downstream, in 1 project.", {}, { timeout: 15_000 })).toBeInTheDocument();
 
     await userEvent.tab();
     await expect(tabs.getByRole("button", { name: "access" })).toHaveFocus();

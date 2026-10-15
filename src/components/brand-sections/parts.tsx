@@ -427,8 +427,8 @@ export function AssetTile({
   const [saving, setSaving] = useState(false);
   const path = a.rendition ? url(a.id, `/${a.rendition}`) : url(a.id);
   const name = a.title || a.filename || "Asset";
-  // An Office file on a released brand's rule is one of its templates: it downloads wearing the release (GET .../office/templates/{id}).
-  const template = !a.kept && OFFICE.test(a.filename ?? "") && site?.view.version ? site : null;
+  // An Office file on a released brand's rule is one of its templates: it downloads wearing the release (GET .../office/templates/{id}), where the plan has templates.
+  const template = !a.kept && OFFICE.test(a.filename ?? "") && site?.view.version && site.view.office !== false ? site : null;
   async function saveTemplate() {
     if (!template) return;
     setSaving(true);

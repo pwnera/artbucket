@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BrandSettings } from "@/components/brand-settings";
-import type { Source } from "@/components/builder/use-status";
 import { TabSkeleton } from "@/components/skeletons";
-import { brandHead } from "@/lib/brand-head";
+import { brandHead, brandSource } from "@/lib/brand-head";
 import { can } from "@/lib/permissions";
-import { get, whoami } from "@/lib/sidebar";
+import { whoami } from "@/lib/sidebar";
 import { brandPath } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +28,9 @@ export default function BrandSettingsPage({ params }: Props) {
 
 async function Tab({ params }: Props) {
   const { slug } = await params;
-  const b = encodeURIComponent(slug);
-  const [head, me, source] = await Promise.all([brandHead(slug), whoami(), get(`brands/${b}/source`, (x: { data: Source }) => x.data, null)]);
+  const [head, me, source] = await Promise.all([brandHead(slug), whoami(), brandSource(slug)]);
   if (!head) notFound();
-  if (!can(me, "brand.edit")) redirect(brandPath(slug));
+  if (!can(me, "brand.edit", head.brand)) redirect(brandPath(slug));
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
       <BrandSettings key={head.brand.slug} brand={head.brand} source={source} />

@@ -70,7 +70,7 @@ function GroupCard({ g, people, places, done }: { g: GroupRow; people: Person[];
         <span className="text-muted-foreground text-sm tabular-nums">{g.members.length}</span>
         <Confirm
           title={`Delete ${g.name}?`}
-          says="Its members lose the access the group gave them, at once. Their own access stays."
+          says="Its members lose every role the group gave them."
           action="Delete"
           run={async () => {
             const r = await send("DELETE", `/api/v1/groups/${g.id}`);

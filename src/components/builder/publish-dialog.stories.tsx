@@ -1,5 +1,5 @@
 import preview from "#.storybook/preview";
-import { emptyStatus, me, status, versions, viewer, viewRules, withMe } from "#.storybook/fixtures/brands";
+import { acme, emptyStatus, me, status, versions, viewer, viewRules, withMe } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
 import { expect, fn, waitFor } from "storybook/test";
 import { ReleaseForm, type ReleaseHost } from "@/components/builder/publish-dialog";
@@ -11,6 +11,7 @@ const transport: ReleaseHost["transport"] = (method, url, body) => sendResult(me
 
 const host = (o: Partial<ReleaseHost> = {}): ReleaseHost => ({
   brand: "acme",
+  target: acme,
   name: "Acme",
   transport,
   status,

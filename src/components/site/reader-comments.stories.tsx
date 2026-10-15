@@ -37,7 +37,7 @@ const THREADS = [
 const meta = preview.meta({
   title: "Brand site/Parts/Reader comments",
   component: ReaderComments,
-  args: { view, open: true, onOpenChange: fn(), onPage: fn() },
+  args: { view, brand: { id: "brd_blender" }, open: true, onOpenChange: fn(), onPage: fn() },
   decorators: [withMe(me)],
   beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/brands/blender/comments", () => HttpResponse.json({ data: THREADS }))),
 });

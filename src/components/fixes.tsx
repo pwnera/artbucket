@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconCertificate, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
+import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
+import { PlanGate } from "@/components/plan-gate";
+import { has } from "@/components/settings/sections";
 import { ShareDialog } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,10 +32,21 @@ type Row = {
   icon: React.ReactNode;
   what: React.ReactNode;
   where: string;
-  when: string;
+  when: React.ReactNode;
   done: React.ReactNode | null;
   action: React.ReactNode;
 };
+
+const never = () => () => {};
+/**
+ * A day as `date` says it, in the reader's locale. The server's is nobody's, so
+ * the server and the first paint say it in en-US and agree; once hydrated, it
+ * says it the reader's way (public-grid's LocalDate, for a short day).
+ */
+function Day({ d }: { d: string }) {
+  const local = useSyncExternalStore(never, () => true, () => false);
+  return <>{local ? date(d) : new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</>;
+}
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 const left = (days: number) => (days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`);
@@ -56,6 +70,7 @@ const Done = ({ children, at, by }: { children: React.ReactNode; at?: string; by
  */
 export function Fixes({ data, collections, issueUrl = null }: { data: FixesData | null; collections: { id: string; name: string }[]; issueUrl?: string | null }) {
   const router = useRouter();
+  const me = useMe();
   const [notifying, setNotifying] = useState<Place | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
   const rows = data ? rowsOf(data, setNotifying, setRequesting, issueUrl) : [];
@@ -71,7 +86,13 @@ export function Fixes({ data, collections, issueUrl = null }: { data: FixesData 
           aside={data && data.open > 0 ? <Badge variant="secondary">{data.open} to do</Badge> : undefined}
           description="What needs a hand: sites showing an old version or built with an old component, searches that found nothing, licenses about to end."
         />
-        {!data ? (
+        {me && !has(me, "fixes") ? (
+          <PlanGate
+            icon={<IconTool />}
+            title="Fixes aren't in your plan"
+            description="See which sites still show an old logo, which searches found nothing and which licenses are about to end, and tell whoever can fix each in a click."
+          />
+        ) : !data ? (
           <p className="text-muted-foreground text-sm">Fixes couldn&apos;t load. Try again in a moment.</p>
         ) : !rows.length ? (
           <Empty>
@@ -170,7 +191,11 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       </>
     ),
     where: "Library",
-    when: `Last day ${date(l.expires)}`,
+    when: (
+      <>
+        Last day <Day d={l.expires} />
+      </>
+    ),
     done: l.replacement && (
       <span className="inline-flex items-center gap-2">
         <Done>Replaced</Done>
@@ -209,7 +234,11 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
         </>
       ),
       where: referrer ?? `Agent ${client}`,
-      when: `Since ${date(first)}, ${plural(rows.reduce((t, s) => t + s.fetches, 0), "load")}`,
+      when: (
+        <>
+          Since <Day d={first} />, {plural(rows.reduce((t, s) => t + s.fetches, 0), "load")}
+        </>
+      ),
       done: !pending.length && told ? (
         <Done at={told.at} by={told.by}>
           Notified {ago(told.at)}
@@ -235,7 +264,11 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       </>
     ),
     where: `Searched ${plural(g.searches, "time")}`,
-    when: `Since ${date(g.first)}`,
+    when: (
+      <>
+        Since <Day d={g.first} />
+      </>
+    ),
     done: g.requested && (
       <Done at={g.requested.at} by={g.requested.by}>
         Requested {ago(g.requested.at)}
@@ -264,7 +297,11 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       </>
     ),
     where: `${c.site.name}${c.path === "/" ? "" : c.path}`,
-    when: `Since ${date(c.since)}`,
+    when: (
+      <>
+        Since <Day d={c.since} />
+      </>
+    ),
     done: null,
     action: (
       <Button size="xs" variant="outline" asChild>

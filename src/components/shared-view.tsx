@@ -357,24 +357,35 @@ function Listing({
   const [items, setItems] = useState(shared.data);
   const [more, setMore] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The share as the latest page counts it, and whether a page brought nothing new: it may shrink while it is open.
+  const [total, setTotal] = useState(shared.total);
+  const [over, setOver] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  const { total } = shared;
-  const left = items.length < total;
+  const left = !over && items.length < total;
 
+  // One load at a time: the observer and Show more can both ask before `more` renders, at the same offset.
+  const loading = useRef(false);
   const loadMore = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     setMore(true);
     setFailed(false);
     try {
       const res = await fetch(`/api/v1/shared/${token}?offset=${items.length}`, { headers: headers(), cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as Shared;
-      setItems((xs) => [...xs, ...body.data.filter((a) => !xs.some((x) => x.id === a.id))]);
+      const fresh = body.data.filter((a) => !items.some((x) => x.id === a.id));
+      setTotal(body.total);
+      // Nothing new would ask for the same offset again, forever.
+      if (!fresh.length) setOver(true);
+      setItems((xs) => [...xs, ...fresh.filter((a) => !xs.some((x) => x.id === a.id))]);
     } catch {
       setFailed(true);
     } finally {
+      loading.current = false;
       setMore(false);
     }
-  }, [token, headers, items.length]);
+  }, [token, headers, items]);
 
   useEffect(() => {
     const el = end.current;

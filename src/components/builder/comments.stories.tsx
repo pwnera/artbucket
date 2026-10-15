@@ -1,5 +1,5 @@
 import preview from "#.storybook/preview";
-import { me, NOW, viewer, withMe } from "#.storybook/fixtures/brands";
+import { acme, me, NOW, viewer, withMe } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
 import { toast } from "sonner";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
@@ -46,7 +46,7 @@ const record = async (request: Request) =>
 
 /** The panel on its own useComments, as the guidelines reader places it. */
 function Panel({ section, onPickSection }: { section: string | null; onPickSection(id: string): void }) {
-  const comments = useComments("acme", transport);
+  const comments = useComments("acme", acme, transport);
   return (
     <CommentsPanel
       comments={comments}

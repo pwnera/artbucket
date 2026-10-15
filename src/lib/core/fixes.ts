@@ -5,6 +5,7 @@ import type { Caller } from "@/lib/core/access";
 import { assetWhere } from "@/lib/core/assets";
 import { AssetError } from "@/lib/core/errors";
 import { describe, gapsIn, staleIn } from "@/lib/core/insights";
+import { checkFeature } from "@/lib/core/usage";
 import { EXPIRING_DAYS } from "@/lib/catalog";
 import { INSIGHT_DAYS } from "@/lib/insights";
 import { can, needs } from "@/lib/permissions";
@@ -23,15 +24,19 @@ const DAY = 86_400_000;
  * them; renewed or archived, they leave the list), and the project's sites
  * built with a component version that a newer one replaced (they leave the
  * list once deployed with the current one). `open` counts what isn't
- * done, for the sidebar. Insights' readers, as Insights.
+ * done, for the sidebar. Insights' readers, as Insights, where the plan has
+ * Fixes (lib/limits.ts `fixes`). `count`: `open` alone, the lists empty,
+ * without looking up who answers for each place (ownersOf, a few queries a
+ * place): the sidebar's number on every page.
  */
-export async function fixesOf(caller: Caller) {
+export async function fixesOf(caller: Caller, { count = false } = {}) {
   if (!can(caller, "insights.read")) throw new AssetError("forbidden", `Fixes take ${needs("insights.read")}`);
+  await checkFeature(caller.project.organizationId, "fixes");
   const day = today();
   const before = new Date(Date.parse(day) + (EXPIRING_DAYS + 1) * DAY).toISOString().slice(0, 10);
   const expires = sql<string>`${assets.rights} ->> 'expires'`;
   const [stale, gaps, components, ending] = await Promise.all([
-    staleIn(caller.project.id),
+    staleIn(caller.project.id, { owners: !count }),
     gapsIn(caller.project.id),
     oldComponentsIn(caller.project.id),
     // As the library reads a license: approved, the current version, not ended yet (status active), ending before `before`.
@@ -52,15 +57,9 @@ export async function fixesOf(caller: Caller) {
   });
   // A place is one thing to do however many versions it loads: told about all of them, it's done. One that named no place has nobody to tell.
   const placesOpen = new Set(stale.flatMap((s) => (!s.notified && (s.referrer ?? s.client)) || [])).size;
-  return {
-    days: INSIGHT_DAYS,
-    licenseDays: EXPIRING_DAYS,
-    open: placesOpen + gaps.filter((g) => !g.requested).length + licenses.filter((l) => !l.replacement).length + components.length,
-    stale,
-    gaps,
-    components,
-    licenses,
-  };
+  const open = placesOpen + gaps.filter((g) => !g.requested).length + licenses.filter((l) => !l.replacement).length + components.length;
+  if (count) return { days: INSIGHT_DAYS, licenseDays: EXPIRING_DAYS, open, stale: [], gaps: [], components: [], licenses: [] };
+  return { days: INSIGHT_DAYS, licenseDays: EXPIRING_DAYS, open, stale, gaps, components, licenses };
 }
 
 /** A project's live builds that name a component version no longer the one its Storybook shows, oldest replacement first. */

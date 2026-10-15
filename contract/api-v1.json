@@ -247,6 +247,18 @@
             "default": 0
           },
           "description": "Skip this many"
+        },
+        {
+          "name": "facets",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "false: no facet counts, each empty, answered faster: for `total` alone"
         }
       ],
       "responses": {
@@ -42588,6 +42600,20 @@
       "summary": "Fixes: what needs doing",
       "description": "One list of what to act on in the project, from what Insights and the library know: places still loading a replaced version (tell them with POST /api/v1/insights/notices), searches that found nothing (ask for the file with an upload link, POST /api/v1/shares) and approved assets whose license ends within 30 days, with what replaced them. Each says whether it was done; `open` counts the rest.\n\nScope: `write`.",
       "x-scope": "write",
+      "parameters": [
+        {
+          "name": "count",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "true: `open` alone, every list empty, answered faster: for a badge"
+        }
+      ],
       "responses": {
         "200": {
           "description": "Fixes",

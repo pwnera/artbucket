@@ -28,22 +28,24 @@ import type { Me } from "@/components/account";
 import { DayGroups, Initials, useFeed } from "@/components/activity";
 import { Snippet } from "@/components/agent-access";
 import { useMe } from "@/components/can";
+import { Combobox } from "@/components/combobox";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
-import { SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
+import { emailsIn, SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { AuditAction } from "@/lib/core/audit";
 import { can } from "@/lib/permissions";
 import { roleName, ROLES, SCOPES, type Scope } from "@/lib/scopes";
-import { send } from "@/lib/send";
+import { send, sendResult } from "@/lib/send";
 import type { SidebarData } from "@/lib/sidebar";
 import { undoable } from "@/lib/undo";
 import { ago, exact } from "@/lib/time";
@@ -443,7 +445,9 @@ function GrantRow({
   );
 }
 
-/** Invite someone new, or give a member access to one more thing. */
+type Invited = { email: string; url: string; emailed: boolean } | { email: string; error: string };
+
+/** Invite people (one or several addresses), or give a member access to one more thing. */
 function GrantDialog({
   me,
   dialog,
@@ -462,21 +466,31 @@ function GrantDialog({
   const id = useId();
   const [where, setWhere] = useState(`${places.find((p) => p.resource === "project")!.resource}:${places.find((p) => p.resource === "project")!.resourceId}`);
   const [scope, setScope] = useState<Scope>("read");
-  const [link, setLink] = useState<{ url: string; emailed: boolean } | null>(null);
+  // One per address invited: its link, or why it was refused.
+  const [invited, setInvited] = useState<Invited[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [resource, resourceId] = where.split(":") as [Resource, string];
 
   async function submit(form: FormData) {
     setBusy(true);
-    const made =
-      dialog.kind === "invite"
-        ? await send("POST", "/api/v1/invitations", { email: String(form.get("email") ?? "").trim(), resource, resourceId, scope })
-        : await send("POST", "/api/v1/grants", { user: dialog.user.id, resource, resourceId, scope });
+    if (dialog.kind === "grant") {
+      const made = await send("POST", "/api/v1/grants", { user: dialog.user.id, resource, resourceId, scope });
+      setBusy(false);
+      if (!made) return;
+      onDone();
+      return onClose();
+    }
+    // Several at once, one invitation each, in turn; one alone says what went wrong as every form does.
+    const emails = [...new Set(emailsIn(String(form.get("email") ?? "")))];
+    if (!emails.length) return setBusy(false);
+    const out: Invited[] = [];
+    for (const email of emails) {
+      const r = await sendResult("POST", "/api/v1/invitations", { email, resource, resourceId, scope }, { quiet: emails.length > 1 });
+      out.push(r.ok ? { email, url: r.data.url, emailed: r.data.emailed } : { email, error: r.network ? "Couldn't reach the server" : (r.error?.message ?? "Refused") });
+    }
     setBusy(false);
-    if (!made) return;
-    onDone();
-    if (dialog.kind === "invite") setLink({ url: made.url, emailed: made.emailed });
-    else onClose();
+    if (out.some((o) => "url" in o)) onDone();
+    if (emails.length > 1 || "url" in out[0]!) setInvited(out);
   }
 
   return (
@@ -490,9 +504,26 @@ function GrantDialog({
               : "Access reaches down: editor on a collection is editor on everything in it."}
           </DialogDescription>
         </DialogHeader>
-        {link ? (
+        {invited ? (
           <div className="animate-in fade-in-0 zoom-in-[0.98] grid gap-3 duration-200">
-            <InviteLink me={me} url={link.url} emailed={link.emailed} />
+            {invited.length === 1 && "url" in invited[0]! ? (
+              <InviteLink me={me} url={invited[0].url} emailed={invited[0].emailed} />
+            ) : (
+              <ul className="grid max-h-80 gap-3 overflow-y-auto">
+                {invited.map((o) => (
+                  <li key={o.email} className="grid min-w-0 gap-1 text-sm">
+                    <span className="truncate font-medium">{o.email}</span>
+                    {"error" in o ? (
+                      <span className="text-destructive">Not invited: {o.error}</span>
+                    ) : o.emailed ? (
+                      <span className="text-muted-foreground">Emailed</span>
+                    ) : (
+                      <Snippet text={o.url} what={`${o.email}'s invitation link`} />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
             <DialogFooter>
               <Button onClick={onClose}>Done</Button>
             </DialogFooter>
@@ -507,24 +538,20 @@ function GrantDialog({
           >
             {dialog.kind === "invite" && (
               <div className="grid gap-2">
-                <Label htmlFor={`${id}-email`}>Email</Label>
-                <Input id={`${id}-email`} name="email" type="email" required autoFocus />
+                <Label htmlFor={`${id}-email`}>Emails</Label>
+                {/* A textarea, not type=email: several at once, separated by commas, spaces or lines, as pasted (an input drops the line breaks). */}
+                <Textarea id={`${id}-email`} name="email" required autoFocus placeholder="ada@studio.com, grace@agency.com" />
               </div>
             )}
             <div className="grid gap-2">
               <Label htmlFor={`${id}-where`}>On</Label>
-              <Select value={where} onValueChange={setWhere}>
-                <SelectTrigger id={`${id}-where`} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {places.map((p) => (
-                    <SelectItem key={p.resourceId} value={`${p.resource}:${p.resourceId}`}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                id={`${id}-where`}
+                options={places.map((p) => ({ value: `${p.resource}:${p.resourceId}`, label: p.label }))}
+                value={where}
+                onChange={setWhere}
+                required
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor={`${id}-scope`}>As</Label>

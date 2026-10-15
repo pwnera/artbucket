@@ -95,9 +95,9 @@ export const sidebarData = cache(async (): Promise<SidebarData> => {
     get("collections", data<Collection[]>, []).catch(() => []),
     brands().catch(() => []),
     get("searches", data<SavedSearch[]>, []).catch(() => []),
-    get("assets?review=true&limit=1", (b: { total: number }) => b.total, 0).catch(() => 0),
+    get("assets?review=true&limit=1&facets=false", (b: { total: number }) => b.total, 0).catch(() => 0),
     // Asked of whoever may not read it too, and answered no: 0.
-    get("fixes", (b: { data: { open: number } }) => b.data.open, 0).catch(() => 0),
+    get("fixes?count=true", (b: { data: { open: number } }) => b.data.open, 0).catch(() => 0),
   ]);
   return { collections, brands: brandList, searches, reviewCount, fixesCount, me };
 });

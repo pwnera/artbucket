@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BrandOverview, type BrandSignals } from "@/components/brand-overview";
-import type { Source } from "@/components/builder/use-status";
 import { BrandImporting, GitReturn } from "@/components/git-return";
 import { TabSkeleton } from "@/components/skeletons";
-import { brandHead, changesBetween } from "@/lib/brand-head";
+import { brandHead, brandSource, changesBetween } from "@/lib/brand-head";
 import { openCounts } from "@/lib/comments";
 import { hubBrand, hubViewer } from "@/lib/core/hub";
 import { releaseSummary } from "@/lib/history";
@@ -41,7 +40,7 @@ async function Tab({ params }: Props) {
   const releasing = can(me, "brand.publish") ? brandPath(slug, "/releases/new") : undefined;
   // Brought in from a repository and not in yet: nothing to show but that it is coming.
   // ponytail: an empty brand sent out as a pull request waits here too until it merges; tell them apart if that bites.
-  const source = !rules.length && !release ? await get(`brands/${encodeURIComponent(slug)}/source`, (x: { data: Source }) => x.data.source, null) : null;
+  const source = !rules.length && !release ? (await brandSource(slug))?.source : null;
   if (source && !source.syncedAt) {
     return (
       <>

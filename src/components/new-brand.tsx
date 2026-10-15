@@ -176,7 +176,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           {step === "builder" && (
             <form onSubmit={create} className="grid min-w-0 gap-4">
               <DialogHeader>
-                <DialogTitle>Start here</DialogTitle>
+                <DialogTitle>New brand</DialogTitle>
                 <DialogDescription>Start blank, from a domain or from a template.</DialogDescription>
               </DialogHeader>
               <RadioGroup value={start || "blank"} onValueChange={(v) => pick(v === "blank" ? "" : (v as Start))} aria-label="Start from" className="grid gap-3">

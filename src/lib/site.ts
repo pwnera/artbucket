@@ -143,6 +143,8 @@ export type PageView = {
   /** For editors only: what a reader would trip on, and keys with no rule. */
   warnings: string[];
   missing: string[];
+  /** False when its organization's plan has no Office templates (lib/limits.ts `templates`): none is offered. */
+  office?: false;
 };
 
 // ---- finding the way ----------------------------------------------------------

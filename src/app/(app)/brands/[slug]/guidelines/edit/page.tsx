@@ -19,5 +19,5 @@ export default async function GuidelinesEditPage({ params, searchParams }: Props
   const [all, me] = await Promise.all([brands(), whoami()]);
   const brand = all.find((b) => b.slug === slug);
   if (!brand) notFound();
-  redirect(can(me, "brand.edit") ? formerBuilderPath(brand.slug, q) : guidelinesPath(brand.slug, { page: q.page, context: q.context, lang: q.lang }));
+  redirect(can(me, "brand.edit", brand) ? formerBuilderPath(brand.slug, q) : guidelinesPath(brand.slug, { page: q.page, context: q.context, lang: q.lang }));
 }

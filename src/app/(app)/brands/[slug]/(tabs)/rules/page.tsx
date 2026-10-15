@@ -35,7 +35,7 @@ async function Tab({ params }: Props) {
   const { slug } = await params;
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
-  const editing = can(me, "brand.edit") ? await builderInit(slug) : null;
+  const editing = can(me, "brand.edit", head.brand) ? await builderInit(slug) : null;
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
       {editing?.init ? <BrandRulesEditor brand={head.brand} init={editing.init} /> : <BrandRules brand={head.brand} rules={head.rules} />}

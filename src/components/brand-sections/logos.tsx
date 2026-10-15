@@ -9,6 +9,7 @@ import { AssetTile, LogoTile, pictured } from "@/components/brand-sections/parts
 import { Body, ItemCaption, itemRoot, RuleValue, useRuleAnchor } from "@/components/brand-sections/slots";
 import type { SectionProps } from "@/components/brand-sections/types";
 import { Markdown, MARKER } from "@/components/brand-values";
+import { useMe } from "@/components/can";
 import { saveFile, saveZip } from "@/components/save-zip";
 import { useAssetUrl } from "@/components/site/asset-url";
 import { useSite } from "@/components/site/site-context";
@@ -16,6 +17,7 @@ import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
 import { fileSlug } from "@/lib/branding";
 import { formatBytes } from "@/lib/filename";
+import { planHas } from "@/lib/limits";
 import type { OfficeFormat } from "@/lib/office";
 import { pool } from "@/lib/pool";
 import { kitFolder } from "@/lib/press-kit";
@@ -309,6 +311,9 @@ function Templates() {
   const { view, portal } = useSite();
   const [busy, setBusy] = useState<OfficeFormat | null>(null);
   const brand = encodeURIComponent(view.brand.slug);
+  const me = useMe();
+  // Its organization's plan has none (lib/limits.ts `templates`): the view says so, the builder's canvas has the app's plan.
+  if (view.office === false || (me && !planHas(me.features, "templates"))) return null;
 
   async function download(format: OfficeFormat) {
     setBusy(format);

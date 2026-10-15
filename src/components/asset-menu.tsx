@@ -14,6 +14,7 @@ import {
   IconSelect,
   IconShare,
   IconTrash,
+  IconUpload,
   IconX,
 } from "@/components/icons";
 import { toast } from "sonner";
@@ -67,6 +68,8 @@ export type AssetAction = {
 export type ActionContext = {
   onOpen: () => void;
   onShare: () => void;
+  /** Picks a file and adds it as the asset's next version (versions.tsx useVersionUpload); absent where that can't be done. */
+  onNewVersion?: () => void;
   onPick?: () => void;
   selected?: boolean;
   onChanged: () => void;
@@ -162,13 +165,14 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
     [
       {
         id: "copy",
-        label: "Copy link",
+        label: "Copy link (team)",
         icon: <IconCopy />,
         run: async () => {
           if (await copyText(new URL(`/?asset=${a.id}`, location.origin).href, { what: "the link" })) toast.success("Copied a link for people with access");
         },
       },
       ...(live ? [{ id: "share", label: "Share…", icon: <IconShare />, run: ctx.onShare }] : []),
+      ...(live && ctx.onNewVersion && can("asset.version", a) ? [{ id: "version", label: "Upload a new version…", icon: <IconUpload />, run: ctx.onNewVersion }] : []),
       ...(!live
         ? []
         : image

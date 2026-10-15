@@ -2,6 +2,7 @@ import { route } from "@/lib/api";
 import { getAsset } from "@/lib/core/assets";
 import { brandCard } from "@/lib/core/cards";
 import { AssetError } from "@/lib/core/errors";
+import { checkFeature } from "@/lib/core/usage";
 import { CardQuery, isCardTemplate, queryIssues } from "@/lib/cards";
 import { ReleaseRef } from "@/lib/schemas";
 
@@ -14,6 +15,7 @@ import { ReleaseRef } from "@/lib/schemas";
  */
 export const GET = route("brand.read", async (req, { template }: { template: string }, caller) => {
   if (!isCardTemplate(template)) return null;
+  await checkFeature(caller.project.organizationId, "templates");
   const { brand, version, ...rest } = Object.fromEntries(new URL(req.url).searchParams);
   const q = CardQuery.safeParse(rest);
   if (!q.success) throw new AssetError("invalid", queryIssues(q.error));

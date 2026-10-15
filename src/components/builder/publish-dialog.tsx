@@ -54,6 +54,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 /** What the release form needs from where it is drawn. */
 export type ReleaseHost = {
   brand: string;
+  /** The brand's id and whether it is private: what decides who may publish it. */
+  target: { id: string; private?: boolean };
   name: string;
   transport: Transport;
   /** The brand's status (lib/core/brand-status.ts): its score, and whether a portal shows it or BrandHub lists it publicly. */
@@ -117,7 +119,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   const status = host.status;
   const shared = !!status?.portals?.length || status?.hub?.visibility === "public";
   const portalOffer = !shared && status?.portals?.length === 0;
-  const hubOffer = !shared && status?.hub?.visibility === "private" && can("brand.publish");
+  const hubOffer = !shared && status?.hub?.visibility === "private" && can("brand.publish", host.target);
   const [door, setDoor] = useState<Door>("members");
   const [hubPublic, setHubPublic] = useState(false);
   // Out past the team: a portal not for members, public on BrandHub, or about to be either.

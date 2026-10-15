@@ -16,7 +16,7 @@ const meta = preview.meta({
   component: ShareDialog,
   decorators: [as],
   args: {
-    target: { kind: "view" as const, asset: { id: "ast_hero", name: "Autumn campaign hero", path: "/a/ast_hero/autumn-campaign-hero.jpg" } },
+    target: { kind: "view" as const, asset: { id: "ast_hero", name: "Autumn campaign hero", path: "/a/ast_hero/autumn-campaign-hero.jpg", shareable: true } },
     collections,
     onClose: fn(),
     onMade: fn(),
@@ -155,7 +155,7 @@ export const Editor = meta.story({
 
 /** A name too long for a title. */
 export const LongName = meta.story({
-  args: { target: { kind: "view", asset: { id: "ast_long", name: "Acme and Northwind co-branded retail window display, print-ready, final approved version" } } },
+  args: { target: { kind: "view", asset: { id: "ast_long", name: "Acme and Northwind co-branded retail window display, print-ready, final approved version", shareable: true } } },
 });
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });

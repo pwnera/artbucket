@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { IconAlertTriangle, IconChartBar, IconCheck, IconDownload, IconFolderUp, IconSend } from "@/components/icons";
 import { BarList, Breakdown, change, ComboChart, halves, Kpis, short, type Kpi } from "@/components/analytics";
 import { TabNav } from "@/components/hub";
+import { useMe } from "@/components/can";
 import { InfoTip } from "@/components/info-tip";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { emailsIn, ShareDialog } from "@/components/share-dialog";
 import { Group } from "@/components/settings/panels";
+import { has } from "@/components/settings/sections";
 import { REASON } from "@/lib/insights";
 import { formatSize } from "@/lib/limits";
 import { sendResult } from "@/lib/send";
@@ -160,6 +162,9 @@ function Overview({ data, collections }: { data: InsightsData; collections: { id
   const [picked, setPicked] = useState("answers");
   const [notifying, setNotifying] = useState<Place | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
+  // Notify and Request it are Fixes' (lib/limits.ts `fixes`): without it, Insights only shows.
+  const me = useMe();
+  const fixes = !me || has(me, "fixes");
   const sites = new Set(data.stale.flatMap((s) => s.referrer ?? []));
   const answers = data.answers.map((a) => ({ ...a, total: a.person + a.agent + a.anonymous }));
   const total = sum(answers.map((a) => a.total));
@@ -322,7 +327,7 @@ function Overview({ data, collections }: { data: InsightsData; collections: { id
                   value: n,
                   tone: "warning" as const,
                   // Nobody to tell where the request named no place: a person in the app, a signed link.
-                  action: !key ? undefined : pending.length ? (
+                  action: !key || !fixes ? undefined : pending.length ? (
                     <Button size="xs" variant="outline" onClick={() => setNotifying({ referrer, client: referrer ? null : client, owners, assets: pending })}>
                       <IconSend /> Notify
                     </Button>
@@ -380,7 +385,7 @@ function Overview({ data, collections }: { data: InsightsData; collections: { id
                 label: <>&ldquo;{g.q}&rdquo;</>,
                 sub: `Last on ${date(g.last)}`,
                 value: g.searches,
-                action: g.requested ? (
+                action: !fixes ? undefined : g.requested ? (
                   <span className="text-muted-foreground text-xs" title={`By ${g.requested.by}, ${exact(g.requested.at)}`} suppressHydrationWarning>
                     Requested {ago(g.requested.at)}
                   </span>

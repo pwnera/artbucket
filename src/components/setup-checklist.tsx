@@ -5,32 +5,36 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX } from "@/components/icons";
 import { useBrand } from "@/components/brand";
+import type { Me } from "@/components/account";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
+import { has } from "@/components/settings/sections";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { gitLink } from "@/lib/git";
-import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
+import { isPath, onboardingSteps, ownName, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { collapse } from "@/lib/motion";
 
-const KEY = "artbucket:setup";
 /** `welcomed`: the full-page first run was seen, whether finished, skipped or left. */
 type Stored = { hidden?: boolean; path?: PathId; welcomed?: boolean };
 
+/** Per person and organization: another account or organization in the same browser starts its own. */
+const keyOf = (me: Me | null) => `artbucket:setup:${me?.user?.id ?? me?.actor ?? ""}:${me?.project.organization.id ?? ""}`;
+
 // Per viewer and per browser: a convenience, so storage that may refuse.
-function read(): string | null {
+function read(key: string): string | null {
   try {
-    return localStorage.getItem(KEY) ?? "{}";
+    return localStorage.getItem(key) ?? "{}";
   } catch {
     return "{}";
   }
 }
-function write(s: Stored) {
+function write(key: string, s: Stored) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(key, JSON.stringify(s));
   } catch {}
 }
 const never = () => () => {};
@@ -88,8 +92,9 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
       setGot({
         path,
         facts: {
-          named: me.project.organization.name !== "Default",
+          named: ownName(me.project.organization.name),
           branded: brand.custom,
+          branding: has(me, "branding"),
           noEmail: !me.auth.serverEmail && !me.email,
           brand: b
             ? {
@@ -132,17 +137,19 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
   const can = useCan();
   const me = useMe();
   // null on the server and while hydrating: say nothing until storage answers, so a hidden list never flashes.
-  const raw = useSyncExternalStore(never, read, () => null);
-  const [local, setLocal] = useState<Stored | null>(null);
+  const key = keyOf(me);
+  const raw = useSyncExternalStore(never, () => read(key), () => null);
+  // What was just saved, for the key it was saved under: switching organization reads that one's own.
+  const [local, setLocal] = useState<{ key: string; s: Stored } | null>(null);
   let stored: Stored = {};
   try {
-    stored = local ?? (raw ? (JSON.parse(raw) as Stored) : {});
+    stored = (local?.key === key ? local.s : null) ?? (raw ? (JSON.parse(raw) as Stored) : {});
   } catch {}
   const path = isPath(stored.path) ? stored.path : undefined;
   const facts = useFacts(path, uploaded);
   const save = (s: Stored) => {
-    setLocal(s);
-    write(s);
+    setLocal({ key, s });
+    write(key, s);
   };
   // Finished while it was on screen: it says so for a moment, then folds away, rather than vanishing on the last tick.
   const complete = !!path && !!facts && onboardingSteps(path, facts).every((s) => s.done);
