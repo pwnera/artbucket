@@ -42,7 +42,7 @@ export default async function GuidelinesPage({ params, searchParams }: Props) {
   const [{ slug }, q] = await Promise.all([params, searchParams]);
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
-  const edit = can(me, "brand.edit");
+  const edit = can(me, "brand.edit", head.brand);
   if (edit && (q.git || q.panel)) redirect(formerBuilderPath(slug, q));
   const version = shownVersion(q.version, { edit, publish: head.status?.publish ?? "never", live: head.status?.live ?? null });
   const read = await viewOf(slug, { ...q, version });
@@ -54,6 +54,7 @@ export default async function GuidelinesPage({ params, searchParams }: Props) {
     <BrandReader
       key={slug}
       initial={read}
+      brand={brand}
       embed={q.focus === "1" ? undefined : { head: { brand, origin: env.APP_URL, rules, status, release } }}
       status={status}
       version={version}

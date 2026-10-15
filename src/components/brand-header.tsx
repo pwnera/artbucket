@@ -121,16 +121,16 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
     // Under the name on a phone, the full header's buttons wrap rather than run past the screen's edge.
     <div className={cn("flex shrink-0 items-center gap-2", !compact && "max-w-full flex-wrap")}>
       {/* Its repository, with whether it is in step: only once there is one. Connecting is in the menu. */}
-      {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit")} compact />}
+      {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit", brand)} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
-      {can("brand.edit") && (
+      {can("brand.edit", brand) && (
         <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
           <Link href={guidelinesPath(brand.slug, editing)}>
             <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
           </Link>
         </Button>
       )}
-      {can("brand.edit") && status?.publish !== "current" && (
+      {can("brand.edit", brand) && status?.publish !== "current" && (
         <Button asChild size="sm" title={compact ? "Release" : undefined}>
           <Link href={brandPath(brand.slug, "/releases/new")}>
             <LinkIcon icon={<IconWorldUpload aria-hidden />} /> <span className={word}>Release</span>
@@ -309,7 +309,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
         </PopoverTrigger>
         <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
           <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
-          {can("brand.edit") && (
+          {can("brand.create") && (
             <>
               <Separator />
               <div className="flex items-center gap-3">
@@ -506,7 +506,7 @@ function BrandMenu({ brand, at, connect }: { brand: BrandInfo; at: BrandTab; con
           );
         })}
         {more.length > 0 && <DropdownMenuSeparator />}
-        {connect && can("brand.edit") && (
+        {connect && can("brand.edit", brand) && (
           <DropdownMenuItem asChild>
             <a href={connect}>
               <IconBrandGit aria-hidden /> Connect Git

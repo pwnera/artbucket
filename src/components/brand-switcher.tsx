@@ -122,7 +122,7 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
         </DropdownMenuItem>
       }
       action={
-        <Can do="brand.edit">
+        <Can do="brand.create">
           <SectionAdd label="New brand" icon={<IconPlus />} onClick={() => setCreating(opening(true))} />
         </Can>
       }
@@ -147,13 +147,17 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
                   </SidebarMenuAction>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start">
-                  <Can do="brand.edit">
+                  <Can do="brand.edit" on={b}>
                     <DropdownMenuItem onSelect={() => setEditing(opening<Editing>({ kind: "rename", brand: b }))}>
                       <IconPencil /> Rename
                     </DropdownMenuItem>
+                  </Can>
+                  <Can do="brand.create">
                     <DropdownMenuItem onSelect={() => setEditing(opening<Editing>({ kind: "copy", brand: b }))}>
                       <IconCopy /> Duplicate
                     </DropdownMenuItem>
+                  </Can>
+                  <Can do="brand.edit" on={b}>
                     {!b.default && (
                       <DropdownMenuItem onSelect={() => void makeDefault(b)}>
                         <IconStar /> Make default
@@ -163,8 +167,8 @@ export function Brands({ brands, current, section }: { brands: BrandInfo[]; curr
                   </Can>
                   <MoveItems s={s} />
                   {!b.default && (
-                    <Can do="brand.edit">
-                      <Can do="brand.delete">
+                    <Can do="brand.edit" on={b}>
+                      <Can do="brand.delete" on={b}>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(opening(b))}>
                           <IconTrash /> Delete

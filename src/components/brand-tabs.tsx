@@ -11,6 +11,9 @@ export type BrandTab = "overview" | "guidelines" | "rules" | "theme" | "assets" 
 
 type Tab = { id: BrandTab; label: string; href: string };
 
+/** A brand as its tabs need it: its id and whether it is private, which decide who may edit it. */
+type Brand = { id: string; slug: string; name: string; private?: boolean };
+
 /**
  * A brand's tabs (PRD section 13, "In the app"), as a repository's are, each
  * at its own address under /brands/{slug}: six, one job each, in the order a
@@ -34,12 +37,12 @@ export function useBrandTabs(brand: { slug: string; name: string }): Tab[] {
  * its guidelines), Insights (who reads it; its summary is on the Overview) and
  * Settings. Each still at its own address; left out for whoever may not use it.
  */
-export function useBrandMore(brand: { slug: string }): Tab[] {
+export function useBrandMore(brand: Brand): Tab[] {
   const can = useCan();
   return [
-    ...(can("brand.edit") ? [{ id: "theme" as const, label: "Theme", href: brandPath(brand.slug, "/theme") }] : []),
+    ...(can("brand.edit", brand) ? [{ id: "theme" as const, label: "Theme", href: brandPath(brand.slug, "/theme") }] : []),
     ...(can("insights.read") ? [{ id: "insights" as const, label: "Insights", href: brandPath(brand.slug, "/insights") }] : []),
-    ...(can("brand.edit") ? [{ id: "settings" as const, label: "Settings", href: brandPath(brand.slug, "/settings") }] : []),
+    ...(can("brand.edit", brand) ? [{ id: "settings" as const, label: "Settings", href: brandPath(brand.slug, "/settings") }] : []),
   ];
 }
 
@@ -47,7 +50,7 @@ export function useBrandMore(brand: { slug: string }): Tab[] {
  * The tabs as a row under the brand's header (components/brand-header.tsx), the one on show marked. A page from
  * the menu (Theme, Insights, Settings) joins the row while it is on show, so the row always says where you are.
  */
-export function BrandTabs({ brand, at }: { brand: { slug: string; name: string }; at: BrandTab }) {
+export function BrandTabs({ brand, at }: { brand: Brand; at: BrandTab }) {
   const more = useBrandMore(brand).find((t) => t.id === at);
   const tabs = [...useBrandTabs(brand), ...(more ? [more] : [])];
   return (
@@ -63,7 +66,7 @@ export function BrandTabs({ brand, at }: { brand: { slug: string; name: string }
  * folded to its rail. `here` does a tab in place rather than by address (the
  * builder opens its Rules or History without reloading the page on show).
  */
-export function BrandTabMenu({ brand, at, here = {} }: { brand: { slug: string; name: string }; at: BrandTab; here?: Partial<Record<BrandTab, () => void>> }) {
+export function BrandTabMenu({ brand, at, here = {} }: { brand: Brand; at: BrandTab; here?: Partial<Record<BrandTab, () => void>> }) {
   const tabs = useBrandTabs(brand);
   const more = useBrandMore(brand);
   return (
