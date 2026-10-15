@@ -23,7 +23,7 @@ written down and served, and that is what Artbucket does.
     The pages for brand teams, developers and agencies.
   </Card>
   <Card title="How it works" icon="diagram-project" href="/how-it-works">
-    The API, the MCP server and the canon.
+    The API, the MCP server and the brand as data.
   </Card>
   <Card title="Install it" icon="server" href="/installation/docker-compose">
     One click on Render, Docker Compose, Docker, Fly, Kubernetes, Coolify or a plain VPS.
@@ -43,22 +43,25 @@ To see it before signing up, ask BrandHub for a public brand, no key needed:
 `curl https://hub.artbucket.io/artbucket/artbucket/llms.txt`. More in
 [Try it without an account](/cloud#try-it-without-an-account).
 
-## What makes it different
+## What your team gets
 
-- **Renditions are pure functions of a URL.** `/a/{id}/w_1200,f_webp` is the
-  asset at that size. No export step, no download button.
-- **The web app is a client of the public API.** It has no private endpoints:
-  anything it does, a script or an agent can do.
-- **Content-addressed storage.** Upload the same bytes twice, get one asset.
-- **Your metadata stays yours.** Title, credit and tags are written back into
-  the file on download, so leaving costs nothing.
-- **The brand as data.** Colors, logo rules, type scale and tone are records an
-  agent can query, and the guidelines page is drawn from them.
-- **The brand as code, in open formats.** The same brand lives as YAML in a
-  Git repository, changed on either side, and is served as an AdCP
-  brand.json, W3C design tokens and DESIGN.md.
-- **A yes or no on a use.** `POST /api/v1/check` says whether an asset may run
-  here, now, in this context, and what to use instead.
+- One place for the current logo. Upload a new version once: embedded links,
+  share links and the files on portals switch to it, and Artbucket shows you
+  who still loads the old one so you can tell them.
+- A clear answer before a file goes out. Ask whether a photo may run in a
+  country, a channel and on a date, and get a yes or no with the reason and a
+  file to use instead.
+- Guidelines people actually open. Your rules become guideline pages on a
+  portal, on your own domain if you like, released when you say so.
+- Files for agencies and partners without the back and forth. A link that ends
+  on a date, a portal behind a password, or an upload link for work coming
+  back to you for review.
+- AI tools that use the real brand. Claude, ChatGPT or Cursor read your rules
+  and fetch the approved logo instead of guessing.
+- No lock-in. Titles, credits and tags are written into every file you
+  download, and the brand can live as files in a Git repository too.
+
+How it is built, for developers: [How it works](/how-it-works).
 
 Artbucket is open source under the AGPL-3.0, copyright Pwnera SAS. Run it,
 change it, host it yourself, for any purpose; if you offer a changed version
