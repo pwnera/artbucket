@@ -30,7 +30,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["mod", "Z"], label: "Undo, while its toast shows", group: "General" },
   { keys: ["mod", ","], label: "Open settings", group: "General", href: "/settings" },
   { keys: ["?"], label: "Keyboard shortcuts", group: "General" },
-  { keys: ["G", "A"], sequence: true, label: "Assets", group: "Go to", href: "/" },
+  { keys: ["G", "A"], sequence: true, label: "Assets", group: "Go to", href: "/?browse" },
   { keys: ["G", "R"], sequence: true, label: "Review", group: "Go to", href: "/review" },
   { keys: ["G", "G"], sequence: true, label: "Guidelines", group: "Go to", href: "/brand" },
   { keys: ["G", "Y"], sequence: true, label: "Activity", group: "Go to", href: "/insights/activity" },

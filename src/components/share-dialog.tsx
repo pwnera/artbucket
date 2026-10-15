@@ -151,7 +151,8 @@ function Share({
   const [picked, setPicked] = useState(!choices.length && intoProject ? PROJECT : "");
   const chosen = target.collection ?? (choosing ? choices.find((c) => c.id === picked) : undefined);
   const what = chosen?.name ?? target.asset?.name ?? "the project";
-  const shareable = target.asset?.shareable !== false;
+  // An asset is shareable only when its caller says so; a collection or the project, by what the dialog offers.
+  const shareable = !target.asset || target.asset.shareable === true;
   const [mode, setMode] = useState<Mode>(target.asset?.public && shareable ? "public" : shareable ? "link" : "team");
 
   useEffect(() => {

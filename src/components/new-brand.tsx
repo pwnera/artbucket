@@ -170,7 +170,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
           {step === "builder" && (
             <form onSubmit={create} className="grid min-w-0 gap-4">
               <DialogHeader>
-                <DialogTitle>Start here</DialogTitle>
+                <DialogTitle>New brand</DialogTitle>
                 <DialogDescription>Start blank, from a domain or from a template.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3" role="radiogroup" aria-label="Start from">

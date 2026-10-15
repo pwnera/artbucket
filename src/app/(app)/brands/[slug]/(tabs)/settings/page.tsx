@@ -30,7 +30,7 @@ async function Tab({ params }: Props) {
   const { slug } = await params;
   const [head, me, source] = await Promise.all([brandHead(slug), whoami(), brandSource(slug)]);
   if (!head) notFound();
-  if (!can(me, "brand.edit")) redirect(brandPath(slug));
+  if (!can(me, "brand.edit", head.brand)) redirect(brandPath(slug));
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-16 md:px-6">
       <BrandSettings key={head.brand.slug} brand={head.brand} source={source} />

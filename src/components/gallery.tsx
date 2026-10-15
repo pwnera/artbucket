@@ -75,6 +75,8 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useShell } from "@/components/shell";
+import { rulesPath } from "@/lib/site";
+import { useVersionUpload } from "@/components/versions";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
@@ -89,7 +91,7 @@ import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
-import { reason, refusal } from "@/lib/send";
+import { reason, refusal, sendResult } from "@/lib/send";
 
 export type Asset = {
   id: string;
@@ -669,21 +671,31 @@ export function Gallery({
     if (!view.asset) pushedViewer = false;
   }, [view.asset]);
 
-  /** Every asset this view finds, page by page, put in a new collection; then the collection opens. */
+  /**
+   * Every asset this view finds, page by page, put in a new collection; then the collection opens. A page that fails
+   * saves nothing; an add that fails keeps the collection with what it got, and says how many that is.
+   */
   async function saveAsCollection(name: string) {
     const ids: string[] = [];
     for (let offset = 0; offset < total; offset += 200) {
-      const page = await fetch(`/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`).then((r) => (r.ok ? r.json() : null));
-      if (!page?.data?.length) break;
+      const page = await sendResult("GET", `/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`, undefined, { quiet: true });
+      if (!page.ok) {
+        toast.error("Couldn't read every match, so nothing was saved");
+        return false;
+      }
+      if (!page.data.length) break;
       ids.push(...page.data.map((a: { id: string }) => a.id));
     }
     const made: Collection | null = await send("POST", "/api/v1/collections", { name });
     if (!made) return false;
-    for (let i = 0; i < ids.length; i += 1000) {
-      if (!(await send("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(i, i + 1000) }))) return false;
+    let added = 0;
+    for (; added < ids.length; added += 1000) {
+      if (!(await sendResult("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(added, added + 1000) }, { quiet: true })).ok) break;
     }
     setCollections((cs) => [...cs, made].sort((a, b) => a.name.localeCompare(b.name)));
-    toast.success(`Saved ${ids.length.toLocaleString()} ${ids.length === 1 ? "asset" : "assets"} as "${name}"`);
+    const n = (k: number) => `${k.toLocaleString()} ${k === 1 ? "asset" : "assets"}`;
+    if (added < ids.length) toast.error(`Saved only ${added.toLocaleString()} of ${n(ids.length)} as "${name}"`);
+    else toast.success(`Saved ${n(ids.length)} as "${name}"`);
     go({ collection: made.id, q: "", tags: [], types: [], status: [], filters: {}, extra: [] }, true);
     return true;
   }
@@ -972,7 +984,18 @@ export function Gallery({
   if (!stocked && total > 0) setStocked(true);
 
   const picked = useMemo(() => assets.filter((a) => selected.has(a.id)), [assets, selected]);
-  const shareAsset = (a: Asset) => share({ kind: "view", asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public, path: assetLink(a) } });
+  // The menu's Upload a new version, for the asset it was asked on; once it lands, the version opens.
+  const versionFile = useRef<HTMLInputElement>(null);
+  const versionFor = useRef<Asset | null>(null);
+  const { upload: uploadVersion } = useVersionUpload(null, (id) => {
+    refreshSoon();
+    openAsset(id);
+  });
+  const shareAsset = (a: Asset) =>
+    share({
+      kind: "view",
+      asset: { id: a.id, name: a.metadata?.title || a.filename, public: a.public, path: assetLink(a), shareable: a.status === "active" && can("asset.share", a) },
+    });
   const selectAll = () => setSelected(new Set(assets.map((a) => a.id)));
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
@@ -1143,6 +1166,10 @@ export function Gallery({
   const menuFor = (a: Asset): ActionContext => ({
     onOpen: () => openAsset(a.id),
     onShare: () => shareAsset(a),
+    onNewVersion: () => {
+      versionFor.current = a;
+      versionFile.current?.click();
+    },
     onPick: () => pick(a, false),
     selected: selected.has(a.id),
     onChanged: refreshSoon,
@@ -1225,6 +1252,21 @@ export function Gallery({
           onChange={(e) => {
             if (e.target.files) start([...e.target.files].filter((f) => !f.webkitRelativePath.split("/").some((p) => p.startsWith("."))));
             e.target.value = "";
+          }}
+        />
+        <input
+          ref={versionFile}
+          type="file"
+          className="hidden"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f || !versionFor.current) return;
+            // Nothing on the tile shows it going: a toast does, until it lands.
+            const going = toast.loading(`Uploading a new version of ${versionFor.current.filename}`);
+            void uploadVersion(f, false, versionFor.current).finally(() => toast.dismiss(going));
           }}
         />
         {/* How an agent reads what this page shows. */}
@@ -2070,6 +2112,9 @@ export { Thumb };
 
 /** An empty library: the one place the whole page is the upload target. */
 function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () => void }) {
+  // The rules are written on the default brand's Rules tab; without a brand, Brands makes one.
+  const { brands } = useShell();
+  const home = brands.find((b) => b.default) ?? brands[0];
   return (
     <Empty className={cn("border-2 transition-colors", dragging && onUpload && "border-primary bg-primary/5")}>
       <EmptyHeader>
@@ -2091,8 +2136,8 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
             </Button>
           )}
           <Button variant="outline" asChild>
-            <Link href={onUpload ? "/brand?edit" : "/brand"}>
-              <IconBook /> {onUpload ? "Write your guidelines" : "Read the guidelines"}
+            <Link href={onUpload ? (home ? rulesPath(home.slug) : "/brands") : "/brand"}>
+              <IconBook /> {onUpload ? "Write your rules" : "Read the guidelines"}
             </Link>
           </Button>
         </div>

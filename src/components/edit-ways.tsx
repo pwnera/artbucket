@@ -45,7 +45,7 @@ export function EditWays({ brand, ways, open, onOpenChange }: { brand: string; w
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit these pages</DialogTitle>
-          <DialogDescription>The builder is read-only on this server. Rules, Theme and Release stay on the brand; its pages change one of three ways.</DialogDescription>
+          <DialogDescription>Pages are edited by an agent, in Git or as code. Rules, Theme and Release stay on the brand.</DialogDescription>
         </DialogHeader>
         <div className="grid min-w-0 gap-5">
           {way(

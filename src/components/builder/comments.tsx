@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_COMMENT, openCounts, sectionKey, threads as thread, type Thread } from "@/lib/comments";
-import type { Action } from "@/lib/permissions";
+import type { Action, Target } from "@/lib/permissions";
 import type { Comment } from "@/lib/schemas";
 import type { Sent } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
@@ -52,6 +52,8 @@ export { sectionKey };
 
 /** What useComments gives the builder. */
 export type Comments = {
+  /** The brand they are on, by id and whether it is private: what decides who may comment, and delete anyone's. */
+  on: Target;
   /** Every thread on the brand's pages: open ones first, the one that moved last on top. */
   threads: CommentThread[];
   /** Open threads per page slug. */
@@ -81,7 +83,7 @@ const flatten = (ts: CommentThread[]): BrandComment[] => ts.flatMap(({ replies, 
 
 const why = (res: Sent, doing: string) => (res.ok ? "" : res.network ? "Couldn't reach the server." : (res.error?.message ?? `Couldn't ${doing}.`));
 
-export function useComments(brand: string, transport: Transport): Comments {
+export function useComments(brand: string, on: Target, transport: Transport): Comments {
   const me = useMe();
   const [rows, setRows] = useState<BrandComment[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -254,7 +256,7 @@ export function useComments(brand: string, transport: Transport): Comments {
 
   const threads = useMemo(() => thread(rows), [rows]);
   const counts = useMemo(() => openCounts(rows), [rows]);
-  return { threads, byPage: counts.byPage, bySection: counts.bySection, openCount: counts.open, loaded, error, refresh, create, reply, resolve, remove, edit };
+  return { on, threads, byPage: counts.byPage, bySection: counts.bySection, openCount: counts.open, loaded, error, refresh, create, reply, resolve, remove, edit };
 }
 
 // ---- the panel ----------------------------------------------------------------
@@ -282,10 +284,10 @@ export type CommentsPanelProps = {
 };
 
 /** Whether the person may do `action`; outside the app's provider (the dev page), the server decides. */
-function useMay() {
+function useMay(on: Target) {
   const me = useMe();
   const can = useCan();
-  return (action: Action) => !me || can(action);
+  return (action: Action) => !me || can(action, on);
 }
 
 /** Minutes move on: "just now" becomes "3 minutes ago" without a new answer from the server. */
@@ -299,7 +301,7 @@ function useNow() {
 }
 
 export function CommentsPanel({ comments, page, section, onPickSection, sectionName, className }: CommentsPanelProps) {
-  const may = useMay();
+  const may = useMay(comments.on);
   const now = useNow();
   const [resolved, setResolved] = useState(false);
   const toggle = useId();
@@ -381,7 +383,7 @@ function ThreadCard({
   onPick?: () => void;
   sectionName: string | null;
 }) {
-  const may = useMay();
+  const may = useMay(comments.on);
   const done = !!t.resolvedAt;
   return (
     <article className={cn("bg-card grid gap-2 rounded-lg border p-3", done && "bg-muted/40", t.pending && "opacity-70")}>
@@ -435,7 +437,7 @@ function Entry({ c, comments, now, children }: { c: BrandComment; comments: Comm
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // Anyone's, with brand.edit; outside the app's provider, one's own only, as the server will say.
-  const deletable = c.mine || (!!me && can("brand.edit"));
+  const deletable = c.mine || (!!me && can("brand.edit", comments.on));
   const replies = c.parent ? 0 : comments.threads.find((t) => t.id === c.id)?.replies.length ?? 0;
 
   return (

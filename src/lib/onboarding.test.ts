@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isPath, onboardingSteps, PATHS, type Facts } from "./onboarding.ts";
+import { isPath, onboardingSteps, ownName, PATHS, type Facts } from "./onboarding.ts";
 
-const none: Facts = { named: false, branded: false, noEmail: false, uploaded: false, brand: null, hub: false, team: false, projects: 1, agent: false, mcp: false, git: null };
+const none: Facts = { named: false, branded: false, branding: true, noEmail: false, uploaded: false, brand: null, hub: false, team: false, projects: 1, agent: false, mcp: false, git: null };
 const brand = { slug: "acme", basics: true, tokens: true, published: false, git: false, public: false, portal: false };
 
 test("every path ends in its first win, and only there", () => {
@@ -52,4 +52,19 @@ test("a stored path is one of the five, and an old one counts as none", () => {
   assert.equal(isPath("nope"), false);
   assert.equal(isPath("brand"), false);
   assert.equal(isPath(undefined), false);
+});
+
+test("BrandHub is where a brand goes public: its Sharing tab", () => {
+  assert.equal(onboardingSteps("oss", { ...none, hub: true, brand }).at(-1)!.href, "/brands/acme/sharing");
+});
+
+test("a name an organization was made with is not one of its own", () => {
+  assert.equal(ownName("Default"), false);
+  assert.equal(ownName("Ada's organization"), false, "sign-up's");
+  assert.equal(ownName("Acme Studio"), true);
+});
+
+test("the logo step is set up only on a plan that has it, never an upgrade on the way", () => {
+  assert.ok(onboardingSteps("clients", none).some((s) => s.id === "look"));
+  assert.ok(!onboardingSteps("clients", { ...none, branding: false }).some((s) => s.id === "look"));
 });

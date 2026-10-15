@@ -26,6 +26,8 @@ import { brandPath, guidelinesPath, type PageView } from "@/lib/site";
 export type BrandReaderProps = {
   /** The page as the server rendered it (GET /api/v1/brands/{slug}/view); later pages and contexts are fetched. */
   initial: PageView;
+  /** The brand (GET /api/v1/brands): whether this person may edit it is decided on it. */
+  brand: BrandHeaderProps["brand"];
   /**
    * Drawn inside the brand's page, its Guidelines tab: `head` is the brand's
    * header (and its tabs) over it, and the app's bar names the brand rather
@@ -59,7 +61,7 @@ const titleOf = (v: PageView) => `${v.page ? `${v.page.title} · ` : ""}${v.bran
  * whether it shows the draft or the live release, with a switch while they
  * differ.
  */
-export function BrandReader({ initial, embed, status, version: fallback, ways }: BrandReaderProps) {
+export function BrandReader({ initial, brand, embed, status, version: fallback, ways }: BrandReaderProps) {
   const router = useRouter();
   const params = useSearchParams();
   const can = useCan();
@@ -136,7 +138,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
   };
   // A page's address with one of them open: rendered on the server too, so from what the view says, never `location`.
   const also = (page: string | null, key: "ways" | "comments") => guidelinesPath(slug, { page, context, lang, version: asked, focus: focus ? "1" : null, [key]: "1" });
-  const commenting = can("brand.comment");
+  const commenting = can("brand.comment", brand);
   const commentsButton = commenting && (
     <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setOpen("comments", true)}>
       <IconMessageCircle aria-hidden /> Comments
@@ -171,7 +173,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
     <AppHeader
       trail={
         <div className="flex min-w-0 items-center gap-2 text-sm">
-          <BrandTabMenu brand={view.brand} at="guidelines" />
+          <BrandTabMenu brand={brand} at="guidelines" />
           <Showing view={view} status={status} onPick={(v) => navigate(at(view.page?.slug ?? null, { context, lang, version: v }) + location.hash)} />
         </div>
       }
@@ -179,7 +181,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
       {contexts}
       {commentsButton}
       {/* On a phone they don't fit beside the brand's menu: the floating Edit, there from the start, has both. */}
-      <Can do="brand.edit">
+      <Can do="brand.edit" on={brand}>
         <Button variant="outline" size="sm" className="max-md:hidden" onClick={() => setTheming(true)}>
           Theme
         </Button>
@@ -193,7 +195,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
   return (
     <>
       <SiteView view={view} href={href} top="top-14" header={header} onNavigate={navigate} />
-      <Can do="brand.edit">
+      <Can do="brand.edit" on={brand}>
         <FloatingEdit href={also(view.page?.slug ?? null, "ways")} onTheme={() => setTheming(true)} always={focus && mobile} />
         {/* A theme save is a draft: the server draws the address again, and the draft with it where it showed the live release. */}
         <ThemePanel slug={slug} theme={view.theme} open={theming} onOpenChange={setTheming} onSaved={() => router.refresh()} />
@@ -209,6 +211,7 @@ export function BrandReader({ initial, embed, status, version: fallback, ways }:
       {commenting && (
         <ReaderComments
           view={view}
+          brand={brand}
           open={params.get("comments") === "1"}
           onOpenChange={(open) => setOpen("comments", open)}
           onPage={(page) => navigate(also(page, "comments"))}

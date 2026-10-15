@@ -35,12 +35,12 @@ async function Tab({ params }: Props) {
   const { slug } = await params;
   const [head, me] = await Promise.all([brandHead(slug), whoami()]);
   if (!head) notFound();
-  if (!can(me, "brand.edit")) redirect(brandPath(slug, "/releases"));
+  if (!can(me, "brand.edit", head.brand)) redirect(brandPath(slug, "/releases"));
   type Row = Parameters<typeof openCounts>[0][number];
   const comments = await get(`brands/${encodeURIComponent(slug)}/comments`, (x: { data: (Row & { replies?: Row[] })[] }) => openCounts(x.data).open, 0);
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-16 md:px-6">
-      <NewRelease slug={slug} name={head.brand.name} status={head.status} comments={comments} />
+      <NewRelease slug={slug} target={head.brand} name={head.brand.name} status={head.status} comments={comments} />
     </div>
   );
 }
