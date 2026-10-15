@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconBolt, IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconSend, IconTrash } from "@/components/icons";
+import { useCan } from "@/components/can";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
@@ -56,7 +57,7 @@ type Run = {
   createdAt: string;
   test?: boolean;
 };
-type Brand = { slug: string; name: string };
+type Brand = { id: string; slug: string; name: string; private?: boolean };
 type Made = AutomationRow & { secret?: string };
 
 const ANY = "*";
@@ -118,6 +119,9 @@ export function Automations({ automations, brands }: { automations: AutomationRo
   const [editing, setEditing] = useState<{ of: AutomationRow | null; seed?: Partial<AutomationRow>; n: number } | null>(null);
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; secret: string } | null>(null);
+  const can = useCan();
+  // An editor starts only from what they may make: a brand's releases.
+  const recipes = can("automation.manage_all") ? RECIPES : RECIPES.filter((r) => r.trigger === "brand.released");
   const edit = (of: AutomationRow | null, recipe?: Recipe) => {
     setEditing((e) => ({ of, seed: recipe && seedOf(recipe), n: (e?.n ?? 0) + 1 }));
     setOpen(true);
@@ -133,6 +137,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
         >
           {automations.length > 0 && (
             <div className="flex items-center gap-2">
+              {recipes.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="outline">
@@ -140,7 +145,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
-                  {RECIPES.map((r) => (
+                  {recipes.map((r) => (
                     <DropdownMenuItem key={r.id} onSelect={() => edit(null, r)} className="grid gap-0.5">
                       <span>{r.name}</span>
                       <span className="text-muted-foreground text-xs text-pretty">{r.says}</span>
@@ -148,6 +153,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
               <Button size="sm" onClick={() => edit(null)}>
                 <IconPlus /> New automation
               </Button>
@@ -190,15 +196,17 @@ export function Automations({ automations, brands }: { automations: AutomationRo
                 <IconPlus /> New automation
               </Button>
             </EmptyContent>
+            {recipes.length > 0 && (
             <div className="grid w-full max-w-3xl gap-2 pt-4 text-start sm:grid-cols-2">
               <p className="text-muted-foreground text-xs sm:col-span-2">Or start from a recipe:</p>
-              {RECIPES.map((r) => (
+              {recipes.map((r) => (
                 <button key={r.id} type="button" onClick={() => edit(null, r)} className="hover:bg-muted/60 grid gap-0.5 rounded-lg border p-3 text-start transition-colors">
                   <span className="text-sm font-medium">{r.name}</span>
                   <span className="text-muted-foreground text-xs text-pretty">{r.says}</span>
                 </button>
               ))}
             </div>
+            )}
           </Empty>
         )}
       </div>
@@ -239,12 +247,16 @@ function AutomationDialog({
 }) {
   const id = useId();
   const router = useRouter();
+  const can = useCan();
+  // An editor of a brand makes its release automations; every other trigger, and any brand, reach what only admins see.
+  const all = can("automation.manage_all");
+  const mine = all ? brands : brands.filter((b) => can("automation.manage", b));
   // What the fields start from: the automation being changed, else a recipe.
   const from: Partial<AutomationRow> | null = a ?? seed ?? null;
   const [trigger, setTrigger] = useState<AutomationRow["trigger"]>(from?.trigger ?? "brand.released");
   const [action, setAction] = useState<AutomationRow["action"]>(from?.action ?? "email");
   const [format, setFormat] = useState<WebhookFormat>(from?.format ?? "json");
-  const [brand, setBrand] = useState(from?.brand ?? ANY);
+  const [brand, setBrand] = useState(from?.brand ?? (all ? ANY : (mine[0]?.slug ?? ANY)));
   const [kind, setKind] = useState<string>(from?.kind ?? ANY);
   // What each trigger was saved with shows again only for that trigger.
   const was = from?.trigger === trigger ? from : null;
@@ -297,7 +309,7 @@ function AutomationDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRIGGERS.map((g) => (
+                  {TRIGGERS.map((g) => ({ ...g, items: g.items.filter((t) => all || t.value === "brand.released") })).filter((g) => g.items.length).map((g) => (
                     <SelectGroup key={g.group}>
                       <SelectLabel>{g.group}</SelectLabel>
                       {g.items.map((t) => (
@@ -318,8 +330,8 @@ function AutomationDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ANY}>Any brand</SelectItem>
-                    {brands.map((b) => (
+                    {all && <SelectItem value={ANY}>Any brand</SelectItem>}
+                    {mine.map((b) => (
                       <SelectItem key={b.slug} value={b.slug}>
                         {b.name}
                       </SelectItem>

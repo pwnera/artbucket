@@ -441,11 +441,14 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading="Go to">
-          <CommandItem value="Explore assets library all" onSelect={() => go("/")}>
-            <IconPhoto /> Explore
+          <CommandItem value="Explore search everything find" onSelect={() => go("/")}>
+            <IconSearch /> Explore
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/" />
             </CommandShortcut>
+          </CommandItem>
+          <CommandItem value="Assets library all files images" onSelect={() => go("/?browse")}>
+            <IconPhoto /> Assets
           </CommandItem>
           <CommandItem value="Guidelines brand rules" onSelect={() => go("/brand")}>
             <IconBook /> Guidelines
