@@ -60,6 +60,9 @@ import { canonical } from "@/lib/view";
 import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
 import { guidelinesPath, rulesPath } from "@/lib/site";
 import { hasPreview } from "@/lib/preview";
+import { TypeIcon } from "@/components/catalog";
+import { openPath, TYPE_LABEL } from "@/lib/catalog";
+import type { CatalogItem } from "@/lib/core/catalog";
 
 type RuleHit = Rule & { brandInfo: BrandInfo };
 /** A brand page as GET /brands/{slug}/pages lists it. */
@@ -150,8 +153,9 @@ export type PageCommand = {
 };
 
 /**
- * ⌘K: find anything (assets, brand pages and rules, collections, saved searches,
- * brands, settings), go anywhere, or do the common things, from any page.
+ * ⌘K: find anything (assets, components and sites, brand pages and rules,
+ * collections, saved searches, brands, settings), go anywhere, or do the
+ * common things, from any page.
  * Empty, it opens on what you had lately; everything else waits for a query,
  * so the list stays short. Assets come from the same search the library runs.
  */
@@ -189,7 +193,7 @@ export function CommandPalette({
   const [q, setQ] = useState("");
   const term = q.trim();
   // Which query these answer: results for an older one are never shown as this one's.
-  const [assets, setAssets] = useState<{ q: string; data: Asset[] }>({ q: "", data: [] });
+  const [assets, setAssets] = useState<{ q: string; data: Asset[]; parts: CatalogItem[] }>({ q: "", data: [], parts: [] });
   const pending = !!term && assets.q !== term;
   const [rules, setRules] = useState<RuleHit[]>([]);
   const [picked, setPicked] = useState("");
@@ -200,18 +204,25 @@ export function CommandPalette({
     if (open) setOpenMobile(false);
   }, [open, setOpenMobile]);
 
-  // Assets as you type, settled for a beat. A failure still answers the query, with nothing, so it never spins forever.
+  // Assets as you type, settled for a beat, and the components and sites the catalog finds (Explore's search). A failure
+  // still answers the query, with nothing, so it never spins forever.
   useEffect(() => {
     if (!open || !term) return;
     let live = true;
     const t = setTimeout(async () => {
-      let data: Asset[] = [];
-      try {
-        const res = await fetch(`/api/v1/assets?limit=8&q=${encodeURIComponent(term)}`);
-        if (res.ok) data = (await res.json()).data;
-      } catch {}
+      const q = encodeURIComponent(term);
+      const [data, parts] = await Promise.all([
+        fetch(`/api/v1/assets?limit=8&q=${q}`)
+          .then((r) => (r.ok ? r.json() : { data: [] }))
+          .then((b: { data: Asset[] }) => b.data)
+          .catch(() => [] as Asset[]),
+        fetch(`/api/v1/catalog?limit=6&type=component&type=site&q=${q}`)
+          .then((r) => (r.ok ? r.json() : { items: [] }))
+          .then((b: { items: CatalogItem[] }) => b.items)
+          .catch(() => [] as CatalogItem[]),
+      ]);
       if (!live) return;
-      setAssets({ q: term, data });
+      setAssets({ q: term, data, parts });
       // They come after the rest has matched, and cmdk keeps what it picked then: when that was only the library search, the best asset takes its place.
       if (data[0]) setPicked((p) => (!p || p.toLowerCase() === LIBRARY ? assetValue(data[0]) : p));
     }, 150);
@@ -267,7 +278,7 @@ export function CommandPalette({
         if (!o) setQ("");
       }}
       title="Jump to"
-      description="Find assets, brand pages and rules, collections, saved searches and settings, or go anywhere."
+      description="Find assets, components, sites, brand pages and rules, collections, saved searches and settings, or go anywhere."
       className="sm:max-w-xl"
       filter={filter}
       value={picked}
@@ -340,6 +351,18 @@ export function CommandPalette({
                   <p className="truncate">{a.metadata?.title || a.filename}</p>
                   {a.metadata?.title && <p className="text-muted-foreground truncate text-xs">{a.filename}</p>}
                 </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {term && assets.q === term && assets.parts.length > 0 && (
+          <CommandGroup heading="Components and sites">
+            {assets.parts.map((i) => (
+              // Matched by the server, like the assets: the query keeps it past cmdk's own filter.
+              <CommandItem key={i.id} value={`${i.type} ${i.id} ${i.name}`} keywords={[q, i.slug, ...i.tags]} onSelect={() => go(openPath(i))}>
+                <TypeIcon type={i.type} /> <span className="truncate">{i.name}</span>
+                <CommandShortcut className="tracking-normal">{i.parent?.name ?? TYPE_LABEL[i.type].one}</CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
