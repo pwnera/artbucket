@@ -855,7 +855,7 @@ export function AssetEditor({
             />
           )}
           <span ref={copyRef} className="contents">
-            <CopyButton label="Copy link" what="the link" size="icon-sm" variant="outline" shortcut={["⇧", "C"]} text={async () => link()} />
+            <CopyButton label="Copy link (team)" what="the link" size="icon-sm" variant="outline" shortcut={["⇧", "C"]} text={async () => link()} />
           </span>
           {/* An SVG pastes into Figma or code as markup: copied, not downloaded. */}
           {svg && (

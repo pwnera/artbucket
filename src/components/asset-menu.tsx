@@ -165,7 +165,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
     [
       {
         id: "copy",
-        label: "Copy link",
+        label: "Copy link (team)",
         icon: <IconCopy />,
         run: async () => {
           if (await copyText(new URL(`/?asset=${a.id}`, location.origin).href, { what: "the link" })) toast.success("Copied a link for people with access");
