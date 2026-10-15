@@ -22,20 +22,26 @@ sections:
     title: Same idea. Fewer obstacles.
     lede: A few words can make the next step obvious.
     items:
+      - text: The second line finishes the first, with the things the reader will touch.
+        title: Every logo in one place. The current version for each site, slide and agent.
+        verdict: do
+      - text: A second slogan adds nothing the first did not say.
+        title: Every logo in one place. Endless possibilities, zero friction.
+        verdict: dont
       - text: Name the job.
-        title: Find the right file.
+        title: Find the right asset.
         verdict: do
       - text: Avoid promises the reader has to translate.
         title: Unlock seamless asset discovery.
         verdict: dont
       - text: State what is here and what to do next.
-        title: No files yet. Add your first asset.
+        title: No assets yet. Upload the first one.
         verdict: do
       - text: An empty state needs a next step, not a pep talk.
         title: Your creative journey awaits!
         verdict: dont
       - text: Be specific. Keep blame out of it.
-        title: That file did not upload. Try again.
+        title: That asset did not upload. Try again.
         verdict: do
       - text: A vague error gives the reader nowhere to go.
         title: Oops! Something went wrong.
@@ -73,7 +79,7 @@ sections:
         - name: detail
           label: What the recipient should know
       template: |-
-        The files for {project} are ready.
+        The assets for {project} are ready.
 
         {link}
 
