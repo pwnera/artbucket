@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import { BrandPageHeader } from "@/components/brand-header";
-import type { Source } from "@/components/builder/use-status";
-import { brandHead } from "@/lib/brand-head";
+import { brandHead, brandSource } from "@/lib/brand-head";
 import { env } from "@/lib/env";
-import { get } from "@/lib/sidebar";
 
 type Props = { children: React.ReactNode; params: Promise<{ slug: string }> };
 
@@ -19,7 +17,7 @@ export default async function BrandTabsLayout({ children, params }: Props) {
   if (!head) notFound();
   const { brand, rules, status, release } = head;
   // Brought in from a repository and not in yet (as the Overview tells it).
-  const source = !rules.length && !release ? await get(`brands/${encodeURIComponent(slug)}/source`, (x: { data: Source }) => x.data.source, null) : null;
+  const source = !rules.length && !release ? (await brandSource(slug))?.source : null;
   return (
     <>
       <BrandPageHeader brand={brand} origin={env.APP_URL} rules={rules} status={status} release={release} importing={!!source && !source.syncedAt} />
