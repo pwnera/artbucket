@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import sharp from "sharp";
 import { signUp } from "@/test/db";
 import { handleMcp } from "@/lib/mcp";
 import { ingestBytes, proposeTags } from "@/lib/core/assets";
 import type { Caller } from "@/lib/core/access";
+import { updateSetting } from "@/lib/core/settings";
 
 const ada = await signUp("Ada");
 
@@ -162,4 +163,72 @@ test("an agent checks a site it built and deploys it, files as text and base64; 
   assert.equal(live.state, "live");
   assert.deepEqual(live.uses, [{ asset: now.id, how: "copy", file: "logo.png" }]);
   assert.match(live.url as string, /\/$/);
+});
+
+test("Fixes, automations, deployments and projects: reads are read-only, deletes destructive", async () => {
+  const res = (await handleMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ada.caller)) as {
+    result: { tools: { name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } }[] };
+  };
+  const by = new Map(res.result.tools.map((t) => [t.name, t.annotations]));
+  for (const read of ["get_fixes", "list_automations", "automation_runs", "list_deployments"]) assert.equal(by.get(read)?.readOnlyHint, true, read);
+  for (const write of ["create_automation", "update_automation", "test_automation", "restore_deployment", "create_project", "rename_project"]) {
+    assert.equal(by.get(write)?.readOnlyHint, false, write);
+  }
+  assert.equal(by.get("delete_automation")?.destructiveHint, true);
+  assert.ok(!by.has("delete_project"), "a project is never deleted over MCP");
+});
+
+test("get_fixes answers as the Fixes page: what is open, and each list", async () => {
+  const out = await call("get_fixes");
+  assert.equal(typeof out.open, "number");
+  for (const k of ["stale", "gaps", "licenses"]) assert.ok(Array.isArray(out[k]), k);
+});
+
+test("an agent makes, tests, changes and deletes an automation; recipes come with the list; a webhook's secret once", async () => {
+  mock.method(console, "info", () => {});
+  await updateSetting(ada.caller, "organization", "email", { enabled: true, provider: "console", from: "Test <test@example.com>" });
+  const mail = await call("create_automation", { name: "Licenses to legal", trigger: "asset.expiring", days: 30, action: "email", emails: ["legal@example.com"] });
+  assert.equal(mail.trigger, "asset.expiring");
+  assert.ok(!("secret" in mail));
+  const listed = await call("list_automations");
+  assert.ok((listed.automations as { id: string }[]).some((a) => a.id === mail.id));
+  assert.ok((listed.recipes as { id: string }[]).some((r) => r.id === "licenses-to-legal"));
+
+  assert.equal((await call("update_automation", { id: mail.id, enabled: false })).enabled, false);
+  // A test goes out on or off, once, and lands in the run log marked as one.
+  await upload("photo.png");
+  const sent = await call("test_automation", { id: mail.id });
+  assert.equal(sent.test, true);
+  const { runs } = (await call("automation_runs", { id: mail.id })) as unknown as { runs: { id: string; test: boolean }[] };
+  assert.deepEqual(runs.map((r) => [r.id, r.test]), [[sent.id, true]]);
+
+  const hook = await call("create_automation", { name: "Releases to Slack", trigger: "brand.released", action: "webhook", format: "slack", url: "https://hooks.example.com/services/T0/B0/x" });
+  assert.match(hook.secret as string, /^whsec_/);
+  assert.equal(hook.host, "hooks.example.com");
+  assert.ok(!JSON.stringify(await call("list_automations")).includes("whsec_"));
+  assert.match((await call("create_automation", { name: "No one", trigger: "asset.expiring", days: 1, action: "email" })).error, /emails/);
+
+  assert.deepEqual(await call("delete_automation", { id: mail.id }), { deleted: true });
+  assert.match((await call("automation_runs", { id: mail.id })).error, /No such automation/);
+});
+
+test("an agent rolls a site back: list_deployments, then restore_deployment puts the replaced one live", async () => {
+  const site = await call("create_site", { name: "Rollback docs", kind: "docs", access: "public" });
+  const first = await call("deploy_site", { address: site.slug, files: [{ path: "index.html", content: "<h1>One</h1>" }] });
+  const second = await call("deploy_site", { address: site.slug, files: [{ path: "index.html", content: "<h1>Two</h1>" }] });
+  const before = (await call("list_deployments", { address: site.slug })).deployments as { id: string; state: string }[];
+  assert.deepEqual(before.map((d) => [d.id, d.state]), [[second.id, "live"], [first.id, "replaced"]]);
+
+  assert.equal((await call("restore_deployment", { address: site.slug, deployment: first.id })).state, "live");
+  const after = (await call("list_deployments", { address: site.slug })).deployments as { id: string; state: string }[];
+  assert.deepEqual(after.map((d) => [d.id, d.state]), [[second.id, "replaced"], [first.id, "live"]]);
+  assert.match((await call("restore_deployment", { address: site.slug, deployment: "00000000-0000-4000-8000-000000000000" })).error, /No deployment/);
+});
+
+test("an organization admin makes a project and renames it; one not here is refused", async () => {
+  const made = await call("create_project", { name: "Retail EMEA" });
+  assert.equal(made.name, "Retail EMEA");
+  const renamed = await call("rename_project", { id: made.id, name: "Retail Europe" });
+  assert.deepEqual([renamed.id, renamed.name], [made.id, "Retail Europe"]);
+  assert.match((await call("rename_project", { id: "00000000-0000-4000-8000-000000000000", name: "X" })).error, /No project/);
 });

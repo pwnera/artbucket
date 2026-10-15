@@ -69,7 +69,11 @@ import { PLAYBOOK } from "@/lib/playbook";
 import { printPage } from "@/lib/core/print";
 import { isVector, MAX_DIMENSION, parseTransform, serializeTransform } from "@/lib/transform";
 import { guidelinesPath } from "@/lib/site";
-import { checkBuild, deploy } from "@/lib/core/sites";
+import { checkBuild, deploy, listDeployments, restoreDeployment } from "@/lib/core/sites";
+import { fixesOf } from "@/lib/core/fixes";
+import { createAutomation, deleteAutomation, listAutomations, listRuns, testAutomation, updateAutomation } from "@/lib/core/automations";
+import { RECIPES } from "@/lib/automations";
+import { createProject, renameProject } from "@/lib/core/people";
 import { zip } from "@/lib/zip";
 
 /**
@@ -1075,6 +1079,34 @@ const TOOLS: Record<ToolName, Tool> = {
     },
   }),
 
+  list_deployments: tool({
+    description:
+      "A site's deployments, newest first: where each is mounted (path), its state (live, replaced, preview, held, failed), " +
+      "when and by whom, and why one failed or is held. A replaced one can be put back with restore_deployment.",
+    action: "portal.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_deployments,
+    run: async ({ address }, caller) => {
+      const p = await portalOf(caller, address);
+      return { site: { slug: p.slug, url: p.url }, deployments: (await listDeployments(caller, p.id)) ?? [] };
+    },
+  }),
+
+  restore_deployment: tool({
+    description:
+      "Undo a bad deploy without building again: put a replaced deployment (list_deployments) back live at its path; the one " +
+      "live there now is kept as replaced, so it can come back the same way. Checked again as it returns. Only when the person asks.",
+    action: "portal.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.restore_deployment,
+    run: async ({ address, deployment }, caller) => {
+      const p = await portalOf(caller, address);
+      const d = await restoreDeployment(caller, p.id, deployment);
+      if (!d) throw new AssetError("not_found", `No deployment ${deployment} of ${p.slug} that was ever live: list_deployments names them`);
+      return d;
+    },
+  }),
+
   close_site: tool({
     description:
       "Take a portal offline now: visitors are told it is closed, and nothing about it is lost. update_site with " +
@@ -1592,6 +1624,103 @@ const TOOLS: Record<ToolName, Tool> = {
           shared: objects.filter((o) => o.sharedFrom).length,
         })),
       };
+    },
+  }),
+
+  get_fixes: tool({
+    description:
+      "What needs doing in the project, as the Fixes page lists it, for \"what needs fixing?\": places still loading a replaced " +
+      "version (stale: who to tell, and whether they were told), searches that found nothing (gaps: whether it was requested) " +
+      "and approved assets whose license ends soon (licenses: the day, the days left, and what replaced it). `open` counts what isn't done.",
+    action: "insights.read",
+    readOnly: true,
+    input: TOOL_INPUTS.get_fixes,
+    run: async (_input, caller) => fixesOf(caller),
+  }),
+
+  list_automations: tool({
+    description:
+      "The project's automations you may manage: each one's trigger, what it does (email to whom, or a webhook's host and format), " +
+      "whether it is on, and how its last run went. `recipes` are ready-made ones to start from: create_automation with a recipe's " +
+      "fields and who it goes to (emails) or where (url).",
+    action: "automation.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.list_automations,
+    run: async (_input, caller) => ({ automations: await listAutomations(caller), recipes: RECIPES }),
+  }),
+
+  create_automation: tool({
+    description:
+      "Make an automation: when something happens (trigger), send an email or a signed webhook (action). Ask who it goes to; never " +
+      "guess an address or a URL. Brand editors make them for their brand's releases; any other trigger, or any brand's, takes an " +
+      "admin. A webhook's signing secret is in `secret`, this once: the person keeps it, for their receiver to check each POST.",
+    action: "automation.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_automation,
+    run: async (input, caller) => createAutomation(caller, input),
+  }),
+
+  update_automation: tool({
+    description:
+      "Change an automation (list_automations): what is left out stays. Turn it off or on with `enabled`. Made a webhook, it gets a " +
+      "signing secret, in `secret` this once.",
+    action: "automation.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.update_automation,
+    run: async ({ id, ...input }, caller) => updateAutomation(caller, id, input),
+  }),
+
+  delete_automation: tool({
+    description: "Delete an automation and its run log. To stop it for now, update_automation with enabled false instead. Only when the person asks.",
+    action: "automation.manage",
+    readOnly: false,
+    destructive: true,
+    input: TOOL_INPUTS.delete_automation,
+    run: async ({ id }, caller) => {
+      await deleteAutomation(caller, id);
+      return { deleted: true };
+    },
+  }),
+
+  test_automation: tool({
+    description:
+      "Send an automation now with a sample event, on or off, marked as a test, so its inbox or webhook can be checked without " +
+      "anything happening. Tried once; the run says whether it was delivered, or the error.",
+    action: "automation.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.test_automation,
+    run: async ({ id }, caller) => testAutomation(caller, id),
+  }),
+
+  automation_runs: tool({
+    description:
+      "An automation's latest runs, newest first, for \"is it working?\": what set each off, whether it was delivered, failed or " +
+      "waits for a retry, and every attempt with the webhook's status or the error. Tests are marked.",
+    action: "automation.manage",
+    readOnly: true,
+    input: TOOL_INPUTS.automation_runs,
+    run: async ({ id }, caller) => ({ runs: await listRuns(caller, id) }),
+  }),
+
+  create_project: tool({
+    description:
+      "Make a project: a library of its own in this organization, with what the organization has on everywhere. Organization " +
+      "admins. Only when the person asks.",
+    action: "organization.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.create_project,
+    run: async (input, caller) => createProject(caller, input),
+  }),
+
+  rename_project: tool({
+    description: "Rename a project (list_projects): its address stays. Admins of that project. Only when the person asks.",
+    action: "project.manage",
+    readOnly: false,
+    input: TOOL_INPUTS.rename_project,
+    run: async ({ id, name }, caller) => {
+      const p = await renameProject(caller, id, name);
+      if (!p) throw new AssetError("not_found", `No project ${id} in this organization: list_projects names them`);
+      return p;
     },
   }),
 };
