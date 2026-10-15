@@ -38,30 +38,6 @@
         ]
       },
       {
-        "group": "Installation",
-        "pages": [
-          "installation/render",
-          "installation/docker-compose",
-          "installation/docker",
-          "installation/fly",
-          "installation/kubernetes",
-          "installation/coolify",
-          "installation/vps",
-          "installation/upgrading"
-        ]
-      },
-      {
-        "group": "Configuration",
-        "pages": [
-          "configuration/environment",
-          "configuration/storage",
-          "configuration/auth",
-          "configuration/white-labeling",
-          "configuration/limits",
-          "configuration/security"
-        ]
-      },
-      {
         "group": "Guides",
         "pages": [
           "guides/assets",
@@ -128,6 +104,25 @@
           "decisions/0017-the-catalog",
           "decisions/0018-features-are-switched",
           "decisions/0019-the-app-draws-the-servers-features"
+        ]
+      },
+      {
+        "group": "Self-hosting",
+        "pages": [
+          "installation/render",
+          "installation/docker-compose",
+          "installation/docker",
+          "installation/fly",
+          "installation/kubernetes",
+          "installation/coolify",
+          "installation/vps",
+          "installation/upgrading",
+          "configuration/environment",
+          "configuration/storage",
+          "configuration/auth",
+          "configuration/white-labeling",
+          "configuration/limits",
+          "configuration/security"
         ]
       }
     ]
