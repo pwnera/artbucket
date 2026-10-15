@@ -1891,6 +1891,10 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
       if (uri === PLAYBOOK_URI) return result(id, { contents: [{ uri, mimeType: "text/markdown", text: PLAYBOOK }] });
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
       const page = uri.match(/^artbucket:\/\/brands\/([^/?#]+)\/pages\/([^/?#]+)$/);
+      // The brand read as brand_rules reads it: a private one takes a grant on it, and is not there otherwise.
+      const slug = page?.[1] ?? m?.[1];
+      const brand = (page || m) && (await brandTarget(caller.project.id, new URL(`${env.APP_URL}/?${slug ? new URLSearchParams({ brand: decodeURIComponent(slug) }) : ""}`)));
+      if (brand && !can(caller, "brand.read", brand)) return error(id, -32002, `Resource not found: ${uri}`);
       if (page) {
         const { markdown } = await getPage(caller.project.id, decodeURIComponent(page[1]), decodeURIComponent(page[2]));
         return result(id, { contents: [{ uri, mimeType: "text/markdown", text: markdown }] });

@@ -8,6 +8,7 @@ import { listBrands, resolveBrand, updateBrand } from "@/lib/core/brands";
 import { parseQuery } from "@/lib/catalog";
 import { searchCatalog, whoCan } from "@/lib/core/catalog";
 import { acceptInvitation, createInvitation, setGrant } from "@/lib/core/people";
+import { handleMcp } from "@/lib/mcp";
 
 const ada = await signUp("Ada");
 const ws = ada.caller.project;
@@ -47,6 +48,17 @@ test("a private brand is gone for the project's readers, there for its grants an
   const gone = await authorize(asSam("/api/v1/brands/acme", "GET"), "brand.read");
   assert.ok(gone instanceof Response && gone.status === 404, "not there for Sam");
   assert.equal((await searchCatalog(await samHere(), parseQuery("type:brand"))).items.some((i) => i.slug === "acme"), false);
+});
+
+test("MCP resources/read refuses a private brand's rules and pages to a reader without a grant on it", async () => {
+  const sam = await samHere();
+  const read = async (uri: string, caller = sam) =>
+    (await handleMcp({ jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri } }, caller)) as { result?: unknown; error?: { code: number } };
+  for (const uri of ["artbucket://brands/acme/rules", "artbucket://brands/acme/rules/social", "artbucket://brands/acme/pages/overview"]) {
+    assert.equal((await read(uri)).error?.code, -32002, uri);
+  }
+  assert.ok((await read("artbucket://brands/kids/rules")).result, "kids, Sam's grant");
+  assert.ok((await read("artbucket://brands/acme/rules", ada.caller)).result, "an admin");
 });
 
 test("who can reach it: the brand grant, said as such", async () => {
