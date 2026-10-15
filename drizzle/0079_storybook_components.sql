@@ -1,4 +1,5 @@
-CREATE TABLE "site_components" (
+-- Idempotent: dev ran this as its 0078 before main's 0078_automation_triggers took that number.
+CREATE TABLE IF NOT EXISTS "site_components" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"site_id" uuid NOT NULL,
 	"path" text NOT NULL,
@@ -15,16 +16,18 @@ CREATE TABLE "site_components" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-DROP VIEW "public"."catalog_edges";--> statement-breakpoint
-DROP VIEW "public"."catalog_objects";--> statement-breakpoint
-ALTER TABLE "portals" DROP CONSTRAINT "portals_kind_check";--> statement-breakpoint
-ALTER TABLE "site_deployments" DROP CONSTRAINT "site_deployments_kind_check";--> statement-breakpoint
-ALTER TABLE "portals" ADD COLUMN "url" text;--> statement-breakpoint
-ALTER TABLE "site_deployments" ADD COLUMN "components" uuid[];--> statement-breakpoint
-ALTER TABLE "site_deployments" ADD COLUMN "component_uses" uuid[];--> statement-breakpoint
+DROP VIEW IF EXISTS "public"."catalog_edges";--> statement-breakpoint
+DROP VIEW IF EXISTS "public"."catalog_objects";--> statement-breakpoint
+ALTER TABLE "portals" DROP CONSTRAINT IF EXISTS "portals_kind_check";--> statement-breakpoint
+ALTER TABLE "site_deployments" DROP CONSTRAINT IF EXISTS "site_deployments_kind_check";--> statement-breakpoint
+ALTER TABLE "portals" ADD COLUMN IF NOT EXISTS "url" text;--> statement-breakpoint
+ALTER TABLE "site_deployments" ADD COLUMN IF NOT EXISTS "components" uuid[];--> statement-breakpoint
+ALTER TABLE "site_deployments" ADD COLUMN IF NOT EXISTS "component_uses" uuid[];--> statement-breakpoint
+ALTER TABLE "site_components" DROP CONSTRAINT IF EXISTS "site_components_site_id_portals_id_fk";--> statement-breakpoint
 ALTER TABLE "site_components" ADD CONSTRAINT "site_components_site_id_portals_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."portals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "site_components" DROP CONSTRAINT IF EXISTS "site_components_deployment_id_site_deployments_id_fk";--> statement-breakpoint
 ALTER TABLE "site_components" ADD CONSTRAINT "site_components_deployment_id_site_deployments_id_fk" FOREIGN KEY ("deployment_id") REFERENCES "public"."site_deployments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "site_components_version_unique" ON "site_components" USING btree ("site_id","path","slug","version");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "site_components_version_unique" ON "site_components" USING btree ("site_id","path","slug","version");--> statement-breakpoint
 ALTER TABLE "portals" ADD CONSTRAINT "portals_kind_check" CHECK ("portals"."kind" in ('portal', 'guidelines', 'landing', 'docs', 'storybook', 'external'));--> statement-breakpoint
 ALTER TABLE "site_deployments" ADD CONSTRAINT "site_deployments_kind_check" CHECK ("site_deployments"."kind" in ('guidelines', 'landing', 'docs', 'storybook', 'external'));--> statement-breakpoint
 CREATE VIEW "public"."catalog_edges" AS (select a.id as from_id, a.superseded_by as to_id, 'replaced_by' as kind, null as via from "assets" a where a.superseded_by is not null
