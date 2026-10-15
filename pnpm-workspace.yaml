@@ -4,3 +4,8 @@ allowBuilds:
   unrs-resolver: true # eslint resolver
   exifreader: false
   free-email-domains: false # its script downloads a fresher list at install; the one it ships is used
+
+# Patched versions of transitive dependencies with advisories (Dependabot).
+overrides:
+  "@esbuild-kit/core-utils>esbuild": ^0.25.0
+  source-map-js: ^1.2.2
