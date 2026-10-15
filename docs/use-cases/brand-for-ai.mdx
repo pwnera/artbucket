@@ -1,0 +1,87 @@
+---
+title: Make your guidelines usable by AI tools
+sidebarTitle: Guidelines for AI tools
+description: Let Claude, ChatGPT, Cursor and other AI tools answer with your real logo, colors and voice, for your team or for anyone.
+---
+
+People already ask AI tools for "a banner in our colors". Without your
+guidelines, the tool guesses the hex code and draws a logo from memory. Give
+it the brand and it answers with the approved logo file and the right colors.
+No more hex codes in Slack.
+
+There are two ways in. Your team connects its own tools to the library. The
+public, and any AI tool on the web, read the released brand on BrandHub.
+
+## Connect your team's tools
+
+1. Open **Connections** in the sidebar and pick the tool: Claude, ChatGPT,
+   Cursor, Claude Code and others each have their steps there.
+2. Follow them. For Claude, that is Settings, Connectors, Add custom
+   connector, then paste the address Connections gives you
+   (`https://app.artbucket.io/api/v1/mcp` on Artbucket Cloud).
+3. The first time the tool calls, your browser opens a page to approve it.
+   Pick the projects it may use and what it may do:
+   - **Read only**: it searches and reads the brand, and changes nothing.
+   - **Suggest**: it can also add files and tags, which wait in **Review**
+     for a person.
+   - **Edit**: it can change assets and the brand's rules and pages
+     directly.
+
+   Pick **Suggest** unless you have a reason not to. There is no key to copy:
+   the tool acts as you, never with more access than you have.
+
+Then ask it something real:
+
+- "Give me the approved logo for a dark background, as a PNG 800 px wide."
+- "What is our primary color, and when do we use the secondary one?"
+- "Can I use the hero photo in a paid social ad in France next month?"
+
+It reads your rules, checks the use, and answers with a link to the file.
+**Connections** shows what each tool asked for over the last 30 days and what
+it was refused.
+
+## Make the brand public on BrandHub
+
+1. Release the brand first: BrandHub shows releases, never drafts.
+2. Open the brand's **Sharing** tab and choose **Make public**.
+
+Anyone, and any AI tool, can then read the brand at
+`hub.artbucket.io/{organization}/{brand}`: a page with its colors, type,
+logos and voice, an `llms.txt` written for AI tools, a `brand.json`, design
+tokens and a press kit. Only files that may be used are on it, and files marked
+**Shown only** can't be downloaded. Each new release shows there as you
+release it.
+
+Until you choose **Make public**, the brand is private on BrandHub: only
+people in the project see it, signed in.
+
+## For coding tools
+
+Designers and developers working in Cursor or Claude Code can also take the
+brand as files. **Use this brand**, in the brand's header, offers **Tokens**
+(CSS, Tailwind and more) and **DESIGN.md**, one file for tools that can't
+connect.
+
+## How ready is the brand?
+
+The brand's **Overview** shows its Brand Agent Score, out of 100: how much an
+AI tool has to work with. Colors, typefaces, a logo with its file, a voice, a
+look, pages, a release and a portal each add points, and the Overview names
+the next step that raises it.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="MCP" icon="robot" href="/developers/mcp">
+    Every tool an AI assistant can call, for your developers.
+  </Card>
+  <Card title="BrandHub" icon="globe" href="/guides/portals#brandhub">
+    Every address BrandHub answers, and claiming a listing.
+  </Card>
+  <Card title="Open standards" icon="code" href="/guides/brand-as-code/standards">
+    brand.json, design tokens, DESIGN.md and llms.txt.
+  </Card>
+  <Card title="Check a photo" icon="circle-check" href="/use-cases/check-a-photo">
+    The same check an AI tool runs before it hands a file out.
+  </Card>
+</CardGroup>

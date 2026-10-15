@@ -38,27 +38,16 @@
         ]
       },
       {
-        "group": "Installation",
+        "group": "Use cases",
         "pages": [
-          "installation/render",
-          "installation/docker-compose",
-          "installation/docker",
-          "installation/fly",
-          "installation/kubernetes",
-          "installation/coolify",
-          "installation/vps",
-          "installation/upgrading"
-        ]
-      },
-      {
-        "group": "Configuration",
-        "pages": [
-          "configuration/environment",
-          "configuration/storage",
-          "configuration/auth",
-          "configuration/white-labeling",
-          "configuration/limits",
-          "configuration/security"
+          "use-cases/set-up-your-brand",
+          "use-cases/share-with-partners",
+          "use-cases/replace-the-logo",
+          "use-cases/check-a-photo",
+          "use-cases/run-a-rebrand",
+          "use-cases/brand-for-ai",
+          "use-cases/move-from-another-tool",
+          "use-cases/choose-a-cloud-plan"
         ]
       },
       {
@@ -128,6 +117,25 @@
           "decisions/0017-the-catalog",
           "decisions/0018-features-are-switched",
           "decisions/0019-the-app-draws-the-servers-features"
+        ]
+      },
+      {
+        "group": "Self-hosting",
+        "pages": [
+          "installation/render",
+          "installation/docker-compose",
+          "installation/docker",
+          "installation/fly",
+          "installation/kubernetes",
+          "installation/coolify",
+          "installation/vps",
+          "installation/upgrading",
+          "configuration/environment",
+          "configuration/storage",
+          "configuration/auth",
+          "configuration/white-labeling",
+          "configuration/limits",
+          "configuration/security"
         ]
       }
     ]

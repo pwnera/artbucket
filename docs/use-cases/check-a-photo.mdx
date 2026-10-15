@@ -1,0 +1,97 @@
+---
+title: Check whether a photo may be used
+sidebarTitle: Check a photo
+description: Record a license once, then get a yes or no for a channel, a country and a date, with what to use instead.
+---
+
+Someone wants to run a stock photo in a paid social ad in Germany next month.
+You need to know whether the license covers that, without digging out the
+contract. Record the license on the asset once; after that anyone, including
+an AI tool, can ask and get a plain answer.
+
+## Record the license
+
+1. Open the photo and expand its **Rights** fold.
+2. Fill in what the license says:
+   - **License**: the agency and the terms, in words.
+   - **Territories**: the countries it covers, as two-letter codes (`DE`,
+     `AT`). Empty means everywhere.
+   - **Channels**: where it may run. The usual ones are `web`, `social`,
+     `paid-social`, `email`, `print`, `out-of-home`, `broadcast` and
+     `editorial`. Empty means anywhere.
+   - **Not before**: the first day it may be used, for an embargo.
+   - **Last day of use**: when the license ends.
+   - **Model release**: **Signed**, **Missing: editorial use only**, or **Not
+     needed** when nobody recognizable is in it.
+   - **Downloads**: **Shown only** if people outside the team may see it but
+     not take the file.
+3. In the **Provenance** fold, set where it came from: **Licensed** for stock.
+
+## Ask before you use it
+
+1. Open the asset and expand **Can I use this?**.
+2. Fill in **Where** (the channel), **Territory** and **When**. Leave **When**
+   empty for today.
+3. Choose **Check**.
+
+The answer is **Yes, you can use it** or **Not for this use**, with the
+reasons. When the asset was replaced, or the brand has a version for that
+context, **Use instead** names the file to use.
+
+## What a refusal means
+
+| It says | In plain words |
+|---|---|
+| Not approved, archived or deleted | The file isn't cleared for use at all |
+| Replaced | A newer file took its place; use that one |
+| Before its embargo, or after its last day | The dates don't cover your use |
+| Outside its territories or channels | The license doesn't cover that country or that kind of use |
+| No model release | People are in it without a signed release; only `editorial` use is allowed |
+| A variant for this context | The brand has a version for, say, dark backgrounds; use that |
+
+If you leave out the country or the channel and the license limits it, the
+answer mentions the limit without refusing. Fill both in to settle it.
+
+Partners ask the same question on a portal: each file there has **Can I use
+this?**. AI tools ask it through MCP before they hand a file out.
+
+## Hear about licenses before they end
+
+<Note>
+On Artbucket Cloud, **Automations**, **Fixes** and the weekly digest are on
+the Team and Business plans. A server of your own has all of it.
+</Note>
+
+This takes a project admin.
+
+1. Open **Automations** in the sidebar, then **From a recipe**, and pick
+   **Licenses ending, to legal**.
+2. Add the addresses to tell and save with **Make it**. **Send a test** shows
+   what the email looks like.
+
+From then on, each approved asset's license sends one email 30 days before its
+last day. **Fixes** lists the licenses ending in the next 30 days too, and the
+Monday digest those ending in the next 14.
+
+## Keep a record
+
+**Insights**, **Use checks** lists every answer given, to people and to
+agents, with the reasons and whether the replacement was taken. **Export
+CSV** saves them.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="May I use this?" icon="circle-check" href="/guides/check">
+    The check in detail, with the API and the CLI.
+  </Card>
+  <Card title="Files shown, not downloaded" icon="eye" href="/guides/assets#shown-not-handed-out">
+    How a licensed file is shown without being handed out.
+  </Card>
+  <Card title="Automations" icon="bolt" href="/guides/automations">
+    Every trigger, email and webhook, and the recipes.
+  </Card>
+  <Card title="Give partners the logos" icon="share-nodes" href="/use-cases/share-with-partners">
+    Links and portals that only hand out what may be used.
+  </Card>
+</CardGroup>

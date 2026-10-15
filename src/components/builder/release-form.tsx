@@ -174,7 +174,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
           break;
         }
         if (made.network || made.status !== 409) {
-          toast.error("Released, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Portals page." });
+          toast.error("Released, but the portal wasn't made", { description: (!made.network && made.error?.message) || "Make one on the Sites page." });
           break;
         }
       }
