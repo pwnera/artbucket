@@ -12,6 +12,9 @@ export default defineConfig({
     projects: [
       {
         extends: true,
+        // Bundled up front: addon-a11y imports axe-core lazily, and a cold cache (CI) that finds it mid-run
+        // re-optimizes and reloads, failing whichever story was loading it.
+        optimizeDeps: { include: ["@storybook/addon-a11y > axe-core"] },
         plugins: [storybookTest({ configDir: path.join(import.meta.dirname, ".storybook"), storybookScript: "pnpm storybook --no-open" })],
         test: {
           name: "storybook",
