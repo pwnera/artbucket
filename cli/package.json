@@ -1,6 +1,6 @@
 {
   "name": "artbucket",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "The Artbucket CLI: a thin client over its API, and a brand kept as files in a repository.",
   "license": "AGPL-3.0-only",
   "repository": {
