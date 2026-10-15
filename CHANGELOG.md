@@ -4,6 +4,19 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.7.0](https://github.com/pwnera/artbucket/compare/v2.6.0...v2.7.0) (2026-10-15)
+
+
+### Features
+
+* **app:** Explore searches everything, Assets in Content, automations for brand editors ([#273](https://github.com/pwnera/artbucket/issues/273)) ([1b97a0e](https://github.com/pwnera/artbucket/commit/1b97a0ec8ecf26ecf5a1665230d4f901d2edc15b))
+* Storybook components in the catalog, with versions, previews, and what uses them ([#265](https://github.com/pwnera/artbucket/issues/265)) ([4d3ad5c](https://github.com/pwnera/artbucket/commit/4d3ad5cfe7a14735be27f6f59cf1772f6470b46c))
+
+
+### Fixes
+
+* **components:** previews of a Storybook on its own domain ([#275](https://github.com/pwnera/artbucket/issues/275)) ([d22d048](https://github.com/pwnera/artbucket/commit/d22d04808ea676617ba706afec1ab30e7d096ebe))
+
 ## [2.6.0](https://github.com/pwnera/artbucket/compare/v2.5.0...v2.6.0) (2026-10-15)
 
 
