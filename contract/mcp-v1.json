@@ -5545,6 +5545,40 @@
     ],
     "additionalProperties": false
   },
+  "list_deployments": {
+    "type": "object",
+    "properties": {
+      "address": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "The site's address (slug), as list_sites names it"
+      }
+    },
+    "required": [
+      "address"
+    ]
+  },
+  "restore_deployment": {
+    "type": "object",
+    "properties": {
+      "address": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "The site's address (slug), as list_sites names it"
+      },
+      "deployment": {
+        "type": "string",
+        "format": "uuid",
+        "description": "A replaced deployment's id, from list_deployments"
+      }
+    },
+    "required": [
+      "address",
+      "deployment"
+    ]
+  },
   "close_site": {
     "type": "object",
     "properties": {
@@ -6457,5 +6491,319 @@
       "id",
       "fields"
     ]
+  },
+  "get_fixes": {
+    "type": "object",
+    "properties": {}
+  },
+  "list_automations": {
+    "type": "object",
+    "properties": {}
+  },
+  "create_automation": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "trigger": {
+        "type": "string",
+        "enum": [
+          "brand.released",
+          "asset.expiring",
+          "governance",
+          "check.refused",
+          "fix.opened",
+          "review.waiting"
+        ],
+        "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days. governance: an entry of the audit log, or an asset decision (asset.approved, asset.rejected, asset.archived...), named in `actions`. check.refused: an asset refused by the use check `times` times within `days` days. fix.opened: something new in Fixes, of `kind`. review.waiting: a proposal in review for `days` days"
+      },
+      "brand": {
+        "description": "brand.released: only this brand's releases, by slug; null or left out: any brand's",
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "days": {
+        "description": "asset.expiring: how many days before its last day of use; 0 is the day itself. check.refused: the window counted, 7 when left out. review.waiting: how long a proposal waits",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 365
+      },
+      "actions": {
+        "description": "governance: the actions it fires on, exact (`grant.set`) or by prefix (`share.*`); empty or left out: every one",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z_]+(\\.[a-z_]+|\\.\\*)$"
+        }
+      },
+      "times": {
+        "description": "check.refused: refusals of one asset within `days` before it fires; 1 when left out",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "kind": {
+        "description": "fix.opened: stale (a place loads a replaced version) or gap (a search found nothing); null or left out: both",
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "stale",
+              "gap"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "email",
+          "webhook"
+        ],
+        "description": "email: to `emails`. webhook: a signed POST to `url`"
+      },
+      "format": {
+        "description": "webhook: json (the run, signed), slack (a Slack incoming webhook's message) or teams (a Teams workflow's Adaptive Card); json when left out",
+        "type": "string",
+        "enum": [
+          "json",
+          "slack",
+          "teams"
+        ]
+      },
+      "emails": {
+        "description": "email: who it goes to",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        }
+      },
+      "url": {
+        "description": "webhook: where it is posted. Kept sealed, never shown again: the answer gives its host",
+        "type": "string",
+        "maxLength": 2000,
+        "format": "uri"
+      },
+      "enabled": {
+        "description": "Off: nothing fires, and what waits to be retried waits. On when left out",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "trigger",
+      "action"
+    ],
+    "additionalProperties": false
+  },
+  "update_automation": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "trigger": {
+        "type": "string",
+        "enum": [
+          "brand.released",
+          "asset.expiring",
+          "governance",
+          "check.refused",
+          "fix.opened",
+          "review.waiting"
+        ],
+        "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days. governance: an entry of the audit log, or an asset decision (asset.approved, asset.rejected, asset.archived...), named in `actions`. check.refused: an asset refused by the use check `times` times within `days` days. fix.opened: something new in Fixes, of `kind`. review.waiting: a proposal in review for `days` days"
+      },
+      "brand": {
+        "description": "brand.released: only this brand's releases, by slug; null or left out: any brand's",
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "days": {
+        "description": "asset.expiring: how many days before its last day of use; 0 is the day itself. check.refused: the window counted, 7 when left out. review.waiting: how long a proposal waits",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 365
+      },
+      "actions": {
+        "description": "governance: the actions it fires on, exact (`grant.set`) or by prefix (`share.*`); empty or left out: every one",
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z_]+(\\.[a-z_]+|\\.\\*)$"
+        }
+      },
+      "times": {
+        "description": "check.refused: refusals of one asset within `days` before it fires; 1 when left out",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "kind": {
+        "description": "fix.opened: stale (a place loads a replaced version) or gap (a search found nothing); null or left out: both",
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "stale",
+              "gap"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "email",
+          "webhook"
+        ],
+        "description": "email: to `emails`. webhook: a signed POST to `url`"
+      },
+      "format": {
+        "description": "webhook: json (the run, signed), slack (a Slack incoming webhook's message) or teams (a Teams workflow's Adaptive Card); json when left out",
+        "type": "string",
+        "enum": [
+          "json",
+          "slack",
+          "teams"
+        ]
+      },
+      "emails": {
+        "description": "email: who it goes to",
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        }
+      },
+      "url": {
+        "description": "webhook: where it is posted. Kept sealed, never shown again: the answer gives its host",
+        "type": "string",
+        "maxLength": 2000,
+        "format": "uri"
+      },
+      "enabled": {
+        "description": "Off: nothing fires, and what waits to be retried waits. On when left out",
+        "type": "boolean"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The automation's id, from list_automations"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  },
+  "delete_automation": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The automation's id, from list_automations"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "test_automation": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The automation's id, from list_automations"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "automation_runs": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The automation's id, from list_automations"
+      }
+    },
+    "required": [
+      "id"
+    ]
+  },
+  "create_project": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "rename_project": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The project's id, from list_projects"
+      }
+    },
+    "required": [
+      "name",
+      "id"
+    ],
+    "additionalProperties": false
   }
 }

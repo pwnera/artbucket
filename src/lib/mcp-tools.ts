@@ -11,6 +11,10 @@ import { ORIGINS, RightsInput, Use } from "./rights.ts";
 import { ruleContext, RuleInput, ruleKey } from "./rules.ts";
 import {
   AssetPatch,
+  AutomationInput,
+  AutomationPatch,
+  CreateProject,
+  ProjectPatch,
   SaveSearch,
   ShareCreate,
   TokenQuery,
@@ -84,6 +88,7 @@ const fieldKey = z
   .regex(FIELD_KEY)
   .describe("The field's key, as list_fields names it");
 const comment = z.uuid().describe("The comment's id, from list_comments");
+const automation = z.uuid().describe("The automation's id, from list_automations");
 const collection = z
   .string()
   .min(1)
@@ -591,6 +596,13 @@ export const TOOL_INPUTS = {
       .describe("A preview's name, such as pr-12: checked, then served at an address of its own for people to look at, never live"),
   }),
 
+  list_deployments: z.object({ address }),
+
+  restore_deployment: z.object({
+    address,
+    deployment: z.uuid().describe("A replaced deployment's id, from list_deployments"),
+  }),
+
   close_site: z.object({ address }),
 
   delete_site: z.object({ address }),
@@ -818,6 +830,25 @@ export const TOOL_INPUTS = {
         "Custom field values by key, as list_fields names them: each is checked against its field",
       ),
   }),
+
+  get_fixes: z.object({}),
+
+  list_automations: z.object({}),
+
+  // POST /automations's own fields; strict, as there.
+  create_automation: AutomationInput,
+
+  update_automation: AutomationPatch.extend({ id: automation }),
+
+  delete_automation: z.object({ id: automation }),
+
+  test_automation: z.object({ id: automation }),
+
+  automation_runs: z.object({ id: automation }),
+
+  create_project: CreateProject,
+
+  rename_project: ProjectPatch.extend({ id: z.uuid().describe("The project's id, from list_projects") }),
 };
 
 export type ToolName = keyof typeof TOOL_INPUTS;
