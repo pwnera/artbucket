@@ -76,17 +76,25 @@ test("a Storybook's index.json: one component per title, its stories in order, d
     v: 5,
     entries: {
       "ui-button--docs": { type: "docs", id: "ui-button--docs", title: "UI/Button", name: "Docs" },
-      "ui-button--primary": { type: "story", id: "ui-button--primary", title: "UI/Button", name: "Primary", importPath: "./src/button.stories.tsx", componentPath: "./src/button.tsx" },
-      "ui-button--ghost": { type: "story", id: "ui-button--ghost", title: "UI/Button", name: "Ghost" },
+      "ui-button--primary": {
+        type: "story",
+        id: "ui-button--primary",
+        title: "UI/Button",
+        name: "Primary",
+        importPath: "./src/button.stories.tsx",
+        componentPath: "./src/button.tsx",
+        tags: ["dev", "test", "autodocs", "Forms", "!dev"],
+      },
+      "ui-button--ghost": { type: "story", id: "ui-button--ghost", title: "UI/Button", name: "Ghost", tags: ["forms", "Action  Bar"] },
       "intro--docs": { type: "docs", id: "intro--docs", title: "Intro", name: "Docs" },
       junk: { id: 4 },
     },
   };
   assert.deepEqual(storybookComponents(index), [
-    { slug: "ui-button", name: "Button", title: "UI/Button", story: "ui-button--primary", stories: ["Primary", "Ghost"], files: ["./src/button.stories.tsx", "./src/button.tsx"] },
-    { slug: "intro", name: "Intro", title: "Intro", story: "intro--docs", stories: [], files: [] },
+    { slug: "ui-button", name: "Button", title: "UI/Button", story: "ui-button--primary", stories: ["Primary", "Ghost"], files: ["./src/button.stories.tsx", "./src/button.tsx"], tags: ["forms", "action bar"] },
+    { slug: "intro", name: "Intro", title: "Intro", story: "intro--docs", stories: [], files: [], tags: [] },
   ]);
-  assert.deepEqual(storybookComponents({ v: 3, stories: { "a--b": { id: "a--b", title: "A", name: "B" } } }), [{ slug: "a", name: "A", title: "A", story: "a--b", stories: ["B"], files: [] }]);
+  assert.deepEqual(storybookComponents({ v: 3, stories: { "a--b": { id: "a--b", title: "A", name: "B" } } }), [{ slug: "a", name: "A", title: "A", story: "a--b", stories: ["B"], files: [], tags: [] }]);
   assert.deepEqual(storybookComponents(null), []);
   assert.deepEqual(storybookComponents("nope"), []);
 });

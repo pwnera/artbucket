@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { parseQuery } from "@/lib/catalog";
 import { EventEmitter } from "node:events";
 import https from "node:https";
 import { mock, test } from "node:test";
@@ -605,7 +606,7 @@ test("a Storybook's components: versions when they change, the same version when
         v: 5,
         entries: Object.fromEntries([
           ...stories.map((s) => [`ui-button--${s.toLowerCase()}`, { type: "story", id: `ui-button--${s.toLowerCase()}`, title: "UI/Button", name: s, importPath: "./src/button.stories.tsx" }]),
-          ["ui-card--default", { type: "story", id: "ui-card--default", title: "UI/Card", name: "Default", importPath: "./src/card.stories.tsx" }],
+          ["ui-card--default", { type: "story", id: "ui-card--default", title: "UI/Card", name: "Default", importPath: "./src/card.stories.tsx", tags: ["autodocs", "Surfaces"] }],
         ]),
       }),
       "assets/button.stories-AbC123.js": stories.join(","),
@@ -639,6 +640,9 @@ test("a Storybook's components: versions when they change, the same version when
   );
   const found = await searchCatalog(ada.caller, { words: "ghost", types: ["component"], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] });
   assert.ok(found.items.some((i) => i.id === v2.id));
+  // Found as an asset is: by its slug, and by its own Storybook tags (not Storybook's), in words or as tag:.
+  for (const q of ["ui-card", "surfaces", "tag:surfaces type:component"]) assert.ok((await searchCatalog(ada.caller, parseQuery(q))).items.some((i) => i.id === card.id), q);
+  assert.equal((await searchCatalog(ada.caller, parseQuery("tag:autodocs type:component"))).items.length, 0);
 
   // Its code changed, as the CLI hashed it: a new version even with the same stories.
   await deploy(ada.caller, sb.id, build(["Primary", "Ghost"], { "artbucket.site.json": JSON.stringify({ fingerprints: { "ui-button": "abc" } }) }));

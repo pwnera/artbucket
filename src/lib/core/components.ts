@@ -33,6 +33,7 @@ const columns = {
   story: siteComponents.story,
   stories: siteComponents.stories,
   files: siteComponents.files,
+  tags: siteComponents.tags,
   path: siteComponents.path,
   createdAt: siteComponents.createdAt,
   createdBy: siteComponents.createdBy,

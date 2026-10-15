@@ -568,6 +568,13 @@
       "when": 1792078493461,
       "tag": "0080_audit_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1792101488613,
+      "tag": "0081_component_tags",
+      "breakpoints": true
     }
   ]
 }

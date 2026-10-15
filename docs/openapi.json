@@ -18211,6 +18211,13 @@
                             },
                             "description": "Its stories' and source files, as Storybook's index.json names them"
                           },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                          },
                           "path": {
                             "type": "string",
                             "description": "Where its Storybook is mounted on the site"
@@ -18289,6 +18296,7 @@
                           "story",
                           "stories",
                           "files",
+                          "tags",
                           "path",
                           "createdAt",
                           "createdBy",
@@ -18457,6 +18465,13 @@
                                 },
                                 "description": "Its stories' and source files, as Storybook's index.json names them"
                               },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                              },
                               "path": {
                                 "type": "string",
                                 "description": "Where its Storybook is mounted on the site"
@@ -18574,6 +18589,7 @@
                               "story",
                               "stories",
                               "files",
+                              "tags",
                               "path",
                               "createdAt",
                               "createdBy",

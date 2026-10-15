@@ -90,9 +90,13 @@ export const STORYBOOK_INDEX = "index.json";
  * A component a Storybook documents, as its index.json says: one catalog part
  * of its site, versioned by lib/core/sites.ts as its code or stories change.
  * `files`: its stories' and component's source, relative to where Storybook
- * ran, which the CLI hashes into the manifest's `fingerprints`.
+ * ran, which the CLI hashes into the manifest's `fingerprints`. `tags`: the
+ * team's own Storybook tags on its stories, which search reads like an asset's.
  */
-export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[]; files: string[] };
+export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[]; files: string[]; tags: string[] };
+
+/** Tags Storybook sets or reads itself: about where a story shows, not what it is. */
+const STORYBOOK_TAGS = new Set(["dev", "test", "autodocs", "manifest", "play-fn", "vitest", "attached-mdx", "unattached-mdx", "stories-mdx", "docs-only"]);
 
 const MAX_COMPONENTS = 2000;
 
@@ -114,11 +118,15 @@ export function storybookComponents(index: unknown): SiteComponent[] {
     let c = byTitle.get(title);
     if (!c) {
       if (byTitle.size >= MAX_COMPONENTS) continue;
-      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [], files: [] };
+      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [], files: [], tags: [] };
       byTitle.set(title, c);
     }
-    const { importPath, componentPath } = (e ?? {}) as Record<string, unknown>;
+    const { importPath, componentPath, tags } = (e ?? {}) as Record<string, unknown>;
     for (const f of [importPath, componentPath]) if (typeof f === "string" && !c.files.includes(f)) c.files.push(f);
+    for (const t of Array.isArray(tags) ? tags : []) {
+      const tag = typeof t === "string" ? t.trim().replace(/\s+/g, " ").toLowerCase().slice(0, 64) : "";
+      if (tag && !tag.startsWith("!") && !STORYBOOK_TAGS.has(tag) && !c.tags.includes(tag) && c.tags.length < 20) c.tags.push(tag);
+    }
     if (type === "docs") continue;
     if (!c.stories.length) c.story = id;
     if (typeof name === "string") c.stories.push(name);
