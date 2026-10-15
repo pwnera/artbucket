@@ -1462,7 +1462,9 @@ export function openapi(serverUrl: string) {
         get: op({
           summary: "The project's automations",
           scope: "admin",
-          description: "What is sent, by email or a signed webhook, when a brand is released or an asset's license is about to end.",
+          description:
+            "What is sent, by email or a signed webhook, when a brand is released, an asset's license is about to end, governance changes, " +
+            "the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review.",
           ok: [200, "Automations", data(z.array(S.Automation))],
         }),
         post: op({
@@ -1470,10 +1472,15 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, " +
-            "`days` before its last day of use, and again for a new date. email sends to `emails`; webhook POSTs the " +
-            "run's payload to `url`, signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of " +
-            '"{t}.{body}"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 ' +
-            "minutes, then an hour later: 3 attempts in all.",
+            "`days` before its last day of use, and again for a new date. governance fires on each entry of the project's audit log " +
+            "and each asset decision (`asset.approved`, `asset.rejected`, `asset.archived`...) that `actions` names, exact or by prefix " +
+            "(`share.*`), every one when empty; never on entries outside a project or a private asset's. check.refused fires once per " +
+            "asset and window when the use check refused it `times` times within `days` (7 unless said). fix.opened fires once for " +
+            "each new thing Fixes lists, of `kind` (stale or gap, or both), first seen since the automation was made. review.waiting " +
+            "fires once for each proposal in review `days` or more. email sends to `emails`; webhook POSTs to `url` the run's payload " +
+            "(`format` json), a Slack incoming webhook's message (slack) or a Teams workflow's Adaptive Card (teams), signed as " +
+            '`Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}` with `secret`, which is in this answer ' +
+            "only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.",
           body: S.AutomationInput,
           ok: [201, "Created, with the webhook's secret", data(S.Automation)],
         }),
@@ -1505,7 +1512,9 @@ export function openapi(serverUrl: string) {
           scope: "admin",
           description:
             "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), " +
-            "for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. " +
+            "for asset.expiring the approved asset whose license ends soonest, else the newest; for governance the latest audit entry it takes, " +
+            "else one made up; for check.refused that asset; for fix.opened the first open Fix of its kind, else a made-up search; for " +
+            "review.waiting the oldest proposal, else the oldest asset. What it sends says `test: true`. " +
             "One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.",
           ok: [201, "The run, delivered or failed", data(S.AutomationRun)],
         }),

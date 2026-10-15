@@ -44205,7 +44205,7 @@
     "/api/v1/automations": {
       "get": {
         "summary": "The project's automations",
-        "description": "What is sent, by email or a signed webhook, when a brand is released or an asset's license is about to end.\n\nScope: `admin`.",
+        "description": "What is sent, by email or a signed webhook, when a brand is released, an asset's license is about to end, governance changes, the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "200": {
@@ -44232,7 +44232,11 @@
                             "type": "string",
                             "enum": [
                               "brand.released",
-                              "asset.expiring"
+                              "asset.expiring",
+                              "governance",
+                              "check.refused",
+                              "fix.opened",
+                              "review.waiting"
                             ]
                           },
                           "brand": {
@@ -44254,11 +44258,54 @@
                               }
                             ]
                           },
+                          "actions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "governance: the actions it fires on; empty: every one"
+                          },
+                          "times": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "check.refused: refusals within `days` before it fires"
+                          },
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "stale",
+                                  "gap"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "fix.opened: the kind it fires on; null: both"
+                          },
                           "action": {
                             "type": "string",
                             "enum": [
                               "email",
                               "webhook"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "json",
+                              "slack",
+                              "teams"
                             ]
                           },
                           "emails": {
@@ -44332,7 +44379,11 @@
                           "trigger",
                           "brand",
                           "days",
+                          "actions",
+                          "times",
+                          "kind",
                           "action",
+                          "format",
                           "emails",
                           "host",
                           "enabled",
@@ -44390,7 +44441,7 @@
       },
       "post": {
         "summary": "Make an automation",
-        "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. email sends to `emails`; webhook POSTs the run's payload to `url`, signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `admin`.",
+        "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. governance fires on each entry of the project's audit log and each asset decision (`asset.approved`, `asset.rejected`, `asset.archived`...) that `actions` names, exact or by prefix (`share.*`), every one when empty; never on entries outside a project or a private asset's. check.refused fires once per asset and window when the use check refused it `times` times within `days` (7 unless said). fix.opened fires once for each new thing Fixes lists, of `kind` (stale or gap, or both), first seen since the automation was made. review.waiting fires once for each proposal in review `days` or more. email sends to `emails`; webhook POSTs to `url` the run's payload (`format` json), a Slack incoming webhook's message (slack) or a Teams workflow's Adaptive Card (teams), signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `admin`.",
         "x-scope": "admin",
         "requestBody": {
           "required": true,
@@ -44408,9 +44459,13 @@
                     "type": "string",
                     "enum": [
                       "brand.released",
-                      "asset.expiring"
+                      "asset.expiring",
+                      "governance",
+                      "check.refused",
+                      "fix.opened",
+                      "review.waiting"
                     ],
-                    "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days"
+                    "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days. governance: an entry of the audit log, or an asset decision (asset.approved, asset.rejected, asset.archived...), named in `actions`. check.refused: an asset refused by the use check `times` times within `days` days. fix.opened: something new in Fixes, of `kind`. review.waiting: a proposal in review for `days` days"
                   },
                   "brand": {
                     "description": "brand.released: only this brand's releases, by slug; null or left out: any brand's",
@@ -44426,10 +44481,40 @@
                     ]
                   },
                   "days": {
-                    "description": "asset.expiring: how many days before its last day of use; 0 is the day itself",
+                    "description": "asset.expiring: how many days before its last day of use; 0 is the day itself. check.refused: the window counted, 7 when left out. review.waiting: how long a proposal waits",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 365
+                  },
+                  "actions": {
+                    "description": "governance: the actions it fires on, exact (`grant.set`) or by prefix (`share.*`); empty or left out: every one",
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z_]+(\\.[a-z_]+|\\.\\*)$"
+                    }
+                  },
+                  "times": {
+                    "description": "check.refused: refusals of one asset within `days` before it fires; 1 when left out",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "kind": {
+                    "description": "fix.opened: stale (a place loads a replaced version) or gap (a search found nothing); null or left out: both",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "stale",
+                          "gap"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "action": {
                     "type": "string",
@@ -44438,6 +44523,15 @@
                       "webhook"
                     ],
                     "description": "email: to `emails`. webhook: a signed POST to `url`"
+                  },
+                  "format": {
+                    "description": "webhook: json (the run, signed), slack (a Slack incoming webhook's message) or teams (a Teams workflow's Adaptive Card); json when left out",
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "slack",
+                      "teams"
+                    ]
                   },
                   "emails": {
                     "description": "email: who it goes to",
@@ -44494,7 +44588,11 @@
                           "type": "string",
                           "enum": [
                             "brand.released",
-                            "asset.expiring"
+                            "asset.expiring",
+                            "governance",
+                            "check.refused",
+                            "fix.opened",
+                            "review.waiting"
                           ]
                         },
                         "brand": {
@@ -44516,11 +44614,54 @@
                             }
                           ]
                         },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "governance: the actions it fires on; empty: every one"
+                        },
+                        "times": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "check.refused: refusals within `days` before it fires"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "stale",
+                                "gap"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "fix.opened: the kind it fires on; null: both"
+                        },
                         "action": {
                           "type": "string",
                           "enum": [
                             "email",
                             "webhook"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "slack",
+                            "teams"
                           ]
                         },
                         "emails": {
@@ -44594,7 +44735,11 @@
                         "trigger",
                         "brand",
                         "days",
+                        "actions",
+                        "times",
+                        "kind",
                         "action",
+                        "format",
                         "emails",
                         "host",
                         "enabled",
@@ -44682,9 +44827,13 @@
                     "type": "string",
                     "enum": [
                       "brand.released",
-                      "asset.expiring"
+                      "asset.expiring",
+                      "governance",
+                      "check.refused",
+                      "fix.opened",
+                      "review.waiting"
                     ],
-                    "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days"
+                    "description": "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days. governance: an entry of the audit log, or an asset decision (asset.approved, asset.rejected, asset.archived...), named in `actions`. check.refused: an asset refused by the use check `times` times within `days` days. fix.opened: something new in Fixes, of `kind`. review.waiting: a proposal in review for `days` days"
                   },
                   "brand": {
                     "description": "brand.released: only this brand's releases, by slug; null or left out: any brand's",
@@ -44700,10 +44849,40 @@
                     ]
                   },
                   "days": {
-                    "description": "asset.expiring: how many days before its last day of use; 0 is the day itself",
+                    "description": "asset.expiring: how many days before its last day of use; 0 is the day itself. check.refused: the window counted, 7 when left out. review.waiting: how long a proposal waits",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 365
+                  },
+                  "actions": {
+                    "description": "governance: the actions it fires on, exact (`grant.set`) or by prefix (`share.*`); empty or left out: every one",
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z_]+(\\.[a-z_]+|\\.\\*)$"
+                    }
+                  },
+                  "times": {
+                    "description": "check.refused: refusals of one asset within `days` before it fires; 1 when left out",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "kind": {
+                    "description": "fix.opened: stale (a place loads a replaced version) or gap (a search found nothing); null or left out: both",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "stale",
+                          "gap"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "action": {
                     "type": "string",
@@ -44712,6 +44891,15 @@
                       "webhook"
                     ],
                     "description": "email: to `emails`. webhook: a signed POST to `url`"
+                  },
+                  "format": {
+                    "description": "webhook: json (the run, signed), slack (a Slack incoming webhook's message) or teams (a Teams workflow's Adaptive Card); json when left out",
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "slack",
+                      "teams"
+                    ]
                   },
                   "emails": {
                     "description": "email: who it goes to",
@@ -44763,7 +44951,11 @@
                           "type": "string",
                           "enum": [
                             "brand.released",
-                            "asset.expiring"
+                            "asset.expiring",
+                            "governance",
+                            "check.refused",
+                            "fix.opened",
+                            "review.waiting"
                           ]
                         },
                         "brand": {
@@ -44785,11 +44977,54 @@
                             }
                           ]
                         },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "governance: the actions it fires on; empty: every one"
+                        },
+                        "times": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "check.refused: refusals within `days` before it fires"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "stale",
+                                "gap"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "fix.opened: the kind it fires on; null: both"
+                        },
                         "action": {
                           "type": "string",
                           "enum": [
                             "email",
                             "webhook"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "slack",
+                            "teams"
                           ]
                         },
                         "emails": {
@@ -44863,7 +45098,11 @@
                         "trigger",
                         "brand",
                         "days",
+                        "actions",
+                        "times",
+                        "kind",
                         "action",
+                        "format",
                         "emails",
                         "host",
                         "enabled",
@@ -45172,7 +45411,7 @@
       ],
       "post": {
         "summary": "Send a test",
-        "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `admin`.",
+        "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest; for governance the latest audit entry it takes, else one made up; for check.refused that asset; for fix.opened the first open Fix of its kind, else a made-up search; for review.waiting the oldest proposal, else the oldest asset. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `admin`.",
         "x-scope": "admin",
         "responses": {
           "201": {

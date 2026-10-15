@@ -547,6 +547,13 @@
       "when": 1791985948274,
       "tag": "0077_weekly_digest",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1792017006304,
+      "tag": "0078_automation_triggers",
+      "breakpoints": true
     }
   ]
 }
