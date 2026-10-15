@@ -65,7 +65,7 @@ test("update_assets retags many, and one that fails leaves the others done", asy
 test("review_assets takes every suggestion with \"all\", asset by asset", async () => {
   const [a, b] = [await upload("latte.png"), await upload("mocha.png")];
   // Suggested by a tagger, as Intelligence does: whoever proposed them can't be the one to accept them.
-  const tagger = { ...ada.caller, actor: "Tagger" };
+  const tagger = { ...ada.caller, actor: "Tagger", key: "00000000-0000-4000-8000-00000000a9e7" };
   await proposeTags(tagger, a.id, ["coffee", "latte"]);
   await proposeTags(tagger, b.id, ["coffee", "mocha"]);
   // Reviewing, the search carries the suggestions, so nothing has to be described one by one.

@@ -252,6 +252,7 @@ export function ObjectCard({
           {body}
         </Link>
       ) : (
+        // eslint-disable-next-line no-restricted-syntax -- the card twin of the Link above, the whole card the hit target
         <button type="button" onClick={onClick} className={CARD}>
           {body}
         </button>

@@ -7,7 +7,7 @@ logo.primary:
 logo.mark:
   type: text
   label: Mark in black
-  value: "The mark alone in #111111: a tipped paint bucket, a paint line, one drop."
+  value: "The mark alone in near black, #111111 as the file has it, not Ink: a tipped paint bucket, a paint line, one drop."
   usage: On light grounds and one-color print.
   assets: [assets/mark-black.svg]
 logo.markWhite:
@@ -20,24 +20,30 @@ logo.always:
   type: list
   value:
     - "Always one color: the week's tile file, all black, or all white."
-    - Set the wordmark in Funnel Display Medium beside the mark, a quarter of the mark's height apart.
+    - Beside a partner's logo, keep the mark's clear space between the two, and never join them into one shape.
+    - "Set the wordmark, Artbucket, in Funnel Display beside the mark, a quarter of the mark's height apart. There is no wordmark file yet: ask on Resources before setting one for print."
 logo.neverDo:
   type: list
   value:
-    - Recolor the mark, or give it a gradient.
-    - Stretch it, rotate it or right the bucket.
-    - Set it on a busy ground it can't stand out from.
+    - "Recolor the mark, or give it a gradient: its color comes from the files, and the tile's from the weekly release."
+    - "Stretch it, rotate it or right the bucket: the tipped angle is what makes it a spill."
+    - "Set it on a busy ground it can't stand out from: the paint line and the drop are the first parts to vanish."
 logo.clearSpace:
   type: number
   label: Room around the mark
   value: 0.25
-  usage: In these layouts, reserve at least one quarter of the mark's height on each side.
+  usage: Reserve at least one quarter of the mark's height on each side, wherever the mark appears.
   spec:
     unit: x
 logo.minSize:
   type: number
   label: Small, still clear
   value: 24
-  usage: Use at least 24px for the standalone mark in these layouts. Check the drop at actual size.
+  usage: Never set the mark alone smaller than 24px. Check the drop at actual size.
   spec:
     unit: px
+logo.poweredBy:
+  type: text
+  label: Powered by Artbucket
+  value: "A small pill, Powered by, the icon and Artbucket, that the app itself adds to the footer of public portals on the Free plan. It links to artbucket.io/powered-by."
+  usage: Never recreate, restyle, move or crop it, and never copy it onto pages the app doesn't serve. The app draws it and takes it off on the Team and Business plans; to say a site uses Artbucket, write it in words and link to artbucket.io.

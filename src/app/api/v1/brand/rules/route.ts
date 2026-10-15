@@ -19,7 +19,7 @@ const brandOf = (req: Request) => new URL(req.url).searchParams.get("brand") ?? 
 export const GET = route("brand.read", async (req, _p, caller) => {
   const ws = caller.project.id;
   const q = new URL(req.url).searchParams;
-  const opts = { brand: brandOf(req), context: q.get("context") ?? undefined, asset: q.get("asset") ?? undefined };
+  const opts = { brand: brandOf(req), context: q.get("context") ?? undefined, asset: q.get("asset") ?? undefined, who: caller };
   if (q.has("version")) {
     // A release, as a site built from the brand shows it: only the files that may leave the team.
     const v = ReleaseRef.safeParse(q.get("version"));

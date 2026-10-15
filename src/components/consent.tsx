@@ -8,9 +8,10 @@ import { useBrand } from "@/components/brand";
 import { Card, FormError, UNREACHABLE } from "@/components/sign-in";
 import { Field } from "@/components/fields";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { cappedScope, type Grantable } from "@/lib/oauth";
-import type { Scope } from "@/lib/scopes";
+import { cappedScope, SCOPES, type Grantable, type Scope } from "@/lib/scopes";
 
 /**
  * Connecting an agent as yourself: the consent screen a chat app sends you to
@@ -49,11 +50,9 @@ async function call<T>(method: string, url: string, payload?: unknown): Promise<
   }
 }
 
-const RANK: Scope[] = ["read", "propose", "write", "admin"];
-
 /** The most an agent may be given across `picked`: what the scope list offers. */
 export const mostOf = (projects: Givable[], picked: string[]): Grantable =>
-  projects.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (RANK.indexOf(w.max) > RANK.indexOf(m) ? w.max : m), "read");
+  projects.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (SCOPES.indexOf(w.max) > SCOPES.indexOf(m) ? w.max : m), "read");
 
 /**
  * Which projects an agent works in: one is just named, several are boxes to
@@ -78,11 +77,11 @@ export function ProjectPicker({ projects, picked, onChange, scope }: { projects:
           const less = on && cappedScope(scope, w.max) !== scope;
           return (
             <label key={w.id} className="hover:bg-accent/50 has-[:focus-visible]:ring-ring/50 flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm has-[:focus-visible]:ring-[3px]">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={on}
-                onChange={() => onChange(on ? picked.filter((id) => id !== w.id) : [...picked, w.id])}
-                className="accent-primary focus-visible:outline-none"
+                onCheckedChange={() => onChange(on ? picked.filter((id) => id !== w.id) : [...picked, w.id])}
+                // The row shows focus; the box's own outline would be a second ring.
+                className="focus-visible:outline-none"
               />
               <span className="min-w-0 flex-1 truncate">
                 {w.name} <span className="text-muted-foreground">{w.organization}</span>
@@ -98,33 +97,28 @@ export function ProjectPicker({ projects, picked, onChange, scope }: { projects:
 
 /** The scopes as radio cards, up to `max`. */
 export function ScopePicker({ max, value, onChange, recommended = "propose" }: { max: Grantable; value: Grantable; onChange: (s: Grantable) => void; recommended?: Grantable }) {
-  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && RANK.indexOf(s.scope) <= RANK.indexOf(max));
+  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && SCOPES.indexOf(s.scope) <= SCOPES.indexOf(max));
   return (
     <fieldset className="space-y-2">
       <legend className="mb-2 text-sm font-medium">It may</legend>
-      {offered.map((s) => (
-        <label
-          key={s.scope}
-          className="hover:bg-accent/50 has-[:focus-visible]:ring-ring/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors has-[:focus-visible]:ring-[3px]"
-        >
-          <input
-            type="radio"
-            name="scope"
-            value={s.scope}
-            checked={value === s.scope}
-            onChange={() => onChange(s.scope as Grantable)}
-            // The card shows focus; the radio's own outline would be a second ring.
-            className="accent-primary mt-0.5 focus-visible:outline-none"
-          />
-          <span className="grid gap-0.5">
-            <span className="font-medium">
-              {s.label}
-              {s.scope === recommended && <span className="text-muted-foreground font-normal"> (recommended)</span>}
+      <RadioGroup value={value} onValueChange={(s) => onChange(s as Grantable)} aria-label="It may">
+        {offered.map((s) => (
+          <label
+            key={s.scope}
+            className="hover:bg-accent/50 has-focus-visible:ring-ring/50 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors has-focus-visible:ring-[3px]"
+          >
+            {/* The card shows focus; the radio's own ring would be a second one. */}
+            <RadioGroupItem value={s.scope} className="mt-0.5 focus-visible:ring-0" />
+            <span className="grid gap-0.5">
+              <span className="font-medium">
+                {s.label}
+                {s.scope === recommended && <span className="text-muted-foreground font-normal"> (recommended)</span>}
+              </span>
+              <span className="text-muted-foreground text-xs">{s.hint}</span>
             </span>
-            <span className="text-muted-foreground text-xs">{s.hint}</span>
-          </span>
-        </label>
-      ))}
+          </label>
+        ))}
+      </RadioGroup>
     </fieldset>
   );
 }
@@ -185,14 +179,16 @@ function Choose({
   const who = (
     <p className="text-muted-foreground text-sm">
       Signed in as <span className="text-foreground font-medium">{email}</span>.{" "}
-      <button
+      <Button
         type="button"
-        className="text-foreground inline-flex min-h-6 items-center underline underline-offset-2"
+        variant="link"
+        className="text-foreground h-auto min-h-6 p-0 font-normal underline underline-offset-2"
+        pending={busy === "switch"}
         disabled={!!busy}
         onClick={() => void switchAccount()}
       >
-        {busy === "switch" ? "Switching…" : "Switch"}
-      </button>
+        Switch
+      </Button>
     </p>
   );
 

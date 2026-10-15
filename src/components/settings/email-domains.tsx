@@ -6,7 +6,7 @@ import { IconCheck, IconPlus, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { IconButton } from "@/components/icon-button";
-import { Group } from "@/components/settings/panels";
+import { AdminsOnly, Group } from "@/components/settings/panels";
 import { Landing, Values, type Project } from "@/components/settings/sso";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ export function EmailDomainsPanel({ domains, projects }: { domains: EmailDomain[
   }
 
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <Group
         title="Email domains"
@@ -166,5 +167,6 @@ export function EmailDomainsPanel({ domains, projects }: { domains: EmailDomain[
         </form>
       </Group>
     </div>
+    </AdminsOnly>
   );
 }

@@ -8,6 +8,7 @@ import {
   describeAsset,
   getAsset,
   ingestFromUrl,
+  isProposer,
   parseAssetQuery,
   proposeFields,
   proposeTags,
@@ -253,7 +254,7 @@ async function reviewOne(caller: Caller, { id, decision, note, fields, acceptTag
   }
   const suggested = Object.keys(a.proposedFields);
   const [take, drop] = [every(acceptFields, suggested), every(dismissFields, suggested)];
-  if (a.proposedBy === caller.actor && (accept.length || take.length)) {
+  if ((accept.length || take.length) && (await isProposer(caller, a))) {
     throw new AssetError("forbidden", "You proposed this asset or its suggestions, so someone else accepts them");
   }
   const strayKeys = [...take, ...drop].filter((k) => !Object.hasOwn(a.proposedFields, k));
@@ -464,7 +465,7 @@ const TOOLS: Record<ToolName, Tool> = {
         outside: await outsideReach(caller, a),
         proposedTags: a.proposedTags,
         proposedFields: a.proposedFields,
-        brandRules: (await listRules(caller.project.id, { asset: id })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
+        brandRules: (await listRules(caller.project.id, { asset: id, who: caller })).map(({ brand, key, label, context, type, value, spec, usage }) => ({
           brand,
           key,
           label,
@@ -1891,6 +1892,10 @@ async function answer(id: Id, method: string, params: Record<string, unknown>, h
       if (uri === PLAYBOOK_URI) return result(id, { contents: [{ uri, mimeType: "text/markdown", text: PLAYBOOK }] });
       const m = uri.match(/^artbucket:\/\/(?:brand|brands\/([^/?#]+))\/rules(?:\/([^/?#]+))?$/);
       const page = uri.match(/^artbucket:\/\/brands\/([^/?#]+)\/pages\/([^/?#]+)$/);
+      // The brand read as brand_rules reads it: a private one takes a grant on it, and is not there otherwise.
+      const slug = page?.[1] ?? m?.[1];
+      const brand = (page || m) && (await brandTarget(caller.project.id, new URL(`${env.APP_URL}/?${slug ? new URLSearchParams({ brand: decodeURIComponent(slug) }) : ""}`)));
+      if (brand && !can(caller, "brand.read", brand)) return error(id, -32002, `Resource not found: ${uri}`);
       if (page) {
         const { markdown } = await getPage(caller.project.id, decodeURIComponent(page[1]), decodeURIComponent(page[2]));
         return result(id, { contents: [{ uri, mimeType: "text/markdown", text: markdown }] });

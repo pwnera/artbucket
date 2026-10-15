@@ -92,14 +92,15 @@ export function Opening({ eyebrow, title, lede, children }: { eyebrow?: string |
   const ground = useGround({ tone: !view.brand.slug ? "tint" : view.theme.band ? "brand" : "plain" });
   return (
     <div className={ground.className} style={ground.style}>
-      <header className="mx-auto w-full max-w-280 space-y-5 px-6 pt-[calc(var(--brand-gap)*4/3)] pb-[calc(var(--brand-gap)*4/3)] @3xl/site:px-10 @3xl/site:pt-[calc(var(--brand-gap)*2)] @3xl/site:pb-[calc(var(--brand-gap)*2)]">
+      {/* A div, not a <header>: outside <main> that is a second banner beside the host's own header. */}
+      <div className="mx-auto w-full max-w-280 space-y-5 px-6 pt-[calc(var(--brand-gap)*4/3)] pb-[calc(var(--brand-gap)*4/3)] @3xl/site:px-10 @3xl/site:pt-[calc(var(--brand-gap)*2)] @3xl/site:pb-[calc(var(--brand-gap)*2)]">
         <div className="space-y-4">
           {eyebrow && <p className={cn(LABEL, "text-muted-foreground")}>{eyebrow}</p>}
           <h1 className={cn(HEAD, "text-[length:min(var(--brand-h1),12cqi)] leading-[1.05] break-words text-balance")}>{title}</h1>
           {lede && <Markdown text={lede} className="text-muted-foreground max-w-(--brand-measure) text-lg text-pretty @3xl/site:text-xl" />}
         </div>
         {children}
-      </header>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import type { Domain } from "@/components/settings/branding";
-import { Group } from "@/components/settings/panels";
+import { AdminsOnly, Group } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,12 +52,14 @@ export function HubPanel({
   offers: HubOffer[];
 }) {
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <Verified proofs={[...domains.filter((d) => d.verified).map((d) => `DNS TXT record on ${d.host}`), ...github.filter((g) => g.verified).map((g) => `GitHub organization github.com/${g.login}`)]} />
       {domains.some((d) => d.verified) && <OffersGroup offers={offers} />}
       <GithubAccounts github={github} />
       <Reports reports={reports} />
     </div>
+    </AdminsOnly>
   );
 }
 
@@ -151,7 +153,10 @@ function GithubAccounts({ github }: { github: GithubAccount[] }) {
                       <Fragment key={label}>
                         <dt className="text-muted-foreground">{label}</dt>
                         <dd className="font-mono break-all">{value}</dd>
-                        <CopyButton text={value} label={`Copy ${what}`} what={what} />
+                        {/* In a dd of its own: a dl holds only dt and dd. */}
+                        <dd>
+                          <CopyButton text={value} label={`Copy ${what}`} what={what} />
+                        </dd>
                       </Fragment>
                     ))}
                   </dl>

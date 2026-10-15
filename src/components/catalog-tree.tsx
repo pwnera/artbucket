@@ -4,10 +4,11 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { IconArrowUpRight, IconChevronRight, IconPlus, IconFolder, IconFolderOpen, IconLayoutSidebarLeftCollapse, IconLock, IconShare, IconSitemap } from "@/components/icons";
 import { TypeIcon, type TreeProject } from "@/components/catalog";
-import { useMe } from "@/components/can";
+import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { Input } from "@/components/ui/input";
 import { TYPE_LABEL, type CatalogType } from "@/lib/catalog";
+import type { Action } from "@/lib/permissions";
 import { ASSET_TYPES, type AssetType } from "@/lib/filters";
 import type { CatalogItem } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
@@ -24,11 +25,11 @@ import { cn } from "@/lib/utils";
 export type Node = { key: string; depth: number; label: string; count?: number; item?: CatalogItem; kind: "project" | "group" | "object"; type?: CatalogType; children: Node[] };
 
 const ORDER: CatalogType[] = ["brand", "collection", "asset", "site"];
-export const NEW: Partial<Record<CatalogType, { href: string; label: string }>> = {
-  brand: { href: "/brands?new=brand", label: "New brand" },
-  collection: { href: "/collections?new", label: "New collection" },
-  asset: { href: "/?browse", label: "Upload assets in Explore" },
-  site: { href: "/sites?new=portal", label: "New site" },
+export const NEW: Partial<Record<CatalogType, { href: string; label: string; may: Action }>> = {
+  brand: { href: "/brands?new=brand", label: "New brand", may: "brand.create" },
+  collection: { href: "/collections?new", label: "New collection", may: "collection.create" },
+  asset: { href: "/?browse", label: "Upload assets in Explore", may: "project.upload" },
+  site: { href: "/sites?new=portal", label: "New site", may: "portal.manage" },
 };
 export const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
@@ -106,11 +107,11 @@ export function findNode(nodes: Node[], key: string): { node: Node; trail: Node[
   return null;
 }
 
-/** Keys from the root down to the object open, so its path shows unfolded. */
+/** Keys from the root down to the object open, so its path shows unfolded. A part's or a shared object's key is not its id: either finds it. */
 function pathTo(nodes: Node[], id: string | null, trail: string[] = []): string[] | null {
   if (!id) return null;
   for (const n of nodes) {
-    if (n.key === id) return trail;
+    if (n.key === id || n.item?.id === id) return trail;
     const found = pathTo(n.children, id, [...trail, n.key]);
     if (found) return found;
   }
@@ -135,8 +136,10 @@ export function CatalogTree({
   const q = query.trim().toLowerCase();
   // The project open: new things are made there, so only its folders offer New.
   const here = useMe()?.project.id;
+  const can = useCan();
   const match = useMemo(() => (i: CatalogItem) => !q || i.name.toLowerCase().includes(q) || i.address.includes(q), [q]);
-  const tree = useMemo(() => build(projects, match), [projects, match]);
+  // Filtering, a project with nothing that matches goes too, so "Nothing matches." can show.
+  const tree = useMemo(() => build(projects, match).filter((p) => !q || p.children.length), [projects, match, q]);
   // Projects start unfolded, and the path to what is open; the rest folds until asked.
   const [open, setOpen] = useState<Set<string>>(() => new Set([...projects.map((p) => p.id), ...(pathTo(build(projects, () => true), current) ?? [])]));
   const isOpen = (n: Node) => !!q || open.has(n.key);
@@ -179,100 +182,107 @@ export function CatalogTree({
         </div>
         <Input type="search" placeholder="Filter by name or address" aria-label="Filter the tree" value={query} onChange={(e) => setQuery(e.target.value)} className="h-8" />
       </div>
-      <div ref={rowsRef} role="tree" aria-label="Projects and objects" className="min-h-0 flex-1 overflow-y-auto py-1.5">
-        {visible.map((n, i) => {
-          const expandable = n.children.length > 0;
-          const selected = n.item ? n.item.id === current : n.key === current;
-          return (
-            <div
-              key={n.key}
-              data-key={n.key}
-              role="treeitem"
-              aria-level={n.depth}
-              aria-expanded={expandable ? isOpen(n) : undefined}
-              aria-selected={selected}
-              tabIndex={(focus ?? current ?? visible[0]?.key) === n.key ? 0 : -1}
-              onFocus={() => setFocus(n.key)}
-              onClick={() => (n.item ? onOpen(n.item.id) : onOpenFolder(n.key))}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") move(i + 1);
-                else if (e.key === "ArrowUp") move(i - 1);
-                else if (e.key === "ArrowRight" && expandable) toggle(n.key, true);
-                else if (e.key === "ArrowLeft") {
-                  if (expandable && isOpen(n)) toggle(n.key, false);
-                  else {
-                    // Up to the row it sits in.
-                    let up = i - 1;
-                    while (up > 0 && visible[up].depth >= n.depth) up--;
-                    move(up);
-                  }
-                } else if (e.key === "Enter" || e.key === " ") {
-                  if (n.item) onOpen(n.item.id);
-                  else onOpenFolder(n.key);
-                }
-                else return;
-                e.preventDefault();
-              }}
-              style={{ paddingInlineStart: `${(n.depth - 1) * 14 + 6}px` }}
-              className={cn(
-                "group/row relative mx-1.5 flex h-7 cursor-pointer items-center gap-1.5 rounded-md pe-2 text-sm outline-none select-none",
-                "focus-visible:ring-ring/50 focus-visible:ring-2",
-                selected ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-accent",
-                n.kind === "project" && "font-medium",
-              )}
-            >
-              <span
-                aria-hidden
-                onClick={(e) => {
-                  if (!expandable) return;
-                  e.stopPropagation();
-                  toggle(n.key);
-                }}
-                className={cn("text-muted-foreground hover:text-foreground hover:bg-background -ms-1 flex size-6 shrink-0 items-center justify-center rounded", !expandable && "invisible")}
-              >
-                <IconChevronRight className={cn("size-3.5 transition-transform duration-150", isOpen(n) && "rotate-90")} />
-              </span>
-              {n.kind === "object" && n.item ? (
-                <TypeIcon type={n.item.type} className="text-muted-foreground size-4 shrink-0" />
-              ) : n.kind === "group" ? (
-                isOpen(n) ? (
-                  <IconFolderOpen aria-hidden className="text-muted-foreground size-4 shrink-0" />
-                ) : (
-                  <IconFolder aria-hidden className="text-muted-foreground size-4 shrink-0" />
-                )
-              ) : (
-                <span aria-hidden className="bg-primary/15 text-primary-ink flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold">
-                  {n.label.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="truncate">{n.label}</span>
-              {n.item?.private && <IconLock aria-label="Private" className="text-muted-foreground size-3.5 shrink-0" />}
-              {n.kind === "object" && n.depth === 3 && n.item?.sharedFrom && (
-                <span title={`Shared from ${n.item.sharedFrom.name}`} className="bg-primary/10 text-primary-ink inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[10px] font-medium">
-                  <IconShare aria-hidden className="size-3" /> Shared
-                </span>
-              )}
-              {/* One column of counts at the row's end; a folder's actions take its place on hover, so nothing shifts. */}
-              <span className={cn("text-muted-foreground ms-auto ps-2 text-xs tabular-nums", folderActions(n) && "group-hover/row:invisible group-focus-within/row:invisible")}>
-                {n.count ?? (n.item?.release ? `@${n.item.release}` : n.item?.status === "draft" ? "draft" : "")}
-              </span>
-              {folderActions(n) && (
-                <span className="absolute inset-y-0 end-1 hidden items-center gap-0.5 group-hover/row:flex group-focus-within/row:flex">
-                  {n.type && NEW[n.type] && n.key.startsWith(`${here}:`) && (
-                    <RowLink href={NEW[n.type]!.href} label={NEW[n.type]!.label}>
-                      <IconPlus className="size-3.5" />
-                    </RowLink>
+      <div ref={rowsRef} className="min-h-0 flex-1 overflow-y-auto py-1.5">
+        {/* A tree must hold rows (aria-required-children): with none, only the line saying so. */}
+        {visible.length > 0 && (
+          <div role="tree" aria-label="Projects and objects">
+            {visible.map((n, i) => {
+              const expandable = n.children.length > 0;
+              const selected = n.item ? n.item.id === current : n.key === current;
+              return (
+                <div
+                  key={n.key}
+                  data-key={n.key}
+                  role="treeitem"
+                  aria-level={n.depth}
+                  aria-expanded={expandable ? isOpen(n) : undefined}
+                  aria-selected={selected}
+                  tabIndex={(focus ?? current ?? visible[0]?.key) === n.key ? 0 : -1}
+                  onFocus={() => setFocus(n.key)}
+                  onClick={() => (n.item ? onOpen(n.item.id) : onOpenFolder(n.key))}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") move(i + 1);
+                    else if (e.key === "ArrowUp") move(i - 1);
+                    else if (e.key === "ArrowRight" && expandable) toggle(n.key, true);
+                    else if (e.key === "ArrowLeft") {
+                      if (expandable && isOpen(n)) toggle(n.key, false);
+                      else {
+                        // Up to the row it sits in.
+                        let up = i - 1;
+                        while (up > 0 && visible[up].depth >= n.depth) up--;
+                        move(up);
+                      }
+                    } else if (e.key === "Enter" || e.key === " ") {
+                      if (n.item) onOpen(n.item.id);
+                      else onOpenFolder(n.key);
+                    }
+                    else return;
+                    e.preventDefault();
+                  }}
+                  style={{ paddingInlineStart: `${(n.depth - 1) * 14 + 6}px` }}
+                  className={cn(
+                    "group/row relative mx-1.5 flex h-7 cursor-pointer items-center gap-1.5 rounded-md pe-2 text-sm outline-none select-none",
+                    "focus-visible:ring-ring/50 focus-visible:ring-2",
+                    // Foreground, not the accent's ink: that is graded on the page, and can dip under 4.5:1 on the tint.
+                    selected ? "bg-sidebar-accent text-foreground font-medium" : "hover:bg-accent",
+                    n.kind === "project" && "font-medium",
                   )}
-                  {n.type && LIST[n.type] && (
-                    <RowLink href={LIST[n.type]!.href} label={LIST[n.type]!.label}>
-                      <IconArrowUpRight className="size-3.5" />
-                    </RowLink>
+                >
+                  <span
+                    aria-hidden
+                    onClick={(e) => {
+                      if (!expandable) return;
+                      e.stopPropagation();
+                      toggle(n.key);
+                    }}
+                    className={cn("text-muted-foreground hover:text-foreground hover:bg-background -ms-1 flex size-6 shrink-0 items-center justify-center rounded", !expandable && "invisible")}
+                  >
+                    <IconChevronRight className={cn("size-3.5 transition-transform duration-150", isOpen(n) && "rotate-90")} />
+                  </span>
+                  {n.kind === "object" && n.item ? (
+                    <TypeIcon type={n.item.type} className="text-muted-foreground size-4 shrink-0" />
+                  ) : n.kind === "group" ? (
+                    isOpen(n) ? (
+                      <IconFolderOpen aria-hidden className="text-muted-foreground size-4 shrink-0" />
+                    ) : (
+                      <IconFolder aria-hidden className="text-muted-foreground size-4 shrink-0" />
+                    )
+                  ) : (
+                    <span aria-hidden className="bg-primary/15 text-primary-ink flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold">
+                      {n.label.charAt(0).toUpperCase()}
+                    </span>
                   )}
-                </span>
-              )}
-            </div>
-          );
-        })}
+                  <span className="truncate">{n.label}</span>
+                  {n.item?.private && <IconLock aria-label="Private" className="text-muted-foreground size-3.5 shrink-0" />}
+                  {n.kind === "object" && n.depth === 3 && n.item?.sharedFrom && (
+                    <span title={`Shared from ${n.item.sharedFrom.name}`} className="bg-primary/10 text-foreground inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[10px] font-medium">
+                      <IconShare aria-hidden className="size-3" /> Shared
+                    </span>
+                  )}
+                  {/* One column of counts at the row's end; a folder's actions take its place on hover, so nothing shifts. */}
+                  <span className={cn("text-muted-foreground ms-auto ps-2 text-xs tabular-nums", folderActions(n) && "group-hover/row:invisible group-focus-within/row:invisible")}>
+                    {n.count ?? (n.item?.release ? `@${n.item.release}` : n.item?.status === "draft" ? "draft" : "")}
+                  </span>
+                  {folderActions(n) && (
+                    <span className="absolute inset-y-0 end-1 hidden items-center gap-0.5 group-hover/row:flex group-focus-within/row:flex">
+                      {/* Only to whoever may make one: a viewer's New would open a form they can't send. */}
+                      {n.type && NEW[n.type] && n.key.startsWith(`${here}:`) && can(NEW[n.type]!.may) && (
+                        <RowLink href={NEW[n.type]!.href} label={NEW[n.type]!.label}>
+                          <IconPlus className="size-3.5" />
+                        </RowLink>
+                      )}
+                      {n.type && LIST[n.type] && (
+                        <RowLink href={LIST[n.type]!.href} label={LIST[n.type]!.label}>
+                          <IconArrowUpRight className="size-3.5" />
+                        </RowLink>
+                      )}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {!visible.length && <p className="text-muted-foreground px-4 py-2 text-xs">{q ? "Nothing matches." : "Nothing here yet."}</p>}
       </div>
     </section>

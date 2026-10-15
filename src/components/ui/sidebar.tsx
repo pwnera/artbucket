@@ -97,16 +97,14 @@ function SidebarProvider({
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === "function" ? value(open) : value
-      if (setOpenProp) {
-        setOpenProp(openState)
-      } else {
-        _setOpen(openState)
-      }
+      // Uncontrolled, it keeps its own state even with an onOpenChange to hear of it.
+      if (openProp === undefined) _setOpen(openState)
+      setOpenProp?.(openState)
 
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
-    [setOpenProp, open]
+    [setOpenProp, open, openProp]
   )
 
   // Helper to toggle the sidebar.
@@ -631,8 +629,9 @@ function SidebarMenuButton({
   }
 
   return (
-    // Collapsed to icons, the tooltip is the only label: no wait.
-    <Tooltip delayDuration={0}>
+    // Collapsed to icons, the tooltip is the only label: no wait. Otherwise it never opens (not just hidden), so it
+    // takes no Escape meant for the sheet or the page.
+    <Tooltip delayDuration={0} {...((state !== "collapsed" || isMobile) && { open: false })}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
         side="right"

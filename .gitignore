@@ -35,3 +35,6 @@ cli/*.tgz
 
 # Storybook builds (pnpm storybook:build)
 storybook-static
+
+# pnpm test:stories:coverage
+coverage/

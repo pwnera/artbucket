@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { CopyButton } from "@/components/copy-button";
 import { InfoTip } from "@/components/info-tip";
-import { Group } from "@/components/settings/panels";
+import { AdminsOnly, Group } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +54,10 @@ export function Values({ rows }: { rows: [label: string, value: string, what: st
         <Fragment key={label}>
           <dt className="text-muted-foreground">{label}</dt>
           <dd className="font-mono break-all">{value}</dd>
-          <CopyButton text={value} label={`Copy ${what}`} what={what} />
+          {/* In a dd of its own: a dl holds only dt and dd. */}
+          <dd>
+            <CopyButton text={value} label={`Copy ${what}`} what={what} />
+          </dd>
         </Fragment>
       ))}
     </dl>
@@ -109,6 +112,7 @@ export function SsoPanel({ sso, redirectUris, projects }: { sso: Sso | null; red
   }
 
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <Group
         title="Single sign-on"
@@ -265,5 +269,6 @@ export function SsoPanel({ sso, redirectUris, projects }: { sso: Sso | null; red
         </Group>
       )}
     </div>
+    </AdminsOnly>
   );
 }

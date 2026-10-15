@@ -2,7 +2,7 @@ title: Voice
 lede: Plain, exact and a little dry. Now put it into practice.
 sections:
   - template: cover
-    eyebrow: 04 / The voice
+    eyebrow: 04 / Voice
     title: |-
       Less grand.
       More useful.
@@ -13,29 +13,39 @@ sections:
       titleSize: huge
   - id: text
     template: cards
-    title: Three habits. One voice.
+    title: Five habits.
     keys: [tone.always]
     props:
       layout: steps
+  - id: names
+    template: text
+    title: Our names.
+    keys: [brand.naming]
   - id: rewrites
     template: dodont
     title: Same idea. Fewer obstacles.
     lede: A few words can make the next step obvious.
     items:
+      - text: The second line finishes the first, with the things the reader will touch.
+        title: Every logo in one place. The current version for each site, slide and agent.
+        verdict: do
+      - text: A second slogan adds nothing the first did not say.
+        title: Every logo in one place. Endless possibilities, zero friction.
+        verdict: dont
       - text: Name the job.
-        title: Find the right file.
+        title: Find the right asset.
         verdict: do
       - text: Avoid promises the reader has to translate.
         title: Unlock seamless asset discovery.
         verdict: dont
       - text: State what is here and what to do next.
-        title: No files yet. Add your first asset.
+        title: No assets yet. Upload the first one.
         verdict: do
       - text: An empty state needs a next step, not a pep talk.
         title: Your creative journey awaits!
         verdict: dont
       - text: Be specific. Keep blame out of it.
-        title: That file did not upload. Try again.
+        title: That asset did not upload. Try again.
         verdict: do
       - text: A vague error gives the reader nowhere to go.
         title: Oops! Something went wrong.
@@ -73,7 +83,7 @@ sections:
         - name: detail
           label: What the recipient should know
       template: |-
-        The files for {project} are ready.
+        The assets for {project} are ready.
 
         {link}
 
@@ -84,20 +94,17 @@ sections:
     title: Keep exploring.
     items:
       - link: /logo
-        text: Explore its anatomy. Find the right version. Download the originals.
-        title: 01 / The mark
+        text: Three files, and what to leave alone.
+        title: 01 / Logo
       - link: /color
-        text: Copy a color. Compare contrast. Try another view.
-        title: 02 / The palette
+        text: This week's accent, and the neutrals that hold it.
+        title: 02 / Color
       - link: /type
-        text: Type your own specimen and explore the scale.
-        title: 03 / The words
-      - link: /voice
-        text: See the rewrites. Borrow a line. Make it yours.
-        title: 04 / The voice
+        text: Three faces and one scale.
+        title: 03 / Type
       - link: /playground
-        text: Pattern, spacing and motion. The identity in action.
-        title: 05 / The playground
+        text: The pattern, spacing, corners, motion and charts, drawn.
+        title: 05 / Playground
       - link: /resources
-        text: Current files, useful links and a way to ask.
-        title: 06 / The essentials
+        text: Every file, and a way to ask for more.
+        title: 06 / Resources

@@ -13,7 +13,7 @@ sections:
       titleSize: huge
   - id: chapters
     template: pages
-    title: Six chapters. One brand.
+    title: What's in this book.
     lede: Start with the mark. Everything else follows from it.
     items:
       - link: /logo
@@ -23,17 +23,17 @@ sections:
         text: This week's accent, and the neutrals that hold it.
         title: Color
       - link: /type
-        text: Three faces, one measured scale.
+        text: Three faces and one scale.
         title: Type
       - link: /voice
         text: Habits, examples and copy to paste.
         title: Voice
       - link: /playground
-        text: Space, corners and motion, drawn.
-        title: Space and motion
+        text: The pattern, spacing, corners, motion and charts, drawn.
+        title: Playground
       - link: /resources
         text: Every file, and a way to ask for more.
-        title: Downloads
+        title: Resources
     size: huge
   - id: this-week
     template: palette

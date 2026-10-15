@@ -101,14 +101,14 @@ export function Renditions({ asset }: { asset: Asset }) {
           <IconPhotoScan />
         </IconButton>
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
+      <PopoverContent side="top" align="end" aria-label="Sizes and formats" className="w-[min(24rem,calc(100vw-2rem))] p-0">
         <div className="flex items-center gap-2 px-3 pt-3 pb-1 text-xs">
           <span className="text-muted-foreground shrink-0">Copied links work for</span>
           {asset.public ? (
             <span className="font-medium">Anyone: it is public</span>
           ) : signable ? (
             <Select value={reach} onValueChange={setReach}>
-              <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
+              <SelectTrigger size="sm" aria-label="Who copied links work for" className="h-7 flex-1 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

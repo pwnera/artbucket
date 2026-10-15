@@ -21,7 +21,7 @@ import { HEADERS, parseHeaders, parseRedirects, REDIRECTS, type SiteRules } from
 import { resolveSitePath, type Mount, type SiteAnswer } from "@/lib/site-serve";
 import { localPath } from "@/lib/markdown";
 import { putObject, sizeOf } from "@/lib/storage";
-import { unzip } from "@/lib/zip";
+import { INFLATE_LIMIT, unzip, type ZipEntry } from "@/lib/zip";
 
 /**
  * Sites' deployments (PRD part 2): a zip of static files, unpacked into
@@ -295,6 +295,22 @@ async function makePreview(tx: Tx, siteId: string, path: string, name: string, i
 }
 export const PREVIEW_DAYS = 30;
 
+/**
+ * An entry's bytes, inflated no further than what is left of the build's MAX_SITE_BYTES (nor one file's
+ * INFLATE_LIMIT): what a zip declares is its say-so, so the bytes are counted as they come.
+ */
+async function readWithin(entry: ZipEntry, used: number, what: string) {
+  const left = MAX_SITE_BYTES - used;
+  try {
+    return await entry.read(Math.min(INFLATE_LIMIT, left));
+  } catch (err) {
+    if (left < INFLATE_LIMIT && err instanceof RangeError && /more than \d+ bytes/.test(err.message)) {
+      throw new AssetError("too_large", `${what} is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
+    }
+    throw err;
+  }
+}
+
 /** The brands' names in a project, which a build may look like without impersonating anyone. */
 const brandNames = async (projectId: string) => (await db.select({ name: brands.name, slug: brands.slug }).from(brands).where(eq(brands.projectId, projectId))).flatMap((b) => [b.name, b.slug]);
 
@@ -354,11 +370,15 @@ export async function deploy(
     const list = [...files];
     // ponytail: 16 uploads at a time, the zip held in memory; a streaming unpack when deployments grow past MAX_SITE_BYTES.
     for (let i = 0; i < list.length; i += 16) {
+      // Unpacked one at a time, each within what is left: never more than MAX_SITE_BYTES inflated, whatever the zip says.
+      const batch: [string, Uint8Array][] = [];
+      for (const [served, name] of list.slice(i, i + 16)) {
+        const data = await readWithin(byName.get(name)!, bytes, "A deployment");
+        bytes += data.length;
+        batch.push([served, data]);
+      }
       await Promise.all(
-        list.slice(i, i + 16).map(async ([served, name]) => {
-          const data = await byName.get(name)!.read();
-          bytes += data.length;
-          if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A deployment is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
+        batch.map(async ([served, data]) => {
           if (served === MANIFEST) manifest = JSON.parse(new TextDecoder().decode(data)) as Manifest;
           else if (served === REDIRECTS || served === HEADERS) ruleTexts.set(served, new TextDecoder().decode(data));
           else scan.add(served, data);
@@ -504,14 +524,10 @@ export async function checkBuild(caller: Caller, zip: Uint8Array) {
   const ruleTexts = new Map<string, string>();
   let bytes = 0;
   for (const [served, name] of files) {
-    const data = await byName
-      .get(name)!
-      .read()
-      .catch(() => {
-        throw new AssetError("invalid", `${served} can't be unpacked`);
-      });
+    const data = await readWithin(byName.get(name)!, bytes, "A build").catch((err) => {
+      throw err instanceof AssetError ? err : new AssetError("invalid", `${served} can't be unpacked`);
+    });
     bytes += data.length;
-    if (bytes > MAX_SITE_BYTES) throw new AssetError("too_large", `A build is ${MAX_SITE_BYTES / 1024 / 1024} MB unpacked at most`);
     if (served === REDIRECTS || served === HEADERS) ruleTexts.set(served, new TextDecoder().decode(data));
     else if (served !== MANIFEST) scan.add(served, data);
     else
@@ -552,8 +568,10 @@ export async function recordUses(caller: Caller, siteId: string, zip: Uint8Array
   const byName = new Map(entries.map((e) => [e.name, e]));
   const scan = buildScan(await brandNames(site.projectId));
   let manifest: Manifest | null = null;
+  let bytes = 0;
   for (const [served, name] of files) {
-    const data = await byName.get(name)!.read();
+    const data = await readWithin(byName.get(name)!, bytes, "A scan");
+    bytes += data.length;
     if (served !== MANIFEST) scan.add(served, data);
     else
       try {

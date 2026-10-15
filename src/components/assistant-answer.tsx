@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCan } from "@/components/can";
 import { CopyButton, copyText } from "@/components/copy-button";
 import { IconFolder, IconPalette } from "@/components/icons";
+import { Button } from "@/components/ui/button";
 import { GRID_MAX, VERDICTS, inline, parseAnswer, type Block, type DateWord, type Inline, type Verdict } from "@/lib/assistant-answer";
 import { cn } from "@/lib/utils";
 
@@ -77,14 +78,15 @@ function BlockView({ b, card, onGo, onAsk }: { b: Block; card: (id: string) => R
       return (
         <div className="bg-muted relative min-w-0 rounded-md">
           <CopyButton text={b.text} label="Copy" what="the code" className="absolute end-1 top-1" />
-          <pre className="overflow-x-auto p-3 pe-9 font-mono text-xs leading-relaxed">
+          {/* Focusable: a line wider than the panel scrolls, and a keyboard must reach it. */}
+          <pre tabIndex={0} className="overflow-x-auto p-3 pe-9 font-mono text-xs leading-relaxed">
             <code>{b.text}</code>
           </pre>
         </div>
       );
     case "table":
       return (
-        <div className="min-w-0 overflow-x-auto rounded-lg border">
+        <div tabIndex={0} className="min-w-0 overflow-x-auto rounded-lg border">
           <table className="w-full text-xs">
             <thead className="bg-muted/60 text-start">
               <tr>
@@ -155,9 +157,9 @@ function BlockView({ b, card, onGo, onAsk }: { b: Block; card: (id: string) => R
       return onAsk ? (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {b.items.map((q) => (
-            <button key={q} type="button" onClick={() => onAsk(q)} className="bg-muted hover:bg-accent rounded-full px-3 py-1 text-start text-xs">
+            <Button key={q} variant="secondary" size="xs" onClick={() => onAsk(q)} className="h-auto rounded-full px-3 py-1 text-start font-normal whitespace-normal">
               {q}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null;
@@ -351,6 +353,7 @@ function Swatch({ hex, name }: { hex: string; name: string }) {
     return () => clearTimeout(t);
   }, [copied]);
   return (
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: it sits in a line of text, where Button's height and padding would lift it off the baseline.
     <button
       type="button"
       title={`Copy ${hex}`}
@@ -360,7 +363,7 @@ function Swatch({ hex, name }: { hex: string; name: string }) {
         copied && "border-primary",
       )}
     >
-      <i className="size-4 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/12%)]" style={{ background: hex }} />
+      <i aria-hidden className="size-4 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/12%)]" style={{ background: hex }} />
       {name && <span>{name}</span>}
       <code className="text-muted-foreground font-mono text-[0.7rem]">{copied ? "Copied" : hex.toUpperCase()}</code>
     </button>

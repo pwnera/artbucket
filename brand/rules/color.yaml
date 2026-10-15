@@ -2,7 +2,7 @@ color.primary:
   type: color
   label: Volt
   value: "#c6f432"
-  usage: "This week's accent, the only color the weekly release changes. A fill: eyebrow marks, highlights, the icon's tile, the halo around the primary button. Never text."
+  usage: "This week's accent, the only color the weekly release changes. A fill: eyebrow marks, highlights, the icon's tile, the halo around the primary button. Never text: Volt on Paper is 1.28:1, far under the 4.5:1 reading text needs. Iris and Tide weeks would pass (5.08:1 and 4.87:1), but text keeps one color whatever the week."
   spec:
     pair: color.onPrimary
     group: Signature
@@ -61,7 +61,7 @@ color.border:
   type: color
   label: Line
   value: "#e6e5ee"
-  usage: Hairlines of grids, tables and cards. Never the only edge of a control.
+  usage: "Hairlines of grids, tables and cards. Never the only edge of a control: Line on Paper is 1.25:1, under the 3:1 a control's edge needs."
   spec:
     group: Neutrals
 color.dark:
@@ -121,3 +121,8 @@ color.fuchsia:
 color.pairings:
   type: list
   value: [Ink on Paper, Ink on the accent, White on Night]
+color.printed:
+  type: text
+  label: In print
+  value: Anything printed uses Iris, the accent that stands in wherever a copy can't follow the week. A file approved in another week's accent goes to print as approved, even when a Monday passes before the deadline.
+  usage: Print, packaging, signage and anything else that can't change on a Monday. Ask on Resources for the Iris tile file.

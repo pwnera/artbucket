@@ -97,6 +97,8 @@ export const assets = pgTable(
      * person sees who sent what and an agent can find its own proposals.
      */
     proposedBy: text("proposed_by"),
+    /** Who proposed it, as an id that a rename doesn't change: the API key's, else the person's. Never shown. */
+    proposedById: text("proposed_by_id"),
     /**
      * Why a person rejected it. A rejected asset is kept, out of the library
      * and the review queue, so the agent that proposed it can read the reason.

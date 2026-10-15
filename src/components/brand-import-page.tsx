@@ -18,10 +18,10 @@ import {
 } from "@/components/icons";
 import { Card, size } from "@/components/brand-import";
 import { useMe } from "@/components/can";
+import { Confirm } from "@/components/confirm";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Confirm } from "@/components/confirm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -321,13 +321,35 @@ export function BrandImportPage({ id }: { id: string }) {
           description={
             <>
               {describe}
-              <span className="text-muted-foreground/80 block text-xs">{who}</span>
+              <span className="text-muted-foreground block text-xs">{who}</span>
             </>
           }
           aside={<span className="text-muted-foreground text-sm tabular-nums">{size(view.bytes)}</span>}
         >
-          {view.can.discard && <DiscardButton onDiscard={discard} />}
-          {view.can.undo && !view.applied?.undoing && <UndoButton onUndo={() => start("undo")} />}
+          {view.can.discard && (
+            <Confirm
+              title="Discard this import?"
+              says="The plan and the uploaded archive are deleted. Nothing was added to the library, so nothing there changes."
+              action="Discard"
+              run={discard}
+            >
+              <Button size="sm" variant="ghost">
+                <IconTrash /> Discard
+              </Button>
+            </Confirm>
+          )}
+          {view.can.undo && !view.applied?.undoing && (
+            <Confirm
+              title="Undo this import?"
+              says="The files it added are deleted (restorable for 30 days), its collections and the brands it made are removed, and brands it added to get their rules back as they were. Files that were already in your library stay."
+              action="Undo import"
+              run={() => start("undo")}
+            >
+              <Button size="sm" variant="outline">
+                <IconArrowBackUp /> Undo import
+              </Button>
+            </Confirm>
+          )}
         </PageHeader>
 
         {(view.status === "applying" || view.status === "undoing") && <Running view={view} />}
@@ -349,6 +371,8 @@ export function BrandImportPage({ id }: { id: string }) {
                 </Button>
               </div>
             ) : (
+              // Only an apply that stopped carries on: an archive that couldn't be read has nothing to apply.
+              view.applied &&
               view.can.apply && (
                 <div>
                   <Button size="sm" onClick={() => void start("apply")}>
@@ -405,7 +429,7 @@ function Processing({ view }: { view: View }) {
           </li>
         ))}
       </ol>
-      {p && p.total > 0 && <Progress value={(100 * p.done) / p.total} />}
+      {p && p.total > 0 && <Progress aria-label="Read" value={(100 * p.done) / p.total} />}
       {view.stats && (
         <p className="text-muted-foreground text-xs">
           {plural(view.stats.files, "file")} in the archive: {plural(view.stats.kept, "to look at", "to look at")},{" "}
@@ -429,7 +453,7 @@ function Running({ view }: { view: View }) {
       </p>
       {p && p.total > 0 && (
         <div className="grid gap-1.5">
-          <Progress value={(100 * Math.min(p.done, p.total)) / p.total} />
+          <Progress aria-label={view.status === "applying" ? "Applied" : "Undone"} value={(100 * Math.min(p.done, p.total)) / p.total} />
           <span className="text-muted-foreground text-xs tabular-nums">
             {Math.min(p.done, p.total).toLocaleString("en")} of {plural(p.total, "file")}
           </span>
@@ -716,6 +740,8 @@ function BrandCard({
   const diffs = b.rules.filter((r) => r.diff).length;
   return (
     <section className={cn("bg-card grid gap-4 rounded-xl border p-4 sm:p-5", !b.include && "opacity-60")}>
+      {/* Its name is a field: the heading is for those who move by headings, its groups one level down. */}
+      <h2 className="sr-only">{b.name}</h2>
       <div className="flex flex-wrap items-start gap-4">
         <div className="bg-muted grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg border">
           {b.logo?.preview ? (
@@ -1168,9 +1194,10 @@ function CollectionRow({
           }}
         />
         {many && brand && <span className="text-muted-foreground text-xs">{brand}</span>}
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground ml-auto flex items-center gap-1 text-sm"
+        <Button
+          variant="ghost"
+          aria-expanded={open}
+          className="text-muted-foreground hover:text-foreground ml-auto h-auto gap-1 px-0 py-0 font-normal hover:bg-transparent dark:hover:bg-transparent"
           onClick={() => {
             if (!open) void loadFiles();
             setOpen(!open);
@@ -1178,7 +1205,7 @@ function CollectionRow({
         >
           {plural(c.files, "file")}
           <IconChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-        </button>
+        </Button>
       </div>
       {open && (
         <div className="border-t px-4 py-3">
@@ -1230,35 +1257,5 @@ function CollectionRow({
         </div>
       )}
     </li>
-  );
-}
-
-function DiscardButton({ onDiscard }: { onDiscard: () => Promise<boolean> }) {
-  return (
-    <Confirm
-      title="Discard this import?"
-      says="The plan and the uploaded archive are deleted. Nothing was added to the library, so nothing there changes."
-      action="Discard"
-      run={onDiscard}
-    >
-      <Button size="sm" variant="ghost">
-        <IconTrash /> Discard
-      </Button>
-    </Confirm>
-  );
-}
-
-function UndoButton({ onUndo }: { onUndo: () => Promise<boolean> }) {
-  return (
-    <Confirm
-      title="Undo this import?"
-      says="The files it added are deleted (restorable for 30 days), its collections and the brands it made are removed, and brands it added to get their rules back as they were. Files that were already in your library stay."
-      action="Undo import"
-      run={onUndo}
-    >
-      <Button size="sm" variant="outline">
-        <IconArrowBackUp /> Undo import
-      </Button>
-    </Confirm>
   );
 }

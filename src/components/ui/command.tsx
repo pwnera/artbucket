@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Command as CommandPrimitive } from "cmdk"
+import { Command as CommandPrimitive, useCommandState } from "cmdk"
 import { cn } from "@/lib/utils"
 import { IconSearch as SearchIcon } from "@/components/icons"
 
@@ -146,13 +146,21 @@ function CommandGroup({
   )
 }
 
+/**
+ * A line between groups. cmdk's own is role="separator", which a listbox may not hold (axe fails it): this one is
+ * only drawn, and hides while searching as cmdk's does.
+ */
 function CommandSeparator({
   className,
+  alwaysRender,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
+  const idle = useCommandState((state) => !state.search)
+  if (!alwaysRender && !idle) return null
   return (
-    <CommandPrimitive.Separator
+    <div
       data-slot="command-separator"
+      aria-hidden
       className={cn("-mx-1 h-px bg-border", className)}
       {...props}
     />

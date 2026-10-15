@@ -27,6 +27,7 @@ import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { brandPath } from "@/lib/site";
 import { useCountUp } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 /**
  * Publish a release (build spec 3.5.3, W6.3, and the prototype's "Publish a
@@ -294,14 +295,14 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
                 On a portal
                 <InfoTip>Its own address, which you can style and close later.</InfoTip>
               </p>
-              <div role="radiogroup" aria-label="Who gets in to the portal" className="grid gap-1">
+              <RadioGroup value={door} onValueChange={(d) => setDoor(d as Door)} aria-label="Who gets in to the portal" className="gap-1">
                 {(Object.keys(DOORS) as Door[]).map((d) => (
                   <label key={d} className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="publish-door" value={d} checked={door === d} onChange={() => setDoor(d)} className="accent-primary" />
+                    <RadioGroupItem value={d} />
                     {DOORS[d]}
                   </label>
                 ))}
-              </div>
+              </RadioGroup>
             </div>
           )}
           {hubOffer && (

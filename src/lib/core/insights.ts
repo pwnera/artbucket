@@ -388,7 +388,7 @@ export async function assetInsights(caller: Caller, id: string) {
   const ws = caller.project.id;
   const mine = and(eq(eventCounts.projectId, ws), eq(eventCounts.assetId, id), eq(eventCounts.kind, "fetch"), gte(eventCounts.day, sql`${since(INSIGHT_DAYS)}`));
   const [rules, pages, shownOn, surfaces, referrers] = await Promise.all([
-    listRules(ws, { asset: id }),
+    listRules(ws, { asset: id, who: caller }),
     // ponytail: reads every page's sections as text; an index of what pages show once projects have thousands.
     db
       .select({ brand: { slug: brands.slug, name: brands.name, default: brands.isDefault }, slug: brandPages.slug, title: brandPages.title })

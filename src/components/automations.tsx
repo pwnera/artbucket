@@ -149,7 +149,8 @@ export function Automations({ automations, brands }: { automations: AutomationRo
                     From a recipe <IconChevronDown />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72">
+                {/* The dialog a recipe opens takes focus: handing it back to the trigger as the menu fades would select what is being typed there. */}
+                <DropdownMenuContent align="end" className="w-72" onCloseAutoFocus={(e) => e.preventDefault()}>
                   {recipes.map((r) => (
                     <DropdownMenuItem key={r.id} onSelect={() => edit(null, r)} className="grid gap-0.5">
                       <span>{r.name}</span>
@@ -217,10 +218,10 @@ export function Automations({ automations, brands }: { automations: AutomationRo
             <div className="grid w-full max-w-3xl gap-2 pt-4 text-start sm:grid-cols-2">
               <p className="text-muted-foreground text-xs sm:col-span-2">Or start from a recipe:</p>
               {recipes.map((r) => (
-                <button key={r.id} type="button" onClick={() => edit(null, r)} className="hover:bg-muted/60 grid gap-0.5 rounded-lg border p-3 text-start transition-colors">
+                <Button key={r.id} variant="outline" onClick={() => edit(null, r)} className="grid h-auto justify-start justify-items-start gap-0.5 p-3 text-start whitespace-normal">
                   <span className="text-sm font-medium">{r.name}</span>
-                  <span className="text-muted-foreground text-xs text-pretty">{r.says}</span>
-                </button>
+                  <span className="text-muted-foreground text-xs font-normal text-pretty">{r.says}</span>
+                </Button>
               ))}
             </div>
             )}

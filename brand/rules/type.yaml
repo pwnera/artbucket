@@ -3,7 +3,7 @@ type.heading:
   value:
     family: Funnel Display
     weight: 440
-  usage: "Headings and the wordmark: large, light and tracked tight, so the size does the work. A headline's second line is the same face in Muted, never italic."
+  usage: "Headings, and the face of the wordmark. Headings are large, light (440) and tracked tight, so the size does the work. A headline's second line is the same face in Muted, never italic."
   spec:
     url: https://fonts.google.com/specimen/Funnel+Display
     role: headline

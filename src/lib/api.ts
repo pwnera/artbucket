@@ -10,6 +10,8 @@ import { formFields } from "@/lib/oauth";
 import { ACTIONS, can, keyLacks, needs, type Action } from "@/lib/permissions";
 import { brandTarget } from "@/lib/core/brands";
 import { refusedValue } from "@/lib/refused";
+import { MAX_SITE_BYTES } from "@/lib/sites";
+import { readAtMost } from "@/lib/zip";
 
 export const ok = <T>(data: T, init?: ResponseInit) => NextResponse.json(data, init);
 
@@ -52,6 +54,15 @@ export function handle(err: unknown) {
 
 export async function body<T extends z.ZodType>(req: Request, schema: T): Promise<z.infer<T>> {
   return schema.parse(await req.json());
+}
+
+/** A zip sent as the body (a build, a scan): MAX_SITE_BYTES at most, refused as soon as it is past that, before it is all held. */
+export async function zipBody(req: Request): Promise<Uint8Array> {
+  const tooLarge = () => new AssetError("too_large", `A zip is ${MAX_SITE_BYTES / 1024 / 1024} MB at most`);
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_SITE_BYTES) throw tooLarge();
+  const bytes = await readAtMost(req.body, MAX_SITE_BYTES);
+  if (!bytes) throw tooLarge();
+  return bytes;
 }
 
 /**

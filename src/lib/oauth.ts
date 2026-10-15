@@ -1,6 +1,6 @@
 import { createHash, randomInt } from "node:crypto";
 import { z } from "zod";
-import { SCOPES, type Scope } from "./scopes.ts";
+import { GRANTABLE } from "./scopes.ts";
 
 /**
  * The pure parts of the OAuth server (lib/core/oauth.ts): what a consent can
@@ -9,16 +9,8 @@ import { SCOPES, type Scope } from "./scopes.ts";
  * Relative imports: `pnpm test` runs this under plain Node.
  */
 
-/** What a person can grant an agent on the consent screen. Admin stays with keys an admin makes. */
-export const GRANTABLE = ["propose", "read", "write"] as const satisfies readonly Scope[];
-export type Grantable = (typeof GRANTABLE)[number];
-
-/** The scope a request asks for (OAuth's space-separated `scope`): the first grantable one, or null. */
-export const askedScope = (scope: string | null | undefined): Grantable | null =>
-  scope?.split(" ").find((s): s is Grantable => (GRANTABLE as readonly string[]).includes(s)) ?? null;
-
-/** What the consent screen picks first: the scope asked, brought down to the most the person may give. */
-export const cappedScope = (asked: Grantable, max: Grantable): Grantable => (SCOPES.indexOf(asked) <= SCOPES.indexOf(max) ? asked : max);
+// Here too for the server's callers; they live in scopes.ts, which a page in the browser may import.
+export { askedScope, cappedScope, GRANTABLE, type Grantable } from "./scopes.ts";
 
 /** What a person decides on the consent screen: the projects and a scope, or no. */
 export const Consent = z.discriminatedUnion("allow", [

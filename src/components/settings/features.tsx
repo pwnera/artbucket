@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import { FeatureManage } from "@/components/settings/feature-manage";
+import { AdminsOnly } from "@/components/settings/panels";
 import { IconChartBar, IconCompass, IconLink, IconRobot, IconSparkles, IconToggleLeft, IconWorld, type Icon } from "@/components/icons";
 import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
   }
 
   return (
-    <>
+    <AdminsOnly project={context === "project"}>
       <Confirm
         open={!!asking}
         onOpenChange={(o) => !o && setAsking(null)}
@@ -176,7 +177,7 @@ export function FeaturesPanel({ features, context, upgrade }: { features: Featur
         );
       })}
     </ul>
-    </>
+    </AdminsOnly>
   );
 }
 

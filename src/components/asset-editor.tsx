@@ -76,7 +76,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { ExternalLink } from "@/components/external-link";
 import { assetLink, canFollow, followingUrl } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
-import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { contextLabel, ruleName, type Rule } from "@/lib/rules";
 import { rulesPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes, savedName } from "@/lib/filename";
 import { isFont } from "@/lib/font";
@@ -947,6 +947,7 @@ export function AssetEditor({
               </DialogDescription>
               {editable ? (
                 <div data-prop="title" className="group/title relative">
+                  {/* eslint-disable-next-line no-restricted-syntax -- Raw: the title edited in place, read as the heading until then; Textarea's field look would not. */}
                   <textarea
                     key={keyOf("title")}
                     name="title"
@@ -955,6 +956,7 @@ export function AssetEditor({
                     placeholder={asset.filename}
                     maxLength={2000}
                     aria-label="Title"
+                    {...field("title")}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -971,6 +973,12 @@ export function AssetEditor({
                     aria-hidden
                     className="text-muted-foreground pointer-events-none absolute top-1.5 -right-1 size-4 opacity-40 transition-opacity group-focus-within/title:opacity-0 group-hover/title:opacity-100 motion-reduce:transition-none"
                   />
+                  {/* A refused title goes back to the server's: why is said here, or the refusal would be silent. */}
+                  {errors.title && (
+                    <p id={`${id}-title-error`} role="alert" className="text-destructive text-xs">
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className={cn("text-lg leading-snug font-semibold", m.title ? "break-words" : "break-all")}>{name}</p>
@@ -1243,13 +1251,9 @@ function EditHint() {
       <p className="text-muted-foreground flex-1">
         <span className="text-foreground font-medium">Click any value to change it.</span> It saves itself and goes out with downloads.
       </p>
-      <button
-        type="button"
-        onClick={() => setSeen(true)}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -my-0.5 rounded px-1 font-medium outline-none focus-visible:ring-2"
-      >
+      <Button variant="link" onClick={() => setSeen(true)} className="text-muted-foreground hover:text-foreground -my-0.5 h-auto rounded px-1 text-xs hover:no-underline">
         Got it
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1833,13 +1837,9 @@ function AssetRef({
   );
   const chip = id && (
     // In place, through the viewer: what is typed is saved first.
-    <button
-      type="button"
-      onClick={() => onOpen(id)}
-      className="flex min-w-0 flex-1 items-center gap-2 rounded-md border p-1.5 text-left text-sm hover:underline"
-    >
+    <Button variant="ghost" onClick={() => onOpen(id)} className="h-auto min-w-0 flex-1 justify-start border p-1.5 text-left font-normal hover:bg-transparent hover:underline">
       {face}
-    </button>
+    </Button>
   );
   return (
     <Property
@@ -1854,6 +1854,7 @@ function AssetRef({
       text={face ? <span className="flex min-w-0 items-center gap-2">{face}</span> : null}
     >
       <div data-prop={name}>
+        {/* Raw: no control, the picked id as the form sends it. */}
         <input type="hidden" name={name} value={id ?? ""} />
         <div className="flex items-center gap-2">
           {chip || <span className="text-muted-foreground flex min-h-9 flex-1 items-center px-3 text-sm">None</span>}
@@ -1893,9 +1894,9 @@ function Replaced({ by, stacked, onOpen }: { by: string; stacked: boolean; onOpe
       </p>
       <p className="text-muted-foreground text-xs">
         Checks refuse it and point to{" "}
-        <button type="button" onClick={() => onOpen(by)} className="text-foreground underline">
+        <Button variant="link" onClick={() => onOpen(by)} className="text-foreground h-auto p-0 text-xs font-normal underline">
           its replacement
-        </button>
+        </Button>
         .{" "}
         {stacked ? "Make this version current, under Versions, to use it again." : "Clear Replaced by, under Provenance, to use it again."}
       </p>
@@ -1922,13 +1923,14 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className="animate-in fade-in-0 slide-in-from-top-1 rounded-full">
-          <Badge variant="secondary" className="hover:bg-secondary/70 cursor-pointer">
+        <Badge asChild variant="secondary" className="animate-in fade-in-0 slide-in-from-top-1 hover:bg-secondary/70 cursor-pointer">
+          {/* eslint-disable-next-line no-restricted-syntax -- Badge (asChild) draws it; the button only makes the chip a trigger */}
+          <button type="button">
             <IconBook /> Used in {rules.length} brand {rules.length === 1 ? "rule" : "rules"}
-          </Badge>
-        </button>
+          </button>
+        </Badge>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1">
+      <PopoverContent align="start" aria-label="Brand rules that use it" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
             const href = rulesPath(r.brand!, r.key);
@@ -1944,7 +1946,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
                 >
                   <span className="min-w-0 flex-1 truncate">
                     {several && <span className="text-muted-foreground">{r.brand} / </span>}
-                    {ruleLabel(r.key)}
+                    {ruleName(r)}
                   </span>
                   {r.context && (
                     <Badge variant="outline" title={r.context}>
@@ -2091,9 +2093,10 @@ function Review({
     <div className="border-primary/30 bg-primary/5 grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3">
       {asset.status === "proposed" && (
         <div className="grid gap-2">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
+          {/* Wrapping as whole pieces: a long agent name never leaves "ago" alone on a line. */}
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested by {asset.proposedBy ?? "an agent"}
-            <time dateTime={asset.createdAt} title={new Date(asset.createdAt).toLocaleString()} className="text-muted-foreground font-normal" suppressHydrationWarning>
+            <time dateTime={asset.createdAt} title={new Date(asset.createdAt).toLocaleString()} className="text-muted-foreground font-normal whitespace-nowrap" suppressHydrationWarning>
               · {ago(asset.createdAt)}
             </time>
             <InfoTip>It stays out of the library and search until you approve it.</InfoTip>
@@ -2155,24 +2158,26 @@ function Review({
               <li key={t}>
                 <Badge variant="outline" className="gap-0.5 border-dashed pr-0.5">
                   {t}
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     disabled={!!busy}
                     onClick={() => one(t, () => flush({ tags: [...new Set([...onScreen(), t])], proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Accept tag ${t}`}
-                    className="hover:bg-primary/15 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
+                    className="hover:bg-primary/15 size-5 rounded-full"
                   >
                     <IconCheck className="size-3" />
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     disabled={!!busy}
                     onClick={() => one(t, () => flush({ proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Dismiss tag ${t}`}
-                    className="hover:bg-muted-foreground/20 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
+                    className="hover:bg-muted-foreground/20 size-5 rounded-full"
                   >
                     <IconX className="size-3" />
-                  </button>
+                  </Button>
                 </Badge>
               </li>
             ))}

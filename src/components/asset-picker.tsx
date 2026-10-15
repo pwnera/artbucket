@@ -62,7 +62,7 @@ export function LibraryPicker({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the library" />
+        <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the library" aria-label="Search the library" />
         <div className="-mx-1 max-h-[50vh] overflow-y-auto p-1">
           {failed ? (
             <Empty size="sm">
@@ -96,11 +96,12 @@ export function LibraryPicker({
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" aria-busy={!shown}>
               {shown
                 ? shown.map((a) => (
+                    // eslint-disable-next-line no-restricted-syntax -- a square picture tile, the whole tile the hit target
                     <button
                       key={a.id}
                       type="button"
                       onClick={() => onPick(a)}
-                      className="bg-muted hover:ring-primary relative aspect-square overflow-hidden rounded-md border hover:ring-2"
+                      className="bg-muted hover:ring-primary focus-visible:ring-primary relative aspect-square overflow-hidden rounded-md border outline-none hover:ring-2 focus-visible:ring-2"
                     >
                       {isIcon(a) ? (
                         // The vector, at a glyph's size: a 24px icon's rendition would blur.

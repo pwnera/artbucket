@@ -86,10 +86,10 @@
   --muted-foreground: #67646e;
   --accent: #f4f4f7;
   --accent-foreground: #20241f;
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: #d00007;
   /* Text tokens clear 4.5:1 on every surface text sits on (lib/color.test.ts). */
-  --success: #2f6b2a;
-  --warning: #9a5500;
+  --success: #2b6427;
+  --warning: #8f4f00;
   --border: #eae8eb;
   --input: #dcdae0;
   --ring: #6d4aff;
@@ -124,7 +124,7 @@
   --muted-foreground: #a3a3a3;
   --accent: #262626;
   --accent-foreground: #fafafa;
-  --destructive: oklch(0.704 0.191 22.216);
+  --destructive: #ff6467;
   --success: #6fd08f;
   --warning: #f0b54a;
   --border: oklch(1 0 0 / 10%);

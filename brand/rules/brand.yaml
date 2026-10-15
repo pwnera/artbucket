@@ -26,3 +26,10 @@ brand.intro:
   spec:
     max: 120
     copy: true
+brand.naming:
+  type: list
+  label: Our names
+  value:
+    - Artbucket, with a capital A, in prose and in the UI. Lowercase only in code, commands, URLs and the domain, artbucket.io. Never ArtBucket or Art Bucket.
+    - BrandHub, one word, with a capital B and H. Never Brand Hub. On our own site, Hub means BrandHub.
+    - In product copy, what people keep are brands, collections and assets. Never folders or files.

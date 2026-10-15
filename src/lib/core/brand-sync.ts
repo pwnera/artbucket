@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { assets, brandPreviews, brandRuleAssets, brandRules, brands, brandSources, brandVersions } from "@/lib/db/schema";
 import type { Caller } from "@/lib/core/access";
+import { visible } from "@/lib/core/assets";
 import { latestVersion, publishBrand, snapshot, themeOf, tracked, writeRules, type Tx } from "@/lib/core/brand";
 import { resolveBrand, type Brand } from "@/lib/core/brands";
 import { AssetError } from "@/lib/core/errors";
@@ -66,14 +67,32 @@ const presentSource = (row: Source, current: BrandState) => ({
 });
 export type BrandSource = ReturnType<typeof presentSource>;
 
+/**
+ * The assets a sync may name: the ones the caller can see, and the ones the brand's rules already hold (a private
+ * logo an admin attached in the app goes back and forth with the repository), as a rule edit may keep them
+ * (lib/core/brand.ts setAssets). A private asset the brand doesn't hold is as unknown as one never made, named by
+ * id or by its bytes alike.
+ */
+const nameable = (caller: Caller, brandId: string): SQL =>
+  or(
+    visible(caller),
+    and(
+      eq(assets.projectId, caller.project.id),
+      inArray(
+        assets.id,
+        db.select({ id: brandRuleAssets.assetId }).from(brandRuleAssets).innerJoin(brandRules, eq(brandRules.id, brandRuleAssets.ruleId)).where(eq(brandRules.brandId, brandId)),
+      ),
+    ),
+  )!;
+
 /** Paths to asset ids, by what the caller says each file is: its id, or the SHA-256 of its bytes. Unknown ones are to upload. */
-async function resolveAssets(ws: string, given: Record<string, string>) {
+async function resolveAssets(may: SQL, given: Record<string, string>) {
   const entries = Object.entries(given).map(([p, v]) => [p.replace(/^\.\//, ""), v.toLowerCase()] as const);
   const bad = entries.filter(([, v]) => !UUID.test(v) && !SHA256.test(v));
   if (bad.length) throw new AssetError("invalid", `assets: ${bad.map(([p]) => p).join(", ")}: give each file's asset id or the SHA-256 of its bytes`);
   const ids = entries.filter(([, v]) => UUID.test(v)).map(([, v]) => v);
   const shas = entries.filter(([, v]) => SHA256.test(v)).map(([, v]) => v);
-  const live = and(eq(assets.projectId, ws), isNull(assets.deletedAt));
+  const live = and(may, isNull(assets.deletedAt));
   const rows = [
     ...(ids.length ? await db.select({ id: assets.id, sha256: assets.sha256 }).from(assets).where(and(live, inArray(assets.id, ids))) : []),
     ...(shas.length ? await db.select({ id: assets.id, sha256: assets.sha256 }).from(assets).where(and(live, inArray(assets.sha256, shas))) : []),
@@ -97,8 +116,8 @@ type Checked = { state: BrandState | null; used: Record<string, string>; errors:
  * are for, which a brand.yaml naming another refuses.
  */
 async function check(caller: Caller, slug: string, files: Files, given: Record<string, string>): Promise<Checked> {
-  const ws = caller.project.id;
-  const resolved = await resolveAssets(ws, given);
+  const may = nameable(caller, (await resolveBrand(caller.project.id, slug)).id);
+  const resolved = await resolveAssets(may, given);
   const parsed = fromFiles(files, { assets: resolved.map, slug });
   const missing = [...new Set([...parsed.missing, ...resolved.unknown.filter((p) => p.startsWith(ASSETS_DIR) && Object.values(files).some((t) => t.includes(p)))])].sort();
   const errors = [...parsed.errors];
@@ -115,7 +134,7 @@ async function check(caller: Caller, slug: string, files: Files, given: Record<s
     ].filter((id) => id !== MISSING_ASSET);
     if (named.length) {
       const live = new Set(
-        (await db.select({ id: assets.id }).from(assets).where(and(eq(assets.projectId, ws), isNull(assets.deletedAt), inArray(assets.id, [...new Set(named)])))).map((a) => a.id),
+        (await db.select({ id: assets.id }).from(assets).where(and(may, isNull(assets.deletedAt), inArray(assets.id, [...new Set(named)])))).map((a) => a.id),
       );
       for (const id of new Set(named)) if (!live.has(id)) errors.push(locate(files, { value: id, message: `no asset ${id}` }));
     }

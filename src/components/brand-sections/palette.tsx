@@ -18,7 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toAse } from "@/lib/ase";
 import { colorsOf } from "@/lib/brand-theme";
-import { inkOn, tintOf } from "@/lib/color";
+import { contrast, inkOn, mix, tintOf } from "@/lib/color";
 import type { TEMPLATE_PROPS } from "@/lib/pages";
 import { type COLOR_SPEC, resolve, ruleName } from "@/lib/rules";
 import { balanced, type ViewRule } from "@/lib/site";
@@ -72,6 +72,12 @@ function fill(r: ViewRule, paint: (color: string) => string) {
 }
 
 type Row = ValueRow;
+
+/**
+ * A label set on a color (its hex, a tint's): the ink a step quieter where that still reads at 4.5:1, else the ink,
+ * else black or white. The swatch's own specimen keeps the brand's pair; this small text is ours to make legible.
+ */
+export const labelOn = (ink: string, bg: string) => [mix(ink, bg, 0.2), ink].find((c) => contrast(c, bg) >= 4.5) ?? inkOn(bg);
 
 /**
  * The values `show` asks for that the color has, in its order; print values the book didn't give are converted,
@@ -285,7 +291,9 @@ function Swatch({
           <span aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${JSON.stringify(url(texture.id, "/w_720,f_webp"))})` }} />
         )}
         <span className={cn("relative tracking-tight", board ? cn(HEAD, "text-7xl") : cn(HEAD, "text-5xl"))}>Aa</span>
-        <span className={cn("relative flex items-center gap-1 font-mono opacity-80", board ? "self-center text-base" : "text-xs")}>{copied === value ? <Copied /> : value}</span>
+        <span className={cn("relative flex items-center gap-1 font-mono", board ? "self-center text-base" : "text-xs")} style={{ color: labelOn(ink, hex) }}>
+          {copied === value ? <Copied /> : value}
+        </span>
       </button>
 
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -310,7 +318,9 @@ function Swatch({
                   style={{ backgroundColor: c, color: inkOn(c) }}
                 >
                   <span className="text-2xs font-medium tabular-nums">{t}%</span>
-                  <span className="flex items-center gap-0.5 font-mono text-2xs opacity-80">{copied === c ? <Copied /> : c}</span>
+                  <span className="flex items-center gap-0.5 font-mono text-2xs" style={{ color: labelOn(inkOn(c), c) }}>
+                    {copied === c ? <Copied /> : c}
+                  </span>
                 </button>
               </li>
             );

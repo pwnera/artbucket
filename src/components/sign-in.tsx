@@ -230,8 +230,17 @@ function useCooldown(start: number) {
   return [left, () => setLeft(30)] as const;
 }
 
-/** A text button or link, tall enough to tap. */
-const TEXT_LINK = "inline-flex min-h-6 items-center underline underline-offset-2 disabled:no-underline disabled:opacity-70";
+/** A text button in a sentence, underlined in the sentence's own color and tall enough to tap. */
+function TextButton({ className, ...props }: React.ComponentProps<typeof Button>) {
+  return (
+    <Button
+      type="button"
+      variant="link"
+      className={cn("h-auto min-h-6 p-0 font-normal whitespace-normal text-current underline underline-offset-2 disabled:no-underline disabled:opacity-70", className)}
+      {...props}
+    />
+  );
+}
 
 /** An error under a form: announced as it appears, and named by id from the field it is about. */
 export function FormError({ id, children }: { id?: string; children: React.ReactNode }) {
@@ -560,9 +569,9 @@ export function AuthForm({
             <div className="animate-in fade-in-0 flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 text-sm duration-200">
               <IconMail className="text-muted-foreground size-4 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 truncate font-medium">{shown}</span>
-              <button type="button" className={cn(TEXT_LINK, "text-muted-foreground hover:text-foreground shrink-0 text-xs")} onClick={() => toStep("email")}>
+              <TextButton className="text-muted-foreground hover:text-foreground shrink-0 text-xs" onClick={() => toStep("email")}>
                 Change
-              </button>
+              </TextButton>
             </div>
           )}
           {/* Kept on the second step, out of sight: it is the login a password manager saves with the password. */}
@@ -668,16 +677,15 @@ export function AuthForm({
               {exists && mode === "up" && (
                 <>
                   {" "}
-                  <button
-                    type="button"
-                    className="text-foreground underline underline-offset-2"
+                  <TextButton
+                    className="text-foreground"
                     onClick={() => {
                       flushSync(() => switchMode("in"));
                       passwordInput.current?.focus();
                     }}
                   >
                     Sign in instead
-                  </button>
+                  </TextButton>
                 </>
               )}
             </FormError>
@@ -697,9 +705,9 @@ export function AuthForm({
         {signUp && (
           <p className="text-muted-foreground text-center text-sm">
             {mode === "in" ? "New here? " : "Have an account? "}
-            <button type="button" className={cn(TEXT_LINK, "text-foreground")} onClick={() => switchMode(mode === "in" ? "up" : "in")}>
+            <TextButton className="text-foreground" onClick={() => switchMode(mode === "in" ? "up" : "in")}>
               {mode === "in" ? "Make an account" : "Sign in"}
-            </button>
+            </TextButton>
           </p>
         )}
         {mode === "in" && !forgot && step === "password" && (
@@ -817,19 +825,19 @@ function ConfirmEmail({
         Confirm
       </Button>
       <p className="text-muted-foreground flex justify-between gap-2 text-sm">
-        <button type="button" className={TEXT_LINK} onClick={onBack}>
+        <TextButton onClick={onBack}>
           Back
-        </button>
-        <button type="button" className={TEXT_LINK} disabled={wait > 0 || sending} onClick={() => void resend()}>
+        </TextButton>
+        <TextButton disabled={wait > 0 || sending} onClick={() => void resend()}>
           {sending ? "Sending…" : wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}
-        </button>
+        </TextButton>
       </p>
       {onSignIn && (
         <p className="text-muted-foreground text-center text-sm">
           Already have an account?{" "}
-          <button type="button" className={cn(TEXT_LINK, "text-foreground")} onClick={onSignIn}>
+          <TextButton className="text-foreground" onClick={onSignIn}>
             Sign in instead
-          </button>
+          </TextButton>
         </p>
       )}
       {/* Last, out of the way: it only shows when Cloudflare wants a click before a new code goes. */}
@@ -1272,9 +1280,7 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
             <Link href="/login">Back to sign in</Link>
           </Button>
           <p className="text-muted-foreground flex flex-wrap justify-between gap-2 text-sm">
-            <button
-              type="button"
-              className={TEXT_LINK}
+            <TextButton
               onClick={() => {
                 setSent(false);
                 setError(null);
@@ -1282,10 +1288,10 @@ export function ForgotPassword({ canSend }: { canSend: boolean }) {
               }}
             >
               Use a different email
-            </button>
-            <button type="button" className={TEXT_LINK} disabled={busy || wait > 0} onClick={() => void send(email)}>
+            </TextButton>
+            <TextButton disabled={busy || wait > 0} onClick={() => void send(email)}>
               {busy ? "Sending…" : wait > 0 ? `Send again in ${wait}s` : "Didn't get it? Send again"}
-            </button>
+            </TextButton>
           </p>
         </div>
       </Card>

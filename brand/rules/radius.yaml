@@ -16,7 +16,7 @@ radius.stage:
   type: number
   label: A larger canvas
   value: 24
-  usage: Large panels and the call to action. Keep the logo tile shape intact.
+  usage: "Large panels and the call to action. Not the icon: its tile's corner is drawn in the file (121 of 512 units, about a quarter of its side), so use the file and never re-round it."
   spec:
     unit: px
 radius.pill:
