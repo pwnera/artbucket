@@ -13,7 +13,7 @@ sections:
       titleSize: huge
   - id: chapters
     template: pages
-    title: Six chapters. One brand.
+    title: What's in this book.
     lede: Start with the mark. Everything else follows from it.
     items:
       - link: /logo

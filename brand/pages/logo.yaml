@@ -6,15 +6,15 @@ sections:
     title: |-
       A small spill.
       A clear signature.
-    lede: One bucket. One paint line. One drop. Three ways to show up.
+    lede: "Three files: the tile in this week's accent, the mark in black, the mark in white."
     props:
       mark: never
       strip: false
       titleSize: huge
   - id: anatomy
     template: annotated
-    title: Every part earns its place.
-    lede: Explore the shape before you put it to work.
+    title: The three parts of the mark.
+    lede: Keep each one exactly as drawn.
     items:
       - at: [37, 24]
         text: The angle is part of the mark. Keep it exactly as supplied.
@@ -53,7 +53,7 @@ sections:
   - id: clearspace
     template: diagram
     title: Leave a little room.
-    body: For these layouts, keep a quarter of the mark's height clear on every side.
+    body: Keep a quarter of the mark's height clear on every side, wherever the mark appears.
     keys: [logo.mark, logo.clearSpace]
     props:
       kind: clearspace

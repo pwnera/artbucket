@@ -4,9 +4,9 @@ sections:
   - template: cover
     eyebrow: 02 / Color
     title: |-
-      A little color.
-      A lot of character.
-    lede: This week's accent leads. Ink and paper set the pace.
+      Ink, paper,
+      and one accent a week.
+    lede: Most of every page is Paper and Ink. The accent marks what matters, and it changes every Monday.
     props:
       mark: never
       strip: true
@@ -48,7 +48,7 @@ sections:
       show: [hex, css]
   - id: contrast
     template: palette
-    title: Looks good. Reads clearly.
+    title: Which text goes on which color.
     lede: Compare text and background pairs before you use them.
     keys:
       - color.primary

@@ -31,13 +31,13 @@ logo.clearSpace:
   type: number
   label: Room around the mark
   value: 0.25
-  usage: In these layouts, reserve at least one quarter of the mark's height on each side.
+  usage: Reserve at least one quarter of the mark's height on each side, wherever the mark appears.
   spec:
     unit: x
 logo.minSize:
   type: number
   label: Small, still clear
   value: 24
-  usage: Use at least 24px for the standalone mark in these layouts. Check the drop at actual size.
+  usage: Never set the mark alone smaller than 24px. Check the drop at actual size.
   spec:
     unit: px

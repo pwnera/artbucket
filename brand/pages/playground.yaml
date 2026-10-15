@@ -4,9 +4,9 @@ sections:
   - template: cover
     eyebrow: 05 / Playground
     title: |-
-      Small parts.
-      Many possibilities.
-    lede: A place to try the identity. Patterns, rhythm and a little movement.
+      The pattern, the spacing
+      and how things move.
+    lede: The values to build a layout with, drawn at size. Take them from here rather than measuring a page.
     props:
       mark: never
       strip: false
@@ -23,8 +23,8 @@ sections:
     columns: 2
   - id: spacing
     template: specimen
-    title: Space is a design decision.
-    body: These proposed layout tokens make the gaps visible. Small steps connect details; big steps separate ideas.
+    title: Spacing.
+    body: Take every gap from this scale. Use the small steps inside a group and the large steps between ideas, so readers see what belongs together.
     keys: [space.scale]
     props:
       kind: spacing
@@ -48,7 +48,7 @@ sections:
     props:
       kind: shadow
   - template: chart
-    title: Even the numbers belong.
+    title: Charts.
     body: Sample data, shown as a palette study. Keep labels visible and check neighboring colors for contrast.
     keys: [color.primary, color.ink]
     props:
