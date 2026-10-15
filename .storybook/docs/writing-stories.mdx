@@ -1,0 +1,70 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction/Writing stories" />
+
+# Writing stories
+
+Every component the app draws has a story beside it (`thing.tsx`, `thing.stories.tsx`), and every story is a test:
+`pnpm test:stories` renders each one in headless Chromium, runs axe on it (a violation fails the test) and runs its
+`play` function. The app uses these components and nothing else: a new control is added here first, then used.
+
+## The shape
+
+Stories are CSF Next, typed from the preview:
+
+```tsx
+import preview from "#.storybook/preview";
+import { http, HttpResponse } from "msw";
+import { expect, screen } from "storybook/test";
+import { CopyButton } from "@/components/copy-button";
+
+const meta = preview.meta({
+  title: "App/Patterns/Copy button",
+  component: CopyButton,
+  args: { text: "https://acme.artbucket.page", label: "Copy the address" },
+});
+
+/** The comment above a story is its description on the Docs page: say when to use it. */
+export const Default = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Copy the address" }));
+    await expect(await screen.findByText(/copied/i)).toBeInTheDocument();
+  },
+});
+
+/** A story with data of its own: MSW answers the API (.storybook/mocks.ts has the defaults). */
+export const Loaded = meta.story({
+  beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/brands", () => HttpResponse.json({ data: [] }))),
+});
+```
+
+## Where it goes
+
+| Title | What |
+| --- | --- |
+| `Foundations/*` | Tokens, type, icons, motion (.storybook/docs) |
+| `App/Primitives/*` | `components/ui`: one file per primitive |
+| `App/Patterns/*` | Small shared pieces built from primitives: copy button, confirm, combobox, save status |
+| `App/Features/*` | A screen's part with data: the gallery, a brand's header, the catalog's tree |
+| `Brand site/*` | What portals and the in-app reader draw (`components/site`, `brand-sections`) |
+| `Kit/*` | `@artbucket/ui`, drawing the brand's live release |
+
+## What a component's stories cover
+
+- **Playground** first, with `args` and `argTypes` so every prop is a control.
+- Each **state** the app can be in: empty, loading, loaded, long content, an error, pending, disabled, read-only
+  (a viewer, `can`), a phone (`globals: { viewport: { value: "phone" } }`).
+- **Behavior** in `play`: what a person does (click, type, keyboard) and what must follow. Query by role and
+  name, as a screen reader would; `fn()` for callbacks; `await canvas.findBy...` for what arrives later. Portaled
+  content (dialogs, menus, popovers) is in `screen` from `storybook/test`, not `canvas`.
+- **Real copy**: the app's own words, made-up names (Acme), never a customer's. No em dashes.
+- Data from fixtures beside the story or in `.storybook/fixtures`, never the network. Images from `public/`.
+
+## Rules the tests hold
+
+- axe must pass in light and dark. Fix the component, not the test; `parameters: { a11y: { test: "todo" } }`
+  only with a comment naming why, for content a brand chooses (its own colors on a site).
+- A story never depends on another story, on time (freeze it with `beforeEach` and a fixed date in the data) or
+  on randomness.
+- `tags: ["!autodocs"]` hides a story from Docs, `tags: ["!test"]` from the tests: only for a story that can't
+  run headless, with a comment saying why.
