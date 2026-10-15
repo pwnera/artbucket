@@ -466,7 +466,7 @@ export function Gallery({
           ),
           json("/api/v1/collections"),
           json("/api/v1/fields"),
-          json("/api/v1/assets?review=true&limit=1"),
+          json("/api/v1/assets?review=true&limit=1&facets=false"),
         ]);
         if (ticket !== latest.current) return;
         const bad = pages.find((p) => !p.ok || !p.body);

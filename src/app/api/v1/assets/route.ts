@@ -9,12 +9,13 @@ import { Finalize } from "@/lib/schemas";
  * embedded metadata and field values; each `tag` narrows to assets carrying
  * it; `f.*` filters custom fields (see lib/filters.ts); `review=true` lists
  * what waits on a human. The response carries facet counts for tags and for
- * select and boolean fields. Someone with grants on a few collections sees
- * those collections' assets.
+ * select and boolean fields, unless `facets=false`, which a count asks. Someone
+ * with grants on a few collections sees those collections' assets.
  */
-export const GET = route("asset.read", async (req, _p, caller) =>
-  ok(await searchAssets(caller, await parseAssetQuery(caller, new URL(req.url).searchParams))),
-);
+export const GET = route("asset.read", async (req, _p, caller) => {
+  const params = new URL(req.url).searchParams;
+  return ok(await searchAssets(caller, { ...(await parseAssetQuery(caller, params)), facets: params.get("facets") !== "false" }));
+});
 
 /**
  * POST /api/v1/assets - promote a staged upload (`token`) or fetch one

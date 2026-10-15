@@ -14,8 +14,11 @@ const TABS: Tab[] = ["overview", "lineage", "access", "activity"];
  */
 export default async function Catalog({ searchParams }: { searchParams: Promise<{ o?: string; f?: string; tab?: string }> }) {
   const [me, { o, f, tab }] = await Promise.all([whoami(), searchParams]);
-  const projects = await get("catalog/tree", (b: { projects: TreeProject[] }) => b.projects, [] as TreeProject[]);
+  // Together: the object never needs the tree.
+  const [projects, object] = await Promise.all([
+    get("catalog/tree", (b: { projects: TreeProject[] }) => b.projects, [] as TreeProject[]),
+    o ? get(`catalog/${encodeURIComponent(o)}`, (b: Described) => b, null) : null,
+  ]);
   const folder = o ? null : (f ?? (projects.find((p) => p.id === me?.project.id) ?? projects[0])?.id ?? null);
-  const object = o ? await get(`catalog/${encodeURIComponent(o)}`, (b: Described) => b, null) : null;
   return <CatalogExplorer projects={projects} object={object} folder={folder} tab={TABS.includes(tab as Tab) ? (tab as Tab) : "overview"} />;
 }

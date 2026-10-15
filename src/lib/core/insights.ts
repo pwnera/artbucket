@@ -226,9 +226,10 @@ export async function notifyStale(caller: Caller, input: { referrer?: string; cl
  * release that hasn't reached them, over INSIGHT_DAYS: by place, most first,
  * each with its replacement, how many people answer for the place
  * (ownersOf) and when it was told (notifyStale). Insights' Old versions and
- * Fixes read it.
+ * Fixes read it. Without `owners`, nobody is looked up and each says 0: for
+ * a count, which never reads them.
  */
-export async function staleIn(projectId: string) {
+export async function staleIn(projectId: string, { owners: withOwners = true } = {}) {
   const stale = await db
     .select({
       asset: eventCounts.assetId,
@@ -261,7 +262,7 @@ export async function staleIn(projectId: string) {
           .where(inArray(insightNotices.assetId, [...new Set(stale.map((s) => s.asset!))]))
       : [],
     // Each place's people, counted: who a Notify reaches without being told (ownersOf).
-    Promise.all([...new Map(stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])))].map(async ([p, s]) => [p, (await ownersOf(projectId, s)).length] as const)).then(
+    Promise.all([...new Map(withOwners ? stale.flatMap((s) => (placeOf(s) ? [[placeOf(s)!, s] as const] : [])) : [])].map(async ([p, s]) => [p, (await ownersOf(projectId, s)).length] as const)).then(
       (xs) => new Map<string | null, number>(xs),
     ),
   ]);

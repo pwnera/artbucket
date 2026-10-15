@@ -179,6 +179,9 @@ export const assets = pgTable(
     index("assets_effective_fields_idx").using("gin", sql`(${t.inherited} || ${t.fields}) jsonb_path_ops`),
     check("assets_status_check", sql`${t.status} in ('draft', 'proposed', 'active', 'archived', 'rejected')`),
     index("assets_proposed_by_idx").on(t.proposedBy),
+    // What purging an asset sets null in the others (lib/core/sweep.ts).
+    index("assets_parent_idx").on(t.parentAssetId),
+    index("assets_superseded_by_idx").on(t.supersededBy),
     check("assets_origin_check", sql`${t.origin} in ('shot', 'licensed', 'generated')`),
     check("assets_via_check", sql`${t.via} in ('agent', 'import')`),
     check("assets_not_superseded_by_self", sql`${t.supersededBy} <> ${t.id}`),
@@ -192,21 +195,26 @@ export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
 
 /** A named set of assets that can carry field values its members inherit. */
-export const collections = pgTable("collections", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
-  icon: text("icon"),
-  fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
-  /** Only people with a grant on it and admins see it; assets in private collections only are private too. */
-  private: boolean("private").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .default(sql`now()`),
-});
+export const collections = pgTable(
+  "collections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** A Tabler icon name from lib/collection-icons.ts; null shows a folder. */
+    icon: text("icon"),
+    fields: jsonb("fields").$type<FieldValues>().notNull().default({}),
+    /** Only people with a grant on it and admins see it; assets in private collections only are private too. */
+    private: boolean("private").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  // Every request reads a project's private ones (lib/core/access.ts privateCollections).
+  (t) => [index("collections_project_idx").on(t.projectId)],
+);
 
 export const collectionAssets = pgTable(
   "collection_assets",
@@ -746,7 +754,8 @@ export const activity = pgTable(
     /** Suggested tags or fields, a rejection's reason, the version it is. */
     detail: jsonb("detail").$type<{ tags?: string[]; fields?: string[]; note?: string; version?: number }>(),
   },
-  (t) => [index("activity_project_at_idx").on(t.projectId, t.at.desc())],
+  // By asset too: an object's history in the catalog asks for its versions' entries, whatever the project.
+  (t) => [index("activity_project_at_idx").on(t.projectId, t.at.desc()), index("activity_asset_at_idx").on(t.assetId, t.at.desc())],
 );
 
 // ---- people -----------------------------------------------------------------
@@ -941,6 +950,8 @@ export const grants = pgTable(
     check("grants_holder_check", sql`num_nonnulls(${t.userId}, ${t.groupId}, ${t.holderProjectId}) = 1`),
     check("grants_share_check", sql`${t.holderProjectId} is null or (${t.scope} = 'read' and ${t.resource} in ('brand', 'collection', 'asset'))`),
     index("grants_org_idx").on(t.organizationId),
+    // Who holds a grant on a thing, whoever they are: Access, who-can, the purge (the unique ones above lead with the holder).
+    index("grants_resource_idx").on(t.resource, t.resourceId),
     check("grants_resource_check", sql`${t.resource} in ('organization', 'project', 'collection', 'asset', 'brand')`),
     check("grants_scope_check", sql`${t.scope} in ('read', 'propose', 'write', 'admin')`),
     check("grants_project_check", sql`(${t.resource} = 'organization') = (${t.projectId} is null)`),
@@ -1038,6 +1049,9 @@ export const shareLinks = pgTable(
   },
   (t) => [
     index("share_links_project_idx").on(t.projectId),
+    // What deleting an asset or a collection cascades to.
+    index("share_links_asset_idx").on(t.assetId),
+    index("share_links_collection_idx").on(t.collectionId),
     check("share_links_kind_check", sql`${t.kind} in ('view', 'upload')`),
     check(
       "share_links_target_check",
@@ -1068,7 +1082,12 @@ export const audit = pgTable(
     detail: jsonb("detail").$type<Record<string, unknown>>(),
     ip: text("ip"),
   },
-  (t) => [index("audit_org_at_idx").on(t.organizationId, t.at.desc()), index("audit_user_idx").on(t.userId)],
+  (t) => [
+    index("audit_org_at_idx").on(t.organizationId, t.at.desc()),
+    // A project admin's audit log.
+    index("audit_project_at_idx").on(t.projectId, t.at.desc()),
+    index("audit_user_idx").on(t.userId),
+  ],
 );
 
 /** People who turned the weekly digest off (lib/core/digest.ts), in Settings or from the email's own link. */

@@ -32,6 +32,14 @@ test("an upload lands in the caller's project, usable, and in their search", asy
   assert.ok((await listed()).includes(asset.id));
 });
 
+test("a count without facets is the same count", async () => {
+  await upload("counted.png");
+  const [all, bare] = await Promise.all([searchAssets(ada.caller, { limit: 1 }), searchAssets(ada.caller, { limit: 1, facets: false })]);
+  assert.equal(bare.total, all.total);
+  assert.ok(all.facets.types.length);
+  assert.deepEqual(bare.facets, { tags: [], types: [], states: [], fields: {} });
+});
+
 test("another organization neither finds it nor deletes it", async () => {
   const asset = await upload("secret.png");
   assert.equal(await getAsset(grace.caller, asset.id), null);

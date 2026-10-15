@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, inArray, isNotNull, isNull, max, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { rebuildSites } from "@/lib/core/rebuild";
@@ -832,7 +832,10 @@ export async function createBrand(
   });
 }
 
-const meta = (v: typeof brandVersions.$inferSelect) => ({
+/** What meta() reads of a version: its row, with the rules and pages only counted. */
+type Head = Omit<typeof brandVersions.$inferSelect, "snapshot" | "pages" | "theme"> & { snapshot: { length: number }; pages: { length: number } | null };
+
+const meta = (v: Head) => ({
   number: v.number,
   kind: v.kind,
   name: v.name,
@@ -860,12 +863,15 @@ const meta = (v: typeof brandVersions.$inferSelect) => ({
 /** A brand's history, newest first, without the snapshots. */
 export async function listVersions(ws: string, slug: string) {
   const brand = await resolveBrand(ws, slug);
+  // Counted in the database: every version's rules, pages and theme are a long history's megabytes, for two numbers each.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { snapshot, pages, theme: _theme, ...head } = getTableColumns(brandVersions);
   const rows = await db
-    .select()
+    .select({ ...head, rules: sql<number>`jsonb_array_length(${snapshot})`, pageCount: sql<number | null>`case when jsonb_typeof(${pages}) = 'array' then jsonb_array_length(${pages}) end` })
     .from(brandVersions)
     .where(eq(brandVersions.brandId, brand.id))
     .orderBy(desc(brandVersions.number));
-  return rows.map(meta);
+  return rows.map(({ rules, pageCount, ...v }) => meta({ ...v, snapshot: { length: rules }, pages: pageCount === null ? null : { length: pageCount } }));
 }
 
 async function version(brandId: string, number: number) {
