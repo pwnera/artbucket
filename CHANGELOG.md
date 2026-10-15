@@ -4,6 +4,21 @@ Every release after 1.8.0 is written here by the release pull request, from the 
 ([GOVERNANCE.md](GOVERNANCE.md#versions-and-releases)). The earlier ones are summarized by hand,
 from [ROADMAP.md](ROADMAP.md).
 
+## [2.8.0](https://github.com/pwnera/artbucket/compare/v2.7.0...v2.8.0) (2026-10-15)
+
+
+### Features
+
+* **limits:** automations, Fixes, templates and the digest are plan features ([#276](https://github.com/pwnera/artbucket/issues/276)) ([8ff8d82](https://github.com/pwnera/artbucket/commit/8ff8d82726dd821457ba56115a4d8fabf23b24b2))
+* **mcp:** Fixes, automations, site deployments and projects as tools ([b2d8bd0](https://github.com/pwnera/artbucket/commit/b2d8bd0aa414b193e80811b6f5b30eefd2d7f795))
+* **mcp:** Fixes, automations, site deployments and projects as tools ([a16b3eb](https://github.com/pwnera/artbucket/commit/a16b3ebe4924aed40ec31ef2c8400e1145ada8d2))
+
+
+### Fixes
+
+* **fixes:** days in the reader's locale without a hydration mismatch ([9c9df95](https://github.com/pwnera/artbucket/commit/9c9df95813a1c7845644d6882f6ac19a014b24c3))
+* **fixes:** days in the reader's locale without a hydration mismatch ([136ba67](https://github.com/pwnera/artbucket/commit/136ba6776231bfdde957a7634ed086680773ed24))
+
 ## [2.7.0](https://github.com/pwnera/artbucket/compare/v2.6.0...v2.7.0) (2026-10-15)
 
 
