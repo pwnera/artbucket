@@ -469,7 +469,7 @@ export function openapi(serverUrl: string) {
             "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and " +
             "`supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through " +
             "its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking " +
-            "a draft takes write; any other move takes write with the approve ability. Whoever proposed an asset " +
+            "a draft takes write, and so does any other move, approving included. Whoever proposed an asset " +
             "(`proposedBy`, the same key or person) can't approve it: 403, someone else does.",
           body: S.AssetPatch,
           ok: [200, "The updated asset", data(S.Asset)],
