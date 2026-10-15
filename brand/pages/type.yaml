@@ -2,7 +2,7 @@ title: Type
 lede: Expressive headlines. Quiet reading. Exact code.
 sections:
   - template: cover
-    eyebrow: 03 / Typography
+    eyebrow: 03 / Type
     title: |-
       Make room
       for the words.
@@ -61,20 +61,17 @@ sections:
     title: Keep exploring.
     items:
       - link: /logo
-        text: Explore its anatomy. Find the right version. Download the originals.
-        title: 01 / The mark
+        text: Three files, and what to leave alone.
+        title: 01 / Logo
       - link: /color
-        text: Copy a color. Compare contrast. Try another view.
-        title: 02 / The palette
-      - link: /type
-        text: Type your own specimen and explore the scale.
-        title: 03 / The words
+        text: This week's accent, and the neutrals that hold it.
+        title: 02 / Color
       - link: /voice
-        text: See the rewrites. Borrow a line. Make it yours.
-        title: 04 / The voice
+        text: Habits, examples and copy to paste.
+        title: 04 / Voice
       - link: /playground
-        text: Pattern, spacing and motion. The identity in action.
-        title: 05 / The playground
+        text: The pattern, spacing, corners, motion and charts, drawn.
+        title: 05 / Playground
       - link: /resources
-        text: Current files, useful links and a way to ask.
-        title: 06 / The essentials
+        text: Every file, and a way to ask for more.
+        title: 06 / Resources
