@@ -266,12 +266,13 @@ function LivePlaces({
   return (
     <Popover>
       <PopoverTrigger asChild>
+        {/* eslint-disable-next-line no-restricted-syntax -- Raw: words in the live line (dotted underline), not a button's box. */}
         <button type="button" className={className}>
           {label}
           {chevron && <IconChevronDown aria-hidden className="size-3.5" />}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="grid w-72 gap-0.5 p-1.5">
+      <PopoverContent align="start" aria-label="Where readers get it" className="grid w-72 gap-0.5 p-1.5">
         {summary && <p className="text-muted-foreground px-2 py-1.5 text-xs">{summary}</p>}
         {places.map((p) => row(p.url, p.name, p.url.replace(/^https?:\/\//, "")))}
         {team && row(team.url, "BrandHub", "Private: the team, signed in")}
@@ -307,7 +308,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
+        <PopoverContent align="end" aria-label="Use this brand" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
           <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
           {can("brand.create") && (
             <>

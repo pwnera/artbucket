@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { IconX } from "@/components/icons";
 import { Initials } from "@/components/activity";
@@ -9,6 +9,7 @@ import { type Collection } from "@/components/collections";
 import { Combobox } from "@/components/combobox";
 import { IconButton } from "@/components/icon-button";
 import type { Members } from "@/components/settings/access";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { roleName, ROLES, type Scope } from "@/lib/scopes";
@@ -28,6 +29,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
   const can = useCan();
   const me = useMe();
   const manage = can("member.manage");
+  const addId = useId();
   const [members, setMembers] = useState<Members["data"] | null>(null);
   const [failed, setFailed] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -110,7 +112,13 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
         ))}
       </ul>
       {options.length > 0 ? (
-        <Combobox options={options} value="" onChange={(v) => v && void grant(v, "read")} placeholder="Add a person" />
+        <>
+          {/* A combobox takes its name from a label, not from the placeholder it shows. */}
+          <Label htmlFor={addId} className="sr-only">
+            Add a person
+          </Label>
+          <Combobox id={addId} options={options} value="" onChange={(v) => v && void grant(v, "read")} placeholder="Add a person" />
+        </>
       ) : (
         <p className="text-muted-foreground text-xs">
           Everyone in the project is here already.{" "}

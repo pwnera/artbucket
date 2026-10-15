@@ -23,6 +23,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
               {error.digest && <span style={{ display: "block", fontFamily: "monospace", fontSize: 12 }}>Reference {error.digest}</span>}
             </p>
             <div style={{ display: "flex", gap: 8 }}>
+              {/* eslint-disable-next-line no-restricted-syntax -- the root error page renders without the app's CSS or components, in case they are what broke */}
               <button type="button" onClick={retry} style={{ font: "inherit", padding: "6px 12px" }}>
                 Try again
               </button>

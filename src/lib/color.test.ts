@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { APP_BG, contrast, grade, groundFor, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk, type Rgb } from "./color.ts";
+import { accentCss, APP_BG, contrast, grade, groundFor, hexOf, hsl, inkOn, isHex, lift, mix, rgb, tintOf, toCmyk, type Rgb } from "./color.ts";
 
 test("hex reads as rgb, alpha ignored", () => {
   assert.deepEqual(rgb("#34a853"), [52, 168, 83]);
@@ -67,13 +67,35 @@ test("every text token reads on every surface text sits on, in both themes", () 
     assert.equal(token(sel, "background"), bg, `${sel} --background is APP_BG`);
     const surfaces = { ...Object.fromEntries(["background", "card", "muted", "sidebar"].map((k) => [k, token(sel, k)])), "sidebar-accent": current(sel) };
     for (const [surface, s] of Object.entries(surfaces))
-      for (const text of ["foreground", "muted-foreground", "primary-ink", "success", "warning"]) {
+      for (const text of ["foreground", "muted-foreground", "primary-ink", "success", "warning", "destructive"]) {
         const t = token(sel, text);
         assert.ok(contrast(t, s) >= 4.5, `${sel} --${text} ${t} on --${surface} ${s}: ${contrast(t, s).toFixed(2)}`);
       }
     assert.ok(contrast(token(sel, "primary-foreground"), token(sel, "primary")) >= 4.5, `${sel} text on primary`);
     assert.ok(contrast(token(sel, "highlight-foreground"), token(sel, "highlight")) >= 4.5, `${sel} text on highlight`);
     assert.ok(contrast(token(sel, "ring"), bg) >= 3, `${sel} focus ring`);
+    // A success or warning badge: its color on 15% of itself (ui/badge.tsx), on the surfaces rows and cards sit on
+    // (the sidebar's current item has its own SidebarMenuBadge).
+    for (const tone of ["success", "warning"])
+      for (const surface of ["background", "card", "muted", "sidebar"]) {
+        const s = surfaces[surface as keyof typeof surfaces];
+        const t = token(sel, tone);
+        const tint = mix(s, t, 0.15);
+        assert.ok(contrast(t, tint) >= 4.5, `${sel} --${tone} badge on --${surface}: ${contrast(t, tint).toFixed(2)}`);
+      }
+  }
+});
+
+test("an accent's ink reads on its own wash, the sidebar's current item, in both themes", () => {
+  // Olive and orange sit near 4.5 on white: graded on the page alone, their ink fell under it on the wash.
+  for (const accent of ["#7a9a1e", "#e87d0d", "#6d4aff", "#ffe600", "#111111"]) {
+    const css = accentCss(accent)!;
+    for (const [sel, bg] of [["html:root", APP_BG.light], ["html.dark", APP_BG.dark]]) {
+      const v = (name: string) => css.split(`${sel}{`)[1].match(new RegExp(`--${name}:(#[0-9a-f]{6})`))![1];
+      const wash = mix(bg, v("primary"), 0.2);
+      assert.ok(contrast(v("primary-ink"), wash) >= 4.5, `${accent} ${sel}: ${contrast(v("primary-ink"), wash).toFixed(2)}`);
+      assert.ok(contrast(v("primary-ink"), bg) >= 4.5, `${accent} ${sel} on the page`);
+    }
   }
 });
 

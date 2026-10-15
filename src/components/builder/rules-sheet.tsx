@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Toggle } from "@/components/ui/toggle";
 import type { RuleRef } from "@/lib/builder-ops";
 import { keyFor, PRESETS, type Preset } from "@/lib/presets";
 import { assetUrl } from "@/lib/asset-url";
@@ -422,15 +423,17 @@ export function RulesSheet({ b, open, onOpenChange, inline = false, onOpenPage }
         {sections.size > 1 && (
           <div role="group" aria-label="Show one section" className="flex flex-wrap gap-1.5">
             {[null, ...sections.keys()].map((name) => (
-              <button
+              <Toggle
                 key={name ?? "*"}
-                type="button"
-                aria-pressed={only === name}
-                onClick={() => setOnly(name)}
-                className="text-muted-foreground hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background focus-visible:ring-ring/50 rounded-full border px-2.5 py-0.5 text-xs outline-none focus-visible:ring-2"
+                variant="outline"
+                size="sm"
+                pressed={only === name}
+                // Pressing the one on show again keeps it: one section, or All, is always picked.
+                onPressedChange={() => setOnly(name)}
+                className="h-auto min-w-0 gap-1 rounded-full px-2.5 py-0.5 text-xs font-normal"
               >
                 {name === null ? "All" : titleOf(name)} <span className="tabular-nums opacity-70">{name === null ? taken.size : sections.get(name)!.length}</span>
-              </button>
+              </Toggle>
             ))}
           </div>
         )}
@@ -888,6 +891,7 @@ function RuleRow({
   onToggle: () => void;
 }) {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: the whole row is the disclosure, laid out as a table row, which Button's padding and centering would undo.
     <button
       type="button"
       aria-expanded={open}

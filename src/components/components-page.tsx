@@ -142,6 +142,7 @@ export function ComponentPage({ c }: { c: Detail }) {
               <ol className="divide-y rounded-lg border">
                 {c.versions.map((x) => (
                   <li key={x.id}>
+                    {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the version's three lines together are the hit target. */}
                     <button
                       type="button"
                       onClick={() => {

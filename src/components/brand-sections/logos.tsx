@@ -226,7 +226,8 @@ function OnColor({
   return (
     <div className="space-y-4">
       <h3 className={cn(HEAD, "text-(length:--brand-h3) leading-snug")}>On color</h3>
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      {/* Reachable by keyboard: on a phone the table scrolls sideways. */}
+      <div role="region" aria-label="Logos on color" tabIndex={0} className="focus-visible:ring-ring/50 -mx-1 overflow-x-auto rounded-md px-1 pb-1 outline-none focus-visible:ring-2">
         <table className="border-separate border-spacing-2 text-xs">
           <thead>
             <tr>

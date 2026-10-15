@@ -224,7 +224,12 @@ export function BrandImport({ url, onBusy, onStarted }: { url: string; onBusy: (
             <Kind className={cn("size-7", file && "text-primary-ink")} />
             <strong className="text-foreground font-medium">{file ? file.name : "Choose a .zip or a PDF"}</strong>
             <span>{file ? size(file.size) : `or drop it here. Up to ${size(start.max)} and ${start.maxFiles.toLocaleString("en")} files.`}</span>
-            {wrong && <span className="text-destructive">{wrong}</span>}
+            {wrong && (
+              <span role="alert" className="text-destructive">
+                {wrong}
+              </span>
+            )}
+            {/* Raw: a file input, hidden in the drop zone that is its label. */}
             <input
               id={`${id}-file`}
               type="file"
@@ -241,9 +246,11 @@ export function BrandImport({ url, onBusy, onStarted }: { url: string; onBusy: (
                 {size(sent)} of {size(file?.size ?? 0)}
               </span>
             </div>
-            <Progress value={file ? (100 * sent) / file.size : 0} />
+            <Progress aria-label="Uploaded" value={file ? (100 * sent) / file.size : 0} />
             {error ? (
-              <p className="text-destructive text-sm">{error}</p>
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
             ) : (
               <p className="text-muted-foreground text-xs">Keep this open until the upload ends. Reading it carries on without you.</p>
             )}

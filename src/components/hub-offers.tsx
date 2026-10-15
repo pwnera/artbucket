@@ -67,7 +67,7 @@ export function OfferBanners({ offers }: { offers: HubOffer[] }) {
   return (
     <ul className="grid gap-2">
       {offers.map((o) => (
-        <li key={o.id} role="status" className="bg-primary/5 border-primary/30 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+        <li key={o.id} className="bg-primary/5 border-primary/30 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm">
           <IconWorldCheck aria-hidden className="text-primary size-5 shrink-0" />
           <p className="min-w-0 flex-1">
             <ExternalLink href={o.url} className="font-medium hover:underline">

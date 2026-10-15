@@ -185,6 +185,8 @@ export function Templates({
                         <Button size="sm" variant="outline" asChild>
                           <a href={`/api/v1/brand/office/templates/${t.id}?${new URLSearchParams({ brand: brand.slug })}`} download>
                             <IconDownload aria-hidden /> Download .{t.kind}
+                            {/* Named apart from the brand's own .potx and .dotx above, for whoever hears the links in a list. */}
+                            <span className="sr-only">: {t.title ?? t.filename}</span>
                           </a>
                         </Button>
                       )}

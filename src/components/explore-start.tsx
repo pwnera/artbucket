@@ -12,6 +12,7 @@ import { TYPE_LABEL } from "@/lib/catalog";
 import type { Collection } from "@/components/collections";
 import { useShell } from "@/components/shell";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { ago, day, short } from "@/lib/time";
 
@@ -76,14 +77,9 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
         <SearchBox />
         <div className="flex flex-wrap justify-center gap-2">
           {CHIPS.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onClick={() => navigate(c.href)}
-              className="bg-card hover:bg-accent inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors"
-            >
+            <Button key={c.label} variant="outline" size="sm" className="bg-card font-normal" onClick={() => navigate(c.href)}>
               {c.icon} {c.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -167,6 +163,7 @@ function SearchBox() {
       className="relative w-full max-w-2xl"
     >
       <IconSearch aria-hidden className="text-muted-foreground absolute top-6 left-4 size-5 -translate-y-1/2" />
+      {/* eslint-disable-next-line no-restricted-syntax -- Raw: Explore's one big pill box, taller and rounder than Input, with the glass and hint laid over it. */}
       <input
         autoFocus
         type="search"
@@ -184,10 +181,12 @@ function SearchBox() {
         <ul className="bg-popover animate-in fade-in-0 slide-in-from-top-1 absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border py-1.5 shadow-lg duration-150">
           {rows.map((r) => (
             <li key={r.key} className="group/row flex items-center">
+              {/* eslint-disable-next-line no-restricted-syntax -- a row of the recent searches list, full width under the pill box */}
               <button type="button" onClick={r.run} className="hover:bg-accent focus-visible:bg-accent flex min-w-0 flex-1 items-center gap-3 px-4 py-2 text-start text-sm outline-none">
                 <IconClock className="text-muted-foreground size-4" />
                 <span className="truncate">{r.label}</span>
               </button>
+              {/* eslint-disable-next-line no-restricted-syntax -- a small forget mark at the row's end, shown on hover and focus */}
               <button
                 type="button"
                 aria-label={`Forget ${r.label}`}

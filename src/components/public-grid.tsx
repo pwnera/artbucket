@@ -235,9 +235,10 @@ export function PublicGrid({ items, asset, busy = false, ask }: { items: PublicI
 
   return (
     // Columns follow the grid's own width, so a page section and a narrowed preview get as many as fit. In a
-    // portal's or a share's column (max-w-6xl, px-8) 36rem and 60rem fall where sm and lg did.
+    // portal's or a share's column (max-w-6xl, px-8) 36rem and 60rem fall where sm and lg did. Busy dims the pictures,
+    // not the words: dimmed text would drop below a readable contrast.
     <div className="@container">
-      <ul aria-busy={busy || undefined} className={cn("grid grid-cols-2 gap-4 transition-opacity @xl:grid-cols-3 @min-[60rem]:grid-cols-4", busy && "opacity-60")}>
+      <ul aria-busy={busy || undefined} className={cn("grid grid-cols-2 gap-4 @xl:grid-cols-3 @min-[60rem]:grid-cols-4 [&_img]:transition-opacity", busy && "[&_img]:opacity-60")}>
         {items.map((a) => {
           const name = a.title ?? a.filename;
           return (
@@ -246,6 +247,7 @@ export function PublicGrid({ items, asset, busy = false, ask }: { items: PublicI
               key={a.id}
               className="group/tile bg-card text-card-foreground overflow-hidden rounded-[var(--brand-radius,var(--radius-xl))] border shadow-xs transition-[box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:hover:translate-y-0"
             >
+              {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the whole picture is the hit target. */}
               <button
                 type="button"
                 onClick={() => show(a.id)}
@@ -426,12 +428,13 @@ function AskUse({ ask, id, button, className }: { ask: Ask; id: string; button?:
             <IconCircleCheck /> Can I use this?
           </Button>
         ) : (
-          <button type="button" className={cn("text-xs text-(--brand-accent,var(--primary)) underline underline-offset-2 outline-none focus-visible:ring-2", className)}>
+          // eslint-disable-next-line no-restricted-syntax -- A raw button: a link-like line under a tile in the site's own accent, not one of the app's buttons.
+          <button type="button" className={cn("text-xs text-(--brand-accent,var(--primary-ink)) underline underline-offset-2 outline-none focus-visible:ring-2", className)}>
             Can I use this?
           </button>
         )}
       </PopoverTrigger>
-      <PopoverContent align={button ? "end" : "start"} style={look?.style} lang={look?.lang} dir={look?.dir} className={cn(look && [look.className, "bg-background text-foreground"], "w-80")}>
+      <PopoverContent align={button ? "end" : "start"} aria-label="Can I use this?" style={look?.style} lang={look?.lang} dir={look?.dir} className={cn(look && [look.className, "bg-background text-foreground"], "w-80")}>
         <CanIUse ask={(use) => ask(id, use)} />
       </PopoverContent>
     </Popover>

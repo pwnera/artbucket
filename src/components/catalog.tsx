@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,9 +40,13 @@ import { PinButton } from "@/components/pin-button";
 import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { ActivityLine, CatalogItem, Granted, Holder } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
+
+/** A breadcrumb: text in the trail's own color, brightening on hover. */
+const CRUMB = "h-auto p-0 font-normal text-current hover:text-foreground hover:no-underline";
 
 /**
  * The catalog explorer (PRD: Artbucket Catalog): every project the person
@@ -126,7 +130,8 @@ export function CatalogExplorer({ projects, object, folder, tab }: { projects: T
             <CatalogTree projects={projects} current={folder ?? object?.id ?? null} onOpen={(id) => go(id)} onOpenFolder={openFolder} onHide={() => setHidden(true)} />
           </div>
         )}
-        <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
+        {/* A div: the shell's own <main> (#content) holds the page. */}
+        <div className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
           {folder ? (
             <FolderView key={folder} projects={projects} folder={folder} go={go} openFolder={openFolder} />
           ) : object ? (
@@ -134,7 +139,7 @@ export function CatalogExplorer({ projects, object, folder, tab }: { projects: T
           ) : (
             <p className="text-muted-foreground text-sm">Nothing in the catalog you can reach yet. Upload an asset or make a brand, and it shows here.</p>
           )}
-        </main>
+        </div>
       </div>
     </>
   );
@@ -163,19 +168,19 @@ function ObjectView({
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-3">
         <nav aria-label="Where it is" className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
-          <button type="button" className="hover:text-foreground" onClick={() => openFolder(o.project.id)}>
+          <Button variant="link" className={CRUMB} onClick={() => openFolder(o.project.id)}>
             {o.project.name}
-          </button>
+          </Button>
           /
-          <button type="button" className="hover:text-foreground" onClick={() => openFolder(`${o.project.id}:${o.parent?.type ?? o.type}`)}>
+          <Button variant="link" className={CRUMB} onClick={() => openFolder(`${o.project.id}:${o.parent?.type ?? o.type}`)}>
             {TYPE_LABEL[o.parent?.type ?? o.type].many}
-          </button>
+          </Button>
           {o.parent && (
             <>
               /
-              <button type="button" className="hover:text-foreground" onClick={() => go(o.parent!.id)}>
+              <Button variant="link" className={CRUMB} onClick={() => go(o.parent!.id)}>
                 {o.parent.name}
-              </button>
+              </Button>
             </>
           )}
         </nav>
@@ -215,6 +220,7 @@ function ObjectView({
       </div>
       <nav aria-label="Object" className="flex gap-5 overflow-x-auto border-b">
         {tabs.map((t) => (
+          // eslint-disable-next-line no-restricted-syntax -- Raw: page navigation (aria-current), not Tabs, since each tab is an address with no panel of its own here.
           <button
             key={t}
             type="button"
@@ -246,6 +252,7 @@ function ObjectView({
  */
 function FolderView({ projects, folder, go, openFolder }: { projects: TreeProject[]; folder: string; go: (id: string) => void; openFolder: (key: string) => void }) {
   const here = useMe()?.project.id;
+  const can = useCan();
   const tree = useMemo(() => build(projects, () => true), [projects]);
   const [shown, setShown] = useState(100);
   const found = findNode(tree, folder);
@@ -261,7 +268,9 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
   const walk = (n: Node) => n.children.forEach((c) => (c.kind === "object" ? leaves.push(c.item!) : walk(c)));
   walk(node);
   const items = node.kind === "project" ? [...leaves].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)).slice(0, 12) : leaves;
-  const make = node.depth === 2 && node.type && NEW[node.type] && node.key.startsWith(`${here}:`) ? NEW[node.type] : undefined;
+  // Only to whoever may make one, as the tree's New: a viewer's would open a form they can't send.
+  const offer = node.depth === 2 && node.type ? NEW[node.type] : undefined;
+  const make = offer && node.key.startsWith(`${here}:`) && can(offer.may) ? offer : undefined;
   const list = node.depth === 2 && node.type ? LIST[node.type] : undefined;
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -271,9 +280,9 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
             {trail.map((t, i) => (
               <span key={t.key} className="flex items-center gap-1.5">
                 {i > 0 && <span aria-hidden>/</span>}
-                <button type="button" className="hover:text-foreground" onClick={() => openFolder(t.key)}>
+                <Button variant="link" className={CRUMB} onClick={() => openFolder(t.key)}>
                   {t.label}
-                </button>
+                </Button>
               </span>
             ))}
           </nav>
@@ -329,6 +338,7 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
             {folders.map((f) => (
               <li key={f.key}>
+                {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole tile is the hit target. */}
                 <button
                   type="button"
                   onClick={() => openFolder(f.key)}
@@ -364,7 +374,7 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
                     tabIndex={0}
                     onClick={() => go(i.id)}
                     onKeyDown={(e) => e.key === "Enter" && go(i.id)}
-                    className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
+                    className="hover:bg-accent/60 focus-visible:outline-ring cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     <td className="w-full max-w-0 px-4 py-2.5">
                       <span className="flex min-w-0 items-center gap-2.5">
@@ -444,11 +454,11 @@ function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }
           <ul className="space-y-1">
             {o.usedBy.map((u) => (
               <li key={u.id}>
-                <button type="button" onClick={() => go(u.id)} className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm">
+                <Button variant="ghost" onClick={() => go(u.id)} className="h-auto w-full justify-start px-2 py-1.5 text-start font-normal">
                   <TypeIcon type={u.type} className="text-muted-foreground size-4 shrink-0" />
                   <span className="truncate">{u.name}</span>
                   <span className="text-muted-foreground ms-auto text-xs">{TYPE_LABEL[u.type].one}</span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -664,6 +674,7 @@ function ManageElsewhere({ o, grantable, manage }: { o: Described; grantable: bo
  * Editor: admin over one asset is admin over nothing else.
  */
 function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; granted: Granted[]; reload: () => void }) {
+  const id = useId();
   const [people, setPeople] = useState<{ value: string; label: string; hint?: string }[] | null>(null);
   const [role, setRole] = useState<Scope>("read");
   const [busy, setBusy] = useState<string | null>(null);
@@ -728,7 +739,12 @@ function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; gr
         </ul>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        {/* A combobox takes its name from a label, not from what it shows. */}
+        <Label htmlFor={`${id}-who`} className="sr-only">
+          Person or group to grant
+        </Label>
         <Combobox
+          id={`${id}-who`}
           className="min-w-56 flex-1"
           options={(people ?? []).filter((p) => !held.has(p.value))}
           value=""

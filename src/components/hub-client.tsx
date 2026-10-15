@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { groundFor, inkOn, type Rgb } from "@/lib/color";
 import { REPORT_REASONS, type ReportReason } from "@/lib/hub";
 import { send } from "@/lib/send";
@@ -105,7 +107,8 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(26rem,calc(100vw-2rem))] p-0">
-        <div role="tablist" aria-label="How to use it" className="flex border-b px-2">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="gap-0">
+        <TabsList variant="line" aria-label="How to use it" className="w-full justify-start border-b px-2">
           {(
             [
               ["agent", "Agents"],
@@ -113,41 +116,33 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
               ["tokens", "Tokens"],
             ] as const
           ).map(([id, label]) => (
-            <button
-              key={id}
-              role="tab"
-              type="button"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className="text-muted-foreground aria-selected:border-primary aria-selected:text-foreground -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium"
-            >
+            <TabsTrigger key={id} value={id} className="flex-none px-3">
               {label}
-            </button>
+            </TabsTrigger>
           ))}
-        </div>
-        <div className="grid gap-3 p-3">
+        </TabsList>
+        <TabsContent value={tab} className="grid gap-3 p-3">
           <p className="text-muted-foreground text-xs">{hint}</p>
           {tab === "tokens" && (
-            <div className="flex flex-wrap gap-1">
+            <ToggleGroup type="single" spacing={1} aria-label="Format" value={format} onValueChange={(v) => v && setFormat(v as typeof format)} className="flex-wrap">
               {FORMATS.map(([id, label]) => (
-                <button
+                <ToggleGroupItem
                   key={id}
-                  type="button"
-                  aria-pressed={format === id}
-                  onClick={() => setFormat(id)}
-                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary rounded-full border px-2.5 py-0.5 text-xs"
+                  value={id}
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary dark:data-[state=on]:bg-primary text-foreground h-auto min-h-6 rounded-full border px-2.5 py-0.5 text-xs font-normal"
                 >
                   {label}
-                </button>
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
           )}
           <div className="bg-muted/60 flex min-w-0 items-center gap-1 rounded-md border ps-2.5">
             <code className="min-w-0 flex-1 truncate py-1.5 text-xs">{shown}</code>
             <CopyButton text={shown} label="Copy the address" what="the address" />
           </div>
           <p className="text-muted-foreground text-xs">Public, no key. Add @ and a release number after the name to pin one.</p>
-        </div>
+        </TabsContent>
+        </Tabs>
       </PopoverContent>
     </Popover>
   );
@@ -182,12 +177,52 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
     });
     setOpen(false);
   };
+  // What the dialog asks: a report, or a claim where this person may make one.
+  const fields = tab === "report" ? (
+      <>
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-reason`}>What is wrong</Label>
+          <Select value={reason} onValueChange={(v) => setReason(v as ReportReason)}>
+            <SelectTrigger id={`${id}-reason`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(REPORT_REASONS) as ReportReason[]).map((r) => (
+                <SelectItem key={r} value={r}>
+                  {REPORT_REASONS[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-note`}>Details</Label>
+          <Textarea id={`${id}-note`} name="note" maxLength={2000} rows={3} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor={`${id}-contact`}>How to reach you (optional)</Label>
+          <Input id={`${id}-contact`} name="contact" maxLength={200} autoComplete="email" />
+        </div>
+      </>
+    ) : claim === true ? (
+      <div className="grid gap-2">
+        <Label htmlFor={`${id}-claim`}>Who you are to {name}</Label>
+        <Textarea id={`${id}-claim`} name="note" maxLength={2000} rows={3} placeholder="And whether you want the listing handed over or taken down" />
+      </div>
+    ) : (
+      <p className="text-sm">
+        <a href={claim!.href} className="text-primary-ink underline underline-offset-2">
+          {claim!.label}
+        </a>{" "}
+        to claim it, as an admin of an organization that proved a domain or a GitHub account.
+      </p>
+    );
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs underline-offset-2 hover:underline">
+        <Button variant="link" className="text-muted-foreground hover:text-foreground h-auto gap-1.5 p-0 text-xs font-normal underline-offset-2">
           <IconFlag aria-hidden className="size-3.5" /> {claim ? "Report or claim this listing" : "Report this listing"}
-        </button>
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="grid gap-4">
@@ -199,60 +234,22 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
                 : "Say this is your brand. The claim names the domain or GitHub account your organization proved, and your email, for the listing's owner and this server's operator: they hand it over or take it down."}
             </DialogDescription>
           </DialogHeader>
-          {claim && (
-            <div role="tablist" aria-label="Report or claim" className="flex border-b">
-              {(["report", "claim"] as const).map((t) => (
-                <button
-                  key={t}
-                  role="tab"
-                  type="button"
-                  aria-selected={tab === t}
-                  onClick={() => setTab(t)}
-                  className="text-muted-foreground aria-selected:border-primary aria-selected:text-foreground -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium"
-                >
-                  {t === "report" ? "Report" : "It's my brand"}
-                </button>
-              ))}
-            </div>
-          )}
-          {tab === "report" ? (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-reason`}>What is wrong</Label>
-                <Select value={reason} onValueChange={(v) => setReason(v as ReportReason)}>
-                  <SelectTrigger id={`${id}-reason`} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(REPORT_REASONS) as ReportReason[]).map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {REPORT_REASONS[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-note`}>Details</Label>
-                <Textarea id={`${id}-note`} name="note" maxLength={2000} rows={3} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor={`${id}-contact`}>How to reach you (optional)</Label>
-                <Input id={`${id}-contact`} name="contact" maxLength={200} autoComplete="email" />
-              </div>
-            </>
-          ) : claim === true ? (
-            <div className="grid gap-2">
-              <Label htmlFor={`${id}-claim`}>Who you are to {name}</Label>
-              <Textarea id={`${id}-claim`} name="note" maxLength={2000} rows={3} placeholder="And whether you want the listing handed over or taken down" />
-            </div>
+          {claim ? (
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "report" | "claim")} className="gap-4">
+              <TabsList variant="line" aria-label="Report or claim" className="w-full justify-start border-b">
+                <TabsTrigger value="report" className="flex-none px-3">
+                  Report
+                </TabsTrigger>
+                <TabsTrigger value="claim" className="flex-none px-3">
+                  It&apos;s my brand
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value={tab} className="grid gap-4">
+                {fields}
+              </TabsContent>
+            </Tabs>
           ) : (
-            <p className="text-sm">
-              <a href={claim!.href} className="text-primary-ink underline underline-offset-2">
-                {claim!.label}
-              </a>{" "}
-              to claim it, as an admin of an organization that proved a domain or a GitHub account.
-            </p>
+            fields
           )}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

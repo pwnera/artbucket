@@ -1,0 +1,65 @@
+import { Canvas, Meta } from "@storybook/addon-docs/blocks";
+import * as AlertDialogStories from "./alert-dialog.stories";
+import * as CheckboxStories from "./checkbox.stories";
+import * as CommandStories from "./command.stories";
+import * as DialogStories from "./dialog.stories";
+import * as PopoverStories from "./popover.stories";
+import * as SelectStories from "./select.stories";
+import * as SheetStories from "./sheet.stories";
+import * as SwitchStories from "./switch.stories";
+import * as ToggleStories from "./toggle.stories";
+import * as TooltipStories from "./tooltip.stories";
+
+<Meta title="App/Primitives/Overview" />
+
+# Primitives
+
+The app's smallest parts, in `src/components/ui`: Radix underneath, the app's tokens on top. Every screen is built from
+these and the patterns made of them. Each has its own page with a Playground, its states and tests of what a person
+does with it (keyboard included). This page says which one to reach for.
+
+## Over the page: Dialog, Alert dialog, Sheet, Popover, Tooltip
+
+| Use | When |
+| --- | --- |
+| **Dialog** | A task that needs the whole page's attention: a form to fill, a choice to make. Pass `guard` when it holds typed edits. |
+| **Alert dialog** | A yes or no before something that lasts (delete, release, revoke). Only its buttons close it. Undoable? Don't ask: do it and offer Undo in a toast. |
+| **Sheet** | Details or filters beside the page, longer than a popover holds: an asset's details, the nav on a phone. |
+| **Popover** | A small panel anchored to its trigger, the page still usable: who can see this, a quick field. Its `PopoverTitle` names it; without one, give it an `aria-label`. |
+| **Tooltip** | A short hint on hover or focus. Never the only place for something a person needs: touch has no hover. |
+
+<Canvas of={DialogStories.Playground} />
+
+<Canvas of={AlertDialogStories.Confirm} />
+
+<Canvas of={SheetStories.Playground} />
+
+<Canvas of={PopoverStories.Playground} />
+
+<Canvas of={TooltipStories.Playground} />
+
+## Picking from a list: Select, Combobox, Command
+
+| Use | When |
+| --- | --- |
+| **Select** | One of a short, fixed list (a handful), where nothing needs searching: who gets in, a role. |
+| **Combobox** (App/Patterns) | One or more of a long list, or one to search or add to: tags, a brand, a collection. It is a Command in a Popover. |
+| **Command** | A list to search and act on from the keyboard: the command palette (`CommandDialog`), or the list inside a combobox. |
+
+<Canvas of={SelectStories.Playground} />
+
+<Canvas of={CommandStories.Playground} />
+
+## On or off: Toggle, Switch, Checkbox
+
+| Use | When |
+| --- | --- |
+| **Toggle** | A button that stays pressed: a filter, a format, a view (a few together are a **Toggle group**). It changes what is shown, not a saved setting. |
+| **Switch** | A setting that applies the moment it flips, with no Save: search engines may list a site. |
+| **Checkbox** | A setting saved with its form, or picking items of a list (with "some" as indeterminate). |
+
+<Canvas of={ToggleStories.Playground} />
+
+<Canvas of={SwitchStories.Playground} />
+
+<Canvas of={CheckboxStories.Playground} />
