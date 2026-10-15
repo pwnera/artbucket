@@ -5,7 +5,7 @@ tone.voice:
 tone.always:
   type: list
   value:
-    - A headline is a benefit in six words or fewer, then one plain line.
+    - A headline says what the reader gets, in six words or fewer. The muted line under it finishes that thought with a concrete noun, never a second slogan.
     - Outcomes before features, in the reader's words; technical terms behind a For developers view.
     - Short sentences. Two sentences over one long one.
     - Name the thing, not its category.
@@ -19,7 +19,7 @@ tone.avoid:
 tone.action:
   type: text
   label: An action
-  value: Find the right file.
+  value: Find the right asset.
   usage: Short, concrete and easy to act on.
   spec:
     max: 40
@@ -27,7 +27,7 @@ tone.action:
 tone.empty:
   type: text
   label: An empty state
-  value: No files yet. Add your first asset.
+  value: No assets yet. Upload the first one.
   usage: State what is missing, then give the next step.
   spec:
     max: 80
@@ -35,7 +35,7 @@ tone.empty:
 tone.error:
   type: text
   label: An error
-  value: That file did not upload. Try again.
+  value: That asset did not upload. Try again.
   usage: Name the problem without blaming the reader.
   spec:
     max: 100
