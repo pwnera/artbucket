@@ -28,16 +28,16 @@ brand page.
 
 ## Brand pages
 
-A portal publishes the [brand pages](/guides/canon#brand-pages) of each brand
+A portal shows the [brand pages](/guides/canon#brand-pages) of each brand
 it carries, in its own theme: the tree of pages in a nav column, the page, and
 a switch between brands. Brands go in by slug, in order
 (`"brands": ["default", "sub-brand"]`).
 
-Visitors read a brand's **latest publish, never the draft**. Edit as much as
-you like: nothing reaches a portal until someone publishes, and a brand that
+Visitors read a brand's **latest release, never the draft**. Edit as much as
+you like: nothing reaches a portal until someone releases it, and a brand that
 was never released shows nothing at all. The Sites page says so beside
-each brand: the version visitors read and when it was published, or "not
-published". Publishing answers with the portals now showing the brand.
+each brand: the version visitors read and when it was released, or "Not
+released". Releasing answers with the portals now showing the brand.
 
 A rule's assets show by the same rule as everything else, so a draft logo
 stays in the library, and every asset is signed for the visitor.
@@ -47,24 +47,24 @@ stays in the library, and every asset is signed for the visitor.
 | `/p/{address}` | The first brand's first page |
 | `/p/{address}/{page}` | A page of the first brand |
 | `/p/{address}/{brand}/{page}` | A page of another brand |
-| `?view=updates` | What's new: each publish, its note, and what it changed |
+| `?view=updates` | What's new: each release, its note, and what it changed |
 | `?view=book` | Every page in order, to read through or print |
 
 Moving a page in the tree never changes its address, and a renamed page's old
 slug leads to its new one. Pages show when they were last updated, and the
-footer when the brand was last published. `/` opens search, across the pages,
+footer when the brand was last released. `/` opens search, across the pages,
 the rules and the portal's assets.
 
 The API serves the same, behind the same door as the portal:
 `GET /api/v1/portal/{address}/site?path=`, `/search?q=` and `/updates?brand=`.
 `GET /api/v1/portal/{address}/brands/{slug}` still answers with the brand's
-rules, now as published.
+rules, as last released.
 
-Publishing and sharing are two steps: a publish is the version readers get,
+Releasing and sharing are two steps: a release is the version readers get,
 a portal the address they read it at, with who gets in and its look. One brand
 can be on several portals, and a portal can show several brands. A brand no
-portal shows yet gets one in the same step as its publish, if you like: the
-publish dialog offers a portal named for the brand, open to the project's
+portal shows yet gets one in the same step as its release, if you like: the
+release form offers a portal named for the brand, open to the project's
 members or to anyone with the address.
 
 A portal's menu on the Sites page takes it offline at once (its address
@@ -117,7 +117,7 @@ shows, and counts in Insights as the portal's.
 
 A logos section's kit (every version of each mark in one zip) comes with the
 brand's [PowerPoint and Word templates](/guides/canon#office-templates), from
-its latest publish: its colors, fonts and logo, ready for a deck or a letter.
+its latest release: its colors, fonts and logo, ready for a deck or a letter.
 Turning the kit off on the section takes them off too.
 
 The portal's header names what it shows: **Guidelines** (each brand by its
@@ -228,13 +228,13 @@ is never listed.
 
 ## BrandHub
 
-A server with `HUB_URL` set runs BrandHub. Every published brand is on it at
+A server with `HUB_URL` set runs BrandHub. Every released brand is on it at
 `{organization}/{brand}`, **private** by default: only people who can read its
 project see it, signed in. **Make public** on the brand's Sharing tab or the Brands page (or
 `PATCH /api/v1/brands/{slug}/hub` with `"visibility": "public"`, or the
 `set_brand_hub` tool) and anyone, and any agent, reads it. Either way BrandHub
-shows the brand's latest publish, with only the assets that may be used, so a
-brand goes public once it has been published, and later publishes show there
+shows the brand's latest release, with only the assets that may be used, so a
+brand goes public once it has been released, and later releases show there
 as they happen.
 
 A brand needs no portal to be on BrandHub. When a portal shows it, BrandHub

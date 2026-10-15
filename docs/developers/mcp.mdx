@@ -82,7 +82,7 @@ work for anything headless (n8n, Make, scripts): `Authorization: Bearer ab_...`.
 | `delete_comment` | propose | Delete your own comment, or anyone's with write on the brand |
 | `publish` | write | Release the brand (the app's **Release**): its pages, rules and theme, as they stand, go in front of portal visitors, with a note for readers; answers with the portals showing it |
 | `set_brand_hub` | write | Who sees the brand on BrandHub (private to the project by default, or public to anyone and any agent once it has a release), and which portal it links as its guidelines |
-| `list_sites` | write | The project's portals: who gets in, the brands they show and whether each is published, and their site |
+| `list_sites` | write | The project's portals: who gets in, the brands they show and whether each is released, and their site |
 | `create_site` | write | Make a portal for brands and collections, open to the project's members, to whoever has its password, or to anyone, with its logo and colors; its address comes from the name when left out |
 | `update_site` | write | Change anything about a portal: what it shows, who gets in and its password, its logo and colors, its domain, when it closes, and its site |
 | `close_site` | write | Take a portal offline now; `update_site` with `expiresAt: null` opens it again |
@@ -213,7 +213,7 @@ text in them through `@font-face`.
 ## The skill
 
 `npx skills add pwnera/artbucket` installs a skill that teaches an agent the
-workflow: brand rules first, `check_use` before publishing, provenance on
+workflow: brand rules first, `check_use` before handing an asset out, provenance on
 anything generated. In Claude Code, the plugin brings the MCP server and the
 skill together:
 

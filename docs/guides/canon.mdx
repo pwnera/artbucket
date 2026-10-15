@@ -149,11 +149,11 @@ the sweep patches its releases only, and its next push releases what the
 repository holds. Only the font picker and a brand's setup, in the app, show
 families straight from Google while someone chooses.
 
-## Publishing
+## Releasing
 
-Every edit to the rules, the pages or the theme is a draft. Publishing makes
+Every edit to the rules, the pages or the theme is a draft. Releasing makes
 the brand as it stands the version [portals](/guides/portals) show, until the
-next publish:
+next release. The command and the endpoint are still called `publish`:
 
 ```bash
 artbucket publish --note "A warmer primary, and a page on motion"
@@ -162,12 +162,11 @@ curl -X POST https://assets.example.com/api/v1/brands/default/publish \
 ```
 
 The note (and an optional `image` beside it) is what readers see in What's
-new, with what the publish changed since the one before: rules and pages
+new, with what the release changed since the one before: rules and pages
 added, changed and removed. The answer names the portals showing the brand.
-Publishing with nothing changed does nothing. It takes write on the
-project, with sharing not turned off.
+Releasing with nothing changed does nothing. It takes Editor on the brand.
 
-In the app, a publish is a release, numbered as its version (`@5`). The
+A release is numbered as its version (`@5`). The
 brand's **Releases** tab (`/brands/{slug}/releases`) lists them, each with its
 note and what it changed; **Release** in the brand's header opens the form (`/brands/{slug}/releases/new`): the
 note, what changes since the last release line by line (a color's value
@@ -175,7 +174,7 @@ before and after, a page's sections edited), and the Brand Agent Score before
 and after. While only the team reads the brand (no portal shows it, and it is
 private on BrandHub), the form asks who should see it: a portal of its own,
 open to the project's members or to anyone, for whoever manages portals,
-and **Public on BrandHub, for agents too** for whoever may publish there,
+and **Public on BrandHub** for whoever may release the brand,
 applied once the release lands.
 
 ## Design tokens
@@ -280,9 +279,9 @@ PowerPoint; Design, Colors and Fonts in Word) and the library's logo.
 
 A project can hold several brands, one of them the default. Every change is
 kept, like a shared doc: edits close together are one version, a named version
-is a checkpoint, and any version can be restored, as a new version. Published
+is a checkpoint, and any version can be restored, as a new version. Released
 versions are marked; a restore is a draft like any edit, until it is
-published.
+released.
 
 ```bash
 curl https://assets.example.com/api/v1/brands/default/versions
