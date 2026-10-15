@@ -233,7 +233,7 @@ const RECHECK = { every: 30_000, for: 10 * 60_000 };
 /**
  * The organization's own addresses. Each serves the whole app once turned on
  * here (off when verified), the default of those being where links in email
- * point; or one portal, which picks it in Portals. Each is proved by a TXT record, and by pointing at the server;
+ * point; or one portal, which picks it on Sites. Each is proved by a TXT record, and by pointing at the server;
  * while one isn't yet, it is checked again every 30s for 10 minutes, as DNS
  * takes minutes to spread.
  */
@@ -287,7 +287,7 @@ export function DomainsPanel({ domains }: { domains: Domain[] }) {
       <Group
         title="Domains"
         description="Point each at this server, add the TXT record, then check it."
-        info="Use one for the app and people sign in there; the default is where links in email point. Or give one to a portal, in Portals. A domain used for neither serves nothing."
+        info="Use one for the app and people sign in there; the default is where links in email point. Or give one to a site, in its Domain section on Sites. A domain used for neither serves nothing."
       >
         {domains.length > 0 && (
           <ul className="divide-y rounded-md border">
