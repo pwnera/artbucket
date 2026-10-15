@@ -9,7 +9,7 @@ import { parseQuery } from "@/lib/catalog";
 import { callerFrom } from "@/lib/core/access";
 import { ingestBytes } from "@/lib/core/assets";
 import { createBrand, createRule, publishBrand } from "@/lib/core/brand";
-import { describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
+import { catalogTree, describeObject, lineage, searchCatalog, whoCan } from "@/lib/core/catalog";
 import { createCollection } from "@/lib/core/collections";
 import { acceptInvitation, createInvitation, createProject, removeGrant, setGrant } from "@/lib/core/people";
 import { createPortal } from "@/lib/core/portals";
@@ -69,6 +69,16 @@ test("only what the caller reaches is returned or counted: another organization 
   const r = await searchCatalog(grace.caller, parseQuery("logo"));
   assert.equal(r.total, 0);
   assert.equal(await describeObject(grace.caller, logo.id), null);
+});
+
+test("the tree folds assets by type, and a reader's leaves out a private collection's", async () => {
+  const objects = async (caller = ada.caller) => (await catalogTree(caller)).projects.find((p) => p.id === corporate.id)!.objects;
+  const kinds = new Map((await objects()).map((i) => [i.id, i.kind]));
+  assert.equal(kinds.get(logo.id), "image");
+  assert.equal(kinds.get(deck.id), "image");
+  // Retired aside: the replaced logo is not in the tree.
+  assert.ok(!kinds.has(old.id));
+  assert.ok(!(await objects(samHere)).some((i) => i.id === deck.id));
 });
 
 test("a private collection's assets are out of a reader's search and counts", async () => {
