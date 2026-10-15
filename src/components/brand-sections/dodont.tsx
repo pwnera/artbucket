@@ -5,6 +5,7 @@ import type { SectionProps } from "@/components/brand-sections/types";
 import { MARKER } from "@/components/brand-values";
 import { useSite } from "@/components/site/site-context";
 import { Thumb } from "@/components/thumb";
+import { balanced } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -83,7 +84,7 @@ export function DoDontSection({ section: s, rules: bound }: SectionProps) {
           ) : (
             <>
               {pics.length > 0 && (
-                <div className={cn("grid gap-4", s.props.layout === "grid" ? GRID[s.columns] : "@md:grid-cols-2")}>
+                <div className={cn("grid gap-4", s.props.layout === "grid" ? GRID[balanced(pics.length, s.columns)] : "@md:grid-cols-2")}>
                   {(paired ? pair(pics) : pics).map((x) => (
                     <Picture
                       key={x.i}

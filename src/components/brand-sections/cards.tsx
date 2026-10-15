@@ -13,6 +13,7 @@ import type { CollectionIcon as IconName } from "@/lib/collection-icons";
 import { SITE_PATH } from "@/lib/markdown";
 import type { Item } from "@/lib/pages";
 import { listStyle, ruleName, type ListStyle } from "@/lib/rules";
+import { balanced } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -87,7 +88,7 @@ export function CardsSection({ section: s, rules }: SectionProps) {
     );
 
   return (
-    <ul role="list" className={list ? "divide-y" : cn("grid gap-4", GRID[s.columns])}>
+    <ul role="list" className={list ? "divide-y" : cn("grid gap-4", GRID[balanced(fromRules.length + (s.items?.length ?? 0), s.columns)])}>
       {fromRules}
       {(s.items ?? []).map((_, k) => (
         <ItemCard key={k} i={k} className={card} list={list} />
@@ -159,7 +160,7 @@ function ItemCard({ i, className, list }: { i: number; className: string; list: 
 /** Big numbers: the item's title is the figure, its text says what it counts. */
 function Stats({ n, columns }: { n: number; columns: number }) {
   return (
-    <ul role="list" className={cn("grid gap-x-8 gap-y-6", GRID[columns])}>
+    <ul role="list" className={cn("grid gap-x-8 gap-y-6", GRID[balanced(n, columns)])}>
       {Array.from({ length: n }, (_, i) => (
         <li key={i} {...itemRoot(i)} className="space-y-2 border-s-2 border-(--brand-accent) ps-4">
           <ItemTitle i={i} as="p" className="text-5xl leading-none tabular-nums @3xl:text-6xl" />
@@ -173,7 +174,7 @@ function Stats({ n, columns }: { n: number; columns: number }) {
 /** A numbered process: the step's number big in the accent, its title and text beside or under it. */
 function Steps({ n, columns }: { n: number; columns: number }) {
   return (
-    <ol className={cn("grid gap-x-8 gap-y-8", GRID[columns])}>
+    <ol className={cn("grid gap-x-8 gap-y-8", GRID[balanced(n, columns)])}>
       {Array.from({ length: n }, (_, i) => (
         <li key={i} {...itemRoot(i)} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
           <span aria-hidden className={cn(HEAD, "text-(--brand-accent) row-span-2 text-4xl leading-none tabular-nums @3xl:text-5xl")}>

@@ -117,7 +117,8 @@ function Note({ i, rule, id }: { i: number; rule?: ViewRule; id?: string }) {
       {rule && (
         <div id={id && anchor(rule.key)} className="scroll-mt-20 space-y-1 pt-1 [&_.rich]:text-sm">
           <p className={cn(LABEL, "text-muted-foreground")}>{ruleName(rule)}</p>
-          <RuleValue rule={rule} />
+          {/* Stacked: the notes' column is a third of the section, too narrow for a swatch beside its values. */}
+          <RuleValue rule={rule} stacked />
         </div>
       )}
     </div>

@@ -95,7 +95,13 @@ export type AuditBy = {
   project?: { id: string; organizationId: string } | null;
 };
 
-/** Write one entry. Never fails the change it describes. */
+/**
+ * Write one entry. Never fails the change it describes. An entry in a
+ * project sets off its governance automations (lib/core/automations.ts
+ * governed), not waited for. Entries in no project (sign-ins, SSO, email
+ * domains, the organization) don't: a project's admins, who manage its
+ * automations, may not see them.
+ */
 export async function recordAudit(
   by: AuditBy,
   action: AuditAction,
@@ -103,11 +109,12 @@ export async function recordAudit(
   detail?: Record<string, unknown>,
   where: { organizationId?: string | null; projectId?: string | null } = {},
 ) {
-  await db
+  const projectId = where.projectId !== undefined ? where.projectId : (by.project?.id ?? null);
+  const [row] = await db
     .insert(audit)
     .values({
       organizationId: where.organizationId !== undefined ? where.organizationId : (by.project?.organizationId ?? null),
-      projectId: where.projectId !== undefined ? where.projectId : (by.project?.id ?? null),
+      projectId,
       actor: by.actor,
       userId: by.user?.id ?? null,
       keyId: by.key ?? null,
@@ -116,7 +123,13 @@ export async function recordAudit(
       detail: detail ?? null,
       ip: by.ip ?? null,
     })
-    .catch((err) => console.error("audit not recorded", err));
+    .returning({ id: audit.id })
+    .catch((err) => (console.error("audit not recorded", err), []));
+  // Imported when needed: automations records its own changes here.
+  if (row && projectId)
+    void import("@/lib/core/automations")
+      .then((m) => m.governed(projectId, row.id, { action, target, actor: by.actor, agent: !!by.key, detail }))
+      .catch((err) => console.warn("[artbucket] Governance automations stopped:", err instanceof Error ? err.message : err));
 }
 
 /**

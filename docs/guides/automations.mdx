@@ -1,6 +1,6 @@
 ---
 title: Automations
-description: An email or a signed webhook when a brand is released or an asset's license is about to end.
+description: An email, a signed webhook, or a Slack or Teams message when a brand is released, a license is about to end, or governance changes.
 ---
 
 An automation tells someone when something happens in a project. Its admins make, change and test them on the **Automations** page, in the sidebar (Settings, Project, Automations leads there too), or at `/api/v1/automations`.
@@ -9,11 +9,22 @@ An automation tells someone when something happens in a project. Its admins make
 
 - **A brand is released** (`brand.released`): any brand of the project, or one named by `brand`. Each release fires once.
 - **An asset's license is about to end** (`asset.expiring`): `days` days before an approved asset's last day of use (its rights' `expires`; `0` is the day itself). Each asset fires once per last day: a license renewed to a new date fires again as that one nears. Only the current version of a stack counts, and the check runs every five minutes.
+- **Governance changes** (`governance`): an entry of the project's audit log, or a decision about an asset, named in `actions`. Name an action exactly (`grant.set`, `key.created`) or a family with `.*` (`share.*`); leave `actions` empty for every change, which makes the webhook a feed for your security tools. Asset decisions are `asset.approved`, `asset.rejected`, `asset.archived`, `asset.unarchived`, `asset.made_current`, `asset.deleted`, `asset.restored`, `asset.accepted_tags`, `asset.dismissed_tags`, `asset.accepted_fields` and `asset.dismissed_fields`. Entries outside a project (sign-ins, SSO, email domains, the organization itself) and a private asset's decisions never fire: a project's admins may not be allowed to see them.
+- **The use check keeps refusing an asset** (`check.refused`): one asset refused `times` times (1 unless said) within the last `days` days (7 unless said). Fires at most once per asset in each window of `days`. It counts what Insights records, so it stays quiet where usage insights are turned off.
+- **Something new to fix** (`fix.opened`): what [Fixes](/guides/insights) lists and isn't done yet, of `kind`: `stale` (a place still loads a replaced version) or `gap` (a search found nothing); leave `kind` out for both. Each fires once, and only what was first seen after the automation was made, so making one doesn't send the backlog.
+- **A proposal waits for review** (`review.waiting`): an asset in review for `days` days or more, once each. Private assets don't fire.
+
+The sweep looks for refusals, Fixes and waiting proposals every five minutes; governance changes fire as they happen.
 
 ## Then
 
 - **Email** (`email`): to the addresses in `emails`, through the organization's email settings, counted in its emails for the day.
-- **Webhook** (`webhook`): a `POST` of the run's JSON to an `https` `url`. The URL is kept sealed and never shown again; the automation shows its host. Addresses on private networks are refused, and redirects are not followed.
+- **Webhook** (`webhook`): a `POST` to an `https` `url`, in `format`:
+  - `json` (the default): the run's JSON, below.
+  - `slack`: a message for a Slack [incoming webhook](https://api.slack.com/messaging/webhooks) (`https://hooks.slack.com/services/...`): one line saying what happened, with a link.
+  - `teams`: an Adaptive Card for a Teams workflow started by "When a Teams webhook request is received", the same line and link.
+
+  The URL is kept sealed and never shown again; the automation shows its host. Addresses on private networks are refused, and redirects are not followed.
 
 ```bash
 curl -X POST https://artbucket.example.com/api/v1/automations \
@@ -21,7 +32,30 @@ curl -X POST https://artbucket.example.com/api/v1/automations \
   -d '{"name":"Rebuild the docs","trigger":"brand.released","brand":"default","action":"webhook","url":"https://ci.example.com/hooks/brand"}'
 ```
 
+Every share link and new API key, to a Slack channel:
+
+```bash
+curl -X POST https://artbucket.example.com/api/v1/automations \
+  -H "Authorization: Bearer $ARTBUCKET_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Security","trigger":"governance","actions":["share.*","key.created"],"action":"webhook","format":"slack","url":"https://hooks.slack.com/services/T000/B000/XXXX"}'
+```
+
 The answer holds `secret`, once. Keep it: every POST is signed with it.
+
+## Recipes
+
+The Automations page starts one from a recipe: everything filled in but who it tells. Each is an ordinary automation, as the API takes it:
+
+| Recipe | Body, before `emails` or `url` |
+|---|---|
+| New share links to Slack | `{"trigger":"governance","actions":["share.created","share.project","asset.published"],"action":"webhook","format":"slack"}` |
+| Access changes to the admins | `{"trigger":"governance","actions":["grant.*","group.members","key.created","key.revoked"],"action":"email"}` |
+| Licenses ending, to legal | `{"trigger":"asset.expiring","days":30,"action":"email"}` |
+| An asset the check keeps refusing | `{"trigger":"check.refused","times":3,"days":7,"action":"email"}` |
+| New Fixes to Teams | `{"trigger":"fix.opened","action":"webhook","format":"teams"}` |
+| Nudge reviewers | `{"trigger":"review.waiting","days":3,"action":"email"}` |
+| Approvals and rejections to Slack | `{"trigger":"governance","actions":["asset.approved","asset.rejected"],"action":"webhook","format":"slack"}` |
+| Rebuild a site on each release | `{"trigger":"brand.released","action":"webhook"}` |
 
 ## The webhook
 
@@ -39,9 +73,17 @@ The answer holds `secret`, once. Keep it: every POST is signed with it.
 }
 ```
 
-`asset.expiring` sends `asset` (`id`, `filename`, `title`), `expires` (the last day of use), `days` (left until it) and the asset's `url` instead of the brand and release. `id` is the run's: a retry sends the same body, so a receiver can tell it from a new event.
+`asset.expiring` sends `asset` (`id`, `filename`, `title`), `expires` (the last day of use), `days` (left until it) and the asset's `url` instead of the brand and release. The others send, beside `id`, `event`, `url`, `at`, `automation` and `project`:
 
-Headers: `Artbucket-Event` names the event, and `Artbucket-Signature` signs the body as Stripe signs its webhooks: `t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}` with the secret. Check it before trusting the body, and refuse an old `t`:
+| Event | Sends |
+|---|---|
+| `governance` | `action`, `target` (what it was done to), `actor`, `agent` (done with an API key), `detail` (as the audit log keeps it) |
+| `check.refused` | `asset`, `refusals`, `days` |
+| `fix.opened` | `kind`; for `stale`: `asset`, `replacement`, `place` (a host, or an agent's key name), `fetches`; for `gap`: `q`, `searches` |
+| `review.waiting` | `asset`, `days` (how long it has waited) |
+ `id` is the run's: a retry sends the same body, so a receiver can tell it from a new event.
+
+Headers: `Artbucket-Event` names the event, and `Artbucket-Signature` signs the body (in every format; Slack and Teams ignore it) as Stripe signs its webhooks: `t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}` with the secret. Check it before trusting the body, and refuse an old `t`:
 
 ```js
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -60,6 +102,10 @@ function verify(body, header, secret) {
 
 - `brand.released`: its brand's latest release (the default brand's, for an automation on any brand); release 1 for a brand never released.
 - `asset.expiring`: the approved asset whose license ends soonest, else the newest approved asset, as if it ended in `days` days.
+- `governance`: the latest entry of the project's audit log it takes, else one made up from its first action.
+- `check.refused`: that same asset, refused `times` times.
+- `fix.opened`: the first open Fix of its kind, else a made-up search.
+- `review.waiting`: the oldest proposal, else the oldest asset.
 
 What it sends is the real thing's, with `"test": true`. A test is tried once, never again, and lands in the run log marked **Test**. The audit log keeps who sent it.
 

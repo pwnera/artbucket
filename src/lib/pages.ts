@@ -323,6 +323,8 @@ export const TEMPLATE_INFO: Record<
     width: "text",
     columns: 1,
     tone: "plain",
+    // A short list: a heading over it, never a headline that dwarfs it on a look with huge titles.
+    size: "medium",
     example: { template: "updates", title: "What's new", props: { limit: 5 } },
   },
   annotated: {

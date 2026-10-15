@@ -113,7 +113,7 @@ export const LOOKS: Record<string, { name: string; about: string; fits: string; 
     name: "Swiss",
     about: "Grid, hairlines, no corners, headlines",
     fits: "a modernist or engineering brand, anything set in a grotesque",
-    patch: { width: "wide", density: "compact", scale: 1.25, radius: 0, nav: "top", toc: "none", header: "plain", band: null, numbering: true, separation: "hairline", motion: "none", titles: "huge", grounds: "plain" },
+    patch: { width: "wide", density: "compact", scale: 1.333, radius: 0, nav: "top", toc: "none", header: "plain", band: null, numbering: true, separation: "hairline", motion: "none", titles: "huge", grounds: "plain" },
   },
   bold: {
     name: "Bold",
@@ -510,6 +510,8 @@ export function themeVars(t: Theme, url: (id: string) => string): Record<string,
     "--brand-on-dark": t.onDark,
     "--brand-on-accent": t.onAccent,
     "--brand-radius": `${t.radius}px`,
+    // The app's corners too (cards, buttons, inputs), with a surface or not: Swiss is square on the app's own page as well.
+    "--radius": `${t.radius}px`,
     "--brand-measure": MEASURE[t.width],
     "--brand-gap": GAP[t.density],
     // Two steps of the scale between levels: at 1.25, 3rem titles, 2rem sections and 1.25rem subheads.
@@ -526,7 +528,7 @@ export function themeVars(t: Theme, url: (id: string) => string): Record<string,
   if (t.surface) {
     const vars = varsOn(t, t.surface, paint(t.accent, t.surface, "surface", t.ink, t.muted, []));
     const mark = vars["--brand-accent"];
-    return { ...out, "--brand-surface": t.surface, ...vars, "--brand-accent-l": mark, "--brand-accent-d": mark, "--radius": `${t.radius}px` };
+    return { ...out, "--brand-surface": t.surface, ...vars, "--brand-accent-l": mark, "--brand-accent-d": mark };
   }
   return {
     ...out,

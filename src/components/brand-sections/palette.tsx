@@ -21,7 +21,7 @@ import { colorsOf } from "@/lib/brand-theme";
 import { inkOn, tintOf } from "@/lib/color";
 import type { TEMPLATE_PROPS } from "@/lib/pages";
 import { type COLOR_SPEC, resolve, ruleName } from "@/lib/rules";
-import type { ViewRule } from "@/lib/site";
+import { balanced, type ViewRule } from "@/lib/site";
 import { gradientCss, gradientOf, stopHex } from "@/lib/tokens";
 import { colorValues, PRINT, SCREEN, swatchInk, type ValueRow } from "../../../kit/ui/swatch.js";
 import { cn } from "@/lib/utils";
@@ -175,7 +175,7 @@ export function PaletteSection({ section, rules }: SectionProps) {
               {grouped && <h3 className={cn(HEAD, "text-(length:--brand-h3)")}>{name || "Other"}</h3>}
               {/* Its own container: the frame's is the whole section, wider than a reading column. */}
               <div className="@container">
-                <div className={cn("grid gap-x-6 gap-y-8", GRID[section.columns])}>
+                <div className={cn("grid gap-x-6 gap-y-8", GRID[balanced(rs.length, section.columns)])}>
                   {rs.map((r) => (
                     <Opens key={r.key} rule={r}>
                       <Swatch rule={r} all={all} paint={paint} medium={medium} values={values} heading={grouped ? "h4" : "h3"} />
@@ -274,7 +274,8 @@ function Swatch({
         onClick={() => void copy(value, "hex")}
         className={cn(
           "ring-border relative flex w-full cursor-copy flex-col justify-between overflow-hidden text-start shadow-sm ring-1 transition-[box-shadow,scale] hover:shadow-md active:scale-[0.98] active:duration-75",
-          board ? "h-56 rounded-2xl p-6 @3xl:h-72" : "h-32 rounded-xl p-3",
+          // Elsewhere a field too, the color at strength, a step under Board's block.
+          board ? "h-56 rounded-2xl p-6 @3xl:h-72" : "h-36 rounded-xl p-4 @3xl:h-44",
           value.length === 9 && "bg-checker",
         )}
         style={{ color: ink }}
@@ -283,7 +284,7 @@ function Swatch({
         {texture?.preview && (
           <span aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${JSON.stringify(url(texture.id, "/w_720,f_webp"))})` }} />
         )}
-        <span className={cn("relative tracking-tight", board ? cn(HEAD, "text-7xl") : "text-3xl font-semibold")}>Aa</span>
+        <span className={cn("relative tracking-tight", board ? cn(HEAD, "text-7xl") : cn(HEAD, "text-5xl"))}>Aa</span>
         <span className={cn("relative flex items-center gap-1 font-mono opacity-80", board ? "self-center text-base" : "text-xs")}>{copied === value ? <Copied /> : value}</span>
       </button>
 

@@ -6,8 +6,24 @@ import { mock, test } from "node:test";
 import { eq, sql } from "drizzle-orm";
 import { signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets, automationRuns, automations } from "@/lib/db/schema";
-import { brandReleased, createAutomation, deleteAutomation, deliverDue, listAutomations, listRuns, scanExpiring, testAutomation, updateAutomation } from "@/lib/core/automations";
+import { setTimeout as sleep } from "node:timers/promises";
+import { assets, automationRuns, automations, events } from "@/lib/db/schema";
+import { record } from "@/lib/core/activity";
+import { recordAudit } from "@/lib/core/audit";
+import {
+  brandReleased,
+  createAutomation,
+  deleteAutomation,
+  deliverDue,
+  listAutomations,
+  listRuns,
+  scanExpiring,
+  scanFixes,
+  scanRefused,
+  scanWaiting,
+  testAutomation,
+  updateAutomation,
+} from "@/lib/core/automations";
 import { publishBrand } from "@/lib/core/brand";
 import { resolveBrand } from "@/lib/core/brands";
 import { signHook } from "@/lib/core/features";
@@ -213,4 +229,129 @@ test("a test of an expiry sends the asset whose license ends soonest", async () 
   assert.equal(run.status, "delivered");
   assert.deepEqual([(run.payload.asset as { id: string }).id, run.payload.expires, run.payload.days, run.payload.test], [asset.id, day(1), 1, true]);
   await deleteAutomation(ada.caller, mail.id);
+});
+
+const newAsset = (filename: string, values: Partial<typeof assets.$inferInsert> = {}) =>
+  db
+    .insert(assets)
+    .values({ projectId: ada.caller.project.id, sha256: randomBytes(32).toString("hex"), filename, mime: "image/png", size: 1, ...values })
+    .returning()
+    .then((r) => r[0]);
+
+/** Governance fires after the change, not waited for: wait for `n` runs. */
+async function runsFor(id: string, n: number) {
+  for (let i = 0; i < 100; i++) {
+    const runs = await runsOf(id);
+    if (runs.length >= n && runs.every((r) => r.status !== "pending" || r.attempts.length)) return runs;
+    await sleep(20);
+  }
+  return runsOf(id);
+}
+
+test("a governance change in the project fires what takes it, as a Slack message, and none outside a project", async (t) => {
+  const calls = hooked(t, () => 200);
+  const hook = await createAutomation(ada.caller, { name: "Security", trigger: "governance", actions: ["share.*", "key.created"], action: "webhook", format: "slack", url: "https://hooks.slack.com/services/T/B/x" });
+  assert.deepEqual([hook.actions, hook.format], [["share.*", "key.created"], "slack"]);
+  await recordAudit(ada.caller, "share.created", "Press kit", { kind: "view" });
+  await recordAudit(ada.caller, "grant.set", "Ada");
+  await recordAudit(ada.caller, "share.revoked", "Press kit", undefined, { projectId: null });
+  const runs = await runsFor(hook.id, 1);
+  await sleep(50);
+  assert.equal((await runsOf(hook.id)).length, 1);
+  assert.deepEqual([runs[0].status, runs[0].payload.action, runs[0].payload.target], ["delivered", "share.created", "Press kit"]);
+  const body = JSON.parse(calls[0].body);
+  assert.deepEqual(Object.keys(body), ["text"]);
+  assert.match(body.text, /^Automata: share\.created Press kit <.*\/team\|Open>/);
+  // Signed as sent.
+  assert.equal(calls[0].headers["artbucket-signature"], signHook(hook.secret!, calls[0].body, Number(/^t=(\d+),/.exec(calls[0].headers["artbucket-signature"])![1])));
+  await deleteAutomation(ada.caller, hook.id);
+});
+
+test("an asset decision fires as asset.{verb}, never a private asset's", async () => {
+  const mail = await createAutomation(ada.caller, { name: "Approvals", trigger: "governance", actions: ["asset.approved"], action: "email", emails: ["brand@example.com"] });
+  const open = await newAsset("approved.png");
+  const hidden = await newAsset("secret.png", { private: true });
+  await record(ada.caller, "approved", open);
+  await record(ada.caller, "approved", hidden);
+  await record(ada.caller, "rejected", open);
+  const runs = await runsFor(mail.id, 1);
+  await sleep(50);
+  assert.equal((await runsOf(mail.id)).length, 1);
+  assert.equal(runs[0].status, "delivered");
+  assert.deepEqual([runs[0].payload.action, runs[0].payload.target], ["asset.approved", "approved.png"]);
+  assert.match(String(runs[0].payload.url), new RegExp(`/assets/${open.id}$`));
+  await deleteAutomation(ada.caller, mail.id);
+});
+
+test("an asset refused often enough fires once per window", async () => {
+  const logo = await newAsset("old-logo.png");
+  const refused = { projectId: ada.caller.project.id, kind: "check" as const, surface: "api" as const, actor: "agent" as const, assetId: logo.id, verdict: "refused" };
+  await db.insert(events).values([refused, refused, refused]);
+  const strict = await createAutomation(ada.caller, { name: "Four", trigger: "check.refused", times: 4, action: "email", emails: ["brand@example.com"] });
+  const hook = await createAutomation(ada.caller, { name: "Three", trigger: "check.refused", times: 3, action: "email", emails: ["brand@example.com"] });
+  assert.deepEqual([hook.days, hook.times], [7, 3]);
+  assert.equal(await scanRefused(), 1);
+  assert.equal(await scanRefused(), 0);
+  const [run] = await runsOf(hook.id);
+  assert.deepEqual([(run.payload.asset as { id: string }).id, run.payload.refusals, run.payload.days], [logo.id, 3, 7]);
+  assert.equal((await runsOf(strict.id)).length, 0);
+  await deleteAutomation(ada.caller, strict.id);
+  await deleteAutomation(ada.caller, hook.id);
+});
+
+test("something new in Fixes fires once, of its kind", async () => {
+  const gaps = await createAutomation(ada.caller, { name: "Gaps", trigger: "fix.opened", kind: "gap", action: "email", emails: ["brand@example.com"] });
+  const all = await createAutomation(ada.caller, { name: "All", trigger: "fix.opened", action: "email", emails: ["brand@example.com"] });
+  const old = await newAsset("logo-v3.png");
+  const now = await newAsset("logo-v5.png");
+  await db.update(assets).set({ supersededBy: now.id }).where(eq(assets.id, old.id));
+  const ws = ada.caller.project.id;
+  await db.insert(events).values([
+    { projectId: ws, kind: "search", surface: "app", actor: "person", subject: "night logo", verdict: "empty" },
+    { projectId: ws, kind: "fetch", surface: "public", actor: "anonymous", assetId: old.id, verdict: "superseded", referrer: "partner.example.com" },
+  ]);
+  assert.equal(await scanFixes(), 3);
+  assert.equal(await scanFixes(), 0);
+  assert.deepEqual((await runsOf(gaps.id)).map((r) => [r.payload.kind, r.payload.q]), [["gap", "night logo"]]);
+  const stale = (await runsOf(all.id)).find((r) => r.payload.kind === "stale")!;
+  assert.deepEqual([stale.payload.place, (stale.payload.replacement as { id: string }).id], ["partner.example.com", now.id]);
+  await deleteAutomation(ada.caller, gaps.id);
+  await deleteAutomation(ada.caller, all.id);
+});
+
+test("a proposal waiting its days fires once, a private one never", async () => {
+  const ago = (d: number) => new Date(Date.now() - d * 86_400_000);
+  const waiting = await newAsset("waiting.png", { status: "proposed", createdAt: ago(5) });
+  await newAsset("fresh.png", { status: "proposed" });
+  await newAsset("hidden.png", { status: "proposed", private: true, createdAt: ago(5) });
+  const mail = await createAutomation(ada.caller, { name: "Nudge", trigger: "review.waiting", days: 3, action: "email", emails: ["brand@example.com"] });
+  assert.equal(await scanWaiting(), 1);
+  assert.equal(await scanWaiting(), 0);
+  const [run] = await runsOf(mail.id);
+  assert.deepEqual([(run.payload.asset as { id: string }).id, run.payload.days], [waiting.id, 5]);
+  await deleteAutomation(ada.caller, mail.id);
+});
+
+test("each new trigger takes only what it is narrowed by, and sends a test", async (t) => {
+  hooked(t, () => 200);
+  const mail = { action: "email" as const, emails: ["a@example.com"] };
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "governance", brand: "default", ...mail }), /brand is for brand.released/);
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "governance", times: 2, ...mail }), /times is for check.refused/);
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "check.refused", kind: "gap", ...mail }), /kind is for fix.opened/);
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "review.waiting", ...mail }), /needs days/);
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "check.refused", days: 0, ...mail }), /at least a day/);
+  await assert.rejects(createAutomation(ada.caller, { name: "x", trigger: "governance", format: "slack", ...mail }), /format is for webhook/);
+  // Changed to another trigger, what the old one was narrowed by goes.
+  const a = await createAutomation(ada.caller, { name: "Shares", trigger: "governance", actions: ["share.*"], action: "webhook", format: "teams", url: "https://example.webhook.office.com/x" });
+  const b = await updateAutomation(ada.caller, a.id, { trigger: "check.refused" });
+  assert.deepEqual([b.actions, b.days, b.times, b.format], [[], 7, 1, "teams"]);
+  await updateAutomation(ada.caller, a.id, { trigger: "governance", actions: ["share.*"] });
+  const run = await testAutomation(ada.caller, a.id);
+  assert.deepEqual([run.status, run.payload.event, run.test], ["delivered", "governance", true]);
+  assert.match(String(run.payload.action), /^share\./);
+  for (const trigger of ["fix.opened", "review.waiting"] as const) {
+    await updateAutomation(ada.caller, a.id, { trigger, ...(trigger === "review.waiting" && { days: 2 }) });
+    assert.equal((await testAutomation(ada.caller, a.id)).payload.event, trigger);
+  }
+  await deleteAutomation(ada.caller, a.id);
 });

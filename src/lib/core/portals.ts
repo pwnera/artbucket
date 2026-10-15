@@ -24,7 +24,7 @@ import {
 import { auth } from "@/lib/auth";
 import { heldBy, hiddenIn, ipOf, projectById, type Caller } from "@/lib/core/access";
 import { resolveBrand } from "@/lib/core/brands";
-import { deliverableSql, getAsset, notSuperseded } from "@/lib/core/assets";
+import { deliverableSql, findAsset, getAsset, notSuperseded } from "@/lib/core/assets";
 import { listUpdates } from "@/lib/core/brand";
 import { brandOfProject } from "@/lib/core/branding";
 import { recordAudit } from "@/lib/core/audit";
@@ -49,6 +49,7 @@ import { longSig, pagePath, pageSig, byPortal } from "@/lib/core/signing";
 import { signerOpen } from "@/lib/core/signers";
 import { collectionItems, presentAsset } from "@/lib/core/section-assets";
 import { officeTemplate } from "@/lib/core/office";
+import { templateFileOf, templatesOf } from "@/lib/core/office-templates";
 import { publishedSource, viewLook, viewPage, type BrandSource } from "@/lib/core/page-view";
 import { readablePages } from "@/lib/page-view";
 import { assetRefs, AUDIENCES, isLive, LANG, liveProps, type Audience, type RequestKind } from "@/lib/pages";
@@ -798,6 +799,28 @@ export async function portalOffice(slug: string, pass: Pass, brandSlug: string, 
   const src = await publishedSource(p.projectId, brand.slug);
   if (!src) throw new AssetError("not_found", "That brand isn't published yet");
   return officeTemplate(src, format);
+}
+
+/** One of a portal's brands' own Office templates (lib/core/office-templates.ts), from its latest publish, behind the portal's door: only files that may leave. */
+async function portalTemplateSource(slug: string, pass: Pass, brandSlug: string) {
+  const { p } = await open(slug, pass);
+  const brand = (await brandsOf(p.id)).find((b) => b.slug === brandSlug);
+  if (!brand) throw new AssetError("not_found", "That brand isn't in this portal");
+  const src = await publishedSource(p.projectId, brand.slug);
+  if (!src) throw new AssetError("not_found", "That brand isn't published yet");
+  return { src, reader: { projectId: p.projectId, see: findAsset } };
+}
+
+/** GET /api/v1/portal/{slug}/brands/{brand}/office/templates: the brand's own templates, with their check. */
+export async function portalTemplates(slug: string, pass: Pass, brandSlug: string) {
+  const { src, reader } = await portalTemplateSource(slug, pass, brandSlug);
+  return templatesOf(reader, src);
+}
+
+/** GET /api/v1/portal/{slug}/brands/{brand}/office/templates/{id}: one of them, wearing the brand's latest publish. */
+export async function portalTemplateFile(slug: string, pass: Pass, brandSlug: string, id: string) {
+  const { src, reader } = await portalTemplateSource(slug, pass, brandSlug);
+  return templateFileOf(reader, src, id);
 }
 
 /**

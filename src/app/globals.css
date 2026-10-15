@@ -49,7 +49,8 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* A step past --radius, and square when it is 0: a brand site's square look (lib/brand-theme.ts themeVars sets --radius). */
+  --radius-xl: min(calc(var(--radius) + 4px), calc(var(--radius) * 3));
 }
 
 /*

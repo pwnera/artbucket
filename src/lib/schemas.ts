@@ -8,6 +8,7 @@ import { FieldDefInput, FieldDefPatch, FIELD_TYPES } from "./fields.ts";
 import { FONT_CATEGORIES, GOOGLE_FAMILY } from "./font.ts";
 import { ICON_GROUP_NAMES, ICON_NAME, ICON_PREFIX } from "./icons.ts";
 import { STATES, STATUSES } from "./lifecycle.ts";
+import { ACTION_PATTERN, AUTOMATION_ACTIONS, AUTOMATION_TRIGGERS, FIX_KINDS, WEBHOOK_FORMATS } from "./automations.ts";
 import { GRANTABLE } from "./oauth.ts";
 import { MODEL_RELEASES, ORIGINS, RightsInput, Use } from "./rights.ts";
 import { FONT_VALUE, RULE_CONTEXT, RULE_TYPES, ruleContext, RuleInput, ruleKey, RuleOrder, RulePatch } from "./rules.ts";
@@ -162,6 +163,23 @@ export const BrandTokenQuery = TokenQuery.extend({ version: ReleaseRef.optional(
 export const OfficeQuery = z.object({
   format: z.enum(OFFICE_FORMAT_IDS).default("potx").describe("potx: a PowerPoint template; dotx: a Word template"),
   version: ReleaseRef.default("live"),
+});
+
+export const OfficeTemplatesQuery = z.object({ version: ReleaseRef.default("live") });
+export const OfficeTemplate = z.object({
+  id: uuid.describe("The file's asset id, at its latest version: download it at /api/v1/brand/office/templates/{id}"),
+  filename: z.string(),
+  title: z.string().nullable(),
+  kind: z.enum(["potx", "pptx", "dotx", "docx", "xltx", "xlsx"]),
+  app: z.enum(["PowerPoint", "Word", "Excel"]),
+  error: z.string().nullable().describe("Why the file can't be read; null when it can"),
+  themes: z.number().int().describe("Theme parts in it: none, and only its images follow the brand"),
+  colors: z.array(z.object({ value: z.string(), count: z.number().int() })).describe("Colors written on shapes or runs that aren't the brand's, most used first"),
+  fonts: z.array(z.object({ name: z.string(), count: z.number().int() })).describe("Faces written on shapes or runs that aren't the brand's heading or text family"),
+  images: z
+    .object({ total: z.number().int(), library: z.number().int(), updated: z.number().int() })
+    .describe("Its images: how many the library has, and how many a download replaces with a newer version"),
+  follows: z.boolean().describe("Everything in it follows a release: a theme, nothing written outside it, every image the library's"),
 });
 
 export const GoogleFontQuery = z.object({
@@ -401,14 +419,33 @@ export const GroupMembersChange = z.strictObject({
 });
 export const InvitationInput = z.strictObject({ email: z.email().max(320), ...on });
 
-export const AUTOMATION_TRIGGERS = ["brand.released", "asset.expiring"] as const;
-export const AUTOMATION_ACTIONS = ["email", "webhook"] as const;
 const automation = {
   name: z.string().trim().min(1).max(80),
-  trigger: z.enum(AUTOMATION_TRIGGERS).describe("brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days"),
+  trigger: z
+    .enum(AUTOMATION_TRIGGERS)
+    .describe(
+      "brand.released: a brand's guidelines are released. asset.expiring: an asset's license ends within `days` days. governance: an entry of the audit log, or an asset decision (asset.approved, asset.rejected, asset.archived...), named in `actions`. check.refused: an asset refused by the use check `times` times within `days` days. fix.opened: something new in Fixes, of `kind`. review.waiting: a proposal in review for `days` days",
+    ),
   brand: z.string().min(1).max(64).nullable().optional().describe("brand.released: only this brand's releases, by slug; null or left out: any brand's"),
-  days: z.number().int().min(0).max(365).optional().describe("asset.expiring: how many days before its last day of use; 0 is the day itself"),
+  days: z
+    .number()
+    .int()
+    .min(0)
+    .max(365)
+    .optional()
+    .describe("asset.expiring: how many days before its last day of use; 0 is the day itself. check.refused: the window counted, 7 when left out. review.waiting: how long a proposal waits"),
+  actions: z
+    .array(z.string().regex(ACTION_PATTERN))
+    .max(50)
+    .optional()
+    .describe("governance: the actions it fires on, exact (`grant.set`) or by prefix (`share.*`); empty or left out: every one"),
+  times: z.number().int().min(1).max(1000).optional().describe("check.refused: refusals of one asset within `days` before it fires; 1 when left out"),
+  kind: z.enum(FIX_KINDS).nullable().optional().describe("fix.opened: stale (a place loads a replaced version) or gap (a search found nothing); null or left out: both"),
   action: z.enum(AUTOMATION_ACTIONS).describe("email: to `emails`. webhook: a signed POST to `url`"),
+  format: z
+    .enum(WEBHOOK_FORMATS)
+    .optional()
+    .describe("webhook: json (the run, signed), slack (a Slack incoming webhook's message) or teams (a Teams workflow's Adaptive Card); json when left out"),
   emails: z.array(z.email().max(320)).max(20).optional().describe("email: who it goes to"),
   url: z
     .url({ protocol: /^https$/ })
@@ -1369,7 +1406,11 @@ export const Automation = z.object({
   trigger: z.enum(AUTOMATION_TRIGGERS),
   brand: z.string().nullable().describe("brand.released: the brand it is for, by slug; null: any"),
   days: z.number().int().nullable(),
+  actions: z.array(z.string()).describe("governance: the actions it fires on; empty: every one"),
+  times: z.number().int().nullable().describe("check.refused: refusals within `days` before it fires"),
+  kind: z.enum(FIX_KINDS).nullable().describe("fix.opened: the kind it fires on; null: both"),
   action: z.enum(AUTOMATION_ACTIONS),
+  format: z.enum(WEBHOOK_FORMATS),
   emails: z.array(z.string()),
   host: z.string().nullable().describe("webhook: the URL's host; the URL itself is never shown"),
   enabled: z.boolean(),

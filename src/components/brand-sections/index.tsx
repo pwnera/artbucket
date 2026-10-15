@@ -101,9 +101,10 @@ export const SectionView = memo(function SectionView({ section, rules }: Section
 /**
  * A page's sections in order: those for another context left out, and the
  * tabbed ones grouped under the page's tab strip, between the untabbed ones
- * before and after it.
+ * before and after it. `under` goes under a cover that opens the page, else
+ * on top: what the page header would have carried (site-view's on-this-page).
  */
-export function PageBody({ page }: { page: ViewPage }) {
+export function PageBody({ page, under }: { page: ViewPage; under?: React.ReactNode }) {
   const { view, context } = useSite();
   // One resolution for the page; each section then picks its keys, the same rule objects every time.
   const byKey = useMemo(() => new Map(resolve(view.rules, context ?? "").map((r) => [r.key, r])), [view.rules, context]);
@@ -112,9 +113,12 @@ export function PageBody({ page }: { page: ViewPage }) {
     [page.sections, context],
   );
   const draw = (s: Section) => <SectionView key={s.id} section={s} rules={boundKeys(s).flatMap((k) => byKey.get(k) ?? [])} />;
+  const covered = before[0]?.template === "cover";
   return (
     <>
-      {before.map(draw)}
+      {covered && draw(before[0])}
+      {under}
+      {(covered ? before.slice(1) : before).map(draw)}
       {tabs.length > 0 && <PageTabs tabs={tabs} render={draw} />}
       {after.map(draw)}
     </>
