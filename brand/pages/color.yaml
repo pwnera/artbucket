@@ -28,6 +28,10 @@ sections:
     props:
       show: [hex]
     columns: 3
+  - id: print
+    template: text
+    title: When a deadline crosses a Monday.
+    keys: [color.printed]
   - id: rest
     template: statement
     title: The empty space is part of the palette.

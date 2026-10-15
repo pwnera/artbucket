@@ -39,11 +39,11 @@ sections:
     items:
       - key: color.dark
         asset: assets/mark-black.svg
-        caption: The black mark disappears on Night. Use white.
+        caption: The black mark disappears on Night (1.01:1). Use white.
         verdict: dont
       - key: color.primary
         asset: assets/mark-white.svg
-        caption: White disappears on Volt. Use the week's tile file.
+        caption: White disappears on Volt (1.28:1). Use the week's tile file.
         verdict: dont
     props:
       ask: false
@@ -69,6 +69,10 @@ sections:
     keys: [logo.always, logo.neverDo]
     props:
       layout: pairs
+  - id: powered-by
+    template: text
+    title: Powered by Artbucket.
+    keys: [logo.poweredBy]
   - id: next
     template: pages
     title: Keep exploring.

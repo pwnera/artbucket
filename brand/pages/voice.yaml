@@ -17,6 +17,10 @@ sections:
     keys: [tone.always]
     props:
       layout: steps
+  - id: names
+    template: text
+    title: Our names.
+    keys: [brand.naming]
   - id: rewrites
     template: dodont
     title: Same idea. Fewer obstacles.
