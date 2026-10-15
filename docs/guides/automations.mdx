@@ -42,6 +42,21 @@ curl -X POST https://artbucket.example.com/api/v1/automations \
 
 The answer holds `secret`, once. Keep it: every POST is signed with it.
 
+## Recipes
+
+The Automations page starts one from a recipe: everything filled in but who it tells. Each is an ordinary automation, as the API takes it:
+
+| Recipe | Body, before `emails` or `url` |
+|---|---|
+| New share links to Slack | `{"trigger":"governance","actions":["share.created","share.project","asset.published"],"action":"webhook","format":"slack"}` |
+| Access changes to the admins | `{"trigger":"governance","actions":["grant.*","group.members","key.created","key.revoked"],"action":"email"}` |
+| Licenses ending, to legal | `{"trigger":"asset.expiring","days":30,"action":"email"}` |
+| An asset the check keeps refusing | `{"trigger":"check.refused","times":3,"days":7,"action":"email"}` |
+| New Fixes to Teams | `{"trigger":"fix.opened","action":"webhook","format":"teams"}` |
+| Nudge reviewers | `{"trigger":"review.waiting","days":3,"action":"email"}` |
+| Approvals and rejections to Slack | `{"trigger":"governance","actions":["asset.approved","asset.rejected"],"action":"webhook","format":"slack"}` |
+| Rebuild a site on each release | `{"trigger":"brand.released","action":"webhook"}` |
+
 ## The webhook
 
 ```json

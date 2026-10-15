@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { summaryOf, type AutomationTrigger, type FixKind, type WebhookFormat } from "@/lib/automations";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RECIPES, summaryOf, type AutomationTrigger, type FixKind, type Recipe, type WebhookFormat } from "@/lib/automations";
 import { send, sendResult } from "@/lib/send";
 import { ago, exact } from "@/lib/time";
 
@@ -99,14 +100,26 @@ function when(a: AutomationRow, brands: Brand[]) {
       return `When a proposal waits ${times(a.days, "day")}`;
   }
 }
+/** A recipe as the dialog starts from it: everything but who it tells. */
+const seedOf = (r: Recipe): Partial<AutomationRow> => ({
+  name: r.name,
+  trigger: r.trigger,
+  days: r.days ?? null,
+  times: r.times ?? null,
+  actions: r.actions ?? [],
+  kind: r.kind ?? null,
+  action: r.action,
+  format: r.format ?? "json",
+});
+
 const then = (a: AutomationRow) => (a.action === "email" ? `email ${a.emails.join(", ")}` : `post ${a.format === "json" ? "" : `to ${FORMAT[a.format]} `}on ${a.host}`);
 
 export function Automations({ automations, brands }: { automations: AutomationRow[]; brands: Brand[] }) {
-  const [editing, setEditing] = useState<{ of: AutomationRow | null; n: number } | null>(null);
+  const [editing, setEditing] = useState<{ of: AutomationRow | null; seed?: Partial<AutomationRow>; n: number } | null>(null);
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState<{ name: string; secret: string } | null>(null);
-  const edit = (of: AutomationRow | null) => {
-    setEditing((e) => ({ of, n: (e?.n ?? 0) + 1 }));
+  const edit = (of: AutomationRow | null, recipe?: Recipe) => {
+    setEditing((e) => ({ of, seed: recipe && seedOf(recipe), n: (e?.n ?? 0) + 1 }));
     setOpen(true);
   };
   return (
@@ -119,9 +132,26 @@ export function Automations({ automations, brands }: { automations: AutomationRo
           description="Let people, Slack, Teams or your other tools know when a brand is released, a license is about to end, or who may do what changes."
         >
           {automations.length > 0 && (
-            <Button size="sm" onClick={() => edit(null)}>
-              <IconPlus /> New automation
-            </Button>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    From a recipe <IconChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  {RECIPES.map((r) => (
+                    <DropdownMenuItem key={r.id} onSelect={() => edit(null, r)} className="grid gap-0.5">
+                      <span>{r.name}</span>
+                      <span className="text-muted-foreground text-xs text-pretty">{r.says}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button size="sm" onClick={() => edit(null)}>
+                <IconPlus /> New automation
+              </Button>
+            </div>
           )}
         </PageHeader>
         {secret && (
@@ -160,6 +190,15 @@ export function Automations({ automations, brands }: { automations: AutomationRo
                 <IconPlus /> New automation
               </Button>
             </EmptyContent>
+            <div className="grid w-full max-w-3xl gap-2 pt-4 text-start sm:grid-cols-2">
+              <p className="text-muted-foreground text-xs sm:col-span-2">Or start from a recipe:</p>
+              {RECIPES.map((r) => (
+                <button key={r.id} type="button" onClick={() => edit(null, r)} className="hover:bg-muted/60 grid gap-0.5 rounded-lg border p-3 text-start transition-colors">
+                  <span className="text-sm font-medium">{r.name}</span>
+                  <span className="text-muted-foreground text-xs text-pretty">{r.says}</span>
+                </button>
+              ))}
+            </div>
           </Empty>
         )}
       </div>
@@ -168,6 +207,7 @@ export function Automations({ automations, brands }: { automations: AutomationRo
           key={editing.n}
           open={open}
           automation={editing.of}
+          seed={editing.seed}
           brands={brands}
           onClose={() => setOpen(false)}
           onSaved={(a) => {
@@ -184,25 +224,30 @@ export function Automations({ automations, brands }: { automations: AutomationRo
 function AutomationDialog({
   open,
   automation: a,
+  seed,
   brands,
   onClose,
   onSaved,
 }: {
   open: boolean;
   automation: AutomationRow | null;
+  /** A recipe's settings to start a new one from. */
+  seed?: Partial<AutomationRow>;
   brands: Brand[];
   onClose: () => void;
   onSaved: (a: Made) => void;
 }) {
   const id = useId();
   const router = useRouter();
-  const [trigger, setTrigger] = useState<AutomationRow["trigger"]>(a?.trigger ?? "brand.released");
-  const [action, setAction] = useState<AutomationRow["action"]>(a?.action ?? "email");
-  const [format, setFormat] = useState<WebhookFormat>(a?.format ?? "json");
-  const [brand, setBrand] = useState(a?.brand ?? ANY);
-  const [kind, setKind] = useState<string>(a?.kind ?? ANY);
+  // What the fields start from: the automation being changed, else a recipe.
+  const from: Partial<AutomationRow> | null = a ?? seed ?? null;
+  const [trigger, setTrigger] = useState<AutomationRow["trigger"]>(from?.trigger ?? "brand.released");
+  const [action, setAction] = useState<AutomationRow["action"]>(from?.action ?? "email");
+  const [format, setFormat] = useState<WebhookFormat>(from?.format ?? "json");
+  const [brand, setBrand] = useState(from?.brand ?? ANY);
+  const [kind, setKind] = useState<string>(from?.kind ?? ANY);
   // What each trigger was saved with shows again only for that trigger.
-  const was = a?.trigger === trigger ? a : null;
+  const was = from?.trigger === trigger ? from : null;
   const [busy, setBusy] = useState(false);
   // A webhook made before keeps its URL unless a new one is given.
   const keeps = a?.action === "webhook" && action === "webhook";
@@ -243,7 +288,7 @@ function AutomationDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5 sm:col-span-2">
               <Label htmlFor={`${id}-name`}>Name</Label>
-              <Input id={`${id}-name`} name="name" required maxLength={80} defaultValue={a?.name} placeholder="Tell the brand team" />
+              <Input id={`${id}-name`} name="name" required maxLength={80} defaultValue={from?.name} placeholder="Tell the brand team" />
             </div>
             <div className="grid gap-1.5">
               <Label>When</Label>
@@ -328,7 +373,7 @@ function AutomationDialog({
             {trigger === "governance" && (
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label htmlFor={`${id}-actions`}>Changes</Label>
-                <Input id={`${id}-actions`} name="actions" defaultValue={was?.actions.join(", ")} placeholder="share.*, grant.set, key.created, asset.approved" />
+                <Input id={`${id}-actions`} name="actions" defaultValue={was?.actions?.join(", ")} placeholder="share.*, grant.set, key.created, asset.approved" />
                 <p className="text-muted-foreground text-xs">Actions of the audit log, or an asset decision, by name or ending in .* for a family. Empty: every change.</p>
               </div>
             )}
