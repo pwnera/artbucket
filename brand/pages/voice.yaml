@@ -13,7 +13,7 @@ sections:
       titleSize: huge
   - id: text
     template: cards
-    title: Three habits. One voice.
+    title: Five habits.
     keys: [tone.always]
     props:
       layout: steps

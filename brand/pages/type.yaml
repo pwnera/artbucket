@@ -31,13 +31,8 @@ sections:
   - id: scale
     template: type
     title: A rhythm you can repeat.
-    body: A 16px base with a 1.25 ratio. The scale keeps small labels, reading text and headlines related.
+    body: "Set every size from this list: 16px for reading, 20px for the line under a headline, 96px for the hero once a page, 12px for short labels. It is a list, not a ratio. The brand site's own headings step up by 1.333 from 16px (its theme's scale)."
     keys: [type.scale]
-    props:
-      formula:
-        base: 16
-        ratio: 1.25
-        steps: 7
   - id: habits
     template: dodont
     title: Make reading the easy part.

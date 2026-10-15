@@ -7,7 +7,7 @@ logo.primary:
 logo.mark:
   type: text
   label: Mark in black
-  value: "The mark alone in #111111: a tipped paint bucket, a paint line, one drop."
+  value: "The mark alone in near black, #111111 as the file has it, not Ink: a tipped paint bucket, a paint line, one drop."
   usage: On light grounds and one-color print.
   assets: [assets/mark-black.svg]
 logo.markWhite:
@@ -20,7 +20,7 @@ logo.always:
   type: list
   value:
     - "Always one color: the week's tile file, all black, or all white."
-    - Set the wordmark in Funnel Display Medium beside the mark, a quarter of the mark's height apart.
+    - "Set the wordmark, Artbucket, in Funnel Display beside the mark, a quarter of the mark's height apart. There is no wordmark file yet: ask on Resources before setting one for print."
 logo.neverDo:
   type: list
   value:
