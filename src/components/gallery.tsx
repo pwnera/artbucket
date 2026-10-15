@@ -75,6 +75,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useShell } from "@/components/shell";
+import { rulesPath } from "@/lib/site";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
@@ -2084,6 +2085,9 @@ export { Thumb };
 
 /** An empty library: the one place the whole page is the upload target. */
 function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () => void }) {
+  // The rules are written on the default brand's Rules tab; without a brand, Brands makes one.
+  const { brands } = useShell();
+  const home = brands.find((b) => b.default) ?? brands[0];
   return (
     <Empty className={cn("border-2 transition-colors", dragging && onUpload && "border-primary bg-primary/5")}>
       <EmptyHeader>
@@ -2105,8 +2109,8 @@ function EmptyState({ dragging, onUpload }: { dragging: boolean; onUpload?: () =
             </Button>
           )}
           <Button variant="outline" asChild>
-            <Link href={onUpload ? "/brand?edit" : "/brand"}>
-              <IconBook /> {onUpload ? "Write your guidelines" : "Read the guidelines"}
+            <Link href={onUpload ? (home ? rulesPath(home.slug) : "/brands") : "/brand"}>
+              <IconBook /> {onUpload ? "Write your rules" : "Read the guidelines"}
             </Link>
           </Button>
         </div>
