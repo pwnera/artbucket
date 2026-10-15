@@ -168,6 +168,9 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
     <Pick key={k} label={label} hint={<span className="text-muted-foreground truncate text-xs">{theme.faces[k]?.family ?? "The app's"}</span>} {...slot(k, (r) => r.type === "font", font)} />
   );
 
+  // The look whose every setting is the theme's now; none when one was changed by hand.
+  const look =
+    Object.entries(LOOKS).find(([, st]) => Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v))?.[0] ?? "";
   const failing = theme.checks.filter((c) => !c.ok).length;
   const radius = s.radius ?? theme.radius;
   const scale = s.scale ?? theme.scale;
@@ -179,27 +182,29 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
     <div className="grid min-w-0 grid-cols-1 content-start gap-6">
       <Group title="Style">
         <div className="@container">
-          <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
-            {Object.entries(LOOKS).map(([id, st]) => {
-              const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
-              return (
-                // Raw: a look's card, its sketch and its name, the whole card the hit target.
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => save(st.patch)}
-                  className="hover:border-foreground/40 aria-pressed:border-foreground aria-pressed:bg-muted/50 focus-visible:ring-ring/50 grid min-w-0 content-start gap-2 rounded-lg border p-2 text-start outline-none transition-colors focus-visible:ring-3"
-                >
-                  <LookSketch look={st.patch} />
-                  <span className="grid gap-0.5 px-0.5">
-                    <span className="text-sm font-medium">{st.name}</span>
-                    <span className="text-muted-foreground line-clamp-2 text-xs">{st.about}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {/* One look of several, the cards one stop: arrows move between them, Enter or Space picks (and saves) one. */}
+          <ToggleGroup
+            type="single"
+            spacing={2}
+            value={look}
+            onValueChange={(id) => id && save(LOOKS[id].patch)}
+            aria-label="Style"
+            className="grid w-full grid-cols-2 items-stretch @md:grid-cols-3"
+          >
+            {Object.entries(LOOKS).map(([id, st]) => (
+              <ToggleGroupItem
+                key={id}
+                value={id}
+                className="text-foreground hover:border-foreground/40 data-[state=on]:border-foreground data-[state=on]:bg-muted/50 dark:data-[state=on]:bg-muted/50 data-[state=on]:text-foreground focus-visible:ring-ring/50 grid h-auto min-w-0 content-start justify-stretch gap-2 rounded-lg border p-2 text-start font-normal whitespace-normal outline-none hover:bg-transparent focus-visible:ring-3"
+              >
+                <LookSketch look={st.patch} />
+                <span className="grid gap-0.5 px-0.5">
+                  <span className="text-sm font-medium">{st.name}</span>
+                  <span className="text-muted-foreground line-clamp-2 text-xs">{st.about}</span>
+                </span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       </Group>
 
@@ -410,10 +415,14 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
 /** The options, and the value set now when it is none of them (set over the API, say). */
 const withCurrent = (options: [string, string][], value: string) => (options.some(([v]) => v === value) ? options : [...options, [value, value] as [string, string]]);
 
+/** A group of settings, named by its heading: Colors' Text and Type's Text are told apart by it. */
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = useId();
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-3">
-      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{title}</h3>
+    <section aria-labelledby={id} className="grid min-w-0 grid-cols-1 gap-3">
+      <h3 id={id} className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        {title}
+      </h3>
       {children}
     </section>
   );

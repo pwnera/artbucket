@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import type { Grantable } from "@/lib/oauth";
-import type { Scope } from "@/lib/scopes";
+import { cappedScope, SCOPES, type Grantable, type Scope } from "@/lib/scopes";
 
 /**
  * Connecting an agent as yourself: the consent screen a chat app sends you to
@@ -51,17 +50,9 @@ async function call<T>(method: string, url: string, payload?: unknown): Promise<
   }
 }
 
-const RANK: Scope[] = ["read", "propose", "write", "admin"];
-
-/**
- * lib/oauth.ts cappedScope, here: that module needs node:crypto, which a
- * page in the browser must not pull in for one comparison.
- */
-const cappedScope = (asked: Grantable, max: Grantable): Grantable => (RANK.indexOf(asked) <= RANK.indexOf(max) ? asked : max);
-
 /** The most an agent may be given across `picked`: what the scope list offers. */
 export const mostOf = (projects: Givable[], picked: string[]): Grantable =>
-  projects.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (RANK.indexOf(w.max) > RANK.indexOf(m) ? w.max : m), "read");
+  projects.filter((w) => picked.includes(w.id)).reduce<Grantable>((m, w) => (SCOPES.indexOf(w.max) > SCOPES.indexOf(m) ? w.max : m), "read");
 
 /**
  * Which projects an agent works in: one is just named, several are boxes to
@@ -106,7 +97,7 @@ export function ProjectPicker({ projects, picked, onChange, scope }: { projects:
 
 /** The scopes as radio cards, up to `max`. */
 export function ScopePicker({ max, value, onChange, recommended = "propose" }: { max: Grantable; value: Grantable; onChange: (s: Grantable) => void; recommended?: Grantable }) {
-  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && RANK.indexOf(s.scope) <= RANK.indexOf(max));
+  const offered = SCOPE_LABELS.filter((s) => s.scope !== "admin" && SCOPES.indexOf(s.scope) <= SCOPES.indexOf(max));
   return (
     <fieldset className="space-y-2">
       <legend className="mb-2 text-sm font-medium">It may</legend>

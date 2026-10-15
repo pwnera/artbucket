@@ -19,6 +19,13 @@ export default defineConfig({
         },
       },
     ],
-    coverage: { provider: "v8", include: ["src/components/**/*.tsx", "kit/ui/*.js"], exclude: ["**/*.stories.tsx"], reporter: ["text-summary", "html", "json-summary"] },
+    coverage: {
+      provider: "v8",
+      include: ["src/components/**/*.tsx", "kit/ui/*.js"],
+      exclude: ["**/*.stories.tsx"],
+      reporter: ["text-summary", "html", "json-summary"],
+      // Just under where it stands: a component added without stories fails the run.
+      thresholds: { lines: 80, statements: 77, functions: 73, branches: 71 },
+    },
   },
 });

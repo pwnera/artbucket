@@ -163,7 +163,7 @@ export function AssetTable({
                         )}
                       </span>
                       <div className="min-w-0">
-                        {/* The row is the tab stop; Enter on it opens. A raw button: the title, set as text, for a pointer. */}
+                        {/* eslint-disable-next-line no-restricted-syntax -- The row is the tab stop; Enter on it opens. A raw button: the title, set as text, for a pointer. */}
                         <button
                           type="button"
                           tabIndex={-1}

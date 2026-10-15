@@ -48,6 +48,7 @@ export function Combobox({
   className,
   "aria-describedby": describedBy,
   "aria-invalid": ariaInvalid,
+  "aria-label": ariaLabel,
 }: {
   id?: string;
   name?: string;
@@ -60,6 +61,8 @@ export function Combobox({
   className?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  /** Its name where no <Label htmlFor> names it: a combobox isn't named by the value it shows. */
+  "aria-label"?: string;
 }) {
   const [inner, setInner] = useState(defaultValue);
   const [open, setOpen] = useState(false);
@@ -88,6 +91,7 @@ export function Combobox({
             aria-expanded={open}
             aria-describedby={describedBy}
             aria-invalid={ariaInvalid}
+            aria-label={ariaLabel}
             className={cn("w-full justify-between px-3 font-normal", ghost)}
           >
             <span className={cn("truncate", !current && "text-muted-foreground")}>
@@ -123,6 +127,7 @@ export function Combobox({
         </PopoverContent>
       </Popover>
       {name && (
+        // eslint-disable-next-line no-restricted-syntax -- the form's twin, not type=hidden so the browser still enforces required
         <input
           name={name}
           value={current}
@@ -256,7 +261,7 @@ export function MultiCombobox({
             <Badge key={v} variant="secondary" className={cn("gap-0.5", !locked.has(v) && "pr-0.5")}>
               {labelOf(options, v)}
               {!locked.has(v) && (
-                // Raw: a 20px round target inside the chip, smaller than any Button size.
+                // eslint-disable-next-line no-restricted-syntax -- Raw: a 20px round target inside the chip, smaller than any Button size.
                 <button
                   type="button"
                   onClick={() => toggle(v)}
@@ -270,7 +275,7 @@ export function MultiCombobox({
             </Badge>
           ))}
           <PopoverTrigger asChild>
-            {/* Raw: the box around it is the field (border, ring); this is the space left in it, drawn as text. */}
+            {/* eslint-disable-next-line no-restricted-syntax -- Raw: the box around it is the field (border, ring); this is the space left in it, drawn as text. */}
             <button
               id={id}
               type="button"

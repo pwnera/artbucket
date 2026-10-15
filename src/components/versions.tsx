@@ -376,7 +376,7 @@ export function Versions({
               aria-current={v.id === asset.id || undefined}
               className={cn("flex items-center gap-2 rounded-md p-1 text-sm", v.id === asset.id && "bg-muted")}
             >
-              {/* A raw button: the thumbnail, number and title together are the hit target. */}
+              {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the thumbnail, number and title together are the hit target. */}
               <button type="button" onClick={() => onOpen(v.id)} className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left hover:underline">
                 <span className="bg-muted relative size-8 shrink-0 overflow-hidden rounded">
                   {hasPreview(v) && <Thumb src={`/a/${v.id}/w_64,f_webp`} alt="" />}

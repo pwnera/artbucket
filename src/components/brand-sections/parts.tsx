@@ -247,7 +247,8 @@ export function Pairings({ colors, className }: { colors: Pick<Rule, "key" | "va
           Text in each row&apos;s color on each column&apos;s, graded for WCAG 2 at full opacity.
         </p>
       </div>
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      {/* Reachable by keyboard: on a phone the table scrolls sideways. */}
+      <div role="region" aria-label="Contrast pairings" tabIndex={0} className="focus-visible:ring-ring/50 -mx-1 overflow-x-auto rounded-md px-1 pb-1 outline-none focus-visible:ring-2">
         <table className="border-separate border-spacing-1 text-xs" onMouseLeave={() => setAt(null)}>
           <thead>
             <tr>

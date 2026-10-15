@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEMPLATE_CARDS } from "@/lib/brand-templates";
 import { gitLink } from "@/lib/git";
@@ -140,22 +141,27 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <DialogTitle>New brand</DialogTitle>
                 <DialogDescription>A draft until you release it.</DialogDescription>
               </DialogHeader>
-              <div className={cn("grid gap-3", bookImport ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")} role="radiogroup" aria-label="How to set it up">
-                <Choice selected={how === "builder"} onSelect={() => setHow("builder")} title="Start here" text="Blank, from your domain or from a template, then filled in on its Rules tab.">
+              <RadioGroup
+                value={how}
+                onValueChange={(v) => setHow(v as typeof how)}
+                aria-label="How to set it up"
+                className={cn("grid gap-3", bookImport ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}
+              >
+                <Choice value="builder" selected={how === "builder"} title="Start here" text="Blank, from your domain or from a template, then filled in on its Rules tab.">
                   <BuilderArt />
                 </Choice>
-                <Choice selected={how === "agent"} onSelect={() => setHow("agent")} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
+                <Choice value="agent" selected={how === "agent"} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
                   <AgentArt />
                 </Choice>
-                <Choice selected={how === "git"} onSelect={() => setHow("git")} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
+                <Choice value="git" selected={how === "git"} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
                   <FilesArt />
                 </Choice>
                 {bookImport && (
-                  <Choice selected={how === "book"} onSelect={() => setHow("book")} title="Import your brand" text="A zip of your brand's files, or its guidelines PDF.">
+                  <Choice value="book" selected={how === "book"} title="Import your brand" text="A zip of your brand's files, or its guidelines PDF.">
                     <BookArt />
                   </Choice>
                 )}
-              </div>
+              </RadioGroup>
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
@@ -173,14 +179,14 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 <DialogTitle>Start here</DialogTitle>
                 <DialogDescription>Start blank, from a domain or from a template.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-3" role="radiogroup" aria-label="Start from">
+              <RadioGroup value={start || "blank"} onValueChange={(v) => pick(v === "blank" ? "" : (v as Start))} aria-label="Start from" className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Choice selected={start === ""} onSelect={() => pick("")} title="Blank" text="No rules, no pages." compact>
+                  <Choice value="blank" selected={start === ""} title="Blank" text="No rules, no pages." compact>
                     <div className="text-muted-foreground flex h-10 items-center justify-center rounded-md border border-dashed">
                       <IconPlus className="size-4" />
                     </div>
                   </Choice>
-                  <Choice selected={start === "domain"} onSelect={() => pick("domain")} title="From a domain" text="Its brand.json: colors, type, logos, voice." compact>
+                  <Choice value="domain" selected={start === "domain"} title="From a domain" text="Its brand.json: colors, type, logos, voice." compact>
                     <div className="text-muted-foreground flex h-10 items-center justify-center gap-1.5 rounded-md border font-mono text-xs">
                       <IconWorld className="size-4" /> /.well-known/brand.json
                     </div>
@@ -188,7 +194,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {TEMPLATE_CARDS.map((t) => (
-                    <Choice key={t.id} selected={start === t.id} onSelect={() => pick(t.id)} title={t.name} text={t.blurb} compact>
+                    <Choice key={t.id} value={t.id} selected={start === t.id} title={t.name} text={t.blurb} compact>
                       <div className="flex h-10 overflow-hidden rounded-md border">
                         {t.swatches.map((c) => (
                           <span key={c} className="flex-1" style={{ background: c }} />
@@ -197,7 +203,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                     </Choice>
                   ))}
                 </div>
-              </div>
+              </RadioGroup>
               {start === "domain" && (
                 <div className="grid gap-2">
                   <Label htmlFor={`${id}-domain`}>Domain</Label>
@@ -222,15 +228,20 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                     </p>
                   )}
                   {found && (
-                    <div className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150" role="radiogroup" aria-label="Brand found">
+                    <RadioGroup
+                      value={pickId ?? ""}
+                      onValueChange={(v) => {
+                        rename(found.brands.find((b) => b.id === v)?.name ?? "");
+                        setPickId(v);
+                      }}
+                      aria-label="Brand found"
+                      className="animate-in fade-in-0 slide-in-from-top-1 grid gap-2 duration-150"
+                    >
                       {found.brands.map((b) => (
                         <Choice
                           key={b.id}
+                          value={b.id}
                           selected={pickId === b.id}
-                          onSelect={() => {
-                            rename(b.name);
-                            setPickId(b.id);
-                          }}
                           title={b.name}
                           text={[
                             b.domain,
@@ -251,7 +262,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                           )}
                         </Choice>
                       ))}
-                    </div>
+                    </RadioGroup>
                   )}
                 </div>
               )}
@@ -309,7 +320,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   <span className="text-sm font-medium">Bring in a brand from a repository</span>
                   <span className="text-muted-foreground text-sm">The repository already has a brand.yaml.</span>
                 </a>
-                {/* Raw: a choice card, the whole card the hit target, as the link beside it. */}
+                {/* eslint-disable-next-line no-restricted-syntax -- Raw: a choice card, the whole card the hit target, as the link beside it. */}
                 <button
                   type="button"
                   onClick={() => {
@@ -360,7 +371,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   <Label htmlFor={`${id}-git-name`}>Brand name</Label>
                   <div className="flex gap-2">
                     <Input id={`${id}-git-name`} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Your brand" required />
-                    <Button type="submit" disabled={busy || !name.trim()}>
+                    <Button type="submit" pending={busy} disabled={!name.trim()}>
                       Make it
                     </Button>
                   </div>
@@ -430,43 +441,35 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
   );
 }
 
-function Choice({
-  selected,
-  onSelect,
-  title,
-  text,
-  compact,
-  children,
-}: {
-  selected: boolean;
-  onSelect: () => void;
-  title: string;
-  text: string;
-  compact?: boolean;
-  children: React.ReactNode;
-}) {
+/**
+ * A choice card of a RadioGroup, its picture and words, the whole card the hit target: the radio hides in it, named
+ * by the title and described by the text, so arrow keys move between cards as between radios.
+ */
+function Choice({ value, selected, title, text, compact, children }: { value: string; selected: boolean; title: string; text: string; compact?: boolean; children: React.ReactNode }) {
+  const id = useId();
   return (
-    // Raw: a choice card with its picture, the whole card the hit target.
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
+    <label
       className={cn(
-        "group relative grid content-start gap-3 overflow-hidden rounded-lg border text-start transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "group has-focus-visible:ring-ring/50 relative grid cursor-pointer content-start gap-3 overflow-hidden rounded-lg border text-start transition-colors has-focus-visible:ring-[3px]",
         selected ? "border-primary ring-primary ring-1" : "hover:border-foreground/20",
         compact ? "p-3" : "pb-4",
       )}
     >
-      {compact ? children : <div className="bg-muted/60 flex h-36 items-end justify-center overflow-hidden px-6 pt-6">{children}</div>}
+      <RadioGroupItem value={value} aria-labelledby={`${id}-title`} aria-describedby={`${id}-text`} className="sr-only" />
+      {/* The picture says nothing the words don't. */}
+      <div aria-hidden className={cn(!compact && "bg-muted/60 flex h-36 items-end justify-center overflow-hidden px-6 pt-6")}>
+        {children}
+      </div>
       <div className={cn("grid gap-1", !compact && "px-4")}>
-        <span className={cn("flex items-center gap-1.5 text-sm font-medium", selected && "text-primary")}>
+        <span id={`${id}-title`} className={cn("flex items-center gap-1.5 text-sm font-medium", selected && "text-primary-ink")}>
           {title}
           {selected && <IconCheck className="size-4" aria-hidden />}
         </span>
-        <span className="text-muted-foreground text-sm">{text}</span>
+        <span id={`${id}-text`} className="text-muted-foreground text-sm">
+          {text}
+        </span>
       </div>
-    </button>
+    </label>
   );
 }
 

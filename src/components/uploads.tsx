@@ -176,7 +176,7 @@ export function UploadTray({
       )}
     >
       <header className="flex items-center gap-2 px-4 pt-3 pb-2">
-        {/* The header folds the list away and keeps the bar, for a long batch. A raw button: the whole summary line is the hit target, which Button's fixed height and padding don't fit. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- The header folds the list away and keeps the bar, for a long batch. A raw button: the whole summary line is the hit target, which Button's fixed height and padding don't fit. */}
         <button
           type="button"
           onClick={() => setFolded((f) => !f)}

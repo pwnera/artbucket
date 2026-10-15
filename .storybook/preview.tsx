@@ -5,6 +5,7 @@ import { definePreview } from "@storybook/nextjs-vite";
 import addonMsw from "msw-storybook-addon";
 import { setupWorker } from "msw/browser";
 import { ThemeProvider } from "next-themes";
+import { configure } from "storybook/test";
 import { fonts } from "../src/app/fonts";
 import "../src/app/globals.css";
 import { BrandProvider } from "../src/components/brand";
@@ -25,6 +26,10 @@ import { api } from "./mocks";
 const RULES = "https://hub.artbucket.io/artbucket/artbucket/rules.json";
 type Release = { rules: { key: string; context: string | null; value: unknown }[] };
 let release: Promise<Release | undefined> | undefined;
+
+// findBy and waitFor wait up to 5s, not 1s: the whole suite runs in parallel, and a lazy chunk (React Flow, an
+// editor) can take longer than a second to land under that load. A story that passes waits only as long as it must.
+configure({ asyncUtilTimeout: 5000 });
 
 export default definePreview({
   addons: [

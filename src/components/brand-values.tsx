@@ -330,8 +330,8 @@ export function Editable({
         {value}
       </p>
     ) : null;
-  // Raw: text that reads as the page until clicked, growing with its content (field-sizing), not a boxed field.
   return (
+    // eslint-disable-next-line no-restricted-syntax -- Raw: text that reads as the page until clicked, growing with its content (field-sizing), not a boxed field.
     <textarea
       rows={1}
       value={text}
@@ -484,7 +484,7 @@ function ColorEditor({
   return (
     <div className={cn("flex flex-col gap-4", !stacked && "@md:flex-row")}>
       {readOnly ? (
-        // Raw: the swatch itself is the button, in the brand's color.
+        // eslint-disable-next-line no-restricted-syntax -- Raw: the swatch itself is the button, in the brand's color.
         <button
           type="button"
           aria-label={`Copy ${live}`}
@@ -677,7 +677,7 @@ function ListEditor({
         if (readOnly && look === "scale")
           return (
             <li key={i}>
-              {/* Raw: the whole scale row, its size and its specimen, is the button. */}
+              {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole scale row, its size and its specimen, is the button. */}
               <button
                 type="button"
                 onClick={() => void copy(`${it}px`, "size")}
@@ -705,7 +705,7 @@ function ListEditor({
             {readOnly ? (
               <span className="min-w-0 flex-1 px-1">{it}</span>
             ) : (
-            // Raw: a list item that reads as the page's text until focused; the list's own keys move between them.
+            // eslint-disable-next-line no-restricted-syntax -- Raw: a list item that reads as the page's text until focused; the list's own keys move between them.
             <input
               ref={(el) => {
                 refs.current[i] = el;

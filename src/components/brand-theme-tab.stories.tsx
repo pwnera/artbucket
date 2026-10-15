@@ -55,7 +55,7 @@ export const PickAStyle = meta.story({
       }),
     ),
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /Documentation/ }));
+    await userEvent.click(canvas.getByRole("radio", { name: /Documentation/ }));
     await waitFor(() => expect(body).toEqual(LOOKS.documentation.patch));
     await waitFor(() => expect(getRouter().refresh).toHaveBeenCalled());
   },
@@ -65,7 +65,7 @@ export const PickAStyle = meta.story({
 export const SaveFails = meta.story({
   beforeEach: ({ msw }) => void msw.use(http.patch("/api/v1/brands/acme/theme", () => HttpResponse.json({ error: { code: "invalid", message: "That look needs a heading face" } }, { status: 422 }))),
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: /Documentation/ }));
+    await userEvent.click(canvas.getByRole("radio", { name: /Documentation/ }));
     await expect(await screen.findByText("That look needs a heading face")).toBeInTheDocument();
     await expect(getRouter().refresh).not.toHaveBeenCalled();
   },

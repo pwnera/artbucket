@@ -1932,7 +1932,7 @@ export const AssetCard = memo(function AssetCard({
   const badge = stateBadge(a);
   return (
     <div ref={view} className="group relative h-full" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
-      {/* A raw button: the whole card (art, name, size, tags) is the hit target. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the whole card (art, name, size, tags) is the hit target. */}
       <button
         type="button"
         data-cursor={a.id}

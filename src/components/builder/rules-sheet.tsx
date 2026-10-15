@@ -891,7 +891,7 @@ function RuleRow({
   onToggle: () => void;
 }) {
   return (
-    // A raw button: the whole row is the disclosure, laid out as a table row, which Button's padding and centering would undo.
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: the whole row is the disclosure, laid out as a table row, which Button's padding and centering would undo.
     <button
       type="button"
       aria-expanded={open}

@@ -583,7 +583,7 @@ function Composer({
 export function CommentBadge({ count, onClick, className }: { count: number; onClick(): void; className?: string }) {
   const label = count ? `${count} open ${count === 1 ? "comment" : "comments"}` : "Comment";
   return (
-    // A raw button: a pill in the app's colors laid over a brand's page, sized to its count, which no Button size is.
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: a pill in the app's colors laid over a brand's page, sized to its count, which no Button size is.
     <button
       type="button"
       aria-label={label}

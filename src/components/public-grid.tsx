@@ -247,7 +247,7 @@ export function PublicGrid({ items, asset, busy = false, ask }: { items: PublicI
               key={a.id}
               className="group/tile bg-card text-card-foreground overflow-hidden rounded-[var(--brand-radius,var(--radius-xl))] border shadow-xs transition-[box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:hover:translate-y-0"
             >
-              {/* A raw button: the whole picture is the hit target. */}
+              {/* eslint-disable-next-line no-restricted-syntax -- A raw button: the whole picture is the hit target. */}
               <button
                 type="button"
                 onClick={() => show(a.id)}
@@ -428,7 +428,7 @@ function AskUse({ ask, id, button, className }: { ask: Ask; id: string; button?:
             <IconCircleCheck /> Can I use this?
           </Button>
         ) : (
-          // A raw button: a link-like line under a tile in the site's own accent, not one of the app's buttons.
+          // eslint-disable-next-line no-restricted-syntax -- A raw button: a link-like line under a tile in the site's own accent, not one of the app's buttons.
           <button type="button" className={cn("text-xs text-(--brand-accent,var(--primary-ink)) underline underline-offset-2 outline-none focus-visible:ring-2", className)}>
             Can I use this?
           </button>

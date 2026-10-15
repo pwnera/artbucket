@@ -29,7 +29,7 @@ import {
 import { LibraryPicker } from "@/components/asset-picker";
 import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";
-import { send } from "@/components/collections";
+import { send } from "@/lib/send";
 import { Confirm } from "@/components/confirm";
 import { Fold } from "@/components/fold";
 import { CopyButton } from "@/components/copy-button";
@@ -261,7 +261,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                 />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
-                    {/* Raw: the whole row opens it, this button's box stretched over the row, under its actions. */}
+                    {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole row opens it, this button's box stretched over the row, under its actions. */}
                     <button type="button" onClick={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
@@ -761,7 +761,7 @@ export function PortalDialog({
           </div>
           {own && (
             <div className="grid gap-2">
-              <Label>Address</Label>
+              <span className="text-sm leading-none font-medium">Address</span>
               <div className="flex min-w-0 items-center gap-1 text-sm">
                 <span className="truncate font-mono">{address}</span>
                 <CopyButton text={address} label="Copy the address" what="the address" />
@@ -838,7 +838,7 @@ export function PortalDialog({
           {current && current.brands.length > 0 && (
             <p className="text-muted-foreground text-xs">
               Page reads are in{" "}
-              <Link href="/insights" className="text-foreground underline-offset-2 hover:underline">
+              <Link href="/insights" className="text-foreground underline underline-offset-2">
                 Insights
               </Link>
               .
@@ -904,7 +904,7 @@ export function PortalDialog({
             <div className="grid gap-2">
               <span className="text-sm leading-none font-medium">Logo</span>
               <div className="flex items-center gap-2">
-                {/* Raw: the logo's preview tile is the hit target. */}
+                {/* eslint-disable-next-line no-restricted-syntax -- Raw: the logo's preview tile is the hit target. */}
                 <button
                   type="button"
                   onClick={() => setPicking("logo")}

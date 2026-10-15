@@ -265,7 +265,7 @@ function LivePlaces({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        {/* Raw: words in the live line (dotted underline), not a button's box. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- Raw: words in the live line (dotted underline), not a button's box. */}
         <button type="button" className={className}>
           {label}
           {chevron && <IconChevronDown aria-hidden className="size-3.5" />}

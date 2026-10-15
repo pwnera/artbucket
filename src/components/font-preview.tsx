@@ -474,7 +474,7 @@ export function FontStyles({
   const italics = styles.some((s) => s.italic);
   return (
     <div className="grid gap-1.5 pt-1">
-      {/* Raw: a line of muted text that folds the chips, not a button's box. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- Raw: a line of muted text that folds the chips, not a button's box. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

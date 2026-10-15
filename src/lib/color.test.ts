@@ -74,6 +74,15 @@ test("every text token reads on every surface text sits on, in both themes", () 
     assert.ok(contrast(token(sel, "primary-foreground"), token(sel, "primary")) >= 4.5, `${sel} text on primary`);
     assert.ok(contrast(token(sel, "highlight-foreground"), token(sel, "highlight")) >= 4.5, `${sel} text on highlight`);
     assert.ok(contrast(token(sel, "ring"), bg) >= 3, `${sel} focus ring`);
+    // A success or warning badge: its color on 15% of itself (ui/badge.tsx), on the surfaces rows and cards sit on
+    // (the sidebar's current item has its own SidebarMenuBadge).
+    for (const tone of ["success", "warning"])
+      for (const surface of ["background", "card", "muted", "sidebar"]) {
+        const s = surfaces[surface as keyof typeof surfaces];
+        const t = token(sel, tone);
+        const tint = mix(s, t, 0.15);
+        assert.ok(contrast(t, tint) >= 4.5, `${sel} --${tone} badge on --${surface}: ${contrast(t, tint).toFixed(2)}`);
+      }
   }
 });
 

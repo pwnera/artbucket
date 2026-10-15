@@ -13,6 +13,7 @@ import { gitLink } from "@/lib/git";
 import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { collapse } from "@/lib/motion";
 
 const KEY = "artbucket:setup";
@@ -174,7 +175,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
         <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {PATHS.map((p) => (
             <li key={p.id}>
-              {/* Raw: a path's card, its name over its win, the whole card the hit target. */}
+              {/* eslint-disable-next-line no-restricted-syntax -- Raw: a path's card, its name over its win, the whole card the hit target. */}
               <button
                 type="button"
                 onClick={() => save({ ...stored, path: p.id })}
@@ -288,7 +289,7 @@ function StepList({ steps, onUpload, onGo, className }: { steps: OnboardingStep[
           <li key={s.id}>
             {s.upload ? (
               onUpload && !s.done ? (
-                // Raw: a step's row, like the links beside it, not a button's box.
+                // eslint-disable-next-line no-restricted-syntax -- Raw: a step's row, like the links beside it, not a button's box.
                 <button type="button" onClick={() => (onGo?.(), onUpload())} className={row}>
                   {body}
                 </button>
@@ -355,23 +356,25 @@ function FirstRun({ stored, save, facts, onUpload, org }: { stored: Stored; save
           </h1>
           <p className="text-muted-foreground">We set that up first. The rest can wait.</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What do you want to do">
-          {/* Raw: each path a card that is a radio, its name, blurb and win. */}
+        <RadioGroup
+          value={path ?? ""}
+          onValueChange={(v) => save({ ...stored, path: v as PathId })}
+          aria-label="What do you want to do"
+          className="grid gap-3 sm:grid-cols-2"
+        >
+          {/* The card is the radio: its name, blurb and win, the item hidden inside it. */}
           {PATHS.map((p) => (
-            <button
+            <label
               key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={path === p.id}
-              onClick={() => save({ ...stored, path: p.id })}
-              className="hover:border-primary/40 aria-checked:border-primary aria-checked:ring-primary/30 grid content-start gap-1 rounded-xl border p-4 text-left transition-colors aria-checked:ring-2"
+              className="hover:border-primary/40 has-data-[state=checked]:border-primary has-data-[state=checked]:ring-primary/30 has-focus-visible:ring-ring/50 grid cursor-pointer content-start gap-1 rounded-xl border p-4 text-left transition-colors has-focus-visible:ring-[3px] has-data-[state=checked]:ring-2"
             >
+              <RadioGroupItem value={p.id} className="sr-only" />
               <span className="font-medium">{p.label}</span>
               <span className="text-muted-foreground text-sm">{p.blurb}</span>
               <span className="text-primary-ink mt-2 text-xs font-medium">First win: {p.win}</span>
-            </button>
+            </label>
           ))}
-        </div>
+        </RadioGroup>
         {path && (
           <section aria-labelledby="welcome-steps" className="bg-card rounded-xl border p-4">
             <div className="flex items-center gap-3">

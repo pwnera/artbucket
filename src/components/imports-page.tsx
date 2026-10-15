@@ -357,7 +357,7 @@ function ImportRowLine({
       tabIndex={0}
       onClick={() => onOpen(i.id)}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen(i.id)}
-      className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
+      className="hover:bg-accent/60 focus-visible:outline-ring cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
     >
       <td className="w-full max-w-0 min-w-40 px-4 py-2.5 lg:max-w-56 lg:w-auto">
         <span className="flex min-w-0 items-center gap-2.5" title={i.filename}>

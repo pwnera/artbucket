@@ -83,6 +83,12 @@ export function BrandsPage({
   const [q, setQ] = useState(initialQ);
   const [show, setShow] = useState<Show>("all");
   const [creating, setCreating] = useState(create && canEdit);
+  // Each New brand starts afresh: what was typed and discarded last time is gone.
+  const [round, setRound] = useState(0);
+  const startNew = () => {
+    setRound((n) => n + 1);
+    setCreating(true);
+  };
   // Asked once: a reload shouldn't open it again.
   useEffect(() => {
     if (!create) return;
@@ -141,7 +147,7 @@ export function BrandsPage({
         >
           <ImportsButton />
           {canEdit && (
-            <Button size="sm" onClick={() => setCreating(true)}>
+            <Button size="sm" onClick={startNew}>
               <IconPlus /> New brand
             </Button>
           )}
@@ -186,17 +192,21 @@ export function BrandsPage({
           </ToggleGroup>
         </div>
 
+        {/* The list's own heading, for those who move by headings: each card's name is one level down. */}
+        <h2 id="brands-list" className="sr-only">
+          {q || show !== "all" ? "Matching brands" : "Every brand"}
+        </h2>
         {!shown.length ? (
           <p className="text-muted-foreground rounded-lg border p-8 text-center text-sm">{q ? `No brand matches "${q}".` : "No brand here."}</p>
         ) : layout === "cards" ? (
           // One name for both layouts: switching, the list reshapes as one rather than swapping at once.
-          <ul data-vt="brands-list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul aria-labelledby="brands-list" data-vt="brands-list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {shown.map((b, i) => (
               <Card key={b.slug} b={b} face={i < FACES} />
             ))}
           </ul>
         ) : (
-          <ul data-vt="brands-list" className="divide-y rounded-lg border">
+          <ul aria-labelledby="brands-list" data-vt="brands-list" className="divide-y rounded-lg border">
             {shown.map((b) => (
               <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
             ))}
@@ -221,6 +231,7 @@ export function BrandsPage({
         }}
       />
       <NewBrand
+        key={round}
         open={creating}
         onClose={() => setCreating(false)}
         onDone={(b) => {

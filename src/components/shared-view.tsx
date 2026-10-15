@@ -385,13 +385,14 @@ function Listing({
   }, [left, more, failed, loadMore]);
 
   return (
-    <>
+    // The opening is the page's own title, in <main>: at the top level its <header> would be a second banner.
+    <main className="flex flex-1 flex-col">
       <Opening eyebrow={by ? `Shared by ${by}` : "Shared with you"} title={title}>
         <p className="text-muted-foreground text-sm tabular-nums">
           {total} {total === 1 ? "file" : "files"}
         </p>
       </Opening>
-      <main className={cn(MAIN, "space-y-6")}>
+      <div className={cn(MAIN, "space-y-6")}>
         {items.length ? (
           <PublicGrid items={items.map(toPublic)} asset={asset} />
         ) : (
@@ -412,8 +413,8 @@ function Listing({
             </Button>
           </div>
         )}
-      </main>
-    </>
+      </div>
+    </main>
   );
 }
 
@@ -523,13 +524,13 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
   };
 
   return (
-    <>
+    <main className="flex flex-1 flex-col">
       <Opening
         eyebrow={by ? `For ${by}` : null}
         title={`Send files${into ? ` for ${into}` : ""}`}
         lede="No account needed. What you send is reviewed before it is used."
       />
-      <main className={MAIN}>
+      <div className={MAIN}>
         <div className="max-w-3xl space-y-4">
           {allDone && (
             <div role="status" className="animate-in fade-in-0 flex items-start gap-3 rounded-xl border p-4">
@@ -542,6 +543,7 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
               </div>
             </div>
           )}
+          {/* eslint-disable-next-line no-restricted-syntax -- the drop zone is the hit target, for a click or dropped files */}
           <button
             type="button"
             onClick={() => input.current?.click()}
@@ -582,7 +584,7 @@ function Dropzone({ token, headers, into, by }: { token: string; headers: () => 
             </div>
           )}
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

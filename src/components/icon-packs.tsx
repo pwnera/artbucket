@@ -148,7 +148,7 @@ function SetsView({ open, onPick }: { open: boolean; onPick: (s: IconSet) => voi
           <ul className="grid gap-3 sm:grid-cols-2">
             {found.data.map((s) => (
               <li key={s.prefix}>
-                {/* Raw: the whole card, its samples and its name, is the hit target. */}
+                {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole card, its samples and its name, is the hit target. */}
                 <button
                   type="button"
                   onClick={() => onPick(s)}
@@ -375,7 +375,7 @@ function SetView({ set, into, onBack, onDone }: { set: IconSet; into?: string | 
                 const got = imported.has(i.name);
                 return (
                   <li key={i.name}>
-                    {/* Raw: an icon's tile, pressed to pick it, the whole tile the hit target. */}
+                    {/* eslint-disable-next-line no-restricted-syntax -- Raw: an icon's tile, pressed to pick it, the whole tile the hit target. */}
                     <button
                       type="button"
                       aria-pressed={got ? undefined : on}

@@ -76,7 +76,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { ExternalLink } from "@/components/external-link";
 import { assetLink, canFollow, followingUrl } from "@/lib/asset-url";
 import { missingRequired, relaxInherited, type FieldDef } from "@/lib/fields";
-import { contextLabel, ruleLabel, type Rule } from "@/lib/rules";
+import { contextLabel, ruleName, type Rule } from "@/lib/rules";
 import { rulesPath } from "@/lib/site";
 import { fileTypeBadge, formatBytes, savedName } from "@/lib/filename";
 import { isFont } from "@/lib/font";
@@ -934,7 +934,7 @@ export function AssetEditor({
               </DialogDescription>
               {editable ? (
                 <div data-prop="title" className="group/title relative">
-                  {/* Raw: the title edited in place, read as the heading until then; Textarea's field look would not. */}
+                  {/* eslint-disable-next-line no-restricted-syntax -- Raw: the title edited in place, read as the heading until then; Textarea's field look would not. */}
                   <textarea
                     key={keyOf("title")}
                     name="title"
@@ -943,6 +943,7 @@ export function AssetEditor({
                     placeholder={asset.filename}
                     maxLength={2000}
                     aria-label="Title"
+                    {...field("title")}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -959,6 +960,12 @@ export function AssetEditor({
                     aria-hidden
                     className="text-muted-foreground pointer-events-none absolute top-1.5 -right-1 size-4 opacity-40 transition-opacity group-focus-within/title:opacity-0 group-hover/title:opacity-100 motion-reduce:transition-none"
                   />
+                  {/* A refused title goes back to the server's: why is said here, or the refusal would be silent. */}
+                  {errors.title && (
+                    <p id={`${id}-title-error`} role="alert" className="text-destructive text-xs">
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className={cn("text-lg leading-snug font-semibold", m.title ? "break-words" : "break-all")}>{name}</p>
@@ -1903,14 +1910,14 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
   return (
     <Popover>
       <PopoverTrigger asChild>
-        {/* Raw: a Badge as the trigger, and a Badge has no button of its own. */}
-        <button type="button" className="animate-in fade-in-0 slide-in-from-top-1 rounded-full">
-          <Badge variant="secondary" className="hover:bg-secondary/70 cursor-pointer">
+        <Badge asChild variant="secondary" className="animate-in fade-in-0 slide-in-from-top-1 hover:bg-secondary/70 cursor-pointer">
+          {/* eslint-disable-next-line no-restricted-syntax -- Badge (asChild) draws it; the button only makes the chip a trigger */}
+          <button type="button">
             <IconBook /> Used in {rules.length} brand {rules.length === 1 ? "rule" : "rules"}
-          </Badge>
-        </button>
+          </button>
+        </Badge>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1">
+      <PopoverContent align="start" aria-label="Brand rules that use it" className="w-72 p-1">
         <ul className="grid">
           {rules.map((r) => {
             const href = rulesPath(r.brand!, r.key);
@@ -1926,7 +1933,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
                 >
                   <span className="min-w-0 flex-1 truncate">
                     {several && <span className="text-muted-foreground">{r.brand} / </span>}
-                    {ruleLabel(r.key)}
+                    {ruleName(r)}
                   </span>
                   {r.context && (
                     <Badge variant="outline" title={r.context}>
@@ -2073,9 +2080,10 @@ function Review({
     <div className="border-primary/30 bg-primary/5 grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3">
       {asset.status === "proposed" && (
         <div className="grid gap-2">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
+          {/* Wrapping as whole pieces: a long agent name never leaves "ago" alone on a line. */}
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium">
             <IconSparkles className="text-primary-ink size-4" /> Suggested by {asset.proposedBy ?? "an agent"}
-            <time dateTime={asset.createdAt} title={new Date(asset.createdAt).toLocaleString()} className="text-muted-foreground font-normal" suppressHydrationWarning>
+            <time dateTime={asset.createdAt} title={new Date(asset.createdAt).toLocaleString()} className="text-muted-foreground font-normal whitespace-nowrap" suppressHydrationWarning>
               · {ago(asset.createdAt)}
             </time>
             <InfoTip>It stays out of the library and search until you approve it.</InfoTip>

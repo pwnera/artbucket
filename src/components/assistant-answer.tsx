@@ -353,7 +353,7 @@ function Swatch({ hex, name }: { hex: string; name: string }) {
     return () => clearTimeout(t);
   }, [copied]);
   return (
-    // A raw button: it sits in a line of text, where Button's height and padding would lift it off the baseline.
+    // eslint-disable-next-line no-restricted-syntax -- A raw button: it sits in a line of text, where Button's height and padding would lift it off the baseline.
     <button
       type="button"
       title={`Copy ${hex}`}

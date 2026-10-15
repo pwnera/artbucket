@@ -116,7 +116,7 @@ const Side = ({ dir, data }: { dir: Dir; data: Data }) => {
   const Icon = state === "more" ? IconPlus : IconMinus;
   const what = dir === "up" ? `what ${data.item.name} comes from` : `what uses ${data.item.name}`;
   return (
-    // Raw: a round handle half over the card's edge, with React Flow's nodrag; IconButton's tooltip would sit over the edges.
+    // eslint-disable-next-line no-restricted-syntax -- Raw: a round handle half over the card's edge, with React Flow's nodrag; IconButton's tooltip would sit over the edges.
     <button
       type="button"
       aria-label={state === "more" ? `Show ${what}` : `Hide ${what}`}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { IconUpload } from "@/components/icons";
 import type { Portal } from "@/components/portals";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { slugOf } from "@/lib/catalog";
 import { formatSize } from "@/lib/limits";
@@ -19,7 +20,7 @@ import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind, type DeploymentKind } fro
 import { ago } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-type Deployment = { id: string; path: string; kind: DeploymentKind; state: "checking" | "live" | "failed" | "replaced" | "held" | "preview"; preview: string | null; url?: string | null; files: number; bytes: number; error: string | null; uses: { asset: string }[]; componentUses: string[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
+export type Deployment = { id: string; path: string; kind: DeploymentKind; state: "checking" | "live" | "failed" | "replaced" | "held" | "preview"; preview: string | null; url?: string | null; files: number; bytes: number; error: string | null; uses: { asset: string }[]; componentUses: string[]; problems: string[]; flags: string[]; createdBy: string; createdAt: string };
 
 /** "uses 3 assets, 2 components", from what the check found in its files: the library it reaches. */
 const usesLine = (d: Deployment) => {
@@ -57,6 +58,7 @@ export function BuildSiteDialog({
   const [kind, setKind] = useState<BuildKind | "external">("docs");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const id = useId();
   const shown = made ?? site;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -102,14 +104,14 @@ export function BuildSiteDialog({
             }}
           >
             <div className="grid gap-1.5">
-              <Label htmlFor="site-name">Name</Label>
-              <Input id="site-name" required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme docs" />
+              <Label htmlFor={`${id}-name`}>Name</Label>
+              <Input id={`${id}-name`} required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme docs" />
               {name && <p className="text-muted-foreground text-xs">Its address: {slugOf(name)}</p>}
             </div>
             <div className="grid gap-1.5">
-              <Label>Kind</Label>
+              <Label htmlFor={`${id}-kind`}>Kind</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as BuildKind | "external")}>
-                <SelectTrigger className="w-full" aria-label="Kind">
+                <SelectTrigger id={`${id}-kind`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -123,13 +125,13 @@ export function BuildSiteDialog({
             </div>
             {kind === "external" && (
               <div className="grid gap-1.5">
-                <Label htmlFor="site-url">Where it lives</Label>
-                <Input id="site-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://app.acme.com" />
+                <Label htmlFor={`${id}-url`}>Where it lives</Label>
+                <Input id={`${id}-url`} type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://app.acme.com" />
               </div>
             )}
             <DialogFooter>
-              <Button type="submit" disabled={!name.trim() || busy}>
-                {busy && <Spinner />} Make the site
+              <Button type="submit" disabled={!name.trim()} pending={busy}>
+                Make the site
               </Button>
             </DialogFooter>
           </form>
@@ -147,7 +149,10 @@ function Deployments({ site }: { site: Portal }) {
   const [kind, setKind] = useState<BuildKind>(portal ? "docs" : (site.kind as BuildKind));
   const [sending, setSending] = useState(false);
   const [over, setOver] = useState(false);
+  /** The deployment being restored, so a double click can't send two. */
+  const [restoring, setRestoring] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const id = useId();
   const load = () =>
     fetch(`/api/v1/sites/${site.id}/deployments`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { data: [] }))
@@ -158,7 +163,8 @@ function Deployments({ site }: { site: Portal }) {
   }, [site.id]);
 
   const restore = async (d: Deployment) => {
-    const res = await fetch(`/api/v1/sites/${site.id}/deployments/${d.id}/restore`, { method: "POST" });
+    setRestoring(d.id);
+    const res = await fetch(`/api/v1/sites/${site.id}/deployments/${d.id}/restore`, { method: "POST" }).finally(() => setRestoring(null));
     await load();
     if (!res.ok) return toast.error((await res.json().catch(() => null))?.error?.message ?? "It couldn't be restored");
     toast.success(`Restored at ${d.path}`);
@@ -172,7 +178,7 @@ function Deployments({ site }: { site: Portal }) {
     const body = await res.json().catch(() => null);
     setSending(false);
     await load();
-    if (!res.ok) return toast.error(body?.error?.message ?? "It couldn't be deployed");
+    if (!res.ok || !body?.data) return toast.error(body?.error?.message ?? "It couldn't be deployed");
     if (body.data.state === "held") return toast.warning("Held for review", { description: body.data.error });
     toast.success(`Live at ${site.url}${path === "/" ? "" : path}`, { description: `${body.data.files} files` });
   };
@@ -191,14 +197,14 @@ function Deployments({ site }: { site: Portal }) {
         <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <Label htmlFor="mount">Path</Label>
-          <Input id="mount" value={path} onChange={(e) => setPath(e.target.value)} disabled={!portal} />
+          <Label htmlFor={`${id}-path`}>Path</Label>
+          <Input id={`${id}-path`} value={path} onChange={(e) => setPath(e.target.value)} disabled={!portal} />
         </div>
         {portal && (
           <div className="grid gap-1.5">
-            <Label>Kind</Label>
+            <Label htmlFor={`${id}-kind`}>Kind</Label>
             <Select value={kind} onValueChange={(v) => setKind(v as BuildKind)}>
-              <SelectTrigger className="w-full" aria-label="Kind">
+              <SelectTrigger id={`${id}-kind`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +218,7 @@ function Deployments({ site }: { site: Portal }) {
           </div>
         )}
       </div>
-      {/* Raw: the drop zone is the hit target, for a click or a dropped zip. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- Raw: the drop zone is the hit target, for a click or a dropped zip. */}
       <button
         type="button"
         onClick={() => input.current?.click()}
@@ -237,18 +243,35 @@ function Deployments({ site }: { site: Portal }) {
         <span className="text-xs">index.html at its root. From a terminal: artbucket site push dist --site {site.slug}</span>
       </button>
       {/* Raw: a file input, opened by the drop zone. */}
-      <input ref={input} type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void deploy(e.target.files?.[0])} />
+      <input
+        ref={input}
+        type="file"
+        accept=".zip,application/zip"
+        aria-label="A zip of the build"
+        className="hidden"
+        onChange={(e) => {
+          void deploy(e.target.files?.[0]);
+          // The same zip again (a fix, then a retry) is a change too.
+          e.target.value = "";
+        }}
+      />
         </>
       )}
       <section aria-label="Deployments" className="grid gap-2">
         <h3 className="text-sm font-medium">{external ? "Scans" : "Deployments"}</h3>
         {list === null ? (
-          <p className="text-muted-foreground text-sm">Loading</p>
+          <ul aria-busy aria-label="Loading the deployments" className="divide-y rounded-lg border">
+            {[0, 1].map((i) => (
+              <li key={i} className="grid gap-2 px-3 py-2.5">
+                <Skeleton className="h-4 w-2/3" />
+              </li>
+            ))}
+          </ul>
         ) : list.length ? (
           <ul className="divide-y rounded-lg border">
             {list.map((d) => (
               <li key={d.id} className="grid gap-0.5 px-3 py-2 text-sm">
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <Badge variant={STATE[d.state]} className="capitalize">
                     {d.state}
                   </Badge>
@@ -269,7 +292,7 @@ function Deployments({ site }: { site: Portal }) {
                     {d.createdBy}, {ago(d.createdAt)}
                   </span>
                   {d.state === "replaced" && (
-                    <Button variant="ghost" size="sm" className="-my-1 h-7" onClick={() => void restore(d)}>
+                    <Button variant="ghost" size="sm" className="-my-1 h-7" pending={restoring === d.id} disabled={!!restoring} onClick={() => void restore(d)}>
                       Restore
                     </Button>
                   )}
@@ -309,11 +332,6 @@ function BuildFromGit({ site, template }: { site: Portal; template: string }) {
   );
 }
 
-/**
- * A deploy hook called when a brand is released (SITE-14), so a site built
- * from it, here or on Vercel, Netlify or Cloudflare Pages, is built again.
- * The URL is a key: once saved it is never shown, only its host.
- */
 const WHO: Record<PortalAccess, string> = { public: "Anyone with the address", password: "Whoever has the password", members: "People in this project, signed in" };
 
 /**
@@ -368,8 +386,8 @@ function WhoGetsIn({ site, onSaved }: { site: Portal; onSaved: (site: Portal) =>
             aria-label="Password"
           />
         )}
-        <Button type="submit" variant="outline" disabled={!dirty || busy}>
-          {busy && <Spinner />} Save
+        <Button type="submit" variant="outline" disabled={!dirty} pending={busy}>
+          Save
         </Button>
       </form>
       {site.access === "members" && <p className="text-muted-foreground text-xs">Members sign in here, then read it at its own address. Anyone else is asked to sign in.</p>}
@@ -377,6 +395,11 @@ function WhoGetsIn({ site, onSaved }: { site: Portal; onSaved: (site: Portal) =>
   );
 }
 
+/**
+ * A deploy hook called when a brand is released (SITE-14), so a site built
+ * from it, here or on Vercel, Netlify or Cloudflare Pages, is built again.
+ * The URL is a key: once saved it is never shown, only its host.
+ */
 function RebuildHook({ site }: { site: Portal }) {
   const [rebuild, setRebuild] = useState(site.rebuild);
   const [brands, setBrands] = useState<{ slug: string; name: string; default: boolean }[]>([]);
@@ -386,11 +409,11 @@ function RebuildHook({ site }: { site: Portal }) {
   useEffect(() => {
     void fetch("/api/v1/brands", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((b: { data: { slug: string; name: string; default: boolean }[] }) => {
-        setBrands(b.data);
-        setBrand((now) => now || (b.data.find((x) => x.default) ?? b.data[0])?.slug || "");
-      });
+      .then((b: { data: { slug: string; name: string; default: boolean }[] }) => setBrands(b.data));
   }, []);
+  // Unpicked, the default brand. Derived, not set with the list: a Select whose value and items arrive in the same
+  // render reads its value back as empty (Radix's native select has no such option yet) and clears it.
+  const picked = brand || (brands.find((x) => x.default) ?? brands[0])?.slug || "";
   const save = async (next: { url: string; brand: string } | null) => {
     setBusy(true);
     const saved: Portal | null = await send("PATCH", `/api/v1/sites/${site.id}`, { rebuild: next });
@@ -413,7 +436,7 @@ function RebuildHook({ site }: { site: Portal }) {
               Last: {rebuild.lastStatus}, {ago(rebuild.lastAt)}
             </span>
           )}
-          <Button variant="ghost" size="sm" className="ms-auto h-7" disabled={busy} onClick={() => void save(null)}>
+          <Button variant="ghost" size="sm" className="ms-auto h-7" pending={busy} onClick={() => void save(null)}>
             Remove
           </Button>
         </div>
@@ -422,11 +445,11 @@ function RebuildHook({ site }: { site: Portal }) {
           className="grid gap-2 sm:grid-cols-[1fr_10rem_auto]"
           onSubmit={(e) => {
             e.preventDefault();
-            void save({ url, brand });
+            void save({ url, brand: picked });
           }}
         >
           <Input type="url" required pattern="https://.*" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.vercel.com/v1/integrations/deploy/..." aria-label="Deploy hook URL" />
-          <Select value={brand} onValueChange={setBrand}>
+          <Select value={picked} onValueChange={setBrand}>
             <SelectTrigger className="w-full" aria-label="Brand">
               <SelectValue placeholder="Brand" />
             </SelectTrigger>
@@ -438,8 +461,8 @@ function RebuildHook({ site }: { site: Portal }) {
               ))}
             </SelectContent>
           </Select>
-          <Button type="submit" disabled={!url || !brand || busy}>
-            {busy && <Spinner />} Save
+          <Button type="submit" disabled={!url || !picked} pending={busy}>
+            Save
           </Button>
           <p className="text-muted-foreground text-xs sm:col-span-3">
             A deploy hook from Vercel, Netlify, Cloudflare Pages or your CI. Each release of the brand calls it, so text baked into the build follows; assets on /c/ already do.

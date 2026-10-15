@@ -79,8 +79,8 @@ export function Kpis({ items, picked, onPick }: { items: Kpi[]; picked?: string;
           </>
         );
         const cls = "grid min-w-0 content-start gap-0.5 rounded-lg px-3 py-2.5 text-start lg:min-w-36";
-        // A raw button: the whole figure (label, number, change) is the hit target, a card rather than Button's one line.
         return k.chart && onPick ? (
+          // eslint-disable-next-line no-restricted-syntax -- A raw button: the whole figure (label, number, change) is the hit target, a card rather than Button's one line.
           <button
             key={k.id}
             type="button"

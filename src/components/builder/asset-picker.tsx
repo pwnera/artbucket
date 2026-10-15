@@ -208,7 +208,7 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
               {results?.map((a) => {
                 const n = picked.findIndex((x) => x.id === a.id);
                 return (
-                  // A raw button: a square picture tile, which no Button variant draws.
+                  // eslint-disable-next-line no-restricted-syntax -- A raw button: a square picture tile, which no Button variant draws.
                   <button
                     key={a.id}
                     type="button"

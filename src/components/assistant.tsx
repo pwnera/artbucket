@@ -513,7 +513,8 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
         <IconButton label="New chat" variant="ghost" className="text-muted-foreground" disabled={busy || (!turns.length && !showing)} onClick={fresh}>
           <IconPlus />
         </IconButton>
-        <IconButton label="History" variant="ghost" className="text-muted-foreground" aria-expanded={menu} aria-haspopup="true" disabled={!!notice} onClick={() => setMenu(!menu)}>
+        {/* A disclosure, not a menu: it opens a list of links to conversations (History), so no aria-haspopup. */}
+        <IconButton label="History" variant="ghost" className="text-muted-foreground" aria-expanded={menu} aria-controls={menu ? "assistant-history" : undefined} data-history-toggle="" disabled={!!notice} onClick={() => setMenu(!menu)}>
           <IconHistory />
         </IconButton>
         <IconButton label="Close" variant="ghost" className="text-muted-foreground" onClick={() => a.setOpen(false)}>
@@ -761,7 +762,7 @@ function History({
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const away = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node) && !(e.target as Element).closest?.('[aria-haspopup="true"]')) onClose();
+      if (!ref.current?.contains(e.target as Node) && !(e.target as Element).closest?.("[data-history-toggle]")) onClose();
     };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
@@ -769,6 +770,7 @@ function History({
   return (
     <nav
       ref={ref}
+      id="assistant-history"
       aria-label="Recent conversations"
       className="bg-popover absolute end-2 top-[calc(100%-0.25rem)] z-10 grid max-h-[60vh] w-64 max-w-[calc(100%-1rem)] overflow-y-auto rounded-xl border p-1 shadow-lg"
     >

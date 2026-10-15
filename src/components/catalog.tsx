@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,6 +40,7 @@ import { PinButton } from "@/components/pin-button";
 import { CopyButton } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { ActivityLine, CatalogItem, Granted, Holder } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
@@ -129,7 +130,8 @@ export function CatalogExplorer({ projects, object, folder, tab }: { projects: T
             <CatalogTree projects={projects} current={folder ?? object?.id ?? null} onOpen={(id) => go(id)} onOpenFolder={openFolder} onHide={() => setHidden(true)} />
           </div>
         )}
-        <main className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
+        {/* A div: the shell's own <main> (#content) holds the page. */}
+        <div className="min-w-0 flex-1 px-4 pt-6 pb-16 md:px-6">
           {folder ? (
             <FolderView key={folder} projects={projects} folder={folder} go={go} openFolder={openFolder} />
           ) : object ? (
@@ -137,7 +139,7 @@ export function CatalogExplorer({ projects, object, folder, tab }: { projects: T
           ) : (
             <p className="text-muted-foreground text-sm">Nothing in the catalog you can reach yet. Upload an asset or make a brand, and it shows here.</p>
           )}
-        </main>
+        </div>
       </div>
     </>
   );
@@ -218,7 +220,7 @@ function ObjectView({
       </div>
       <nav aria-label="Object" className="flex gap-5 overflow-x-auto border-b">
         {tabs.map((t) => (
-          // Raw: page navigation (aria-current), not Tabs, since each tab is an address with no panel of its own here.
+          // eslint-disable-next-line no-restricted-syntax -- Raw: page navigation (aria-current), not Tabs, since each tab is an address with no panel of its own here.
           <button
             key={t}
             type="button"
@@ -336,7 +338,7 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
             {folders.map((f) => (
               <li key={f.key}>
-                {/* Raw: the whole tile is the hit target. */}
+                {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole tile is the hit target. */}
                 <button
                   type="button"
                   onClick={() => openFolder(f.key)}
@@ -372,7 +374,7 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
                     tabIndex={0}
                     onClick={() => go(i.id)}
                     onKeyDown={(e) => e.key === "Enter" && go(i.id)}
-                    className="hover:bg-accent/60 focus-visible:bg-accent cursor-pointer outline-none"
+                    className="hover:bg-accent/60 focus-visible:outline-ring cursor-pointer outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     <td className="w-full max-w-0 px-4 py-2.5">
                       <span className="flex min-w-0 items-center gap-2.5">
@@ -672,6 +674,7 @@ function ManageElsewhere({ o, grantable, manage }: { o: Described; grantable: bo
  * Editor: admin over one asset is admin over nothing else.
  */
 function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; granted: Granted[]; reload: () => void }) {
+  const id = useId();
   const [people, setPeople] = useState<{ value: string; label: string; hint?: string }[] | null>(null);
   const [role, setRole] = useState<Scope>("read");
   const [busy, setBusy] = useState<string | null>(null);
@@ -736,7 +739,12 @@ function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; gr
         </ul>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        {/* A combobox takes its name from a label, not from what it shows. */}
+        <Label htmlFor={`${id}-who`} className="sr-only">
+          Person or group to grant
+        </Label>
         <Combobox
+          id={`${id}-who`}
           className="min-w-56 flex-1"
           options={(people ?? []).filter((p) => !held.has(p.value))}
           value=""

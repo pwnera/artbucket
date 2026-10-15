@@ -88,8 +88,8 @@
   --accent-foreground: #20241f;
   --destructive: #d00007;
   /* Text tokens clear 4.5:1 on every surface text sits on (lib/color.test.ts). */
-  --success: #2f6b2a;
-  --warning: #9a5500;
+  --success: #2b6427;
+  --warning: #8f4f00;
   --border: #eae8eb;
   --input: #dcdae0;
   --ring: #6d4aff;

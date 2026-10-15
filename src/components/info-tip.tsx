@@ -16,7 +16,7 @@ export function InfoTip({ children, label = "More info", side, className }: { ch
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger asChild>
-        {/* Raw: a 16px round mark that sits in a line of text, smaller than any Button size. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- Raw: a 16px round mark that sits in a line of text, smaller than any Button size. */}
         <button
           type="button"
           aria-label={label}
