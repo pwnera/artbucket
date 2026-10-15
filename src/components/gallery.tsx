@@ -89,7 +89,7 @@ import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
 import { canonical, isNarrowed, parseView, viewQuery, type View } from "@/lib/view";
-import { reason, refusal } from "@/lib/send";
+import { reason, refusal, sendResult } from "@/lib/send";
 
 export type Asset = {
   id: string;
@@ -669,21 +669,31 @@ export function Gallery({
     if (!view.asset) pushedViewer = false;
   }, [view.asset]);
 
-  /** Every asset this view finds, page by page, put in a new collection; then the collection opens. */
+  /**
+   * Every asset this view finds, page by page, put in a new collection; then the collection opens. A page that fails
+   * saves nothing; an add that fails keeps the collection with what it got, and says how many that is.
+   */
   async function saveAsCollection(name: string) {
     const ids: string[] = [];
     for (let offset = 0; offset < total; offset += 200) {
-      const page = await fetch(`/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`).then((r) => (r.ok ? r.json() : null));
-      if (!page?.data?.length) break;
+      const page = await sendResult("GET", `/api/v1/assets?${apiQuery ? `${apiQuery}&` : ""}limit=200&offset=${offset}`, undefined, { quiet: true });
+      if (!page.ok) {
+        toast.error("Couldn't read every match, so nothing was saved");
+        return false;
+      }
+      if (!page.data.length) break;
       ids.push(...page.data.map((a: { id: string }) => a.id));
     }
     const made: Collection | null = await send("POST", "/api/v1/collections", { name });
     if (!made) return false;
-    for (let i = 0; i < ids.length; i += 1000) {
-      if (!(await send("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(i, i + 1000) }))) return false;
+    let added = 0;
+    for (; added < ids.length; added += 1000) {
+      if (!(await sendResult("POST", `/api/v1/collections/${made.id}/assets`, { add: ids.slice(added, added + 1000) }, { quiet: true })).ok) break;
     }
     setCollections((cs) => [...cs, made].sort((a, b) => a.name.localeCompare(b.name)));
-    toast.success(`Saved ${ids.length.toLocaleString()} ${ids.length === 1 ? "asset" : "assets"} as "${name}"`);
+    const n = (k: number) => `${k.toLocaleString()} ${k === 1 ? "asset" : "assets"}`;
+    if (added < ids.length) toast.error(`Saved only ${added.toLocaleString()} of ${n(ids.length)} as "${name}"`);
+    else toast.success(`Saved ${n(ids.length)} as "${name}"`);
     go({ collection: made.id, q: "", tags: [], types: [], status: [], filters: {}, extra: [] }, true);
     return true;
   }
