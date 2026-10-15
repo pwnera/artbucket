@@ -19,18 +19,9 @@ import {
 import { Card, size } from "@/components/brand-import";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Confirm } from "@/components/confirm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -254,6 +245,7 @@ export function BrandImportPage({ id }: { id: string }) {
     const r = await sendResult("POST", `${url}/${id}/${kind}`);
     if (r.ok) setView(r.data as View);
     router.refresh();
+    return r.ok;
   }
 
   /** Guidelines that couldn't be read, read again: the import goes back to being read, and its plan is written anew. */
@@ -271,6 +263,7 @@ export function BrandImportPage({ id }: { id: string }) {
   async function discard() {
     const r = await sendResult("DELETE", `${url}/${id}`);
     if (r.ok) router.push("/brands");
+    return r.ok;
   }
 
   const trail = [{ label: "Brands", href: "/brands" }, { label: "Imports", href: "/imports" }, { label: view?.filename ?? "Import" }];
@@ -334,7 +327,7 @@ export function BrandImportPage({ id }: { id: string }) {
           aside={<span className="text-muted-foreground text-sm tabular-nums">{size(view.bytes)}</span>}
         >
           {view.can.discard && <DiscardButton onDiscard={discard} />}
-          {view.can.undo && !view.applied?.undoing && <UndoButton onUndo={() => void start("undo")} />}
+          {view.can.undo && !view.applied?.undoing && <UndoButton onUndo={() => start("undo")} />}
         </PageHeader>
 
         {(view.status === "applying" || view.status === "undoing") && <Running view={view} />}
@@ -1240,57 +1233,32 @@ function CollectionRow({
   );
 }
 
-function DiscardButton({ onDiscard }: { onDiscard: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
+function DiscardButton({ onDiscard }: { onDiscard: () => Promise<boolean> }) {
   return (
-    <>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+    <Confirm
+      title="Discard this import?"
+      says="The plan and the uploaded archive are deleted. Nothing was added to the library, so nothing there changes."
+      action="Discard"
+      run={onDiscard}
+    >
+      <Button size="sm" variant="ghost">
         <IconTrash /> Discard
       </Button>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard this import?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The plan and the uploaded archive are deleted. Nothing was added to the library, so nothing there changes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => void onDiscard()}>
-              Discard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    </Confirm>
   );
 }
 
-function UndoButton({ onUndo }: { onUndo: () => void }) {
-  const [open, setOpen] = useState(false);
+function UndoButton({ onUndo }: { onUndo: () => Promise<boolean> }) {
   return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+    <Confirm
+      title="Undo this import?"
+      says="The files it added are deleted (restorable for 30 days), its collections and the brands it made are removed, and brands it added to get their rules back as they were. Files that were already in your library stay."
+      action="Undo import"
+      run={onUndo}
+    >
+      <Button size="sm" variant="outline">
         <IconArrowBackUp /> Undo import
       </Button>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Undo this import?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The files it added are deleted (restorable for 30 days), its collections and the brands it made are removed, and brands it added to get their
-              rules back as they were. Files that were already in your library stay.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={onUndo}>
-              Undo import
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    </Confirm>
   );
 }
