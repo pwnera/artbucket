@@ -233,7 +233,7 @@ function focusProp(form: HTMLFormElement | null, name: string) {
 }
 
 /** What the header menu keeps of assetActions(). */
-const MENU = new Set(["copy", "share", "archive", "unarchive", "public", "delete", "restore"]);
+const MENU = new Set(["copy", "share", "version", "archive", "unarchive", "public", "delete", "restore"]);
 
 const nonNull = <T,>(o: Record<string, T | null>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null)) as Record<string, T>;
 
@@ -298,6 +298,7 @@ export function AssetEditor({
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const downloadRef = useRef<HTMLAnchorElement>(null);
+  const versionFile = useRef<HTMLInputElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
   const [sharing, setSharing] = useState<boolean | null>(null);
   const [zoom, setZoom] = useState(false);
@@ -618,6 +619,7 @@ export function AssetEditor({
   const menu = assetActions(asset, can, {
     onOpen: () => {},
     onShare: () => setSharing(true),
+    onNewVersion: () => versionFile.current?.click(),
     onChanged: () => {
       if (deleting.current) onClose();
       deleting.current = false;
@@ -867,6 +869,17 @@ export function AssetEditor({
             />
           )}
           {hasPreview(asset) && <Renditions asset={asset} />}
+          {/* The menu's Upload a new version: made current where this person may, as the Versions fold's upload. */}
+          <input
+            ref={versionFile}
+            type="file"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void upload(f);
+            }}
+          />
           {/* The file as stored, with the fields written in: what is typed is saved first. */}
           <IconButton label="Download the original" shortcut={["D"]} asChild>
             <a

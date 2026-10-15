@@ -76,6 +76,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useShell } from "@/components/shell";
 import { rulesPath } from "@/lib/site";
+import { useVersionUpload } from "@/components/versions";
 import { relaxInherited, type FieldDef, type FieldValue } from "@/lib/fields";
 import { isFacetable } from "@/lib/filters";
 import { pool } from "@/lib/pool";
@@ -983,6 +984,13 @@ export function Gallery({
   if (!stocked && total > 0) setStocked(true);
 
   const picked = useMemo(() => assets.filter((a) => selected.has(a.id)), [assets, selected]);
+  // The menu's Upload a new version, for the asset it was asked on; once it lands, the version opens.
+  const versionFile = useRef<HTMLInputElement>(null);
+  const versionFor = useRef<Asset | null>(null);
+  const { upload: uploadVersion } = useVersionUpload(null, (id) => {
+    refreshSoon();
+    openAsset(id);
+  });
   const shareAsset = (a: Asset) =>
     share({
       kind: "view",
@@ -1158,6 +1166,10 @@ export function Gallery({
   const menuFor = (a: Asset): ActionContext => ({
     onOpen: () => openAsset(a.id),
     onShare: () => shareAsset(a),
+    onNewVersion: () => {
+      versionFor.current = a;
+      versionFile.current?.click();
+    },
     onPick: () => pick(a, false),
     selected: selected.has(a.id),
     onChanged: refreshSoon,
@@ -1240,6 +1252,21 @@ export function Gallery({
           onChange={(e) => {
             if (e.target.files) start([...e.target.files].filter((f) => !f.webkitRelativePath.split("/").some((p) => p.startsWith("."))));
             e.target.value = "";
+          }}
+        />
+        <input
+          ref={versionFile}
+          type="file"
+          className="hidden"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f || !versionFor.current) return;
+            // Nothing on the tile shows it going: a toast does, until it lands.
+            const going = toast.loading(`Uploading a new version of ${versionFor.current.filename}`);
+            void uploadVersion(f, false, versionFor.current).finally(() => toast.dismiss(going));
           }}
         />
         {/* How an agent reads what this page shows. */}
