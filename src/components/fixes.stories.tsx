@@ -60,7 +60,7 @@ export const Playground = meta.story({
     const todo = canvas.getByRole("heading", { name: /To do/ }).closest("section")!;
     await expect(within(todo).getByText(/its license ends in 2 days/)).toBeInTheDocument();
     await expect(within(todo).getByText("www.acme.test · Since Sep 20, 412 loads")).toBeInTheDocument();
-    await expect(within(todo).getByRole("link", { name: "Open @4" })).toHaveAttribute("href", "/catalog?o=cmp_header_4");
+    await expect(within(todo).getByRole("link", { name: "Open @4" })).toHaveAttribute("href", "/components/cmp_header_4");
     const done = canvas.getByRole("heading", { name: /Done/ }).closest("section")!;
     await expect(within(done).getByText("Notified 3 days ago")).toBeInTheDocument();
     await expect(within(done).getByText("Requested 5 days ago")).toBeInTheDocument();

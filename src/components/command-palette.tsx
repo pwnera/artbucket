@@ -214,12 +214,12 @@ export function CommandPalette({
       const [data, parts] = await Promise.all([
         fetch(`/api/v1/assets?limit=8&q=${q}`)
           .then((r) => (r.ok ? r.json() : { data: [] }))
-          .then((b: { data: Asset[] }) => b.data)
+          .then((b: { data?: Asset[] }) => b.data ?? [])
           .catch(() => [] as Asset[]),
         // The assets' search beside it is the one Insights records.
         fetch(`/api/v1/catalog?limit=6&type=component&type=site&record=false&q=${q}`)
           .then((r) => (r.ok ? r.json() : { items: [] }))
-          .then((b: { items: CatalogItem[] }) => b.items)
+          .then((b: { items?: CatalogItem[] }) => b.items ?? [])
           .catch(() => [] as CatalogItem[]),
       ]);
       if (!live) return;
