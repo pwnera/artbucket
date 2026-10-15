@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconCertificate, IconCircleCheck, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
+import { IconCertificate, IconCircleCheck, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
 import { AppHeader, PageHeader } from "@/components/page";
 import { ShareDialog } from "@/components/share-dialog";
@@ -47,13 +47,15 @@ const Done = ({ children, at, by }: { children: React.ReactNode; at?: string; by
  * replaced version (Notify, Insights' own dialog), searches that found
  * nothing (Request it, an upload link named after them) and licenses about
  * to end (open the asset, or what replaced it). What isn't done comes first;
- * what is stays below, saying when, until it leaves Insights' window.
+ * what is stays below, saying when, until it leaves Insights' window. A
+ * server with an issue tracker (`issueUrl`, FIX_ISSUE_URL) also offers to
+ * open an issue about a place or a search, where the team works.
  */
-export function Fixes({ data, collections }: { data: FixesData | null; collections: { id: string; name: string }[] }) {
+export function Fixes({ data, collections, issueUrl = null }: { data: FixesData | null; collections: { id: string; name: string }[]; issueUrl?: string | null }) {
   const router = useRouter();
   const [notifying, setNotifying] = useState<Place | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
-  const rows = data ? rowsOf(data, setNotifying, setRequesting) : [];
+  const rows = data ? rowsOf(data, setNotifying, setRequesting, issueUrl) : [];
   const todo = rows.filter((r) => !r.done);
   const done = rows.filter((r) => r.done);
   return (
@@ -144,8 +146,18 @@ function Section({ title, rows, empty }: { title: string; rows: Row[]; empty?: s
   );
 }
 
+/** Open an issue about it, where the server's tracker takes it (`issueUrl` with the fix's kind and what it is about). */
+const IssueLink = ({ at, about }: { at: string | null; about: Record<string, string> }) =>
+  at && (
+    <Button size="xs" variant="ghost" asChild>
+      <a href={`${at}?${new URLSearchParams(about)}`}>
+        <IconFlag /> Open an issue
+      </a>
+    </Button>
+  );
+
 /** Every fix as a row: licenses first (they run out), then places, then searches, each in the API's order. */
-function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string) => void): Row[] {
+function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string) => void, issueUrl: string | null): Row[] {
   const licenses: Row[] = data.licenses.map((l) => ({
     key: `license:${l.asset.id}`,
     icon: <IconCertificate />,
@@ -201,9 +213,12 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
         </Done>
       ) : null,
       action: (
-        <Button size="xs" variant="outline" onClick={() => notify({ referrer, client: referrer ? null : client, owners, assets: pending })}>
-          <IconSend /> Notify
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <IssueLink at={issueUrl} about={{ kind: "stale", place }} />
+          <Button size="xs" variant="outline" onClick={() => notify({ referrer, client: referrer ? null : client, owners, assets: pending })}>
+            <IconSend /> Notify
+          </Button>
+        </span>
       ),
     };
   });
@@ -224,9 +239,12 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       </Done>
     ),
     action: (
-      <Button size="xs" variant="outline" onClick={() => request(g.q)}>
-        <IconFolderUp /> Request it
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <IssueLink at={issueUrl} about={{ kind: "gap", q: g.q }} />
+        <Button size="xs" variant="outline" onClick={() => request(g.q)}>
+          <IconFolderUp /> Request it
+        </Button>
+      </span>
     ),
   }));
 

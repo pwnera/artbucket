@@ -61,6 +61,7 @@ const schema = z.object({
    * Unset: no links; the API and the CLI still sync a brand with its files.
    */
   GIT_CONNECT_URL: z.string().url().optional(),
+  FIX_ISSUE_URL: z.string().url().optional(),
   /**
    * Where a built site gets connected to a repository by this server's build
    * integration, {site} standing for the site's address: it builds the site
