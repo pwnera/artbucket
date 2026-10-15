@@ -70,6 +70,14 @@ export const canonical = (query: string) => viewQuery(parseView(new URLSearchPar
 export const isNarrowed = (v: View) =>
   v.q.trim() !== "" || v.tags.length > 0 || v.types.length > 0 || v.status.length > 0 || v.extra.length > 0 || Object.values(v.filters).some((x) => x.length > 0);
 
+/**
+ * Explore's search box with words (not Assets' plain grid, a collection or
+ * Review), where something besides assets may match: its search of every
+ * type (components/catalog-matches.tsx) is the one Insights records, not
+ * the assets' beside it.
+ */
+export const explored = (v: View, browse: boolean) => !browse && !v.collection && !v.review && !!v.q.trim() && !!narrowOf(v);
+
 /** Explore's filters as the catalog reads them (GET /api/v1/catalog): its tags, and its asset states as the catalog's statuses. */
 export type Narrow = { tags: string[]; statuses: ("draft" | "in_review" | "current" | "archived")[] };
 

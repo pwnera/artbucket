@@ -90,7 +90,7 @@ import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
-import { canonical, isNarrowed, narrowOf, parseView, viewQuery, type View } from "@/lib/view";
+import { canonical, explored, isNarrowed, narrowOf, parseView, viewQuery, type View } from "@/lib/view";
 import { reason, refusal, sendResult } from "@/lib/send";
 
 export type Asset = {
@@ -450,10 +450,13 @@ export function Gallery({
     async (keep = true) => {
       const ticket = ++latest.current;
       lastRefresh.current = Date.now();
-      const q = viewQuery(currentView(), false);
+      const v = currentView();
+      const q = viewQuery(v, false);
       const want = keep ? Math.max(PAGE, loaded.current) : PAGE;
+      // A new query is a search for Insights; reloading the same one is not, nor is Explore's (its search of every type is).
+      const quiet = keep || explored(v, new URLSearchParams(location.search).has("browse")) ? "record=false&" : "";
       const url = (offset: number) =>
-        `/api/v1/assets?${q}${q ? "&" : ""}${offset ? `offset=${offset}&` : ""}limit=${Math.min(MAX_PAGE, want - offset)}`;
+        `/api/v1/assets?${q}${q ? "&" : ""}${quiet}${offset ? `offset=${offset}&` : ""}limit=${Math.min(MAX_PAGE, want - offset)}`;
       const json = (u: string) =>
         fetch(u)
           .then((r) => (r.ok ? r.json() : null))
@@ -552,7 +555,8 @@ export function Gallery({
     const ticket = latest.current;
     const q = viewQuery(currentView(), false);
     try {
-      const res = await fetch(`/api/v1/assets?${q}${q ? "&" : ""}offset=${loaded.current}&limit=${PAGE}`);
+      // Paging on is the same search, never a new one.
+      const res = await fetch(`/api/v1/assets?${q}${q ? "&" : ""}record=false&offset=${loaded.current}&limit=${PAGE}`);
       const page: Listing | null = res.ok ? await res.json().catch(() => null) : null;
       if (ticket !== latest.current) return;
       if (!page) return void toast.error("Couldn't load more", { id: "more", action: { label: "Retry", onClick: () => void again.current.loadMore() } });

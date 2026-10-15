@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { request, signUp } from "@/test/db";
 import { db } from "@/lib/db";
-import { assets } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { assets, events } from "@/lib/db/schema";
 import { parseQuery } from "@/lib/catalog";
 import { callerFrom } from "@/lib/core/access";
 import { ingestBytes } from "@/lib/core/assets";
@@ -151,4 +151,14 @@ test("the catalog spans the organization's projects: Q4 is there for its admin",
   await upload("q4-hero.png", {}, (await callerFrom(request({ cookie: `${ada.cookie}; ab_project=${q4.id}` })))!);
   const r = await searchCatalog(ada.caller, parseQuery("hero"));
   assert.deepEqual(r.projects.map((p) => p.name), ["Q4 Campaign"]);
+});
+
+test("a search with words is one search for Insights, found when any type matched; record: false is only a look", async () => {
+  const searches = (subject: string) => db.select().from(events).where(and(eq(events.projectId, corporate.id), eq(events.kind, "search"), eq(events.subject, subject)));
+  await searchCatalog(ada.caller, parseQuery("acme type:brand"));
+  await searchCatalog(ada.caller, parseQuery("zzunmatched"), { record: false });
+  await searchCatalog(ada.caller, parseQuery("acme"), { cursor: 30 });
+  for (let i = 0; i < 50 && !(await searches("acme")).length; i++) await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual((await searches("acme")).map((e) => [e.surface, e.verdict]), [["app", "found"]]);
+  assert.equal((await searches("zzunmatched")).length, 0);
 });

@@ -519,6 +519,8 @@ export type AssetQuery = {
   offset?: number;
   /** False: no facet counts, each empty, for a count (`total`) alone. Never saved: parseAssetQuery leaves it out. */
   facets?: boolean;
+  /** False: not a search for Insights, as Explore's assets aren't (its search of every type is). Never saved either. */
+  record?: boolean;
 };
 
 /** A day (YYYY-MM-DD, from its start in UTC) or a moment with its offset. */
@@ -675,7 +677,7 @@ export function assetWhere(
  */
 /** `surface`: where the search came in, for Insights; a search with words is recorded, found or not. */
 export async function searchAssets(caller: Caller, query: AssetQuery, surface: Surface = caller.key ? "api" : "app") {
-  const { q, limit = 100, offset = 0, facets: counted = true } = query;
+  const { q, limit = 100, offset = 0, facets: counted = true, record = true } = query;
   const tsq = q ? prefixQuery(q) : null;
   const where = (except?: string, anyType = false, anyState = false) => assetWhere(caller, query, except, anyType, anyState);
 
@@ -699,7 +701,7 @@ export async function searchAssets(caller: Caller, query: AssetQuery, surface: S
     counted ? stateFacet(where(undefined, false, true)) : [],
     ...facetable.map((d) => fieldFacet(d.key, where(d.key))),
   ]);
-  if (!offset) recordSearch(caller.project.id, q, total > 0, { surface, ...who(caller) });
+  if (!offset && record) recordSearch(caller.project.id, q, total > 0, { surface, ...who(caller) });
   return {
     data,
     /** Every match, not just this page: page with `offset` until it is reached. */

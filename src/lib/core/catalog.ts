@@ -37,6 +37,8 @@ import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/c
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 import { assetType } from "@/lib/core/assets";
 import { prefixQuery } from "@/lib/search";
+import { recordSearch, who } from "@/lib/core/events";
+import type { Surface } from "@/lib/insights";
 import { buildsAddress } from "@/lib/core/domains";
 import { storyAt } from "@/lib/sites";
 import type { AssetType } from "@/lib/filters";
@@ -283,8 +285,15 @@ export type CatalogResults = {
  * Search every type at once. Ranked by the words when there are some, else
  * newest first; `limit` per page, `cursor` the offset the last page gave.
  * Without a `status:` filter, retired objects are counted aside, not shown.
+ * A first page with words is a search for Insights, found if anything of
+ * any type matched; `record: false` for a look that isn't one (a type's tab,
+ * a list beside a search recorded already).
  */
-export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 30, cursor = 0 } = {}): Promise<CatalogResults> {
+export async function searchCatalog(
+  caller: Caller,
+  q: CatalogQuery,
+  { limit = 30, cursor = 0, record = true, surface = caller.key ? "api" : "app" }: { limit?: number; cursor?: number; record?: boolean; surface?: Surface } = {},
+): Promise<CatalogResults> {
   const reaches = await reachOf(caller);
   const { where, rank } = await whereOf(caller, q, reaches);
   const shown = q.statuses.length ? where : and(where, sql`not ${retiredSql}`)!;
@@ -317,9 +326,11 @@ export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 3
     perProject.set(c.project, p);
   }
   const page = found.slice(0, limit) as Row[];
+  const total = Object.values(counts).reduce((s, n) => s + (n ?? 0), 0);
+  if (record && !cursor) recordSearch(caller.project.id, q.words, total > 0, { surface, ...who(caller) });
   return {
     query: formatQuery(q),
-    total: Object.values(counts).reduce((s, n) => s + (n ?? 0), 0),
+    total,
     counts,
     projects: [...perProject.values()].sort((a, b) => b.count - a.count),
     items: await withPreviews(await items(page)),

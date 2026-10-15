@@ -295,6 +295,18 @@
               ]
             },
             "description": "false: no facet counts, each empty, answered faster: for `total` alone"
+          },
+          {
+            "name": "record",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "false: not counted as a search in Insights (a list beside a search counted already)"
           }
         ],
         "responses": {
@@ -15921,6 +15933,18 @@
               "minimum": 0
             },
             "description": "The previous page's `next`"
+          },
+          {
+            "name": "record",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "false: not counted as a search in Insights"
           }
         ],
         "responses": {

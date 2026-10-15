@@ -27,8 +27,10 @@ const PAGE = 40;
 
 type Found = { key: string; r: CatalogResults; items: CatalogResults["items"] };
 
+/** `record`: the search of every type is Explore's one search for Insights; a type's tab is a look at it. */
 const fetchCatalog = (q: string, types: CatalogType[], narrow: Narrow, cursor: number, signal?: AbortSignal) => {
   const params = new URLSearchParams({ q, limit: String(PAGE), cursor: String(cursor) });
+  if (types.length !== EVERY.length) params.set("record", "false");
   for (const t of types) params.append("type", t);
   for (const t of narrow.tags) params.append("tag", t);
   if (narrow.statuses.length) params.set("status", narrow.statuses.join(","));

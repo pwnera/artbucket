@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonical, narrowOf, parseView, viewQuery } from "./view.ts";
+import { canonical, explored, narrowOf, parseView, viewQuery } from "./view.ts";
 
 test("a view round-trips through its URL, in canonical order", () => {
   const v = parseView(new URLSearchParams("f.budget.gte=10&asset=a1&type=font&tag=x&q=fox&f.channel=web&collection=c1&type=image"));
@@ -29,4 +29,13 @@ test("Explore's facets narrow every type: tags as they are, states as the catalo
   assert.deepEqual(v("status=archived&status=rejected"), { tags: [], statuses: ["archived"] });
   // What only assets have leaves the other types out.
   for (const q of ["type=image", "f.channel=web", "status=expired", "f.budget.gte=10"]) assert.equal(v(q), null, q);
+});
+
+test("Explore's search box is explored: its search of every type is the one Insights records", () => {
+  const e = (q: string, browse = false) => explored(parseView(new URLSearchParams(q)), browse);
+  assert.equal(e("q=logo"), true);
+  assert.equal(e("q=logo", true), false);
+  assert.equal(e("q=logo&collection=c1"), false);
+  assert.equal(e("q=logo&type=image"), false);
+  assert.equal(e("tag=brand"), false);
 });
