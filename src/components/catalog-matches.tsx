@@ -131,6 +131,13 @@ export function CatalogMatches({
         <Section title="Top results">
           <CardGrid>{all.items.slice(0, SHOWN).map(card)}</CardGrid>
           {all.r.total > SHOWN && <p className="text-muted-foreground text-xs">Pick a type above to see every match of it</p>}
+          {/* What the search left out, so a missing logo isn't a mystery: "logo.png @3 matches too, but it was replaced by @4." */}
+          {all.r.hidden.example && (
+            <p className="text-muted-foreground text-xs">
+              {all.r.hidden.example}
+              {all.r.hidden.count > 1 && ` ${all.r.hidden.count - 1} more replaced, archived or expired ${all.r.hidden.count === 2 ? "match" : "matches"} left out too.`}
+            </p>
+          )}
         </Section>
       )}
     </>
