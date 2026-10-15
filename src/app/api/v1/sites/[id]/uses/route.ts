@@ -1,4 +1,4 @@
-import { ok, route } from "@/lib/api";
+import { ok, route, zipBody } from "@/lib/api";
 import { recordUses } from "@/lib/core/sites";
 
 /**
@@ -8,6 +8,6 @@ import { recordUses } from "@/lib/core/sites";
  */
 export const POST = route<{ id: string }>("portal.manage", async (req, { id }, caller) => {
   const q = new URL(req.url).searchParams;
-  const data = await recordUses(caller, id, new Uint8Array(await req.arrayBuffer()), { commit: q.get("commit"), ref: q.get("ref") });
+  const data = await recordUses(caller, id, await zipBody(req), { commit: q.get("commit"), ref: q.get("ref") });
   return data && ok({ data });
 });
