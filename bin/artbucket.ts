@@ -67,6 +67,14 @@ const HELP = `artbucket <command>
   site check [dir]        check a build hosted anywhere, from its CI: what it uses
                           of the library, and why any of it may not be shown;
                           exits 1 when something may not
+  site scan [dir] --site <address> [--packages @acme/ui,...]
+                          record what an external site's code uses, from its CI
+                          at the repository's root: the components it imports
+                          (from the project's Storybooks, at the version its
+                          code is) and the assets it links or copies; in
+                          lineage and Fixes; exits 1 when some may not be used.
+                          Packages are followed only when named in --packages;
+                          one that imports a component's name is pointed out
   rules [--brand b] [--context c]
                           a brand's rules; with a context, what applies there
   rules set <key> <value> --type color|text|number|list [--context c] [--usage text] [--asset id[:rendition]]...
@@ -160,6 +168,7 @@ const { values: opt, positionals } = parseArgs({
     project: { type: "string" },
     to: { type: "string" },
     site: { type: "string" },
+    packages: { type: "string", multiple: true },
     path: { type: "string" },
     kind: { type: "string" },
     direction: { type: "string" },
@@ -239,8 +248,10 @@ const loginOf = (t: { access_token: string; refresh_token?: string; expires_in?:
  * A folder as a zip, deflated, hidden files left out: what site push sends.
  * Written here, as the CLI is one file with no dependencies.
  */
-async function zipFolder(dir: string) {
-  const names: string[] = [];
+const MANIFEST = "artbucket.site.json";
+
+async function zipFolder(dir: string, extra: Record<string, Buffer> = {}, only?: string[]) {
+  const names: string[] = only ? [...only] : [];
   const walk = async (d: string, rel: string) => {
     for (const e of await readdir(d, { withFileTypes: true })) {
       if (e.name.startsWith(".")) continue;
@@ -249,13 +260,14 @@ async function zipFolder(dir: string) {
       else if (e.isFile()) names.push(r);
     }
   };
-  await walk(dir, "");
+  if (!only) await walk(dir, "");
   if (!names.length) throw new Error(`${dir} holds no files: build the site first`);
+  for (const name of Object.keys(extra)) if (!names.includes(name)) names.push(name);
   const parts: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
   for (const name of names) {
-    const data = await readFile(join(dir, name));
+    const data = extra[name] ?? (await readFile(join(dir, name)));
     const packed = deflateRawSync(data);
     const crc = crc32(data) >>> 0;
     const n = Buffer.from(name);
@@ -291,6 +303,187 @@ async function zipFolder(dir: string) {
   end.writeUInt32LE(dirBytes.length, 12);
   end.writeUInt32LE(offset, 16);
   return { zip: Buffer.concat([...parts, dirBytes, end]), files: names.length };
+}
+
+/**
+ * A Storybook build's components' code, hashed: each component's stories and
+ * source as its index.json names them, read from where Storybook ran (here).
+ * Put in artbucket.site.json's `fingerprints`, so the server makes a new
+ * version of a component when its code changes, not only its stories.
+ * Nothing when the folder isn't a Storybook or the sources aren't here.
+ */
+async function storybookFingerprints(dir: string, root = process.cwd()): Promise<Record<string, string>> {
+  const index = await readFile(join(dir, "index.json"), "utf8").then(JSON.parse, () => null);
+  const entries = index && typeof index === "object" ? (index.entries ?? index.stories) : null;
+  if (!entries || typeof entries !== "object") return {};
+  const files = new Map<string, Set<string>>();
+  for (const e of Object.values(entries) as { id?: unknown; importPath?: unknown; componentPath?: unknown }[]) {
+    if (typeof e?.id !== "string" || !e.id.includes("--")) continue;
+    const slug = e.id.split("--")[0];
+    const set = files.get(slug) ?? new Set<string>();
+    for (const f of [e.importPath, e.componentPath]) if (typeof f === "string") set.add(f);
+    files.set(slug, set);
+  }
+  const out: Record<string, string> = {};
+  for (const [slug, set] of files) {
+    const hash = await codeHash([...set], root);
+    if (hash) out[slug] = hash;
+  }
+  return out;
+}
+
+/** A component's code as one hash: its files, as index.json names them, read from `root`; null when none is there. */
+async function codeHash(files: string[], root: string) {
+  const hash = createHash("sha256");
+  let read = 0;
+  for (const f of [...files].sort()) {
+    const data = await readFile(resolve(root, f)).catch(() => null);
+    if (data) {
+      hash.update(f).update(data);
+      read++;
+    }
+  }
+  return read ? hash.digest("hex") : null;
+}
+
+/** The files a scan reads: what git tracks under dir, so builds and dependencies stay out; else every file but node_modules and hidden ones. */
+async function scanned(dir: string): Promise<string[]> {
+  const tracked = await new Promise<string[] | null>((done) =>
+    execFile("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: dir, maxBuffer: 64 << 20 }, (err, out) => done(err ? null : out.split("\0").filter(Boolean))),
+  );
+  // Only what is there as a file: not a deletion git hasn't seen yet, nor a submodule.
+  if (tracked) return (await Promise.all(tracked.map(async (f) => ((await stat(join(dir, f)).catch(() => null))?.isFile() ? f : null)))).filter((f): f is string => !!f);
+  const names: string[] = [];
+  const walk = async (d: string, rel: string) => {
+    for (const e of await readdir(d, { withFileTypes: true })) {
+      if (e.name.startsWith(".") || e.name === "node_modules") continue;
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) await walk(join(d, e.name), r);
+      else if (e.isFile()) names.push(r);
+    }
+  };
+  await walk(dir, "");
+  return names;
+}
+
+const CODE = /\.(m?[jt]sx?|cjs|vue|svelte|astro|mdx)$/;
+const STORY = /\.(stories|story)\.[^/]+$/;
+const TEST = /\.(test|spec)\.[^/]+$|(^|\/)__tests__\//;
+const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+|^\s*export\s+\*\s+from\s*)["']([^"']+)["']/gm;
+const RESOLVES = ["", ".tsx", ".ts", ".jsx", ".js", ".mjs", ".vue", ".svelte", "/index.tsx", "/index.ts", "/index.jsx", "/index.js"];
+
+/** tsconfig's (or jsconfig's) paths at `root`, as [prefix, folders]: `@/*` to `./src/*` is ["@/", [root/src/]]. */
+async function aliasesAt(root: string): Promise<[string, string[]][]> {
+  for (const name of ["tsconfig.json", "jsconfig.json"]) {
+    const raw = await readFile(join(root, name), "utf8").catch(() => null);
+    if (!raw) continue;
+    try {
+      // JSON with comments and trailing commas, as tsconfig allows: strings kept as they are.
+      const c = JSON.parse(raw.replace(/("(?:\\.|[^"\\])*")|\/\/.*$|\/\*[\s\S]*?\*\//gm, (_m, str) => str ?? "").replace(/,(\s*[}\]])/g, "$1"));
+      const base = resolve(root, c?.compilerOptions?.baseUrl ?? ".");
+      return Object.entries((c?.compilerOptions?.paths ?? {}) as Record<string, string[]>).map(([k, v]) => [k.replace(/\*$/, ""), v.map((t) => resolve(base, t.replace(/\*$/, "")))]);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+type Component = { address: string; name: string; version: number; files: string[] };
+
+/**
+ * The Storybook components a codebase imports: each import in its code
+ * (stories aside) resolved as the bundler would, relatively or through
+ * tsconfig's paths, against each component's source as its Storybook names
+ * it, relative to `root`, where Storybook ran. With each, the hash of the code
+ * it has here, so the server names the version that is.
+ *
+ * Imports through a package's name (`@acme/ui`) are followed only for the
+ * packages asked (`--packages`): by the names imported (`{ Button }`, or a
+ * subpath's last segment), at the version whose code it is when the
+ * component's source is here too (a monorepo), else the current one. A
+ * package not asked that imports a component's name is said in `skipped`,
+ * so the scan can say how to follow it.
+ */
+async function importedComponents(dir: string, files: string[], components: Component[], root: string, packages: string[] = []) {
+  const aliases = await aliasesAt(root);
+  const targetsOf = (spec: string, from: string) =>
+    (spec.startsWith(".")
+      ? [resolve(dirname(from), spec)]
+      : aliases.flatMap(([prefix, dirs]) => ((prefix.endsWith("/") ? spec.startsWith(prefix) : spec === prefix) ? dirs.map((d) => resolve(d, spec.slice(prefix.length))) : []))
+    ).flatMap((b) => RESOLVES.map((x) => b + x));
+  const sources = new Map<string, Component>();
+  for (const c of components) {
+    const src = c.files.find((f) => !STORY.test(f));
+    if (src) sources.set(resolve(root, src), c);
+  }
+  // A stories file that names no component (several in one) stands for those it imports from its own folder, but one documented on its own.
+  for (const c of components.filter((x) => x.files.every((f) => STORY.test(f)) && x.files.length)) {
+    const story = resolve(root, c.files[0]);
+    const text = await readFile(story, "utf8").catch(() => "");
+    for (const m of text.matchAll(IMPORT))
+      for (const t of targetsOf(m[1], story))
+        if (!sources.has(t) && dirname(t) === dirname(story) && (await stat(t).catch(() => null))?.isFile()) sources.set(t, c);
+  }
+  const used = new Map<Component, string[]>();
+  const foundIn = (c: Component, file: string) => used.set(c, [...new Set([...(used.get(c) ?? []), file])]);
+  const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const byName = new Map(components.map((c) => [key(c.name), c]));
+  const skipped = new Map<string, { names: Set<string>; files: Set<string>; byPath: boolean }>();
+  // Stories, tests and Storybook's own config (.storybook) aren't the app: no use of a component.
+  for (const file of files.filter((f) => CODE.test(f) && !STORY.test(f) && !TEST.test(f) && !/(^|\/)\./.test(f))) {
+    const at = resolve(dir, file);
+    // Code only: an import in a comment (an example in a doc comment) is none.
+    const text = (await readFile(at, "utf8").catch(() => "")).replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, "");
+    for (const m of text.matchAll(IMPORT)) {
+      const hit = targetsOf(m[1], at).find((t) => sources.has(t));
+      // A component's own files importing each other aren't a use of it.
+      const c = hit && sources.get(hit);
+      if (c && !sources.has(at)) foundIn(c, file);
+    }
+    for (const m of text.matchAll(PACKAGE_IMPORT)) {
+      const [, clause, spec] = m;
+      if (targetsOf(spec, at).length) continue;
+      const pkg = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+      const names = importedNames(clause);
+      const sub = spec.slice(pkg.length + 1).split("/").pop();
+      const bySub = sub ? byName.get(key(sub)) : undefined;
+      const found = [...names.map((n) => byName.get(key(n))), bySub].filter((c): c is Component => !!c);
+      if (!found.length) continue;
+      if (packages.includes(pkg)) for (const c of found) foundIn(c, file);
+      else {
+        const s = skipped.get(pkg) ?? { names: new Set<string>(), files: new Set<string>(), byPath: false };
+        for (const c of found) s.names.add(c.name);
+        s.files.add(file);
+        s.byPath ||= !!bySub;
+        skipped.set(pkg, s);
+      }
+    }
+  }
+  return {
+    used: await Promise.all([...used].map(async ([c, by]) => ({ component: c.address, fingerprint: await codeHash(c.files, root), name: c.name, by }))),
+    // ponytail: one name alone (an icon called Book) is taken for a collision; a package named in --packages is followed whatever it brings in.
+    skipped: [...skipped].filter(([, s]) => s.byPath || s.names.size > 1).map(([pkg, s]) => ({ pkg, names: [...s.names], files: s.files.size })),
+  };
+}
+
+/** `import Button, { Card as C, type Props } from "x"`: the clause and the package. Relative and aliased ones are skipped where it is read. */
+const PACKAGE_IMPORT = /\bimport\s+(?:type\s+)?([\w$]+\s*,?\s*(?:\{[^}]*\})?|\{[^}]*\})\s*from\s*["']([^"'./][^"']*)["']/g;
+
+/** The names an import clause brings in, as the package exports them: the default's own name, and each named one before `as`. */
+const importedNames = (clause: string) =>
+  clause
+    .replace(/[{}]/g, ",")
+    .split(",")
+    .map((n) => n.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0])
+    .filter((n) => /^[\w$]+$/.test(n));
+
+/** artbucket.site.json with a Storybook's fingerprints added, to send in its place; nothing for any other folder. */
+async function withFingerprints(dir: string): Promise<Record<string, Buffer>> {
+  const prints = await storybookFingerprints(resolve(dir));
+  if (!Object.keys(prints).length) return {};
+  const own = await readFile(join(resolve(dir), MANIFEST), "utf8").then(JSON.parse, () => ({}));
+  return { [MANIFEST]: Buffer.from(JSON.stringify({ ...own, fingerprints: prints })) };
 }
 
 async function api(method: string, path: string, body?: unknown) {
@@ -1136,8 +1329,45 @@ async function main() {
       const [sub, dir = "dist"] = args;
       if (sub === "new") return console.log(await siteNew(need(args[1], "the new site's folder: artbucket site new acme-docs --brand acme")));
       if (sub === "eject") return console.log(await siteEject(need(args[1], "the new site's folder: artbucket site eject acme-guidelines --brand acme")));
+      if (sub === "scan") {
+        if (!opt.site) throw new Error("--site: the external site's address, as artbucket sites lists it");
+        const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
+        if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);
+        if (site.kind !== "external") throw new Error(`${opt.site} is a ${site.kind} site, deployed with site push: scan records what a site hosted elsewhere uses (make one of kind external)`);
+        const at = resolve(dir);
+        const files = await scanned(at);
+        // Storybook names its components' files from where it ran: here, the repository's root as CI runs it.
+        const packages = (opt.packages ?? []).flatMap((p) => p.split(",")).map((p) => p.trim()).filter(Boolean);
+        const { used, skipped } = await importedComponents(at, files, (await api("GET", "/api/v1/components")).data, process.cwd(), packages);
+        // A package not followed that imports a component's name may be the design system: say how to follow it, on stderr, beside the result.
+        for (const s of skipped)
+          console.error(
+            `! ${s.pkg} brings in ${s.names.join(", ")} (${s.files} file${s.files === 1 ? "" : "s"}) and isn't followed. If it is your design system, scan it too: --packages ${s.pkg}`,
+          );
+        const manifest = Buffer.from(JSON.stringify({ components: used.map(({ component, fingerprint }) => ({ component, fingerprint })) }));
+        const { zip } = await zipFolder(at, { [MANIFEST]: manifest }, files);
+        const q = new URLSearchParams({ ...(process.env.GITHUB_SHA && { commit: process.env.GITHUB_SHA }), ...(process.env.GITHUB_REF_NAME && { ref: process.env.GITHUB_REF_NAME }) });
+        const res = await fetch(`${BASE}/api/v1/sites/${site.id}/uses?${q}`, {
+          method: "POST",
+          headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
+          body: zip,
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw failed(res, json, "site scan");
+        const r = json.data as { files: number; uses: { asset: string }[]; problems: string[] };
+        if (r.problems.length) process.exitCode = 1;
+        const assets = new Set(r.uses.map((u) => u.asset)).size;
+        const by = (f: string[]) => (f.length > 1 ? `${f[0]} and ${f.length - 1} more` : f[0]);
+        return out(json, () =>
+          [
+            `Recorded for ${site.slug}: ${r.files} files, ${assets} asset${assets === 1 ? "" : "s"} of the library, ${used.length} component${used.length === 1 ? "" : "s"}`,
+            ...used.map((u) => `  ${u.name.padEnd(20)} ${by(u.by)}`),
+            ...r.problems.map((p) => `  x ${p}`),
+          ].join("\n"),
+        );
+      }
       if (sub === "check") {
-        const { zip, files } = await zipFolder(resolve(dir));
+        const { zip, files } = await zipFolder(resolve(dir), await withFingerprints(dir));
         const res = await fetch(`${BASE}/api/v1/sites/check`, {
           method: "POST",
           headers: { accept: "application/json", "content-type": "application/zip", ...(KEY ? { authorization: `Bearer ${KEY}` } : {}) },
@@ -1152,11 +1382,12 @@ async function main() {
           [`${r.allowed ? "allowed" : "refused"}  ${files} files, ${used} asset${used === 1 ? "" : "s"} of the library`, ...r.problems.map((p) => `  x ${p}`)].join("\n"),
         );
       }
-      if (sub !== "push") throw new Error("artbucket site push|check [dir] --site <address> [--path /docs] [--kind docs]");
+      if (sub !== "push") throw new Error("artbucket site push|check|scan [dir] --site <address> [--path /docs] [--kind docs]");
       if (!opt.site) throw new Error("--site: the site's address, as artbucket sites lists it");
       const site = (await api("GET", "/api/v1/sites")).data.find((x: { slug: string }) => x.slug === opt.site);
       if (!site) throw new Error(`No site ${opt.site} in this project: artbucket sites lists them`);
-      const { zip, files } = await zipFolder(resolve(dir));
+      // A Storybook's components' code, hashed where it was built: a change to one makes a new version of it.
+      const { zip, files } = await zipFolder(resolve(dir), await withFingerprints(dir));
       const q = new URLSearchParams({ path: opt.path ?? "/", ...(opt.kind && { kind: opt.kind }), ...(opt.preview && { preview: opt.preview }) });
       const res = await fetch(`${BASE}/api/v1/sites/${site.id}/deployments?${q}`, {
         method: "POST",

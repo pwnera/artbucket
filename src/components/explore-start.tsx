@@ -28,7 +28,7 @@ export const rememberQuery = (list: string[], q: string) => [q, ...list.filter((
 /** Everything there is to explore, a type at a time: assets in their grid, the rest as Explore's matches (?in=). */
 const CHIPS: { label: string; href: string; icon: React.ReactNode }[] = [
   { label: TYPE_LABEL.asset.many, href: "/?browse", icon: <TypeIcon type="asset" className="text-muted-foreground size-4" /> },
-  ...(["brand", "collection", "rule", "page", "site"] as const).map((t) => ({
+  ...(["brand", "collection", "rule", "page", "component", "site"] as const).map((t) => ({
     label: TYPE_LABEL[t].many,
     href: `/?in=${t}`,
     icon: <TypeIcon type={t} className="text-muted-foreground size-4" />,

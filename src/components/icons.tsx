@@ -157,6 +157,7 @@ import {
   Pulse,
   PushPin,
   PushPinSlash,
+  PuzzlePiece,
   Question,
   Quotes,
   Robot,
@@ -305,6 +306,7 @@ export const IconCircleX = ph(XCircle as Phosphor, "IconCircleX");
 export const IconClipboard = ph(Clipboard as Phosphor, "IconClipboard");
 export const IconClock = ph(Clock as Phosphor, "IconClock");
 export const IconCloudUpload = ph(CloudArrowUp as Phosphor, "IconCloudUpload");
+export const IconComponents = ph(PuzzlePiece as Phosphor, "IconComponents");
 export const IconCode = ph(Code as Phosphor, "IconCode");
 export const IconColorPicker = ph(Eyedropper as Phosphor, "IconColorPicker");
 export const IconColumnInsertLeft = ph(ColumnsPlusLeft as Phosphor, "IconColumnInsertLeft");

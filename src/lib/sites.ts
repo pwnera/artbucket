@@ -7,12 +7,18 @@
  * Pure: `pnpm test` runs it under plain Node.
  */
 
-export const SITE_KINDS = ["portal", "guidelines", "landing", "docs", "storybook"] as const;
+export const SITE_KINDS = ["portal", "guidelines", "landing", "docs", "storybook", "external"] as const;
 export type SiteKind = (typeof SITE_KINDS)[number];
 
-/** The kinds that are static files someone built: every kind but the managed portal. */
-export const BUILD_KINDS = SITE_KINDS.filter((k): k is Exclude<SiteKind, "portal"> => k !== "portal");
+/** The kinds that are static files someone built: every kind but the managed portal and an external site, which serves nothing here. */
+export const BUILD_KINDS = SITE_KINDS.filter((k): k is Exclude<SiteKind, "portal" | "external"> => k !== "portal" && k !== "external");
 export type BuildKind = (typeof BUILD_KINDS)[number];
+/**
+ * A deployment's kind: a build's, or `external`, what an app hosted
+ * elsewhere was found to use (`artbucket site scan` from its CI): no files,
+ * only its lineage, re-checked like a build's.
+ */
+export type DeploymentKind = BuildKind | "external";
 
 export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   portal: "Brand portal",
@@ -20,6 +26,7 @@ export const SITE_KIND_LABEL: Record<SiteKind, string> = {
   landing: "Landing",
   docs: "Docs",
   storybook: "Storybook",
+  external: "Hosted elsewhere",
 };
 
 /**
@@ -51,8 +58,8 @@ export function mountPath(raw: string): string | null {
  */
 export type SiteUse = { asset: string; how: "copy" | "link" | "current" | "declared"; file: string | null };
 
-const READS = /\.(html?|css|m?js|json|svg|xml|md|txt)$/i;
-/** Files read for the library's addresses: text a browser runs or shows, up to 2 MB (a larger bundle is left out). */
+const READS = /\.(html?|css|m?[jt]sx?|cjs|json|svg|xml|mdx?|txt|vue|svelte|astro|scss|less)$/i;
+/** Files read for the library's addresses: text a browser runs or shows, or the source an external site is built from (artbucket site scan), up to 2 MB (a larger bundle is left out). */
 export const readsLinks = (name: string, size: number) => READS.test(name) && size <= 2_000_000;
 
 const ADDRESS = /\/([ac])\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-z-])/gi;
@@ -75,6 +82,49 @@ export const MAX_SITE_BYTES = 200 * 1024 * 1024;
 
 /** What a build says it read (PRD part 2, the kit's manifest): checked before it goes live, and its lineage. */
 export const MANIFEST = "artbucket.site.json";
+
+/** What `storybook build` writes beside index.html: every story and docs page, by id. */
+export const STORYBOOK_INDEX = "index.json";
+
+/**
+ * A component a Storybook documents, as its index.json says: one catalog part
+ * of its site, versioned by lib/core/sites.ts as its code or stories change.
+ * `files`: its stories' and component's source, relative to where Storybook
+ * ran, which the CLI hashes into the manifest's `fingerprints`.
+ */
+export type SiteComponent = { slug: string; name: string; title: string; story: string; stories: string[]; files: string[] };
+
+const MAX_COMPONENTS = 2000;
+
+/**
+ * A Storybook's components, from its index.json (v4 `stories` or v5
+ * `entries`): one per title ("UI/Button"), named by its last segment,
+ * addressed by Storybook's own id for it (`ui-button`), with its stories in
+ * order. Docs-only entries count only when the title has no story. Anything
+ * that isn't one is none.
+ */
+export function storybookComponents(index: unknown): SiteComponent[] {
+  const i = index as { entries?: unknown; stories?: unknown } | null;
+  const entries = i && typeof i === "object" ? (i.entries ?? i.stories) : null;
+  if (!entries || typeof entries !== "object") return [];
+  const byTitle = new Map<string, SiteComponent>();
+  for (const e of Object.values(entries as Record<string, unknown>)) {
+    const { id, title, name, type } = (e ?? {}) as Record<string, unknown>;
+    if (typeof id !== "string" || typeof title !== "string" || !id.includes("--")) continue;
+    let c = byTitle.get(title);
+    if (!c) {
+      if (byTitle.size >= MAX_COMPONENTS) continue;
+      c = { slug: id.split("--")[0], name: title.split("/").pop()!.trim(), title, story: id, stories: [], files: [] };
+      byTitle.set(title, c);
+    }
+    const { importPath, componentPath } = (e ?? {}) as Record<string, unknown>;
+    for (const f of [importPath, componentPath]) if (typeof f === "string" && !c.files.includes(f)) c.files.push(f);
+    if (type === "docs") continue;
+    if (!c.stories.length) c.story = id;
+    if (typeof name === "string") c.stories.push(name);
+  }
+  return [...byTitle.values()];
+}
 
 const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",

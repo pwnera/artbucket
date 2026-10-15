@@ -288,6 +288,38 @@ which file and what replaced it. A read key is enough.
 `POST /api/v1/sites/check` takes the same zip, and answers `allowed`,
 `uses` and `problems`.
 
+## An app hosted elsewhere, in lineage
+
+A check stores nothing. To have an app you run elsewhere (your product, a
+site on Vercel) in the catalog, downstream of the components and assets it
+uses, make it a site of kind **Hosted elsewhere** (`external`) and record
+what it uses from its CI, at the repository's root:
+
+```yaml
+- run: npx --yes artbucket site scan src --site acme-app
+  env:
+    ARTBUCKET_URL: https://app.example.com
+    ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
+```
+
+The CLI reads the code as the bundler would, relative imports and
+tsconfig's `paths`, and finds the components of the project's Storybooks it
+imports, each at the version whose code it has; a stories file of several
+components stands for the files it imports from its own folder. The server
+reads the files for the library's assets as it reads a build's (copies,
+`/a/` and `/c/` links, in source as in HTML) and stores nothing but what it
+found. The scan is the site's record: in lineage, in Fixes when a component
+or an asset it uses is replaced, and checked again every day. It exits 1
+when something it uses may no longer be.
+
+Packages are followed only when you name them: `--packages @acme/ui` (a
+comma-separated list) when the design system ships as one. Its imports count
+by the names they bring in (`{ Button }`, or `@acme/ui/button`), at the
+version whose code it is when the component's source is in the repository
+too (a monorepo), else the current one. A package you didn't name that
+brings in two or more components' names, or one by its path, is pointed out
+on stderr with the flag to add; the scan goes on without it.
+
 ## Held for review
 
 A static site has no server of its own to sign anyone in, take a payment or

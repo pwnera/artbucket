@@ -12,12 +12,12 @@ import { cn } from "@/lib/utils";
 /**
  * What else a search in Explore finds, beside the assets below it
  * (GET /api/v1/catalog): brands, collections, sites, and brands' rules and
- * guideline pages. A row of types to pick one, then a first look at each as
- * cards above the assets, or (`only`) every match of one type, a page at a
- * time. Each opens in the catalog.
+ * guideline pages, and Storybooks' components. A row of types to pick one,
+ * then a first look at each as cards above the assets, or (`only`) every
+ * match of one type, a page at a time. Each opens in the catalog.
  */
 
-const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page"];
+const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page", "component"];
 const SHOWN = 8;
 const PAGE = 40;
 

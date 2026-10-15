@@ -4870,6 +4870,19 @@
           }
         ]
       },
+      "url": {
+        "description": "For kind external: where the site lives, e.g. https://app.example.com",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "access": {
         "type": "string",
         "enum": [
@@ -5150,6 +5163,19 @@
           }
         ]
       },
+      "url": {
+        "description": "For kind external: where the site lives, e.g. https://app.example.com",
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "access": {
         "type": "string",
         "enum": [
@@ -5394,14 +5420,15 @@
       },
       "kind": {
         "default": "portal",
-        "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy. Set once",
+        "description": "portal: a brand portal Artbucket renders from its brands and collections; guidelines, landing, docs or storybook: a site of static files you deploy; external: a site hosted elsewhere whose CI records what it uses (artbucket site scan). Set once",
         "type": "string",
         "enum": [
           "portal",
           "guidelines",
           "landing",
           "docs",
-          "storybook"
+          "storybook",
+          "external"
         ]
       }
     },
@@ -5607,7 +5634,8 @@
             "asset",
             "site",
             "rule",
-            "page"
+            "page",
+            "component"
           ]
         }
       },

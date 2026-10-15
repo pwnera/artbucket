@@ -79,12 +79,15 @@ export async function resolveSitePath(mounts: Mount[], rest: string, open: boole
  * (lib/site-rules.ts), added beside them. Its own Content-Security-Policy is
  * sent beside the server's frame-ancestors, so both hold. A site behind a
  * door is never made cacheable by its rules; a preview is never indexed.
+ * `framedBy`: the app's origin, which may frame a build (a Storybook's
+ * stories on its Components page); nothing else may, and a build never
+ * frames the app.
  */
-export function siteHeaders(rules: [string, string][], open: boolean, preview: string | null = null) {
+export function siteHeaders(rules: [string, string][], open: boolean, preview: string | null = null, framedBy: string | null = null) {
   const headers = new Headers({
     "Cache-Control": open ? "public, max-age=60" : "private, no-store",
     "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "frame-ancestors 'self'",
+    "Content-Security-Policy": `frame-ancestors 'self'${framedBy ? ` ${framedBy}` : ""}`,
     "Referrer-Policy": "strict-origin-when-cross-origin",
   });
   // A preview is for its reviewers, not for search engines, whatever its build says.

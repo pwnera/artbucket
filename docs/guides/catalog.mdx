@@ -5,14 +5,15 @@ description: Every asset, collection, brand and portal of an organization in one
 
 The catalog is every object of an organization you can reach, project by
 project: brands (with their rules and guideline pages), collections, assets
-and portals. **Catalog** in the sidebar shows it as a tree; **Explore**
+and portals (with the components their Storybook documents). **Catalog** in the sidebar shows it as a tree; **Explore**
 searches all of it at once.
 
 ## The tree and its pages
 
 Projects, then a folder per type (Brands, Collections, Assets, Portals), then
 the objects; assets fold once more by their type (Images, Videos, Fonts,
-Documents...), and a brand holds its rules and guideline pages. A row opens
+Documents...), a brand holds its rules and guideline pages, and a site holds
+the components of the Storybook live on it. A row opens
 its page; only its chevron folds it. A project's page shows its types and what
 was updated lately, a type's page every object of it, with **New** where it is
 made and a link to where it is managed. An object's page has its **Overview**,
@@ -29,10 +30,37 @@ Every object has one address, accepted anywhere an id is:
 {org}/{project}/{type}/{slug}[@release]
 acme/corporate/asset/logo-primary@4
 acme/corporate/brand/acme/rule/logo.primary
+acme/corporate/site/storybook/component/ui-button
 ```
 
 A brand's slug is unique in its project; an asset's comes from its filename,
-and `@n` picks a version.
+and `@n` picks a version. A component is read from the `index.json` that
+`storybook build` writes, each time a Storybook is deployed: one per title
+(`UI/Button`), at Storybook's own id for it (`ui-button`), with its stories.
+
+## Component versions
+
+A deploy that changes a component makes a new version of it (`@2`); one that
+leaves it as it was keeps its version, and rolling a deployment back makes its
+versions current again. What counts as a change: its code, when the build is
+pushed with `artbucket site push` from where Storybook ran (the CLI hashes each
+component's source into the manifest's `fingerprints`), else its stories and
+their bundled file. Older versions stay in the catalog as replaced, linked to
+the current one, and **Components** in the sidebar shows each component with its
+story live beside it and every version, previewed while the build that held it
+is kept (the live one and the last three).
+
+A build says which components it is made with in its `artbucket.site.json`:
+
+```json
+{ "components": ["acme/corporate/site/storybook/component/ui-button"] }
+```
+
+Without `@n`, that is the version current when it is deployed. An app
+hosted elsewhere gets the same from its CI with `artbucket site scan`, which
+finds what its code imports ([Sites](/guides/sites#an-app-hosted-elsewhere-in-lineage)). Each one is
+upstream of the site in its lineage, and once a newer version is out, the site
+is listed in **Fixes** until it is deployed with it.
 
 ## Search
 

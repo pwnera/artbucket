@@ -120,7 +120,7 @@ export const DOCS_SERVER = "http://localhost:3000";
 const Deployment = z.object({
   id: z.uuid(),
   path: z.string().describe("Where it is mounted"),
-  kind: z.enum(["guidelines", "landing", "docs", "storybook"]),
+  kind: z.enum(["guidelines", "landing", "docs", "storybook", "external"]).describe("external: an external site's record of what it uses, no files"),
   state: z
     .enum(["checking", "live", "failed", "replaced", "held", "preview"])
     .describe("held: it looks like phishing or malware and waits for whoever runs the server; its files are kept, not served. preview: a pull request's build at its own address, never live"),
@@ -141,6 +141,7 @@ const Deployment = z.object({
       }),
     )
     .describe("What it uses of the project's library, found in its files: its lineage"),
+  componentUses: z.array(z.uuid()).describe("The component versions it is built with, as its artbucket.site.json names them (artbucket site scan adds them for an external site)"),
   problems: z.array(z.string()).describe("What of it may no longer be shown, as the daily re-check of live builds last found: a license ended or a logo replaced since it deployed. Empty when all is well"),
   flags: z.array(z.string()).describe("Signs it looks like phishing or malware (a page asking for a password, a card or a recovery phrase; a program to download), one line each"),
   checkedAt: z.string().nullable().describe("When it was last checked"),
@@ -784,6 +785,47 @@ export function openapi(serverUrl: string) {
           summary: "What happened to it",
           scope: "read",
           ok: [200, "Activity", data(z.array(z.object({ at: z.string(), who: z.string(), what: z.string(), agent: z.boolean() })))],
+        }),
+      },
+      "/api/v1/sites/{id}/uses": {
+        parameters: [path("id", "An external site's id")],
+        post: {
+          ...op({
+            summary: "Record what an external site uses",
+            scope: "write",
+            description:
+              "For a site of kind external, hosted elsewhere: its files as a zip (`Content-Type: application/zip`), read as a deployment's " +
+              "are and not stored, and the components its artbucket.site.json names (`components`: addresses, or { component, fingerprint } " +
+              "to name the version whose code it has). Kept as the site's live record: in lineage, in Fixes, and re-checked daily. `problems` " +
+              "says what of it may no longer be used. artbucket site scan does all of it from CI.",
+            query: {
+              commit: { schema: str, description: "The commit scanned, when CI says" },
+              ref: { schema: str, description: "The branch or tag of that commit" },
+            },
+            ok: [200, "Recorded", data(Deployment)],
+          }),
+          requestBody: { required: true, content: { "application/zip": { schema: { type: "string", format: "binary" } } } },
+        },
+      },
+      "/api/v1/components": {
+        get: op({
+          summary: "Components",
+          scope: "read",
+          description:
+            "Every component the project's Storybooks show now, at its current version: one per Storybook title, read from the index.json of each " +
+            "Storybook deployed to a site, with a new version whenever a deploy changes it.",
+          ok: [200, "Components", data(z.array(S.ComponentRow))],
+        }),
+      },
+      "/api/v1/components/{ref}": {
+        parameters: [catalogRef],
+        get: op({
+          summary: "A component's versions",
+          scope: "read",
+          description:
+            "Every version of a component at its mount, newest first, each with its story's preview while a kept build holds it and the sites " +
+            "whose artbucket.site.json names it in `components`.",
+          ok: [200, "Component", data(S.ComponentDetail)],
         }),
       },
       "/api/v1/searches": {
