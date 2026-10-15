@@ -61,6 +61,8 @@ test("one list of what to do, each thing done once it is: told, requested or rep
   );
   // The shop, the search and the license with nothing to replace it.
   assert.equal(f.open, 3);
+  // The sidebar's count is the same number, without the lists.
+  assert.deepEqual(await fixesOf(ada.caller, { count: true }).then((c) => [c.open, c.stale.length, c.licenses.length]), [3, 0, 0]);
 
   await notifyStale(ada.caller, { referrer: "shop.example.com", assets: [old.id], emails: ["web@example.com"] });
   await createShare(ada.caller, { kind: "upload", name: "Dark logo" });

@@ -1418,6 +1418,9 @@ export function openapi(serverUrl: string) {
             "One list of what to act on in the project, from what Insights and the library know: places still loading a replaced version " +
             "(tell them with POST /api/v1/insights/notices), searches that found nothing (ask for the file with an upload link, POST /api/v1/shares) " +
             "and approved assets whose license ends within 30 days, with what replaced them. Each says whether it was done; `open` counts the rest.",
+          query: {
+            count: { schema: { type: "string", enum: ["true", "false"] }, description: "true: `open` alone, every list empty, answered faster: for a badge" },
+          },
           ok: [200, "Fixes", data(S.Fixes)],
         }),
       },
