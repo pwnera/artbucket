@@ -113,6 +113,18 @@ test("builds count as storage, and only a few replaced are kept per path", async
   assert.equal((await usageOf(ada.caller)).used.storage - before, (KEEP_REPLACED + 1) * 1000);
 });
 
+test("previews count as storage as builds do, one per name", async (t) => {
+  const was = env.PORTAL_DOMAIN;
+  env.PORTAL_DOMAIN = "sites.test";
+  t.after(() => void (env.PORTAL_DOMAIN = was));
+  const site = await createPortal(ada.caller, { name: "Counted", slug: `counted-${Date.now().toString(36)}`, kind: "docs" });
+  const before = (await usageOf(ada.caller)).used.storage;
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-1" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-1" });
+  await deploy(ada.caller, site.id, pack({ "index.html": "x".repeat(1000) }), { preview: "pr-2" });
+  assert.equal((await usageOf(ada.caller)).used.storage - before, 2000);
+});
+
 test("every file is matched against the library: a copy or a pinned link of a replaced or expired asset fails, with no manifest", async () => {
   const png = (background: string) => sharp({ create: { width: 4, height: 4, channels: 3, background } }).png().toBuffer();
   const oldBytes = await png("#a1b2c3");
