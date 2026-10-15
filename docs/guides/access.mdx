@@ -1,6 +1,6 @@
 ---
 title: Who sees what
-description: The permission model, inside the team and outside it, in two pictures.
+description: The permission model, inside the team and outside it, with an example.
 ---
 
 Two separate questions decide who reaches an asset:
@@ -9,7 +9,7 @@ Two separate questions decide who reaches an asset:
   **Who sees it** on an asset narrows it.
 - **Outside**: who without an account gets it. Share links, signed URLs,
   **Embed** and portals answer this. Nothing goes outside unless someone
-  with share on it sends it there.
+  with Editor on it sends it there.
 
 The two don't mix: an asset only some people see can still have an embed URL,
 and an asset everyone on the team sees is still closed to the rest of the
@@ -21,21 +21,22 @@ A person's access is their **grants**: a role on the organization, a
 project, a collection or one asset. A grant reaches everything below what
 it is on, and grants add up: a person gets the highest role any of them gives.
 
-```mermaid
-flowchart TD
-  O[Organization] --> W1[Project: Brand]
-  O --> W2[Project: Campaigns]
-  W1 --> C1[Collection: Logos]
-  W1 --> C2[Collection: Launch, private]
-  C1 --> A1[logo.svg]
-  C2 --> A2[keynote.mp4]
-  W1 --> A3[draft.png, only people added]
+Take an organization laid out like this:
 
-  G1([Sam: Admin on Organization]) -.-> O
-  G2([Lee: Viewer on Brand]) -.-> W1
-  G3([Ana: Editor on Launch]) -.-> C2
-  G4([Kim: Viewer on draft.png]) -.-> A3
-```
+- Project **Brand**
+  - Collection **Logos**, holding `logo.svg`
+  - Collection **Launch**, private, holding `keynote.mp4`
+  - `draft.png`, set to only people added
+- Project **Campaigns**
+
+Four people have one grant each:
+
+| Person | Grant |
+|---|---|
+| Sam | Admin on the organization |
+| Lee | Viewer on the Brand project |
+| Ana | Editor on the Launch collection |
+| Kim | Viewer on `draft.png` |
 
 Here:
 
@@ -55,8 +56,8 @@ Here:
 | Editor | Also edit, approve, delete, share links, and make automations for a brand's releases |
 | Admin | Also manage people, API keys, and every other automation |
 
-An editor's or admin's grant can switch abilities off: an editor who can't
-delete, or can't share.
+Each grant is one of these roles and nothing else: there is no way to take
+one ability out of a role.
 
 ## Only people added
 
@@ -75,20 +76,20 @@ by the whole project.
 An asset with its own **Who sees it** stays off portals and collection links,
 whichever collection it is in: share it with a link to the asset itself.
 
-```mermaid
-flowchart TD
-  Q{Can this person open the asset?} --> P{Is it only for people added?<br/>its own setting, or all its collections private}
-  P -- No --> R{Any role on the project or organization,<br/>or a grant on the asset or one of its collections?}
-  P -- Yes --> S{Admin on the project or organization,<br/>or a grant on the asset or one of its collections?}
-  R -- Yes --> Y[Yes, with the highest role among those]
-  R -- No --> N[No]
-  S -- Yes --> Y
-  S -- No --> N
-```
+So whether a person can open an asset comes down to this:
+
+| The asset is | Who can open it |
+|---|---|
+| Seen by the whole project | Anyone with a role on the project or the organization, or a grant on the asset or one of its collections |
+| Only for people added (its own setting, or all its collections private) | Admins of the project or the organization, and anyone with a grant on the asset or one of its collections |
+
+Everyone else can't. Someone who can open it gets the highest role among the
+grants that reach it.
 
 Whoever hides something keeps reaching it: they get a grant on it at the role
 they had. A project admin adds and removes people under **Who sees it** in
-the asset's panel, or on Settings, People for a collection.
+the asset's panel, or, for a collection, on its **Access** tab in the
+[Catalog](/guides/catalog#who-can-reach-it).
 
 **Upload privately**, in the Upload menu, hides files from the moment they
 land. A contributor's private upload waits in Review where only admins see it,
@@ -96,7 +97,7 @@ since editors aren't among the people added.
 
 ## Outside: links
 
-Each of these takes share on the asset, and stops once it is archived,
+Each of these takes Editor on the asset, and stops once it is archived,
 expires or is replaced.
 
 | Way out | Who gets it | For |

@@ -88,7 +88,8 @@ The Automations page starts one from a recipe: everything filled in but who it t
 | `check.refused` | `asset`, `refusals`, `days` |
 | `fix.opened` | `kind`; for `stale`: `asset`, `replacement`, `place` (a host, or an agent's key name), `fetches`; for `gap`: `q`, `searches` |
 | `review.waiting` | `asset`, `days` (how long it has waited) |
- `id` is the run's: a retry sends the same body, so a receiver can tell it from a new event.
+
+`id` is the run's: a retry sends the same body, so a receiver can tell it from a new event.
 
 Headers: `Artbucket-Event` names the event, and `Artbucket-Signature` signs the body (in every format; Slack and Teams ignore it) as Stripe signs its webhooks: `t={unix seconds},v1={hex HMAC-SHA256 of "{t}.{body}"}` with the secret. Check it before trusting the body, and refuse an old `t`:
 
