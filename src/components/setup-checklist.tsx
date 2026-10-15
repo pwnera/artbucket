@@ -7,10 +7,11 @@ import { IconBrandGithub, IconCircle, IconCircleCheckFilled, IconTrophy, IconX }
 import { useBrand } from "@/components/brand";
 import { useCan, useMe } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
+import { has } from "@/components/settings/sections";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { gitLink } from "@/lib/git";
-import { isPath, onboardingSteps, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
+import { isPath, onboardingSteps, ownName, PATHS, type Facts, type OnboardingStep, type PathId } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { collapse } from "@/lib/motion";
@@ -84,8 +85,9 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
       setGot({
         path,
         facts: {
-          named: me.project.organization.name !== "Default",
+          named: ownName(me.project.organization.name),
           branded: brand.custom,
+          branding: has(me, "branding"),
           noEmail: !me.auth.serverEmail && !me.email,
           brand: b
             ? {

@@ -50,12 +50,20 @@ export type PathId = (typeof PATHS)[number]["id"];
 
 export const isPath = (p: unknown): p is PathId => PATHS.some((x) => x.id === p);
 
+/**
+ * Whether an organization has a name of its own: not the one it was made with, "Default" on a server's first
+ * run, "{someone}'s organization" at sign-up (lib/core/people.ts).
+ */
+export const ownName = (name: string) => name !== "Default" && !name.endsWith("'s organization");
+
 /** What the app knows, as the steps read it. */
 export type Facts = {
-  /** The organization has a name of its own, not "Default". */
+  /** The organization has a name of its own (ownName). */
   named: boolean;
   /** The app wears the organization's logo and color. */
   branded: boolean;
+  /** The organization's plan lets it put its logo on the app (the `branding` feature). */
+  branding: boolean;
   /** The organization must turn its own email on (the server sends nobody's), and hasn't. */
   noEmail: boolean;
   uploaded: boolean;
@@ -142,7 +150,7 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
               label: "Make it public on BrandHub",
               why: "Contributors, press and agents read it without an account.",
               done: !!b?.public,
-              href: b ? `${brandPath(b.slug)}/settings` : "/brands",
+              href: b ? brandPath(b.slug, "/sharing") : "/brands",
               win: true,
             }
           : { id: "portal", label: "Open a public portal", why: "A press kit anyone can read, on its own address.", done: !!b?.portal, href: "/sites", win: true },
@@ -156,7 +164,10 @@ export function onboardingSteps(path: PathId, f: Facts): OnboardingStep[] {
     case "clients":
       return [
         { id: "name", label: "Name your organization", why: "It heads every page, email and share link.", done: f.named, href: "/settings/organization/general" },
-        { id: "look", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: f.branded, href: "/settings/organization/branding" },
+        // A plan's feature: without it the step would be an upgrade page, not setting up.
+        ...(f.branding
+          ? [{ id: "look", label: "Put your logo on the app", why: "The app, emails and portals wear it and your color.", done: f.branded, href: "/settings/organization/branding" }]
+          : []),
         { id: "project", label: "Make a client project", why: "One per client: its own library, brands and people.", done: f.projects > 1, href: "/settings/organization/projects", win: true },
       ];
     case "ai":
