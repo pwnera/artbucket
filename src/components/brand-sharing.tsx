@@ -216,9 +216,9 @@ function BrandPortals({
             <li key={p.id} className="flex flex-wrap items-center gap-3 p-3">
               <div className="grid min-w-0 flex-1 basis-40 gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  <button type="button" onClick={() => setEditing(p)} className="truncate text-start hover:underline">
-                    {p.name}
-                  </button>
+                  <Button variant="link" onClick={() => setEditing(p)} className="text-foreground h-auto min-w-0 justify-start p-0 text-start">
+                    <span className="truncate">{p.name}</span>
+                  </Button>
                   {p.expired && <Badge variant="outline">Offline</Badge>}
                   {p.slug === linked && <Badge variant="secondary">BrandHub links it</Badge>}
                 </span>

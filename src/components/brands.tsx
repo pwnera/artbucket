@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ExternalLink } from "@/components/external-link";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
@@ -155,44 +156,34 @@ export function BrandsPage({
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a brand" aria-label="Find a brand" className="h-8 ps-8" />
           </div>
           {hub && (
-            <div role="radiogroup" aria-label="Show" className="bg-muted flex rounded-md p-0.5">
+            <ToggleGroup type="single" spacing={0.5} aria-label="Show" value={show} onValueChange={(v) => v && setShow(v as Show)} className="bg-muted rounded-md p-0.5">
               {(Object.keys(SHOW) as Show[]).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="radio"
-                  aria-checked={show === s}
-                  onClick={() => setShow(s)}
-                  className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground rounded px-2.5 py-1 text-xs font-medium aria-checked:shadow-sm"
-                >
+                <ToggleGroupItem key={s} value={s} className="text-muted-foreground hover:text-muted-foreground data-[state=on]:bg-background dark:data-[state=on]:bg-background data-[state=on]:text-foreground h-auto min-w-0 rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-transparent data-[state=on]:shadow-sm">
                   {SHOW[s]}
-                </button>
+                </ToggleGroupItem>
               ))}
-            </div>
+            </ToggleGroup>
           )}
-          <div role="radiogroup" aria-label="Layout" className="bg-muted flex rounded-md p-0.5">
+          <ToggleGroup type="single" spacing={0.5} aria-label="Layout" value={layout} onValueChange={(v) => v && transition(() => pickLayout(v as Layout))} className="bg-muted rounded-md p-0.5">
             {(
               [
                 ["cards", "Cards", IconLayoutGrid],
                 ["list", "List", IconList],
               ] as const
             ).map(([l, label, Icon]) => (
-              <button
+              <ToggleGroupItem
                 key={l}
-                type="button"
-                role="radio"
-                aria-checked={layout === l}
+                value={l}
                 aria-label={label}
                 title={label}
-                onClick={() => transition(() => pickLayout(l))}
-                className="text-muted-foreground aria-checked:text-foreground relative rounded px-2 py-1"
+                className="text-muted-foreground data-[state=on]:text-foreground relative h-auto min-w-0 rounded px-2 py-1 hover:bg-transparent data-[state=on]:bg-transparent dark:data-[state=on]:bg-transparent"
               >
                 {/* One pill, named, so it slides to the layout picked. */}
                 {layout === l && <span aria-hidden data-vt="layout-pill" className="bg-background absolute inset-0 rounded shadow-sm" />}
                 <Icon className="relative size-4" />
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
 
         {!shown.length ? (

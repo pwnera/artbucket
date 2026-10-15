@@ -12,6 +12,7 @@ import { jsonLines, plainText } from "@/lib/assistant-answer";
 import { refusal, sendResult } from "@/lib/send";
 import { FocusScope } from "radix-ui/internal";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,7 +78,7 @@ const clampWidth = (w: number) => Math.round(Math.max(MIN_WIDTH, Math.min(w, 900
 
 const AssistantContext = createContext<AssistantValue | null>(null);
 
-/** The assistant, where the server has one; null elsewhere (and on /design). */
+/** The assistant, where the server has one; null elsewhere (and in Storybook). */
 export const useAssistant = () => useContext(AssistantContext);
 
 export function AssistantProvider({ url, onChanged, children }: { url: string | null; onChanged: () => void; children: React.ReactNode }) {
@@ -580,9 +581,9 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
             >
               <div className="flex max-w-md flex-wrap justify-center gap-2">
                 {ideas.map((i) => (
-                  <button key={i} type="button" className="bg-muted hover:bg-accent rounded-xl px-3.5 py-2 text-start text-sm" onClick={() => ask(i)}>
+                  <Button key={i} variant="secondary" className="h-auto rounded-xl px-3.5 py-2 text-start font-normal whitespace-normal" onClick={() => ask(i)}>
                     {i}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </Empty>
@@ -600,9 +601,9 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-destructive text-sm">{t.error}</p>
                         {last && !busy && (
-                          <button type="button" onClick={retry} className="bg-muted hover:bg-accent rounded-full px-3 py-1 text-xs">
+                          <Button variant="secondary" size="xs" onClick={retry} className="rounded-full px-3 font-normal">
                             Retry
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -629,14 +630,15 @@ function Chat({ a, menu, setMenu }: { a: AssistantValue; menu: boolean; setMenu:
           }}
         >
           <div className="bg-background focus-within:border-ring focus-within:ring-ring/50 mx-auto grid max-w-3xl gap-1 rounded-2xl border p-2 shadow-xs focus-within:ring-[3px]">
-            <textarea
+            <Textarea
               ref={box}
               rows={1}
               value={question}
               placeholder={Object.values(actions).some((x) => x.state === "waiting") ? "Approve or decline above, or ask something else" : "Ask about your library"}
               aria-label="Your question"
               maxLength={4000}
-              className="field-sizing-content max-h-48 min-h-9 resize-none bg-transparent px-1.5 py-1 text-sm outline-none"
+              // The box around it is the field: the composer draws its border and ring.
+              className="max-h-48 min-h-9 resize-none rounded-none border-0 bg-transparent px-1.5 py-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -773,14 +775,14 @@ function History({
       <p className="text-muted-foreground px-2 py-1.5 text-xs">Recent conversations{project ? ` in ${project}` : ""}</p>
       {chats.length ? (
         chats.map((c) => (
-          <button
+          <Button
             key={c.id}
-            type="button"
-            className={cn("hover:bg-muted truncate rounded-lg px-2 py-1.5 text-start text-sm", c.id === on && "bg-muted")}
+            variant="ghost"
+            className={cn("hover:bg-muted h-auto justify-start rounded-lg px-2 py-1.5 text-start font-normal", c.id === on && "bg-muted")}
             onClick={() => onPick(c.id)}
           >
-            {c.title}
-          </button>
+            <span className="truncate">{c.title}</span>
+          </Button>
         ))
       ) : (
         <p className="text-muted-foreground px-2 py-1.5 text-sm">No conversations yet</p>

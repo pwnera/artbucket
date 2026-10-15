@@ -11,6 +11,8 @@ import { useCan } from "@/components/can";
 import { CollectionDialog, type Collection } from "@/components/collections";
 import { CommandPalette, type PageCommand } from "@/components/command-palette";
 import { ChordHint, ShortcutsDialog, useShortcuts } from "@/components/shortcuts";
+import { IconButton } from "@/components/icon-button";
+import { IconX } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { FieldDef } from "@/lib/fields";
@@ -76,7 +78,7 @@ export function usePageCommands(fn: () => PageCommand[]) {
 /**
  * Folds the app's sidebar to its rail while the caller is mounted and `on`,
  * as the brand's reader and builder do to give the page room. Nothing where
- * no Shell is around (the /design pages).
+ * no Shell is around (a story, a page outside the app).
  */
 export function useSqueeze(on = true) {
   const setSqueeze = useContext(ShellContext)?.setSqueeze;
@@ -138,9 +140,9 @@ function NoticeBanner({ notice }: { notice: { text: string; href: string | null 
           </>
         )}
       </p>
-      <button type="button" onClick={close} aria-label="Close" className="text-muted-foreground hover:text-foreground shrink-0 px-1">
-        &times;
-      </button>
+      <IconButton label="Close" variant="ghost" size="icon-xs" onClick={close} className="text-muted-foreground hover:text-foreground shrink-0">
+        <IconX />
+      </IconButton>
     </div>
   );
 }

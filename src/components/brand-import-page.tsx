@@ -1175,9 +1175,10 @@ function CollectionRow({
           }}
         />
         {many && brand && <span className="text-muted-foreground text-xs">{brand}</span>}
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground ml-auto flex items-center gap-1 text-sm"
+        <Button
+          variant="ghost"
+          aria-expanded={open}
+          className="text-muted-foreground hover:text-foreground ml-auto h-auto gap-1 px-0 py-0 font-normal hover:bg-transparent dark:hover:bg-transparent"
           onClick={() => {
             if (!open) void loadFiles();
             setOpen(!open);
@@ -1185,7 +1186,7 @@ function CollectionRow({
         >
           {plural(c.files, "file")}
           <IconChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-        </button>
+        </Button>
       </div>
       {open && (
         <div className="border-t px-4 py-3">

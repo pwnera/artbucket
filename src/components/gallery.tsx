@@ -1187,7 +1187,8 @@ export function Gallery({
         {/* Upload, the common case, at hand; every other way in is in New (components/app-sidebar.tsx NewMenuContent). Stays enabled mid-upload: a second batch queues alongside the first. */}
         {canUpload && (
           <div className="flex">
-            <Button size="sm" onClick={() => choose(false)} aria-busy={uploading}>
+            {/* Named for a phone, where its word is hidden. */}
+            <Button size="sm" onClick={() => choose(false)} aria-busy={uploading} aria-label="Upload">
               <IconUpload />
               <span className="hidden sm:inline">Upload</span>
             </Button>
@@ -1202,6 +1203,7 @@ export function Gallery({
             />
           </div>
         )}
+        {/* Native file pickers, opened by Upload and New: no visible control, so no primitive. */}
         <input
           ref={input}
           type="file"
@@ -1394,14 +1396,15 @@ export function Gallery({
             {view.extra.map(([k, v]) => (
               <Badge key={`${k}=${v}`} variant="secondary" className="animate-in fade-in-0 zoom-in-95 h-8 gap-1 pr-1 duration-150">
                 {describe(k, v)}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => go({ extra: view.extra.filter((x) => x[0] !== k || x[1] !== v) })}
                   aria-label={`Remove filter ${describe(k, v)}`}
-                  className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                  className="hover:bg-muted-foreground/20 size-4 rounded-full [&_svg:not([class*='size-'])]:size-3"
                 >
-                  <IconX className="size-3" />
-                </button>
+                  <IconX />
+                </Button>
               </Badge>
             ))}
             {narrowed && (
@@ -1567,7 +1570,7 @@ export function Gallery({
         ) : (
           <>
             {layout === "list" ? (
-              <div aria-busy={searching} className={cn("transition-opacity", searching && "opacity-60")}>
+              <div aria-busy={searching} className={cn("[&_img]:transition-opacity", searching && "[&_img]:opacity-60")}>
                 <AssetTable
                   assets={assets}
                   selected={selected}
@@ -1590,7 +1593,7 @@ export function Gallery({
                 aria-label="Assets"
                 data-well={well}
                 onKeyDown={onGridKey}
-                className={cn("group/well grid transition-opacity", GRID_COLS, searching && "opacity-60")}
+                className={cn("group/well grid", GRID_COLS, "[&_img]:transition-opacity", searching && "[&_img]:opacity-60")}
               >
                 {/* Files on their way, ahead of the rest, until they land as real tiles. */}
                 {!narrowed && !view.review && <GhostTiles store={uploads} shown={assets} />}
@@ -1929,6 +1932,7 @@ export const AssetCard = memo(function AssetCard({
   const badge = stateBadge(a);
   return (
     <div ref={view} className="group relative h-full" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
+      {/* A raw button: the whole card (art, name, size, tags) is the hit target. */}
       <button
         type="button"
         data-cursor={a.id}
@@ -2118,7 +2122,7 @@ function SaveAsCollection({ suggested, total, onSave }: { suggested: string; tot
         </TooltipTrigger>
         <TooltipContent>Save as collection</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" className="w-80 space-y-2">
+      <PopoverContent align="end" aria-label="Save as collection" className="w-80 space-y-2">
         <p className="text-sm font-medium">Save as collection</p>
         <p className="text-muted-foreground text-xs">
           A new collection with the {total.toLocaleString()} {total === 1 ? "asset" : "assets"} this finds now. Later uploads don&apos;t join it on their own.

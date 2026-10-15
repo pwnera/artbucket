@@ -8,6 +8,7 @@ import { FontThumb } from "@/components/font-preview";
 import type { Asset } from "@/components/gallery";
 import { RenditionMenu } from "@/components/rendition-menu";
 import { useAssetUrl } from "@/components/site/asset-url";
+import { IconButton } from "@/components/icon-button";
 import { IconGlyph } from "@/components/icon-glyph";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
@@ -150,29 +151,31 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
                   <span className="bg-primary text-primary-foreground absolute start-0.5 bottom-0.5 flex size-4 items-center justify-center rounded-full text-2xs">
                     {i + 1}
                   </span>
-                  <button
-                    type="button"
-                    aria-label={`Unpick ${a.title ?? a.filename}`}
+                  <IconButton
+                    variant="secondary"
+                    size="icon-xs"
+                    label={`Unpick ${a.title ?? a.filename}`}
                     onClick={() => toggle(a.id)}
-                    className="bg-background/90 absolute end-0.5 top-0.5 rounded-full p-0.5 shadow-sm"
+                    className="absolute end-0.5 top-0.5 size-5 rounded-full shadow-sm"
                   >
-                    <IconX className="size-3" />
-                  </button>
+                    <IconX />
+                  </IconButton>
                 </div>
                 {isFont(a.mime, a.filename) ? null : !a.preview ? (
                   <span className="text-muted-foreground truncate text-center text-2xs">Original</span>
                 ) : (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="hover:bg-muted flex items-center justify-center gap-0.5 truncate rounded px-1 text-2xs font-medium"
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="text-2xs h-auto min-w-0 gap-0.5 px-1"
                         title="Which size the rule means"
                         aria-label={`Size of ${a.title ?? a.filename}: ${renditionLabel(a.rendition)}`}
                       >
                         <span className="truncate">{renditionLabel(a.rendition)}</span>
                         <IconChevronDown className="size-3 shrink-0" />
-                      </button>
+                      </Button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-80 p-0">
                       <RenditionMenu value={a.rendition} onChange={(r) => setRendition(a.id, r)} />
@@ -205,6 +208,7 @@ export function AssetPicker({ open, rule, onClose, onSave, title, description, t
               {results?.map((a) => {
                 const n = picked.findIndex((x) => x.id === a.id);
                 return (
+                  // A raw button: a square picture tile, which no Button variant draws.
                   <button
                     key={a.id}
                     type="button"

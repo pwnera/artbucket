@@ -74,7 +74,10 @@ function useFacts(path: PathId | undefined, uploaded: boolean): Facts | null {
       const b = candidates[best];
       const [status, source, members, keys, asked] = await Promise.all([
         statuses[best] ?? null,
-        b && path === "product" ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`) : null,
+        // Whichever path has the Git step: the product path's win, and the company's and open source's where the server connects Git.
+        b && (path === "product" || (!!me.git && (path === "company" || path === "oss")))
+          ? json<{ data: { source: unknown } }>(`/api/v1/brands/${encodeURIComponent(b.slug)}/source`)
+          : null,
         path === "company" ? json<{ data: unknown[]; invitations: unknown[] }>("/api/v1/members") : null,
         path === "ai" ? json<{ data: unknown[] }>("/api/v1/keys") : null,
         path === "ai" ? json<{ data: { clients: { tools: unknown[] }[] } }>("/api/v1/insights/connections") : null,
@@ -171,6 +174,7 @@ export function SetupChecklist({ uploaded, onUpload }: { uploaded: boolean; onUp
         <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {PATHS.map((p) => (
             <li key={p.id}>
+              {/* Raw: a path's card, its name over its win, the whole card the hit target. */}
               <button
                 type="button"
                 onClick={() => save({ ...stored, path: p.id })}
@@ -284,6 +288,7 @@ function StepList({ steps, onUpload, onGo, className }: { steps: OnboardingStep[
           <li key={s.id}>
             {s.upload ? (
               onUpload && !s.done ? (
+                // Raw: a step's row, like the links beside it, not a button's box.
                 <button type="button" onClick={() => (onGo?.(), onUpload())} className={row}>
                   {body}
                 </button>
@@ -351,6 +356,7 @@ function FirstRun({ stored, save, facts, onUpload, org }: { stored: Stored; save
           <p className="text-muted-foreground">We set that up first. The rest can wait.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What do you want to do">
+          {/* Raw: each path a card that is a radio, its name, blurb and win. */}
           {PATHS.map((p) => (
             <button
               key={p.id}

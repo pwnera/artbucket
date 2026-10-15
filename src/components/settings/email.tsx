@@ -6,7 +6,7 @@ import { IconSend } from "@/components/icons";
 import { toast } from "sonner";
 import type { Me } from "@/components/account";
 import { Confirm } from "@/components/confirm";
-import { Group, useLeaveGuard } from "@/components/settings/panels";
+import { AdminsOnly, Group, useLeaveGuard } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
   }
 
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <Group
         title="Sending"
@@ -228,6 +229,7 @@ export function EmailPanel({ me, setting }: { me: Me; setting: EmailSetting }) {
         </form>
       </Group>
     </div>
+    </AdminsOnly>
   );
 }
 

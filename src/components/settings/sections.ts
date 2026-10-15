@@ -219,9 +219,9 @@ export const SECTIONS: Section[] = [
     id: "design",
     label: "Design system",
     icon: IconPalette,
-    description: "Every component in use, as a living reference.",
+    description: "Every component and token the app is built from, in Storybook.",
     action: null,
-    href: "/design",
+    href: "https://storybook.artbucket.io",
     dev: true,
   },
 ];

@@ -309,6 +309,7 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                   <span className="text-sm font-medium">Bring in a brand from a repository</span>
                   <span className="text-muted-foreground text-sm">The repository already has a brand.yaml.</span>
                 </a>
+                {/* Raw: a choice card, the whole card the hit target, as the link beside it. */}
                 <button
                   type="button"
                   onClick={() => {
@@ -445,6 +446,7 @@ function Choice({
   children: React.ReactNode;
 }) {
   return (
+    // Raw: a choice card with its picture, the whole card the hit target.
     <button
       type="button"
       role="radio"

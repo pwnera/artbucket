@@ -274,12 +274,14 @@ export function Pairings({ colors, className }: { colors: Pick<Rule, "key" | "va
                       key={bg.key}
                       onMouseEnter={() => setAt([i, j])}
                       className={cn(
-                        "h-16 min-w-20 rounded-lg p-2 align-top ring-1 ring-black/5 transition-opacity dark:ring-white/10",
-                        g === "fail" && "opacity-40",
+                        "h-16 min-w-20 rounded-lg p-2 align-top ring-1 ring-black/5 dark:ring-white/10",
                       )}
                       style={{ backgroundColor: hexes[j], color: hexes[i] }}
                     >
-                      <span className="block text-lg leading-none font-semibold">Aa</span>
+                      {/* A pair that fails fades its sample, never its grade, which stays legible on the page's own ground. */}
+                      <span data-specimen className={cn("block text-lg leading-none font-semibold", g === "fail" && "opacity-40")}>
+                        Aa
+                      </span>
                       <span className="bg-background text-foreground mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5">
                         <span className="font-mono tabular-nums">{ratio.toFixed(1)}</span>
                         <span className={cn("rounded px-1 text-2xs font-semibold tracking-wide uppercase", GRADE_STYLE[g])}>{g}</span>

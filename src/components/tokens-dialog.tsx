@@ -65,18 +65,16 @@ export function TokensDialog({
               <div key={group} className="space-y-0.5">
                 <p className="text-muted-foreground px-2 pb-1 text-xs font-medium">{group}</p>
                 {ids.map((id) => (
-                  <button
+                  <Button
                     key={id}
-                    type="button"
-                    aria-current={id === format}
+                    variant="ghost"
+                    size="sm"
+                    aria-current={id === format || undefined}
                     onClick={() => setFormat(id)}
-                    className={cn(
-                      "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                      id === format ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                    )}
+                    className={cn("w-full justify-start px-2", id === format ? "bg-muted" : "text-muted-foreground font-normal")}
                   >
                     {TOKEN_FORMATS[id].label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ))}
@@ -156,7 +154,8 @@ function Preview({ path, file, hint }: { path: string; file: string; hint: strin
           </a>
         </Button>
       </div>
-      <pre className="bg-muted/30 min-h-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
+      {/* Focusable: the file scrolls, and a keyboard must reach it. */}
+      <pre tabIndex={0} className="bg-muted/30 min-h-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
         {code === undefined ? (
           // Lines of code, not a word: the pane keeps its shape while the file comes.
           <span role="status" aria-label="Loading" className="grid gap-2.5">

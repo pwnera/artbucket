@@ -56,6 +56,7 @@ import { SITE_KIND_LABEL, type SiteKind } from "@/lib/sites";
 import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 import { collapse, flash, useKept } from "@/lib/motion";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export type Portal = {
   id: string;
@@ -260,7 +261,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                 />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
-                    {/* The whole row opens it: this button's box stretches over the row, under its actions. */}
+                    {/* Raw: the whole row opens it, this button's box stretched over the row, under its actions. */}
                     <button type="button" onClick={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
@@ -854,22 +855,23 @@ export function PortalDialog({
                 </InfoTip>
               )}
             </legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <RadioGroup value={f.access} onValueChange={(a) => set({ access: a as PortalAccess })} aria-label="Who gets in" className="grid gap-2 sm:grid-cols-3">
               {(Object.keys(ACCESS) as PortalAccess[]).map((a) => {
                 const A = ACCESS[a];
                 return (
                   <label
                     key={a}
-                    className="has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:outline-ring flex cursor-pointer flex-col gap-1 rounded-lg border p-3 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+                    className="has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 has-focus-visible:outline-ring flex cursor-pointer flex-col gap-1 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2"
                   >
-                    <input type="radio" name="access" value={a} checked={f.access === a} onChange={() => set({ access: a })} className="sr-only" />
+                    {/* The card is the radio: the item hides inside it, and the card shows checked and focus. */}
+                    <RadioGroupItem value={a} className="sr-only" />
                     <A.icon className="text-muted-foreground size-4" />
                     <span className="font-medium">{A.label}</span>
                     <span className="text-muted-foreground text-xs">{A.hint}</span>
                   </label>
                 );
               })}
-            </div>
+            </RadioGroup>
             {f.access === "members" && f.domain !== NO_DOMAIN && (
               <p className="text-muted-foreground text-xs">
                 On its own domain, only approved people get in. Members sign in at /p/{f.slug || "its-address"}.
@@ -902,6 +904,7 @@ export function PortalDialog({
             <div className="grid gap-2">
               <span className="text-sm leading-none font-medium">Logo</span>
               <div className="flex items-center gap-2">
+                {/* Raw: the logo's preview tile is the hit target. */}
                 <button
                   type="button"
                   onClick={() => setPicking("logo")}

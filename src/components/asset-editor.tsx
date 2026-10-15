@@ -934,6 +934,7 @@ export function AssetEditor({
               </DialogDescription>
               {editable ? (
                 <div data-prop="title" className="group/title relative">
+                  {/* Raw: the title edited in place, read as the heading until then; Textarea's field look would not. */}
                   <textarea
                     key={keyOf("title")}
                     name="title"
@@ -1230,13 +1231,9 @@ function EditHint() {
       <p className="text-muted-foreground flex-1">
         <span className="text-foreground font-medium">Click any value to change it.</span> It saves itself and goes out with downloads.
       </p>
-      <button
-        type="button"
-        onClick={() => setSeen(true)}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -my-0.5 rounded px-1 font-medium outline-none focus-visible:ring-2"
-      >
+      <Button variant="link" onClick={() => setSeen(true)} className="text-muted-foreground hover:text-foreground -my-0.5 h-auto rounded px-1 text-xs hover:no-underline">
         Got it
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1820,13 +1817,9 @@ function AssetRef({
   );
   const chip = id && (
     // In place, through the viewer: what is typed is saved first.
-    <button
-      type="button"
-      onClick={() => onOpen(id)}
-      className="flex min-w-0 flex-1 items-center gap-2 rounded-md border p-1.5 text-left text-sm hover:underline"
-    >
+    <Button variant="ghost" onClick={() => onOpen(id)} className="h-auto min-w-0 flex-1 justify-start border p-1.5 text-left font-normal hover:bg-transparent hover:underline">
       {face}
-    </button>
+    </Button>
   );
   return (
     <Property
@@ -1841,6 +1834,7 @@ function AssetRef({
       text={face ? <span className="flex min-w-0 items-center gap-2">{face}</span> : null}
     >
       <div data-prop={name}>
+        {/* Raw: no control, the picked id as the form sends it. */}
         <input type="hidden" name={name} value={id ?? ""} />
         <div className="flex items-center gap-2">
           {chip || <span className="text-muted-foreground flex min-h-9 flex-1 items-center px-3 text-sm">None</span>}
@@ -1880,9 +1874,9 @@ function Replaced({ by, stacked, onOpen }: { by: string; stacked: boolean; onOpe
       </p>
       <p className="text-muted-foreground text-xs">
         Checks refuse it and point to{" "}
-        <button type="button" onClick={() => onOpen(by)} className="text-foreground underline">
+        <Button variant="link" onClick={() => onOpen(by)} className="text-foreground h-auto p-0 text-xs font-normal underline">
           its replacement
-        </button>
+        </Button>
         .{" "}
         {stacked ? "Make this version current, under Versions, to use it again." : "Clear Replaced by, under Provenance, to use it again."}
       </p>
@@ -1909,6 +1903,7 @@ function BrandRules({ assetId, leave }: { assetId: string; leave: (next: () => v
   return (
     <Popover>
       <PopoverTrigger asChild>
+        {/* Raw: a Badge as the trigger, and a Badge has no button of its own. */}
         <button type="button" className="animate-in fade-in-0 slide-in-from-top-1 rounded-full">
           <Badge variant="secondary" className="hover:bg-secondary/70 cursor-pointer">
             <IconBook /> Used in {rules.length} brand {rules.length === 1 ? "rule" : "rules"}
@@ -2142,24 +2137,26 @@ function Review({
               <li key={t}>
                 <Badge variant="outline" className="gap-0.5 border-dashed pr-0.5">
                   {t}
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     disabled={!!busy}
                     onClick={() => one(t, () => flush({ tags: [...new Set([...onScreen(), t])], proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Accept tag ${t}`}
-                    className="hover:bg-primary/15 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
+                    className="hover:bg-primary/15 size-5 rounded-full"
                   >
                     <IconCheck className="size-3" />
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     disabled={!!busy}
                     onClick={() => one(t, () => flush({ proposedTags: asset.proposedTags.filter((x) => x !== t) }))}
                     aria-label={`Dismiss tag ${t}`}
-                    className="hover:bg-muted-foreground/20 focus-visible:ring-ring/50 grid size-5 place-items-center rounded-full outline-none focus-visible:ring-2"
+                    className="hover:bg-muted-foreground/20 size-5 rounded-full"
                   >
                     <IconX className="size-3" />
-                  </button>
+                  </Button>
                 </Badge>
               </li>
             ))}

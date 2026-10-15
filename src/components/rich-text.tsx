@@ -41,8 +41,8 @@ import { Placeholder } from "@tiptap/extensions";
 import Suggestion, { exitSuggestion, type SuggestionProps } from "@tiptap/suggestion";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
-import { Kbd } from "@/components/ui/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IconButton } from "@/components/icon-button";
+import { Input } from "@/components/ui/input";
 import { linkHref, renderMarkdown, safeUrl } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 
@@ -233,7 +233,8 @@ export default function RichText({
 
   const editorProps = useMemo(
     () => ({
-      attributes: { class: cn("rich outline-none", className), ...(label ? { "aria-label": label } : {}) },
+      // A text field to a screen reader (a bare contenteditable has no role, and can't carry a name without one).
+      attributes: { class: cn("rich outline-none", className), role: "textbox", "aria-multiline": "true", ...(label ? { "aria-label": label } : {}) },
       handleKeyDown: (view: Editor["view"], e: KeyboardEvent) => {
         // ⌘K on a selection links it, as in Notion; with nothing selected it falls through to search.
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !view.state.selection.empty) {
@@ -295,7 +296,7 @@ export default function RichText({
   // remounts it) is skipped: its replacement runs this again.
   useEffect(() => {
     saved.current = value.trim();
-    if (editor && !editor.isDestroyed && !editor.isFocused &&editor.getMarkdown().trim() !== value.trim())
+    if (editor && !editor.isDestroyed && !editor.isFocused && editor.getMarkdown().trim() !== value.trim())
       editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
   }, [editor, value]);
 
@@ -347,6 +348,10 @@ function SlashMenu({ id, slash, rect, index, onHover }: { id: string; slash: Sla
       id={id}
       role="listbox"
       aria-label="Blocks"
+      // In the tab order for axe's sake (a scrolling region): Tab never gets here while it is open (Tab picks a block).
+      // A press in it never takes focus from the text, where the block goes.
+      tabIndex={0}
+      onMouseDown={(e) => e.preventDefault()}
       className="bg-popover text-popover-foreground motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 fixed z-50 max-h-80 w-72 overflow-y-auto rounded-lg border p-1 shadow-md duration-100"
       style={up ? { left: rect.left, bottom: window.innerHeight - rect.top + 4 } : { left: rect.left, top: rect.bottom + 4 }}
     >
@@ -357,6 +362,10 @@ function SlashMenu({ id, slash, rect, index, onHover }: { id: string; slash: Sla
           role="option"
           aria-selected={i === index}
           data-selected={i === index}
+          // The arrows move through it from the text: the row they reach scrolls into view.
+          ref={(el) => {
+            if (i === index) el?.scrollIntoView({ block: "nearest" });
+          }}
           // Mouse down, not click: the caret stays in the text, where the block goes.
           onMouseDown={(e) => {
             e.preventDefault();
@@ -387,30 +396,21 @@ function SlashMenu({ id, slash, rect, index, onHover }: { id: string; slash: Sla
  */
 function Tool({ icon: I, label, keys, active, onRun }: { icon: Icon; label: string; keys?: string[]; active?: boolean; onRun: () => void }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          aria-pressed={active}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            onRun();
-          }}
-          onClick={(e) => e.detail === 0 && onRun()}
-          className={cn(
-            "flex size-7 items-center justify-center rounded-md transition-colors",
-            active ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <I className="size-4" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {label}
-        {keys && <Kbd keys={keys} className="ml-2" />}
-      </TooltipContent>
-    </Tooltip>
+    <IconButton
+      type="button"
+      label={label}
+      shortcut={keys}
+      variant="ghost"
+      aria-pressed={active}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onRun();
+      }}
+      onClick={(e) => e.detail === 0 && onRun()}
+      className={cn("size-7", active ? "bg-foreground text-background hover:bg-foreground/90 hover:text-background" : "text-muted-foreground")}
+    >
+      <I />
+    </IconButton>
   );
 }
 
@@ -455,7 +455,7 @@ function TextMenu({ editor, linking, setLinking }: { editor: Editor; linking: st
           }}
         >
           <div className="flex items-center gap-1">
-            <input
+            <Input
               autoFocus
               value={linking}
               onChange={(e) => setLinking(e.target.value)}
@@ -464,7 +464,8 @@ function TextMenu({ editor, linking, setLinking }: { editor: Editor; linking: st
               aria-label="Link"
               aria-invalid={bad || undefined}
               aria-describedby={bad ? hint : undefined}
-              className={cn("w-56 rounded-sm bg-transparent px-2 text-sm outline-none", bad && "ring-destructive/60 ring-2")}
+              // Borderless inside the bar, which is its box; the refusal still rings it.
+              className="h-7 w-56 rounded-sm border-0 px-2 shadow-none focus-visible:ring-0 aria-invalid:ring-2 aria-invalid:ring-destructive/60 md:text-sm"
             />
             <Tool icon={IconX} label="Cancel" onRun={() => (setLinking(null), editor.commands.focus())} />
           </div>

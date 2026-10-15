@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPlus, IconTrash, IconUsersGroup, IconX } from "@/components/icons";
+import { Confirm } from "@/components/confirm";
 import { IconButton } from "@/components/icon-button";
+import { AdminsOnly } from "@/components/settings/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ export function GroupsPanel({ groups, people, places }: { groups: GroupRow[]; pe
   const [name, setName] = useState("");
   const done = (r: unknown) => r && router.refresh();
   return (
+    <AdminsOnly>
     <div className="space-y-6">
       <form
         className="flex gap-2"
@@ -51,6 +54,7 @@ export function GroupsPanel({ groups, people, places }: { groups: GroupRow[]; pe
         ))}
       </ul>
     </div>
+    </AdminsOnly>
   );
 }
 
@@ -64,27 +68,34 @@ function GroupCard({ g, people, places, done }: { g: GroupRow; people: Person[];
         <IconUsersGroup aria-hidden className="text-muted-foreground size-4" />
         <h3 className="font-medium">{g.name}</h3>
         <span className="text-muted-foreground text-sm tabular-nums">{g.members.length}</span>
-        <IconButton
-          variant="ghost"
-          size="icon-sm"
-          label={`Delete ${g.name}`}
-          className="text-muted-foreground hover:text-destructive ms-auto"
-          onClick={async () => done(await send("DELETE", `/api/v1/groups/${g.id}`))}
+        <Confirm
+          title={`Delete ${g.name}?`}
+          says="Its members lose the access the group gave them, at once. Their own access stays."
+          action="Delete"
+          run={async () => {
+            const r = await send("DELETE", `/api/v1/groups/${g.id}`);
+            done(r);
+            return r;
+          }}
         >
-          <IconTrash />
-        </IconButton>
+          <IconButton variant="ghost" size="icon-sm" label={`Delete ${g.name}`} className="text-muted-foreground hover:text-destructive ms-auto">
+            <IconTrash />
+          </IconButton>
+        </Confirm>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {g.members.map((m) => (
           <Badge key={m.id} variant="secondary" className="gap-1 pe-1">
             {m.name || m.email}
-            <button
-              type="button"
-              aria-label={`Take ${m.name || m.email} out of ${g.name}`}
+            <IconButton
+              variant="ghost"
+              size="icon-xs"
+              label={`Take ${m.name || m.email} out of ${g.name}`}
+              className="size-4 rounded-full"
               onClick={async () => done(await send("POST", `/api/v1/groups/${g.id}/members`, { remove: [m.id] }))}
             >
               <IconX className="size-3" />
-            </button>
+            </IconButton>
           </Badge>
         ))}
         {outside.length > 0 && (

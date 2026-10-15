@@ -116,6 +116,7 @@ const Side = ({ dir, data }: { dir: Dir; data: Data }) => {
   const Icon = state === "more" ? IconPlus : IconMinus;
   const what = dir === "up" ? `what ${data.item.name} comes from` : `what uses ${data.item.name}`;
   return (
+    // Raw: a round handle half over the card's edge, with React Flow's nodrag; IconButton's tooltip would sit over the edges.
     <button
       type="button"
       aria-label={state === "more" ? `Show ${what}` : `Hide ${what}`}
@@ -159,7 +160,8 @@ const ObjectNode = memo(function ObjectNode({ data }: NodeProps<Node<Data>>) {
           </span>
         </div>
         {/* Whether it may be used: current or not, its license, its last day. */}
-        <div className="bg-muted/40 flex items-center gap-1.5 border-t px-3 py-2 text-xs">
+        {/* No tint under it: the status badges (warning, on their own tint) need the card behind them for 4.5:1. */}
+        <div className="flex items-center gap-1.5 border-t px-3 py-2 text-xs">
           <StatusBadge status={item.status} />
           {item.expiring && <Badge variant="warning">Expires {item.expires}</Badge>}
           {item.type === "asset" && (

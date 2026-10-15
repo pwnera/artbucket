@@ -68,3 +68,16 @@ export const Loaded = meta.story({
   on randomness.
 - `tags: ["!autodocs"]` hides a story from Docs, `tags: ["!test"]` from the tests: only for a story that can't
   run headless, with a comment saying why.
+
+## Gotchas
+
+- `meta.args` with a string union prop (`variant`, `size`, `kind`) needs `as const`, or every story fails typecheck.
+- axe runs after `play`: close what the story opened (a menu, a dialog) and wait for it to go, or the page behind
+  it is `aria-hidden` and axe fails on `aria-hidden-focus`.
+- Fixtures import as `#.storybook/fixtures/<name>`; `withMe(viewer)` (fixtures/brands) renders as someone who
+  can't edit, `inApp` (fixtures/library) inside the real shell.
+- Time: swap `Date.now` by hand in `beforeEach` and restore it in its cleanup; `spyOn(Date, "now")` recurses here.
+- Arrow keys in a Radix radio group or toolbar: hold the key (`{ArrowUp>}` then `{/ArrowUp}`), since Radix moves
+  focus a tick after the keydown.
+- Motion is off under test (the browser runs with reduced motion), so a story asserts the end state, not a frame.
+

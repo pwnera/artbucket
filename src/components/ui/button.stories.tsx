@@ -17,6 +17,10 @@ export const Playground = meta.story({
   play: async ({ args, canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Release" }));
     await expect(args.onClick).toHaveBeenCalledOnce();
+    // Enter and Space press it from the keyboard.
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    await expect(args.onClick).toHaveBeenCalledTimes(3);
   },
 });
 
@@ -66,3 +70,21 @@ export const Disabled = meta.story({
     await expect(canvas.getByRole("button", { name: "Release" })).toBeDisabled();
   },
 });
+
+/** A link that looks like a button (`asChild`): still a link to a screen reader, and it opens a new tab as links do. */
+export const AsLink = meta.story({
+  args: { asChild: true, variant: "outline", children: <a href="#docs">Read the docs</a> },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("link", { name: "Read the docs" })).toHaveAttribute("data-slot", "button");
+  },
+});
+
+/** Pending with a leading icon: the spinner takes the icon's place. */
+export const PendingWithIcon = meta.story({
+  args: { pending: true, children: (<><IconDownload /> Download</>) as never },
+});
+
+/** Never wraps: a long label widens the button, so keep labels to a few words. */
+export const LongText = meta.story({ args: { children: "Release version 37 to every portal and site" } });
+
+export const Dark = Variants.extend({ globals: { theme: "dark" } });

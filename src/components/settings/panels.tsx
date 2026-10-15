@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { IconArrowRight, IconCheck, IconDots, IconPlus, IconRefresh, IconTrash } from "@/components/icons";
 import { toast } from "sonner";
 import { MakeDialog, pickProject, useGo, type Me } from "@/components/account";
+import { Writable } from "@/components/can";
 import { FieldsEditor } from "@/components/field-manager";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -34,7 +35,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * A titled group of controls, the unit every settings panel is made of.
- * `tone="danger"` sets apart what can't be undone, so nobody wanders into it.
+ * `tone="danger"` sets apart what can't be undone, so nobody wanders into it: a red edge and title, on the page's own
+ * background (a red tint under red text falls short of AA).
  */
 export function Group({
   title,
@@ -51,7 +53,7 @@ export function Group({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("space-y-4 rounded-lg border p-4 sm:p-5", tone === "danger" && "border-destructive/40 bg-destructive/5")}>
+    <section className={cn("space-y-4 rounded-lg border p-4 sm:p-5", tone === "danger" && "border-destructive/40")}>
       <div className="space-y-1">
         <h2 className={cn("font-display flex items-center gap-1.5 text-sm font-semibold", tone === "danger" && "text-destructive")}>
           {title}
@@ -95,6 +97,18 @@ export function SavedMark({ at, children = "Saved" }: { at: number; children?: s
   );
 }
 
+/**
+ * A panel only the organization's admins (or, `project`, the project's) may change: anyone else sees it read-only,
+ * its controls disabled, with why above them. The page lets nobody else in; this holds wherever it is drawn.
+ */
+export function AdminsOnly({ project, children }: { project?: boolean; children: React.ReactNode }) {
+  return (
+    <Writable do={project ? "project.manage" : "organization.manage"} why={`Only the ${project ? "project" : "organization"}'s admins can change this.`}>
+      {children}
+    </Writable>
+  );
+}
+
 /** The browser's own "Leave site?" while a form of several fields holds edits. */
 export function useLeaveGuard(dirty: boolean) {
   useEffect(() => {
@@ -128,6 +142,7 @@ export function NameForm({ what, url, name }: { what: string; url: string; name:
   const next = value.trim();
   return (
     <Group title="Name" info={`What people see the ${what} called: in the sidebar, in invitations, on share links.`}>
+      <AdminsOnly project={what === "project"}>
       <form
         className="flex max-w-md items-center gap-2"
         onSubmit={async (e) => {
@@ -151,6 +166,7 @@ export function NameForm({ what, url, name }: { what: string; url: string; name:
         </Button>
         <SavedMark at={savedAt} />
       </form>
+      </AdminsOnly>
     </Group>
   );
 }
@@ -173,6 +189,7 @@ export function ProjectsPanel({ me, projects }: { me: Me; projects: ProjectRow[]
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   return (
+    <AdminsOnly>
     <div className="space-y-4">
       <ul className="divide-y rounded-lg border">
         {projects.map((w) => {
@@ -289,6 +306,7 @@ export function ProjectsPanel({ me, projects }: { me: Me; projects: ProjectRow[]
       </Button>
       {making && <MakeDialog kind="project" org={me.project.organization.name} onClose={() => setMaking(false)} />}
     </div>
+    </AdminsOnly>
   );
 }
 
@@ -593,14 +611,14 @@ export function UsagePanel({ usage }: { usage: Usage }) {
           {rows.map(([label, n, max, fmt]) => {
             const pct = max ? (n / max) * 100 : 100;
             return (
-              <div key={label} className="grid gap-1.5">
-                <div className="flex items-baseline justify-between gap-4 text-sm">
-                  <dt className="font-medium">{label}</dt>
-                  <dd className={cn("tabular-nums", pct >= 100 && max !== null ? "text-destructive" : "text-muted-foreground")}>
-                    {fmt(n)} {max === null ? "used, no limit" : `of ${fmt(max)}`}
-                  </dd>
-                </div>
+              // One dt and its dd per row, the bar in a dd of its own: a dl's div holds only those.
+              <div key={label} className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1.5 text-sm">
+                <dt className="font-medium">{label}</dt>
+                <dd className={cn("tabular-nums", pct >= 100 && max !== null ? "text-destructive" : "text-muted-foreground")}>
+                  {fmt(n)} {max === null ? "used, no limit" : `of ${fmt(max)}`}
+                </dd>
                 {max !== null && (
+                  <dd className="col-span-2">
                   <Progress
                     value={Math.min(100, pct)}
                     aria-label={`${label} used`}
@@ -611,6 +629,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
                         : pct >= 80 && "[&>[data-slot=progress-indicator]]:bg-warning",
                     )}
                   />
+                  </dd>
                 )}
               </div>
             );

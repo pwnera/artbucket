@@ -15,10 +15,10 @@ export default defineConfig({
         plugins: [storybookTest({ configDir: path.join(import.meta.dirname, ".storybook"), storybookScript: "pnpm storybook --no-open" })],
         test: {
           name: "storybook",
-          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: "chromium" }] },
+          browser: { enabled: true, headless: true, provider: playwright({ contextOptions: { reducedMotion: "reduce" } }), instances: [{ browser: "chromium" }] },
         },
       },
     ],
-    coverage: { include: ["src/components/**/*.tsx", "kit/ui/*.js"], exclude: ["**/*.stories.tsx"] },
+    coverage: { provider: "v8", include: ["src/components/**/*.tsx", "kit/ui/*.js"], exclude: ["**/*.stories.tsx"], reporter: ["text-summary", "html", "json-summary"] },
   },
 });

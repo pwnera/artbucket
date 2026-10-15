@@ -10,6 +10,7 @@ import { CardGrid, ObjectCard, Section } from "@/components/catalog-matches";
 import { TYPE_LABEL } from "@/lib/catalog";
 import type { Collection } from "@/components/collections";
 import { liveRecents, usePref, useRecents } from "@/components/sidebar-prefs";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { ago, day, short } from "@/lib/time";
 
@@ -69,14 +70,9 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
         <SearchBox />
         <div className="flex flex-wrap justify-center gap-2">
           {CHIPS.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onClick={() => navigate(c.href)}
-              className="bg-card hover:bg-accent inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors"
-            >
+            <Button key={c.label} variant="outline" size="sm" className="bg-card font-normal" onClick={() => navigate(c.href)}>
               {c.icon} {c.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -160,6 +156,7 @@ function SearchBox() {
       className="relative w-full max-w-2xl"
     >
       <IconSearch aria-hidden className="text-muted-foreground absolute top-6 left-4 size-5 -translate-y-1/2" />
+      {/* Raw: Explore's one big pill box, taller and rounder than Input, with the glass and hint laid over it. */}
       <input
         autoFocus
         type="search"

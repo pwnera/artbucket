@@ -76,7 +76,7 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
                   <IconRobot aria-hidden /> Fix with an agent
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="grid w-[min(28rem,calc(100vw-2rem))] gap-2 p-3">
+              <PopoverContent align="end" aria-label="Fix with an agent" className="grid w-[min(28rem,calc(100vw-2rem))] gap-2 p-3">
                 <p className="text-sm">Paste this to an agent connected over MCP.</p>
                 <div className="bg-muted/60 flex items-start gap-1 rounded-md border ps-2.5">
                   <pre className="max-h-48 min-w-0 flex-1 overflow-auto py-2 text-xs whitespace-pre-wrap">{text}</pre>
@@ -98,13 +98,16 @@ export function BrandScore({ name, slug, status }: { name: string; slug: string;
       <ul className="bg-card divide-y rounded-xl border">
         {status.steps.map((s) => (
           <li key={s.id} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-start gap-3 p-4">
+            {/* The state, said as an image: the icon alone isn't announced. */}
             <span
+              role="img"
+              aria-label={s.done === true ? "done" : s.done === false ? "to do" : "not known"}
               className={cn(
                 "grid size-6 place-items-center rounded-full [&_svg]:size-3.5",
                 s.done === true ? "bg-success/15 text-success" : s.done === false ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning",
               )}
             >
-              {s.done === true ? <IconCheck aria-label="done" /> : s.done === false ? <IconX aria-label="to do" /> : <IconAlertTriangle aria-label="not known" />}
+              {s.done === true ? <IconCheck aria-hidden /> : s.done === false ? <IconX aria-hidden /> : <IconAlertTriangle aria-hidden />}
             </span>
             <span className="grid gap-0.5">
               {s.done === false ? (

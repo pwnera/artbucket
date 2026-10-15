@@ -2,6 +2,8 @@
 
 import { useId, useState } from "react";
 import { IconArrowDownRight, IconArrowUpRight } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useCountUp } from "@/lib/motion";
 
@@ -77,6 +79,7 @@ export function Kpis({ items, picked, onPick }: { items: Kpi[]; picked?: string;
           </>
         );
         const cls = "grid min-w-0 content-start gap-0.5 rounded-lg px-3 py-2.5 text-start lg:min-w-36";
+        // A raw button: the whole figure (label, number, change) is the hit target, a card rather than Button's one line.
         return k.chart && onPick ? (
           <button
             key={k.id}
@@ -342,46 +345,38 @@ export function BarList({ rows, column, empty }: { rows: Row[]; column: string; 
         ))}
       </ol>
       {rows.length > 8 && (
-        <button type="button" onClick={() => setAll(!all)} className="text-muted-foreground hover:text-foreground justify-self-center px-2 py-1 text-xs underline-offset-2 hover:underline">
+        <Button variant="link" size="xs" onClick={() => setAll(!all)} className="text-muted-foreground hover:text-foreground justify-self-center">
           {all ? "Show fewer" : `Show all ${rows.length}`}
-        </button>
+        </Button>
       )}
     </div>
   );
 }
 
-/** A breakdown card: its tabs in its header, as DataFast's Referrer, Campaign and Channel, then the picked tab's rows. */
+/** A breakdown card: its tabs in its header, as DataFast's Referrer, Campaign and Channel, then the picked tab's rows. Arrows move between tabs. */
 export function Breakdown({ title, tabs, action }: { title: string; tabs: BreakdownTab[]; action?: React.ReactNode }) {
-  const [picked, setPicked] = useState(tabs[0].id);
-  const tab = tabs.find((t) => t.id === picked) ?? tabs[0];
-  const id = useId();
   return (
-    <section aria-label={title} className="bg-card flex min-w-0 flex-col gap-3 rounded-xl border p-3 sm:p-4">
-      <div className="flex min-w-0 items-center gap-2">
-        <h2 className="font-display shrink-0 text-sm font-semibold">{title}</h2>
-        {tabs.length > 1 && (
-          <div role="tablist" aria-label={title} className="ms-auto flex min-w-0 gap-0.5 overflow-x-auto">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                id={`${id}-${t.id}`}
-                aria-selected={t.id === tab.id}
-                aria-controls={`${id}-panel`}
-                onClick={() => setPicked(t.id)}
-                className="text-muted-foreground hover:text-foreground aria-selected:bg-muted aria-selected:text-foreground shrink-0 rounded-md px-2 py-1 text-xs font-medium"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {action && <div className={cn("shrink-0", tabs.length > 1 ? "" : "ms-auto")}>{action}</div>}
-      </div>
-      <div id={`${id}-panel`} role={tabs.length > 1 ? "tabpanel" : undefined} aria-labelledby={tabs.length > 1 ? `${id}-${tab.id}` : undefined}>
-        <BarList key={tab.id} rows={tab.rows} column={tab.column} empty={tab.empty} />
-      </div>
+    <section aria-label={title} className="bg-card flex min-w-0 flex-col rounded-xl border p-3 sm:p-4">
+      <Tabs defaultValue={tabs[0].id} className="gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="font-display shrink-0 text-sm font-semibold">{title}</h2>
+          {tabs.length > 1 && (
+            <TabsList aria-label={title} className="ms-auto h-7 min-w-0 justify-start overflow-x-auto bg-transparent p-0">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.id} value={t.id} className="data-[state=active]:bg-muted h-7 flex-none px-2 text-xs data-[state=active]:shadow-none">
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
+          {action && <div className={cn("shrink-0", tabs.length > 1 ? "" : "ms-auto")}>{action}</div>}
+        </div>
+        {tabs.map((t) => (
+          <TabsContent key={t.id} value={t.id}>
+            <BarList rows={t.rows} column={t.column} empty={t.empty} />
+          </TabsContent>
+        ))}
+      </Tabs>
     </section>
   );
 }

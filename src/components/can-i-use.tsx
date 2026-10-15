@@ -136,6 +136,7 @@ export function CanIUse({ ask, context = false, onOpen }: { ask: (use: Use) => P
                     <li key={s.id} className="flex items-center gap-1">
                       <span className="min-w-0">
                       {onOpen ? (
+                        // A raw button: a title within a sentence, which Button's height and padding would break.
                         <button type="button" onClick={() => onOpen(s.id)} className="hover:underline">
                           {s.title}
                         </button>

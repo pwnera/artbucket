@@ -53,6 +53,7 @@ export function ValueEditor({
       return (
         <Editable
           value={String(r.value)}
+          label="Value"
           inputMode="decimal"
           className="font-mono text-3xl font-medium tracking-tight tabular-nums"
           onSave={(v) => {
@@ -329,6 +330,7 @@ export function Editable({
         {value}
       </p>
     ) : null;
+  // Raw: text that reads as the page until clicked, growing with its content (field-sizing), not a boxed field.
   return (
     <textarea
       rows={1}
@@ -390,10 +392,10 @@ export function Editable({
 }
 
 export const GRADE_STYLE: Record<ReturnType<typeof grade>, string> = {
-  AAA: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  AA: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  "AA large": "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  fail: "bg-red-500/15 text-red-700 dark:text-red-400",
+  AAA: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-400",
+  AA: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-400",
+  "AA large": "bg-amber-500/15 text-amber-800 dark:text-amber-400",
+  fail: "bg-red-500/15 text-red-800 dark:text-red-400",
 };
 
 /** Text in this color on white and on black: the ratio, and what it is good for. */
@@ -405,7 +407,9 @@ function Contrast({ hex, on }: { hex: string; on: "#ffffff" | "#000000" }) {
       className="flex items-center gap-2 rounded-lg border px-2 py-1.5"
       title={`${hex} text on ${on === "#ffffff" ? "white" : "black"}: ${ratio.toFixed(2)}:1`}
     >
+      {/* The sample, in the brand's color, is for the eye; the ratio and grade beside it say the same in words. */}
       <span
+        aria-hidden
         className="flex h-6 w-8 items-center justify-center rounded text-sm font-semibold ring-1 ring-black/10 dark:ring-white/10"
         style={{ backgroundColor: on, color: hex }}
       >
@@ -465,7 +469,7 @@ function ColorEditor({
     <>
       <span aria-hidden className="absolute inset-0" style={{ backgroundColor: live }} />
       <span className="relative text-3xl font-semibold tracking-tight">Aa</span>
-      <span className="relative flex items-center gap-1 font-mono text-xs opacity-80">
+      <span className="relative flex items-center gap-1 font-mono text-xs">
         {copied === live ? (
           <>
             <IconCheck className="animate-in zoom-in-50 size-3.5" /> Copied
@@ -480,6 +484,7 @@ function ColorEditor({
   return (
     <div className={cn("flex flex-col gap-4", !stacked && "@md:flex-row")}>
       {readOnly ? (
+        // Raw: the swatch itself is the button, in the brand's color.
         <button
           type="button"
           aria-label={`Copy ${live}`}
@@ -672,6 +677,7 @@ function ListEditor({
         if (readOnly && look === "scale")
           return (
             <li key={i}>
+              {/* Raw: the whole scale row, its size and its specimen, is the button. */}
               <button
                 type="button"
                 onClick={() => void copy(`${it}px`, "size")}
@@ -683,7 +689,7 @@ function ListEditor({
                     {it}px
                     {copied === `${it}px` && <IconCheck className="text-success animate-in zoom-in-50 size-3" />}
                   </span>
-                  {sized && <span className="text-muted-foreground/70 text-2xs">{+(size / 16).toFixed(4)}rem</span>}
+                  {sized && <span className="text-muted-foreground text-2xs">{+(size / 16).toFixed(4)}rem</span>}
                   {size > CAP && <span className="text-muted-foreground text-2xs">shown at {CAP}px</span>}
                 </span>
                 {sample}
@@ -699,6 +705,7 @@ function ListEditor({
             {readOnly ? (
               <span className="min-w-0 flex-1 px-1">{it}</span>
             ) : (
+            // Raw: a list item that reads as the page's text until focused; the list's own keys move between them.
             <input
               ref={(el) => {
                 refs.current[i] = el;

@@ -6,7 +6,7 @@
  *
  * Pure: `pnpm test` runs it under plain Node.
  */
-import { contrast, inkOn, luminance, rgb, type Rgb } from "../../kit/ui/color.js";
+import { contrast, inkOn, luminance, mix, rgb, type Rgb } from "../../kit/ui/color.js";
 
 export { contrast, grade, hexOf, hsl, inkOn, isHex, luminance, mix, rgb, tintOf, toCmyk, type Cmyk, type Rgb } from "../../kit/ui/color.js";
 
@@ -58,12 +58,14 @@ export function groundFor(pixels: Rgb[], fallback: string, palette: string[], mi
  * An organization's accent as the app's primary color, once per theme and
  * lifted until it shows on that theme's background: a black accent would
  * erase buttons and focus rings in dark. As text (--primary-ink) it is lifted
- * further, to 4.5:1. ponytail: graded on the background only; muted is a
- * step toward the text, so a borderline accent can dip just under 4.5 there.
+ * further, to 4.5:1 on its own wash (WASH of it over the background: the
+ * sidebar's current item, a pressed toggle, a chip), so it reads there and,
+ * a step further, on the bare background too.
  * html-qualified, so these outrank globals.css whatever the order. lift() only returns "#rrggbb".
  */
+const WASH = 0.2;
 const vars = (accent: string, bg: string) => {
   const c = lift(accent, bg);
-  return `--primary:${c};--primary-foreground:${inkOn(c)};--ring:${c};--sidebar-primary:${c};--sidebar-primary-foreground:${inkOn(c)};--primary-ink:${lift(accent, bg, 4.5)};`;
+  return `--primary:${c};--primary-foreground:${inkOn(c)};--ring:${c};--sidebar-primary:${c};--sidebar-primary-foreground:${inkOn(c)};--primary-ink:${lift(accent, mix(bg, c, WASH), 4.5)};`;
 };
 export const accentCss = (accent: string | null) => accent && `html:root{${vars(accent, APP_BG.light)}}html.dark{${vars(accent, APP_BG.dark)}}`;

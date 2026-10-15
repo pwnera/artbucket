@@ -63,16 +63,22 @@ export function Combobox({
 }) {
   const [inner, setInner] = useState(defaultValue);
   const [open, setOpen] = useState(false);
+  // Held here: reopened while it still fades out, the list keeps its state, and an old search would hide the rest.
+  const [search, setSearch] = useState("");
   const current = value ?? inner;
+  const show = (o: boolean) => {
+    setOpen(o);
+    setSearch("");
+  };
   const pick = (v: string) => {
     setInner(v);
     onChange?.(v);
-    setOpen(false);
+    show(false);
   };
 
   return (
     <div className={cn("relative", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={show}>
         <PopoverTrigger asChild>
           <Button
             id={id}
@@ -90,10 +96,10 @@ export function Combobox({
             <IconSelector className="opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-48 p-0" align="start">
+        <PopoverContent aria-label={placeholder} className="w-(--radix-popover-trigger-width) min-w-48 p-0" align="start">
           <Command>
             {/* Always there: without it nothing in the popover takes focus, and the arrows go nowhere. */}
-            <CommandInput placeholder="Search" className="text-base md:text-sm" />
+            <CommandInput value={search} onValueChange={setSearch} placeholder="Search" className="text-base md:text-sm" />
             <CommandList>
               <CommandEmpty>No match.</CommandEmpty>
               <CommandGroup>
@@ -250,6 +256,7 @@ export function MultiCombobox({
             <Badge key={v} variant="secondary" className={cn("gap-0.5", !locked.has(v) && "pr-0.5")}>
               {labelOf(options, v)}
               {!locked.has(v) && (
+                // Raw: a 20px round target inside the chip, smaller than any Button size.
                 <button
                   type="button"
                   onClick={() => toggle(v)}
@@ -263,18 +270,20 @@ export function MultiCombobox({
             </Badge>
           ))}
           <PopoverTrigger asChild>
+            {/* Raw: the box around it is the field (border, ring); this is the space left in it, drawn as text. */}
             <button
               id={id}
               type="button"
               aria-describedby={describedBy}
               className="text-muted-foreground h-6 min-w-16 flex-1 px-1.5 text-left text-sm outline-none"
             >
-              {selected.length ? "" : placeholder}
+              {/* Once there are chips the placeholder goes, but the button keeps a name where no <label> gives one. */}
+              {selected.length ? <span className="sr-only">{placeholder}</span> : placeholder}
             </button>
           </PopoverTrigger>
         </div>
       </PopoverAnchor>
-      <PopoverContent className="w-(--radix-popover-trigger-width) min-w-56 p-0" align="start">
+      <PopoverContent aria-label={placeholder} className="w-(--radix-popover-trigger-width) min-w-56 p-0" align="start">
         {/* "Add" ranks last, so Enter picks an existing tag when one matches. */}
         <Command filter={(v, s, k) => (v.startsWith("__create ") ? 0.0001 : defaultFilter(v, s, k))}>
           <CommandInput

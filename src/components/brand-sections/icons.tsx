@@ -98,7 +98,8 @@ function Icon({ m, glyph, accent, takes }: { m: Media; glyph: string; accent: bo
   return (
     <li className="group/icon relative flex flex-col items-center gap-2 rounded-(--brand-radius,0.75rem) border border-current/10 px-2 pt-5 pb-3 text-center transition-colors hover:border-current/25">
       <span className={cn("flex items-center", accent && m.mono && "text-(--brand-accent-text)")}>
-        <IconGlyph src={m.original} mono={m.mono} label={name} className={glyph} />
+        {/* Its name is the caption under it: the glyph itself is decoration. */}
+        <IconGlyph src={m.original} mono={m.mono} className={glyph} />
       </span>
       <span className="w-full truncate text-xs opacity-80" title={name}>
         {name}

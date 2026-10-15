@@ -2,10 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { UseInCode } from "@/components/brand-rules";
+import { BrandRules, UseInCode } from "@/components/brand-rules";
 import type { BrandInfo } from "@/components/brand-switcher";
 import { RulesSheet } from "@/components/builder/rules-sheet";
 import { useBuilder } from "@/components/builder/use-builder";
+import { useCan } from "@/components/can";
 import { guidelinesPath } from "@/lib/site";
 
 type Init = Parameters<typeof useBuilder>[1];
@@ -16,11 +17,14 @@ type Init = Parameters<typeof useBuilder>[1];
  * is changed here as it is there (presets, specs, files, context versions,
  * undo on delete), saved as it is typed into the brand's draft. A page that
  * shows a rule opens in the guidelines. A link to one rule (`#rule-{key}`,
- * lib/site.ts rulesPath) opens it, scrolled to.
+ * lib/site.ts rulesPath) opens it, scrolled to. Someone who may not edit
+ * this brand (narrowed to read it) gets the read-only list instead, as the
+ * page gives a viewer, rather than edits the server would refuse.
  */
 export function BrandRulesEditor({ brand, init }: { brand: BrandInfo; init: Init }) {
   const b = useBuilder(brand.slug, init);
   const router = useRouter();
+  const can = useCan();
   const { select } = b;
   useEffect(() => {
     const land = () => {
@@ -37,6 +41,7 @@ export function BrandRulesEditor({ brand, init }: { brand: BrandInfo; init: Init
     window.addEventListener("hashchange", land);
     return () => window.removeEventListener("hashchange", land);
   }, [select]);
+  if (!can("brand.edit", { id: brand.id, private: brand.private })) return <BrandRules brand={brand} rules={init.rules.map((r) => ({ ...r, id: `${r.key}@${r.context ?? ""}` }))} />;
   return (
     <div className="grid gap-4">
       <UseInCode brand={brand} />

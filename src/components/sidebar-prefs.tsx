@@ -5,6 +5,7 @@ import { IconArrowDown, IconArrowUp, IconChevronRight, IconDots, IconX } from "@
 import { Collapsible } from "radix-ui";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useMe } from "@/components/can";
+import { IconButton } from "@/components/icon-button";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { applyOrder, moveTo } from "@/lib/order";
@@ -318,14 +319,16 @@ export function SidebarSection({
           <div className={cn("flex items-center gap-0.5", flyout ? "pe-1" : "absolute right-2")}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`${label} section menu`}
+                <IconButton
+                  variant="ghost"
+                  size="icon-xs"
+                  label={`${label} section menu`}
+                  side="right"
                   // On touch there is no hover to reveal it, so it stays.
-                  className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100"
+                  className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground size-5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100"
                 >
                   <IconDots className="size-4" />
-                </button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start">
                 <MoveItems s={s} />
@@ -339,14 +342,9 @@ export function SidebarSection({
             </DropdownMenu>
             {action}
             {flyout && (
-              <button
-                type="button"
-                onClick={flyout.close}
-                aria-label="Close panel"
-                className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-6 items-center justify-center rounded-md"
-              >
+              <IconButton variant="ghost" size="icon-xs" label="Close panel" onClick={flyout.close} className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                 <IconX className="size-4" />
-              </button>
+              </IconButton>
             )}
           </div>
         </div>
@@ -362,18 +360,8 @@ export function SidebarSection({
 /** The add button in a section's header, e.g. "New collection". */
 export function SectionAdd({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex size-5 items-center justify-center rounded-md [&>svg]:size-4"
-        >
-          {icon}
-          <span className="sr-only">{label}</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
+    <IconButton variant="ghost" size="icon-xs" label={label} side="right" onClick={onClick} className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground size-5 [&>svg]:size-4">
+      {icon}
+    </IconButton>
   );
 }

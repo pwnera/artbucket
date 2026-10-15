@@ -183,6 +183,7 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
             {Object.entries(LOOKS).map(([id, st]) => {
               const on = Object.entries(st.patch).every(([k, v]) => v === null || (s[k as keyof ThemeSettings] ?? theme[k as keyof typeof theme]) === v);
               return (
+                // Raw: a look's card, its sketch and its name, the whole card the hit target.
                 <button
                   key={id}
                   type="button"

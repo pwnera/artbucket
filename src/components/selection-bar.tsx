@@ -755,7 +755,7 @@ function AddTo({
           <IconFolderPlus /> <span className="hidden md:inline">Add to</span>
         </IconButton>
       </PopoverTrigger>
-      <PopoverContent side="top" className="w-64 p-0">
+      <PopoverContent side="top" aria-label="Add to collection" className="w-64 p-0">
         <Command loop>
           <CommandInput placeholder="Find a collection" autoFocus />
           <CommandList className="max-h-64">
@@ -828,7 +828,7 @@ export function RejectAction({
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent side={side} align="end" className="grid w-80 gap-3">
+      <PopoverContent side={side} align="end" aria-label="Reject" className="grid w-80 gap-3">
         <Textarea
           autoFocus
           value={reason}
@@ -900,7 +900,7 @@ function ExpiryAction({
           <IconCalendarOff /> Expiry
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="top" className="grid w-72 gap-3">
+      <PopoverContent side="top" aria-label="Last day of use" className="grid w-72 gap-3">
         <label className="grid gap-1.5 text-sm font-medium">
           <span className="flex items-center gap-1.5">
             Last day of use
@@ -982,16 +982,22 @@ function TagAction({
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent side="top" className="w-72 p-0">
+      <PopoverContent side="top" aria-label={`${label} the selection`} className="w-72 p-0">
         <Command loop>
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1 border-b p-2">
               {tags.map((t) => (
                 <Badge key={t} variant="secondary" className="gap-1 pr-1">
                   {t}
-                  <button type="button" onClick={() => flip(t)} aria-label={`Remove ${t}`} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
-                    <IconX className="size-3" />
-                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => flip(t)}
+                    aria-label={`Remove ${t}`}
+                    className="hover:bg-muted-foreground/20 size-4 rounded-full [&_svg:not([class*='size-'])]:size-3"
+                  >
+                    <IconX />
+                  </Button>
                 </Badge>
               ))}
             </div>

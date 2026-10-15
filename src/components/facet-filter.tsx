@@ -92,7 +92,7 @@ export function FacetFilter({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-0" align="start">
+      <PopoverContent aria-label={label} className="w-60 p-0" align="start">
         <Command>
           {/* Always there: without a field, focus lands where cmdk's keys can't reach. */}
           <CommandInput placeholder={label} value={q} onValueChange={setQ} />

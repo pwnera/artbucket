@@ -285,7 +285,7 @@ function Layout({
           className={cn(look.className, pin.land, "break-words @6xl/site:grid", grid)}
         >
           {column && (
-            <aside data-chrome className={cn("sticky hidden self-start overflow-y-auto border-e p-3 @6xl/site:block print:hidden", pin.top, pin.tall)}>
+            <aside aria-label="Pages" data-chrome className={cn("sticky hidden self-start overflow-y-auto border-e p-3 @6xl/site:block print:hidden", pin.top, pin.tall)}>
               <div className="mb-3 flex flex-wrap items-center gap-1">{tools}</div>
               <NavTree roots={roots} current={current} onNavigate={onNavigate} />
             </aside>
@@ -379,7 +379,7 @@ function Layout({
           </div>
 
           {listed && toc === "side" && (
-            <aside data-chrome className={cn("sticky hidden self-start overflow-y-auto p-3 pt-8 @6xl/site:block print:hidden", pin.top, pin.tall)}>
+            <aside aria-label="On this page" data-chrome className={cn("sticky hidden self-start overflow-y-auto p-3 pt-8 @6xl/site:block print:hidden", pin.top, pin.tall)}>
               <p className={cn(LABEL, "text-muted-foreground px-3 pb-2")}>On this page</p>
               <OnThisPage sections={sections} />
             </aside>

@@ -212,6 +212,7 @@ function Deployments({ site }: { site: Portal }) {
           </div>
         )}
       </div>
+      {/* Raw: the drop zone is the hit target, for a click or a dropped zip. */}
       <button
         type="button"
         onClick={() => input.current?.click()}
@@ -235,6 +236,7 @@ function Deployments({ site }: { site: Portal }) {
         <span className="text-foreground font-medium">{sending ? "Deploying" : "Drop a zip of the build, or choose one"}</span>
         <span className="text-xs">index.html at its root. From a terminal: artbucket site push dist --site {site.slug}</span>
       </button>
+      {/* Raw: a file input, opened by the drop zone. */}
       <input ref={input} type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => void deploy(e.target.files?.[0])} />
         </>
       )}

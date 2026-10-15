@@ -225,6 +225,7 @@ export function BrandImport({ url, onBusy, onStarted }: { url: string; onBusy: (
             <strong className="text-foreground font-medium">{file ? file.name : "Choose a .zip or a PDF"}</strong>
             <span>{file ? size(file.size) : `or drop it here. Up to ${size(start.max)} and ${start.maxFiles.toLocaleString("en")} files.`}</span>
             {wrong && <span className="text-destructive">{wrong}</span>}
+            {/* Raw: a file input, hidden in the drop zone that is its label. */}
             <input
               id={`${id}-file`}
               type="file"

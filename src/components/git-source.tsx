@@ -78,7 +78,7 @@ export function GitSource({ source, slug, editor, compact }: { source: Source | 
           {s?.pending && <PendingDot />}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="grid w-80 gap-2 p-3 text-sm">
+      <PopoverContent align="end" aria-label={s ? "Kept in a repository" : "Keep this brand in Git"} className="grid w-80 gap-2 p-3 text-sm">
         {s ? (
           <RepositoryDetails source={s} manage={source.connect} />
         ) : (

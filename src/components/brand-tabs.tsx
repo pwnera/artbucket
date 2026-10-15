@@ -4,6 +4,7 @@ import Link from "next/link";
 import { IconCheck, IconChevronDown } from "@/components/icons";
 import { useCan } from "@/components/can";
 import { TabNav } from "@/components/hub";
+import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { brandPath, guidelinesPath } from "@/lib/site";
 
@@ -69,14 +70,15 @@ export function BrandTabMenu({ brand, at, here = {} }: { brand: { slug: string; 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           aria-label={`${brand.name}, its tabs`}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 flex h-7 min-w-0 shrink-0 items-center gap-1 rounded-md px-1.5 text-sm outline-none focus-visible:ring-2"
+          className="text-muted-foreground hover:text-foreground h-7 min-w-0 gap-1 px-1.5 font-normal has-[>svg:not([data-spinner])]:px-1.5"
         >
           <span className="max-w-40 truncate">{brand.name}</span>
           <IconChevronDown aria-hidden className="size-3.5 shrink-0" />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="app-tokens w-52">
         {[...tabs, ...more].map((t, i) => {

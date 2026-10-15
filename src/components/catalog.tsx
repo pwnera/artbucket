@@ -44,6 +44,9 @@ import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "
 import type { ActivityLine, CatalogItem, Granted, Holder } from "@/lib/core/catalog";
 import { cn } from "@/lib/utils";
 
+/** A breadcrumb: text in the trail's own color, brightening on hover. */
+const CRUMB = "h-auto p-0 font-normal text-current hover:text-foreground hover:no-underline";
+
 /**
  * The catalog explorer (PRD: Artbucket Catalog): every project the person
  * reaches as a tree of its objects, and the one picked, with what it is, what
@@ -163,19 +166,19 @@ function ObjectView({
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-3">
         <nav aria-label="Where it is" className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
-          <button type="button" className="hover:text-foreground" onClick={() => openFolder(o.project.id)}>
+          <Button variant="link" className={CRUMB} onClick={() => openFolder(o.project.id)}>
             {o.project.name}
-          </button>
+          </Button>
           /
-          <button type="button" className="hover:text-foreground" onClick={() => openFolder(`${o.project.id}:${o.parent?.type ?? o.type}`)}>
+          <Button variant="link" className={CRUMB} onClick={() => openFolder(`${o.project.id}:${o.parent?.type ?? o.type}`)}>
             {TYPE_LABEL[o.parent?.type ?? o.type].many}
-          </button>
+          </Button>
           {o.parent && (
             <>
               /
-              <button type="button" className="hover:text-foreground" onClick={() => go(o.parent!.id)}>
+              <Button variant="link" className={CRUMB} onClick={() => go(o.parent!.id)}>
                 {o.parent.name}
-              </button>
+              </Button>
             </>
           )}
         </nav>
@@ -215,6 +218,7 @@ function ObjectView({
       </div>
       <nav aria-label="Object" className="flex gap-5 overflow-x-auto border-b">
         {tabs.map((t) => (
+          // Raw: page navigation (aria-current), not Tabs, since each tab is an address with no panel of its own here.
           <button
             key={t}
             type="button"
@@ -246,6 +250,7 @@ function ObjectView({
  */
 function FolderView({ projects, folder, go, openFolder }: { projects: TreeProject[]; folder: string; go: (id: string) => void; openFolder: (key: string) => void }) {
   const here = useMe()?.project.id;
+  const can = useCan();
   const tree = useMemo(() => build(projects, () => true), [projects]);
   const [shown, setShown] = useState(100);
   const found = findNode(tree, folder);
@@ -261,7 +266,9 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
   const walk = (n: Node) => n.children.forEach((c) => (c.kind === "object" ? leaves.push(c.item!) : walk(c)));
   walk(node);
   const items = node.kind === "project" ? [...leaves].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)).slice(0, 12) : leaves;
-  const make = node.depth === 2 && node.type && NEW[node.type] && node.key.startsWith(`${here}:`) ? NEW[node.type] : undefined;
+  // Only to whoever may make one, as the tree's New: a viewer's would open a form they can't send.
+  const offer = node.depth === 2 && node.type ? NEW[node.type] : undefined;
+  const make = offer && node.key.startsWith(`${here}:`) && can(offer.may) ? offer : undefined;
   const list = node.depth === 2 && node.type ? LIST[node.type] : undefined;
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -271,9 +278,9 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
             {trail.map((t, i) => (
               <span key={t.key} className="flex items-center gap-1.5">
                 {i > 0 && <span aria-hidden>/</span>}
-                <button type="button" className="hover:text-foreground" onClick={() => openFolder(t.key)}>
+                <Button variant="link" className={CRUMB} onClick={() => openFolder(t.key)}>
                   {t.label}
-                </button>
+                </Button>
               </span>
             ))}
           </nav>
@@ -329,6 +336,7 @@ function FolderView({ projects, folder, go, openFolder }: { projects: TreeProjec
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3">
             {folders.map((f) => (
               <li key={f.key}>
+                {/* Raw: the whole tile is the hit target. */}
                 <button
                   type="button"
                   onClick={() => openFolder(f.key)}
@@ -444,11 +452,11 @@ function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }
           <ul className="space-y-1">
             {o.usedBy.map((u) => (
               <li key={u.id}>
-                <button type="button" onClick={() => go(u.id)} className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm">
+                <Button variant="ghost" onClick={() => go(u.id)} className="h-auto w-full justify-start px-2 py-1.5 text-start font-normal">
                   <TypeIcon type={u.type} className="text-muted-foreground size-4 shrink-0" />
                   <span className="truncate">{u.name}</span>
                   <span className="text-muted-foreground ms-auto text-xs">{TYPE_LABEL[u.type].one}</span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
