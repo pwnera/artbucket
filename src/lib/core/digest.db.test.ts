@@ -58,10 +58,10 @@ test("editors and admins get the week once; viewers and those who turned it off 
   assert.equal(await sendDigests(monday), 2);
   const [mail] = to(ada);
   assert.match(mail, /: Your week in /);
-  assert.match(mail, /1 brand release went out:\n.*, version 1: New spring palette http:\/\/localhost:3000\/brands\//);
-  assert.match(mail, /2 new assets: hero\.txt and brief\.txt\./);
-  assert.match(mail, /1 license ends in the next two weeks:\nhero\.txt, last day/);
-  assert.match(mail, /People searched for "winter campaign" and found nothing\./);
+  assert.match(mail, /BRAND RELEASES\n.* @1, Released, New spring palette http:\/\/localhost:3000\/brands\//);
+  assert.match(mail, /NEW ASSETS \(2\)\nhero\.txt, New http\S+\nbrief\.txt, New /);
+  assert.match(mail, /LICENSES ENDING IN THE NEXT TWO WEEKS\nhero\.txt, Last day /);
+  assert.match(mail, /SEARCHES THAT FOUND NOTHING\n"winter campaign", No results /);
   assert.match(mail, new RegExp(`Unsubscribe: http://localhost:3000/unsubscribe/${unsubscribeToken(ada.user.id).replace(".", "\\.")}`));
   assert.equal(to(grace).length, 1);
   assert.equal(to(vera).length, 0, "a viewer gets none");
@@ -83,5 +83,5 @@ test("the email's link turns it off, and only with a token of ours", async () =>
   const before = to(grace).length;
   assert.equal(await sendDigests(new Date(monday.getTime() + 14 * DAY)), 1);
   assert.equal(to(grace).length, before);
-  assert.match(to(ada).at(-1)!, /^1 asset waits for review\. http:\/\/localhost:3000\/review\?project=/m);
+  assert.match(to(ada).at(-1)!, /^1 asset waits for a decision, Review http:\/\/localhost:3000\/review\?project=/m);
 });
