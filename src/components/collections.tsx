@@ -47,6 +47,7 @@ import { InfoTip } from "@/components/info-tip";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PeopleOn } from "@/components/catalog";
 import { COLLECTION_ICONS, type CollectionIcon as IconName } from "@/lib/collection-icons";
 import type { FieldDef, FieldValue } from "@/lib/fields";
 
@@ -215,6 +216,8 @@ export function CollectionDialog({
               </Label>
               <Switch id={`${id}-private`} name="private" defaultChecked={!!collection?.private} onCheckedChange={() => setDirty(true)} />
             </div>
+            {/* Who has a role on it, added here: a person, a group, or someone invited by email. */}
+            {collection && <PeopleOn id={collection.id} />}
             {fields.length > 0 && (
               <>
                 <Separator />

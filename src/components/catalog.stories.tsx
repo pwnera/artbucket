@@ -150,6 +150,18 @@ export const Access = meta.story({
   },
 });
 
+/** Someone not in the project: invited by email on this one asset, at the role picked. */
+export const InviteByEmail = meta.story({
+  args: { object: logo, folder: null, tab: "access" },
+  beforeEach: ({ msw }) => void msw.use(sent.on("post", "/api/v1/invitations", { url: "https://app.artbucket.test/invite/k3x", emailed: true })),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(await canvas.findByLabelText("Invite by email"), "lena@northwind.test");
+    await userEvent.click(canvas.getByRole("button", { name: "Invite as Viewer" }));
+    await waitFor(() => expect(sent.last("POST")).toEqual({ path: "/api/v1/invitations", body: { email: "lena@northwind.test", resource: "asset", resourceId: "ast_logo", scope: "read" } }));
+    await expect(await screen.findByText("lena@northwind.test is invited as Viewer on acme-logo.svg")).toBeInTheDocument();
+  },
+});
+
 /** Access, for a viewer: who reaches it, and where grants are made instead of the form. */
 export const AccessAsViewer = meta.story({
   args: { object: logo, folder: null, tab: "access" },
