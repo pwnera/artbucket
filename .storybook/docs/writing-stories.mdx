@@ -76,6 +76,8 @@ export const Loaded = meta.story({
   it is `aria-hidden` and axe fails on `aria-hidden-focus`.
 - Fixtures import as `#.storybook/fixtures/<name>`; `withMe(viewer)` (fixtures/brands) renders as someone who
   can't edit, `inApp` (fixtures/library) inside the real shell.
+- artbucket.io frames stories with `globals=fixture:artbucket;sidebar:open`: Acme's names become Artbucket's in args and
+  the shell (fixtures/artbucket), the sidebar opens. Keep Acme's names in fixtures so the swap finds them.
 - Time: swap `Date.now` by hand in `beforeEach` and restore it in its cleanup; `spyOn(Date, "now")` recurses here.
 - Arrow keys in a Radix radio group or toolbar: hold the key (`{ArrowUp>}` then `{/ArrowUp}`), since Radix moves
   focus a tick after the keydown.

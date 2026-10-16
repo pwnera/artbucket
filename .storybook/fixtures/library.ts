@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { delay, http, HttpResponse } from "msw";
 import { AccessProvider } from "@/components/can";
 import { Shell } from "@/components/shell";
+import { fixture } from "./artbucket";
 import type { Me } from "@/components/account";
 import type { Page as ActivityPage } from "@/components/activity";
 import type { BrandAsset } from "@/components/brand-assets";
@@ -524,20 +525,21 @@ type Holder<P> = React.FC<P & { children?: React.ReactNode }>;
 
 /**
  * The app around a story, as the (app) layout draws it: who is looking (AccessProvider) and the shell (sidebar,
- * lists, the collection dialog) that the library's pages read through useShell. The sidebar starts folded.
+ * lists, the collection dialog) that the library's pages read through useShell. The sidebar starts folded, or open
+ * with `globals.sidebar` set to `open`.
  */
-export const inApp: Decorator = function InApp(Story, { parameters }) {
+export const inApp: Decorator = function InApp(Story, { parameters, globals }) {
   const { scope = "admin", me: who = {}, sidebar: over = {} } = (parameters.app ?? {}) as App;
-  const data = sidebar(scope, { ...over, me: me(scope, who) });
+  const data = fixture(globals, sidebar(scope, { ...over, me: me(scope, who) }));
   return createElement(
     AccessProvider as Holder<{ me: Me }>,
     { me: data.me },
-    createElement(Shell as Holder<{ sidebar: SidebarData; defaultOpen: boolean; defaultWidth: number | null }>, { sidebar: data, defaultOpen: false, defaultWidth: null }, createElement(Story)),
+    createElement(Shell as Holder<{ sidebar: SidebarData; defaultOpen: boolean; defaultWidth: number | null }>, { sidebar: data, defaultOpen: globals.sidebar === "open", defaultWidth: null }, createElement(Story)),
   );
 };
 
 /** Only who is looking, for a part that reads permissions and nothing of the shell. */
-export const as: Decorator = function As(Story, { parameters }) {
+export const as: Decorator = function As(Story, { parameters, globals }) {
   const { scope = "admin", me: who = {} } = (parameters.app ?? {}) as App;
-  return createElement(AccessProvider as Holder<{ me: Me }>, { me: me(scope, who) }, createElement(Story));
+  return createElement(AccessProvider as Holder<{ me: Me }>, { me: fixture(globals, me(scope, who)) }, createElement(Story));
 };

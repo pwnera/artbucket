@@ -11,6 +11,7 @@ import type { CatalogItem, LineageEdge, LineageNode } from "@/lib/core/catalog";
 import type { Update } from "@/lib/history";
 import type { Rule } from "@/lib/rules";
 import type { Scope } from "@/lib/scopes";
+import { fixture } from "./artbucket";
 
 /**
  * The brands stories draw: Acme (a released brand with rules, a score and a portal), Northwind (a draft) and a
@@ -60,8 +61,8 @@ export const editor = as("write");
 
 /** A decorator giving the story's tree who is looking: `decorators: [withMe(viewer)]`. Without one, nothing is allowed. */
 export const withMe = (who: Me): Decorator =>
-  function WithMe(Story) {
-    return createElement(Access as React.FC<{ me: Me; children?: React.ReactNode }>, { me: who }, createElement(Story));
+  function WithMe(Story, { globals }) {
+    return createElement(Access as React.FC<{ me: Me; children?: React.ReactNode }>, { me: fixture(globals, who) }, createElement(Story));
   };
 
 export const acme: BrandInfo = { id: "brd_acme", slug: "acme", name: "Acme", default: true, rules: 9 };

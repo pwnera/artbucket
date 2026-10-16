@@ -13,6 +13,7 @@ import { Toaster } from "../src/components/ui/sonner";
 import { TooltipProvider } from "../src/components/ui/tooltip";
 import { DEFAULT_BRAND, primaryOf } from "../src/lib/branding";
 import { accentCss } from "../src/lib/color";
+import { fixture } from "./fixtures/artbucket";
 import { api } from "./mocks";
 
 /**
@@ -50,8 +51,11 @@ export default definePreview({
       description: "The app's accent",
       toolbar: { title: "Accent", icon: "paintbrush", items: [{ value: "brand", title: "Artbucket brand (live)" }, { value: "product", title: "Product's own" }], dynamicTitle: true },
     },
+    // What artbucket.io asks when it frames a story (fixtures/artbucket.ts): our own names, the app's sidebar open.
+    fixture: { description: "Whose names", toolbar: { title: "Fixture", icon: "user", items: [{ value: "acme", title: "Acme" }, { value: "artbucket", title: "Artbucket" }], dynamicTitle: true } },
+    sidebar: { description: "The shell's sidebar", toolbar: { title: "Sidebar", icon: "sidebar", items: [{ value: "folded", title: "Folded" }, { value: "open", title: "Open" }], dynamicTitle: true } },
   },
-  initialGlobals: { theme: "light", accent: "brand" },
+  initialGlobals: { theme: "light", accent: "brand", fixture: "acme", sidebar: "folded" },
   // Offline (a test run without the network) the product's own accent stands in.
   loaders: [async () => ({ brand: await (release ??= fetch(RULES).then((r) => r.json()).then((j) => j.data).catch(() => undefined)) })],
   parameters: {
@@ -72,7 +76,7 @@ export default definePreview({
     options: { storySort: { order: ["Introduction", "Foundations", "App", ["Primitives", "Patterns", "Features"], "Brand site", "Kit"] } },
   },
   decorators: [
-    (Story, { globals, loaded }) => {
+    (Story, { args, globals, loaded }) => {
       document.documentElement.classList.add(...fonts.split(" "));
       const accent = globals.accent === "brand" && loaded.brand ? primaryOf((loaded.brand as Release).rules) : null;
       const css = accentCss(accent);
@@ -83,7 +87,7 @@ export default definePreview({
           <BrandProvider value={{ ...DEFAULT_BRAND, accent }}>
             <TooltipProvider delayDuration={400}>
               <div className="bg-background text-foreground font-sans antialiased">
-                <Story />
+                <Story args={fixture(globals, args)} />
               </div>
             </TooltipProvider>
           </BrandProvider>
