@@ -6,6 +6,8 @@
  * Pure, relative imports only: `pnpm test` runs this under plain Node.
  */
 
+import { ASSET_TYPES } from "./filters.ts";
+
 /** Objects: what a grant can be on and the explorer lists. */
 export const OBJECT_TYPES = ["brand", "collection", "asset", "site"] as const;
 /** Parts: addressed inside their object, found by search, governed by it. */
@@ -95,6 +97,8 @@ export function formatAddress(a: { org: string; project: string; type: CatalogTy
 export type CatalogQuery = {
   words: string;
   types: CatalogType[];
+  /** An asset's file kind (lib/filters.ts ASSET_TYPES): `kind:image`. It leaves only assets; `type:` is what an object is. */
+  kinds: string[];
   projects: string[];
   statuses: CatalogStatus[];
   tags: string[];
@@ -104,14 +108,14 @@ export type CatalogQuery = {
   admin: string[];
 };
 
-const FILTERS = { type: "types", project: "projects", status: "statuses", tag: "tags", uses: "uses", usedby: "usedBy", admin: "admin" } as const;
+const FILTERS = { type: "types", kind: "kinds", project: "projects", status: "statuses", tag: "tags", uses: "uses", usedby: "usedBy", admin: "admin" } as const;
 
 /**
- * Free words plus filters: `logo type:asset,rule status:current uses:acme/corporate/brand/acme`.
+ * Free words plus filters: `logo type:asset,rule kind:image status:current uses:acme/corporate/brand/acme`.
  * A comma in a filter is "or". An unknown filter, type or status stays a word, so nothing typed is lost.
  */
 export function parseQuery(q: string): CatalogQuery {
-  const out: CatalogQuery = { words: "", types: [], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] };
+  const out: CatalogQuery = { words: "", types: [], kinds: [], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] };
   const words: string[] = [];
   for (const token of q.trim().split(/\s+/).filter(Boolean)) {
     const m = token.match(/^([a-z]+):(.+)$/i);
@@ -123,6 +127,7 @@ export function parseQuery(q: string): CatalogQuery {
     const values = m[2].split(",").filter(Boolean).map((v) => (key === "types" ? renamed(v) : v));
     if (key === "types" && !values.every((v) => (CATALOG_TYPES as readonly string[]).includes(v))) words.push(token);
     else if (key === "statuses" && !values.every((v) => (STATUSES as readonly string[]).includes(v))) words.push(token);
+    else if (key === "kinds" && !values.every((v) => (ASSET_TYPES as readonly string[]).includes(v))) words.push(token);
     else (out[key] as string[]).push(...values);
   }
   out.words = words.join(" ");
@@ -135,6 +140,7 @@ export function formatQuery(q: CatalogQuery) {
   return [
     q.words,
     ...f("type", q.types),
+    ...f("kind", q.kinds),
     ...f("project", q.projects),
     ...f("status", q.statuses),
     ...f("tag", q.tags),

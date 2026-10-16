@@ -281,7 +281,10 @@ export const MembersChange = z.strictObject({
 
 export const SaveSearch = z.strictObject({
   name: z.string().trim().min(1).max(120),
-  query: z.string().max(4000).describe('An /api/v1/assets query string, e.g. "q=fox&f.channel=web"'),
+  query: z
+    .string()
+    .max(4000)
+    .describe('An /api/v1/assets query string, e.g. "q=fox&f.channel=web"; `in` (a catalog type) opens it on that type in Explore, e.g. "q=button&in=component"'),
 });
 
 export const PublishInput = z.strictObject({

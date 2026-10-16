@@ -675,7 +675,7 @@ test("a Storybook's components: versions when they change, the same version when
     (await objectActivity(ada.caller, v2.id))!.map((a) => a.what),
     ["deployed @2 (live): Primary, Ghost", "deployed @1: Primary"],
   );
-  const found = await searchCatalog(ada.caller, { words: "ghost", types: ["component"], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] });
+  const found = await searchCatalog(ada.caller, { words: "ghost", types: ["component"], kinds: [], projects: [], statuses: [], tags: [], uses: [], usedBy: [], admin: [] });
   assert.ok(found.items.some((i) => i.id === v2.id));
   // Found as an asset is: by its slug, and by its own Storybook tags (not Storybook's), in words or as tag:.
   for (const q of ["ui-card", "surfaces", "tag:surfaces type:component"]) assert.ok((await searchCatalog(ada.caller, parseQuery(q))).items.some((i) => i.id === card.id), q);

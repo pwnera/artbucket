@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonical, explored, narrowOf, parseView, viewQuery } from "./view.ts";
+import { canonical, explored, narrowOf, parseView, statesOf, viewQuery } from "./view.ts";
 
 test("a view round-trips through its URL, in canonical order", () => {
   const v = parseView(new URLSearchParams("f.budget.gte=10&asset=a1&type=font&tag=x&q=fox&f.channel=web&collection=c1&type=image"));
@@ -38,4 +38,16 @@ test("Explore's search box is explored: its search of every type is the one Insi
   assert.equal(e("q=logo&collection=c1"), false);
   assert.equal(e("q=logo&type=image"), false);
   assert.equal(e("tag=brand"), false);
+});
+
+test("the catalog's statuses go back into the URL as asset states, and come out the same", () => {
+  assert.deepEqual(statesOf(["current", "in_review", "archived", "replaced"]), ["active", "proposed", "archived"]);
+  const back = narrowOf(parseView(new URLSearchParams(statesOf(["current", "draft"]).map((s) => `status=${s}`).join("&"))));
+  assert.deepEqual(back?.statuses, ["current", "draft"]);
+});
+
+test("Explore's type tab is part of the view, so a saved search opens on it", () => {
+  const v = parseView(new URLSearchParams("q=button&in=component&tag=forms"));
+  assert.equal(v.in, "component");
+  assert.equal(canonical("tag=forms&in=component&q=button"), "q=button&tag=forms&in=component");
 });

@@ -19,6 +19,8 @@ export type View = {
   filters: Record<string, string[]>;
   /** Params the UI has no control for (ranges from a saved search): kept, shown, removable. */
   extra: [string, string][];
+  /** Explore's type tab (`?in=component`): kept with the view, so a saved search opens on it. Asset search ignores it. */
+  in: string | null;
   asset: string | null;
 };
 
@@ -40,6 +42,7 @@ export function parseView(params: URLSearchParams): View {
     review: params.has("review") && params.get("review") !== "false",
     filters,
     extra,
+    in: params.get("in"),
     asset: params.get("asset"),
   };
 }
@@ -59,6 +62,7 @@ export function viewQuery(v: View, ui = true): string {
   if (v.review) p.set("review", "true");
   for (const [k, vs] of Object.entries(v.filters)) for (const x of vs) p.append(`f.${k}`, x);
   for (const [k, x] of v.extra) p.append(k, x);
+  if (v.in) p.set("in", v.in);
   if (ui && v.asset) p.set("asset", v.asset);
   return p.toString();
 }
@@ -83,6 +87,9 @@ export type Narrow = { tags: string[]; statuses: ("draft" | "in_review" | "curre
 
 /** An asset state as the catalog's lifecycle says it (lib/db/schema.ts catalog_objects); expired and deleted have none of their own. */
 const STATUS_OF: Record<string, Narrow["statuses"][number]> = { draft: "draft", proposed: "in_review", active: "current", archived: "archived", rejected: "archived" };
+
+/** The catalog's statuses back as the view's asset states, which the URL keeps: what Explore's Status filter writes. */
+export const statesOf = (statuses: string[]) => [...new Set(statuses.flatMap((s) => Object.entries(STATUS_OF).find(([, c]) => c === s)?.[0] ?? []))];
 
 /**
  * The view's facets, for every type Explore finds beside assets, or null when

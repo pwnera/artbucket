@@ -121,14 +121,15 @@ export function AppSidebar({
     brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand" || pathname === "/imports" || pathname.startsWith("/imports/"),
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
     sites: pathname === "/sites",
-    components: pathname.startsWith("/components"),
+    // Explore's Components tab, with nothing typed: the page Components was.
+    components: pathname.startsWith("/components") || (inLibrary && view.in === "component" && !view.q.trim()),
     review: pathname === "/review",
     fixes: pathname === "/fixes",
     templates: pathname === "/templates",
     automations: pathname === "/automations",
     // A collection or saved search is its own item, so none of these is lit for one.
     assets: assetsView,
-    explore: inLibrary && !view.collection && !onSearch && !assetsView,
+    explore: inLibrary && !view.collection && !onSearch && !assetsView && !(view.in === "component" && !view.q.trim()),
   };
 
   return (
@@ -208,7 +209,7 @@ export function AppSidebar({
               <Place href="/?browse" label="Assets" icon={<IconPhoto />} active={at.assets} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
               {/* What the project's Storybooks document, each component's versions and what is built with them. */}
-              <Place href="/components" label="Components" icon={<IconComponents />} active={at.components} />
+              <Place href="/?in=component" label="Components" icon={<IconComponents />} active={at.components} />
               {/* What a release makes for people to use elsewhere: share cards, Office templates, the press kit. */}
               <Place href="/templates" label="Templates" icon={<IconTemplate />} active={at.templates} />
               {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}

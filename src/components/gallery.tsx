@@ -34,6 +34,7 @@ import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
 import { AppHeader, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
+import { ComponentSheet } from "@/components/components-page";
 import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
 import type { AddActions, AddId } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -90,7 +91,7 @@ import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
-import { canonical, explored, isNarrowed, narrowOf, parseView, viewQuery, type View } from "@/lib/view";
+import { canonical, explored, isNarrowed, narrowOf, parseView, statesOf, viewQuery, type View } from "@/lib/view";
 import { reason, refusal, sendResult } from "@/lib/send";
 
 export type Asset = {
@@ -191,9 +192,9 @@ function go(patch: Partial<View>, push = false) {
   const next = { ...currentView(), ...patch };
   // On Review, review is the page, not a parameter.
   const base = onReview() && next.review ? REVIEW : "/";
-  // Which place it is (Assets' ?browse) and Explore's type (?in=) stay as the view moves.
+  // Which place it is (Assets' ?browse) stays as the view moves; Explore's type (?in=) is the view's own.
   const now = new URLSearchParams(window.location.search);
-  const kept = [now.has("browse") && "browse", now.get("in") && `in=${encodeURIComponent(now.get("in")!)}`].filter(Boolean);
+  const kept = [now.has("browse") && "browse"].filter(Boolean);
   const qs = [...kept, viewQuery(base === REVIEW ? { ...next, review: false } : next)].filter(Boolean).join("&");
   window.history[push ? "pushState" : "replaceState"](null, "", qs ? `${base}?${qs}` : base);
 }
@@ -213,6 +214,24 @@ const closeAsset = () => {
   if (!pushedViewer) return go({ asset: null });
   pushedViewer = false;
   window.history.back();
+};
+
+// A component found in Explore opens in a panel over it (?component=), as an asset opens in the viewer, and closes the same way.
+let pushedComponent = false;
+const openComponent = (id: string) => {
+  const p = new URLSearchParams(window.location.search);
+  p.set("component", id);
+  pushedComponent = true;
+  window.history.pushState(null, "", `?${p}`);
+};
+const closeComponent = () => {
+  if (pushedComponent) {
+    pushedComponent = false;
+    return window.history.back();
+  }
+  const p = new URLSearchParams(window.location.search);
+  p.delete("component");
+  window.history.replaceState(null, "", p.size ? `?${p}` : window.location.pathname);
 };
 
 const PAGE = 100;
@@ -1127,10 +1146,12 @@ export function Gallery({
   const browsing = sp.has("browse");
   // Explore searches everything: its words across every type, or one type (?in=) on its own.
   const only = !browsing && (CATALOG_TYPES as readonly string[]).includes(sp.get("in") ?? "") ? (sp.get("in") as CatalogType) : null;
-  const everything = !browsing && !activeSearch && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
-  const othersOnly = everything && !!only && only !== "asset";
+  // A saved search opens as it was saved: Explore's list, on its type's tab, when it was saved there.
+  const everything = !browsing && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
   // The facets narrow every type, as they narrow the assets; a file type or a field leaves only assets.
   const narrow = narrowOf(view);
+  // Explore's own list (components/catalog-matches.tsx) in place of the asset grid: every tab but Assets, unless a filter only assets have is on.
+  const othersOnly = everything && only !== "asset" && !!narrow;
   const startScreen =
     !browsing && !only && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
   // A search that settled is one to come back to.
@@ -1138,7 +1159,7 @@ export function Gallery({
   useEffect(() => {
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
-  const typeOnly = othersOnly && !searched ? TYPE_LABEL[only!].many : null;
+  const typeOnly = othersOnly && only && !searched ? TYPE_LABEL[only].many : null;
   const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? "All assets"))));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
   // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
@@ -1378,8 +1399,18 @@ export function Gallery({
         </PageHeader>
 
         {/* Explore searches everything: what else matches, as folders above the files, or one type on its own. */}
-        {everything && narrow && <CatalogMatches q={view.q.trim()} only={only} assets={total} narrow={narrow} onOpenAsset={openAsset} />}
-        {everything && !only && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
+        {everything && narrow && (
+          <CatalogMatches
+            q={view.q.trim()}
+            only={only}
+            assets={total}
+            narrow={narrow}
+            onNarrow={(n) => go({ tags: n.tags, status: statesOf(n.statuses) })}
+            onOpenAsset={openAsset}
+            onOpenComponent={openComponent}
+          />
+        )}
+        <ComponentSheet id={sp.get("component")} onClose={closeComponent} />
 
         {!othersOnly && (
           <>

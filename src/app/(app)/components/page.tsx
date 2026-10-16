@@ -1,13 +1,6 @@
-import type { Metadata } from "next";
-import { Components } from "@/components/components-page";
-import type { ComponentRow } from "@/lib/core/components";
-import { get } from "@/lib/sidebar";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Components" };
-
-/** What the project's Storybooks document, from /api/v1/components like any client's. */
-export default async function ComponentsPage() {
-  const rows = await get("components", (b: { data: (Omit<ComponentRow, "createdAt"> & { createdAt: string })[] }) => b.data, null);
-  return <Components rows={rows} />;
+/** Components are Explore's Components tab now, each opening in a panel there; old links land on it. */
+export default function ComponentsPage() {
+  redirect("/?in=component");
 }

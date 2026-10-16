@@ -162,3 +162,26 @@ test("a search with words is one search for Insights, found when any type matche
   assert.deepEqual((await searches("acme")).map((e) => [e.surface, e.verdict]), [["app", "found"]]);
   assert.equal((await searches("zzunmatched")).length, 0);
 });
+
+test("asked for, a search counts its matches' tags, and their statuses past the status filter", async () => {
+  const r = await searchCatalog(ada.caller, parseQuery("logo status:current"), { facets: true, record: false });
+  const n = (s: string) => r.facets!.statuses.find((x) => x.value === s)?.count ?? 0;
+  assert.ok(n("current") >= 1);
+  assert.ok(n("replaced") >= 1, "the replaced logo is counted, a click away");
+  assert.ok(Array.isArray(r.facets!.tags));
+  assert.equal((await searchCatalog(ada.caller, parseQuery("logo"))).facets, undefined);
+});
+
+test("kind: finds assets of a file kind, and nothing else", async () => {
+  const images = await searchCatalog(ada.caller, parseQuery("logo kind:image"), { record: false });
+  assert.ok(images.items.length >= 1);
+  assert.ok(images.items.every((i) => i.type === "asset"));
+  assert.equal((await searchCatalog(ada.caller, parseQuery("logo kind:font"), { record: false })).items.length, 0);
+});
+
+test("a saved search keeps Explore's type tab, and refuses one that isn't a type", async () => {
+  const { saveSearch } = await import("@/lib/core/searches");
+  const s = await saveSearch(ada.caller, { name: "Buttons", query: "q=button&in=component&tag=forms" });
+  assert.equal(s.query, "in=component&q=button&tag=forms");
+  await assert.rejects(saveSearch(ada.caller, { name: "Bad", query: "q=x&in=widgets" }), /No type "widgets"/);
+});

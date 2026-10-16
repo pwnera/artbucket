@@ -46,9 +46,10 @@ versions current again. What counts as a change: its code, when the build is
 pushed with `artbucket site push` from where Storybook ran (the CLI hashes each
 component's source into the manifest's `fingerprints`), else its stories and
 their bundled file. Older versions stay in the catalog as replaced, linked to
-the current one, and **Components** in the sidebar shows each component with its
-story live beside it and every version, previewed while the build that held it
-is kept (the live one and the last three).
+the current one. **Components** in the sidebar is Explore's Components tab:
+each component with its story live on its card, found by its name, its id and
+its Storybook tags like any asset, and opening in a panel with every version,
+previewed while the build that held it is kept (the live one and the last three).
 
 A build says which components it is made with in its `artbucket.site.json`:
 
@@ -70,6 +71,7 @@ and filters inline.
 | Filter | Example | Meaning |
 | --- | --- | --- |
 | `type:` | `type:asset,rule` | Object types, a comma for or |
+| `kind:` | `kind:image,video` | An asset's file kind (`image`, `video`, `audio`, `font`, `document`, `other`): only assets |
 | `project:` | `project:corporate` | A project, by slug |
 | `status:` | `status:current` | `draft`, `in_review`, `current`, `replaced`, `archived` |
 | `tag:` | `tag:campaign-q4` | Carrying a tag |
