@@ -128,6 +128,19 @@ export const FromRecipe = meta.story({
   },
 });
 
+/** Started from a brand's Releases (?recipe=release-to-team&brand=acme): the dialog opens on the recipe, for that brand. */
+export const FromABrand = meta.story({
+  parameters: { nextjs: { navigation: { pathname: "/automations", query: { recipe: "release-to-team", brand: "acme" } } } },
+  play: async ({ userEvent }) => {
+    const dialog = await screen.findByRole("dialog", { name: "New automation" });
+    await expect(screen.getByLabelText("Name")).toHaveValue("Tell people about each release");
+    await userEvent.type(screen.getByLabelText("To"), "team@acme.test");
+    await userEvent.click(screen.getByRole("button", { name: "Make it" }));
+    await waitFor(() => expect(last()?.body).toMatchObject({ name: "Tell people about each release", trigger: "brand.released", brand: "acme", action: "email" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  },
+});
+
 /** A refused save (422) says why in a toast, and the dialog stays with what was typed. */
 export const SaveFails = meta.story({
   beforeEach: ({ msw }) => void msw.use(http.post("/api/v1/automations", take(422))),

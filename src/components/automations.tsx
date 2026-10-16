@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { IconBolt, IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconSend, IconTrash } from "@/components/icons";
 import { useCan, useMe } from "@/components/can";
@@ -127,10 +127,18 @@ export function Automations({ automations, brands }: { automations: AutomationRo
   const planned = !me || has(me, "automations");
   // An editor starts only from what they may make: a brand's releases.
   const recipes = can("automation.manage_all") ? RECIPES : RECIPES.filter((r) => r.trigger === "brand.released");
-  const edit = (of: AutomationRow | null, recipe?: Recipe) => {
-    setEditing((e) => ({ of, seed: recipe && seedOf(recipe), n: (e?.n ?? 0) + 1 }));
+  const edit = (of: AutomationRow | null, recipe?: Recipe, brand?: string) => {
+    setEditing((e) => ({ of, seed: recipe && { ...seedOf(recipe), ...(brand && { brand }) }, n: (e?.n ?? 0) + 1 }));
     setOpen(true);
   };
+  // Started from where it applies (a brand's Releases, an asset's expiry): ?recipe= opens that recipe, for ?brand= when given.
+  const params = useSearchParams();
+  const asked = recipes.find((r) => r.id === params.get("recipe"));
+  const [started, setStarted] = useState(false);
+  if (asked && planned && !started) {
+    setStarted(true);
+    edit(null, asked, params.get("brand") ?? undefined);
+  }
   return (
     <>
       <AppHeader trail={[{ label: "Automations" }]} />

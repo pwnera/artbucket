@@ -1573,6 +1573,7 @@ function RightsInputs({
   onChange: () => void;
 }) {
   const id = useId();
+  const can = useCan();
   const r = asset.rights;
   const err = (n: string) => ({
     "aria-invalid": errors[n] ? true : undefined,
@@ -1652,6 +1653,12 @@ function RightsInputs({
           error={errors.expires}
           says={(v) => (v < today() ? { text: "This date has passed: saving takes its public and shared links down now.", warn: true } : null)}
         />
+        {/* Who hears before it ends, set up from here: Automations opens on the recipe. */}
+        {r?.expires && can("automation.manage_all") && (
+          <Link href="/automations?recipe=licenses-to-legal" className="text-primary-ink w-fit ps-1 text-xs hover:underline">
+            Warn before expiry
+          </Link>
+        )}
         <Property
           label="Model release"
           htmlFor={`${id}-release`}

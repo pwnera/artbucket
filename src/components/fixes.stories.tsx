@@ -88,6 +88,26 @@ export const Notify = meta.story({
 });
 
 /** Request a search that found nothing: an upload link named after its words, in Share's dialog. */
+/** A license renewed: Extend sets its new last day on the row, keeping the asset's other rights. */
+export const Extend = meta.story({
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      http.get("/api/v1/assets/ast_hero", () => HttpResponse.json({ data: { id: "ast_hero", rights: { license: "Getty, editorial", expires: "2026-10-17" } } })),
+      http.patch("/api/v1/assets/ast_hero", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: { id: "ast_hero" } });
+      }),
+    ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getAllByRole("button", { name: "Extend" })[0]);
+    const day = await screen.findByLabelText("New last day of use");
+    await userEvent.clear(day);
+    await userEvent.type(day, "2027-10-17");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Extend" }));
+    await waitFor(() => expect(body).toEqual({ rights: { license: "Getty, editorial", expires: "2027-10-17" } }));
+  },
+});
+
 export const RequestIt = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Request it" }));

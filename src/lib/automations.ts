@@ -132,6 +132,13 @@ export type Recipe = {
 
 export const RECIPES: Recipe[] = [
   {
+    id: "release-to-team",
+    name: "Tell people about each release",
+    says: "Email people when a brand is released, with its note and what changed.",
+    trigger: "brand.released",
+    action: "email",
+  },
+  {
     id: "shares-to-slack",
     name: "New share links to Slack",
     says: "Post to a channel whenever someone shares a collection or a project outside it.",

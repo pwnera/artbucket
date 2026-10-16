@@ -51,10 +51,11 @@ The answer holds `secret`, once. Keep it: every POST is signed with it.
 
 ## Recipes
 
-The Automations page starts one from a recipe: everything filled in but who it tells. Each is an ordinary automation, as the API takes it:
+The Automations page starts one from a recipe: everything filled in but who it tells. **Notify on release**, on a brand's Releases tab, opens the first one for that brand, and **Warn before expiry**, beside an asset's expiry, the licenses one. Each is an ordinary automation, as the API takes it:
 
 | Recipe | Body, before `emails` or `url` |
 |---|---|
+| Tell people about each release | `{"trigger":"brand.released","action":"email"}` |
 | New share links to Slack | `{"trigger":"governance","actions":["share.created","share.project","asset.published"],"action":"webhook","format":"slack"}` |
 | Access changes to the admins | `{"trigger":"governance","actions":["grant.*","group.members","key.created","key.revoked"],"action":"email"}` |
 | Licenses ending, to legal | `{"trigger":"asset.expiring","days":30,"action":"email"}` |
