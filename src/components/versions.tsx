@@ -448,7 +448,7 @@ function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean;
     ["Type", (a) => fileTypeBadge(a.filename, a.mime, a.probe)],
     ["Size", (a) => (a.width && a.height ? `${a.width} × ${a.height} · ` : "") + formatBytes(a.size)],
     ["Title", (a) => a.metadata?.title ?? ""],
-    ["Last day of use", (a) => a.rights?.expires ?? ""],
+    ["Expiry", (a) => a.rights?.expires ?? ""],
     ["Made with", (a) => a.generator ?? ""],
     ["Added", (a) => `${new Date(a.createdAt).toLocaleDateString()}${a.proposedBy ? `, by ${a.proposedBy}` : ""}`],
   ];

@@ -173,14 +173,14 @@ export const Fields = meta.story({
   },
 });
 
-/** The rights it runs under, folded: where it may run (territories, channels), its dates, and a new last day of use. */
+/** The rights it runs under, folded: where it may run (territories, channels), its dates, and a new expiry. */
 export const Rights = meta.story({
   args: { asset: byId("ast_expiring") },
   play: async () => {
     const rights = await openFold("Rights");
     await expect(rights.getByRole("button", { name: "Remove Germany (DE)" })).toBeInTheDocument();
     await expect(rights.getByRole("button", { name: "Remove web" })).toBeInTheDocument();
-    const expires = rights.getByLabelText("Last day of use");
+    const expires = rights.getByLabelText("Expiry");
     await userEvent.clear(expires);
     await userEvent.type(expires, "2027-03-31");
     await userEvent.tab();
@@ -203,7 +203,7 @@ export const RightsExpiredDate = meta.story({
   args: { asset: byId("ast_expiring") },
   play: async () => {
     const rights = await openFold("Rights");
-    const expires = rights.getByLabelText("Last day of use");
+    const expires = rights.getByLabelText("Expiry");
     await userEvent.clear(expires);
     await userEvent.type(expires, "2026-09-30");
     await expect(rights.getByText(/This date has passed/)).toBeInTheDocument();

@@ -1642,7 +1642,7 @@ function RightsInputs({
           says={(v) => (v > today() ? { text: `Links start working on ${localDate(v)}.`, warn: false } : null)}
         />
         <DateProperty
-          label="Last day of use"
+          label="Expiry"
           name="expires"
           value={r?.expires ?? ""}
           error={errors.expires}

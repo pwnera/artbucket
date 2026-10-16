@@ -92,7 +92,7 @@ function when(a: AutomationRow, brands: Brand[]) {
     case "brand.released":
       return `When ${a.brand ? (brands.find((b) => b.slug === a.brand)?.name ?? a.brand) : "any brand"} is released`;
     case "asset.expiring":
-      return `${a.days === 0 ? "On" : `${a.days} days before`} an asset's last day of use`;
+      return `${a.days === 0 ? "On" : `${a.days} days before`} an asset's expiry`;
     case "governance":
       return a.actions.length ? `On ${a.actions.join(", ")}` : "On any governance change";
     case "check.refused":

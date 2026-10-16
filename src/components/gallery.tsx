@@ -60,7 +60,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AssetMenu, type ActionContext } from "@/components/asset-menu";
+import { AssetMenu, AssetMenuButton, type ActionContext } from "@/components/asset-menu";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import { usePref, useRemember } from "@/components/sidebar-prefs";
 import { GRID_COLS, GridSkeleton, ListSkeleton } from "@/components/skeletons";
@@ -1160,7 +1160,10 @@ export function Gallery({
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
   const typeOnly = othersOnly && only && !searched ? TYPE_LABEL[only].many : null;
-  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? "All assets"))));
+  // The trash (the sidebar's Recently deleted): named for what it is, not as a filter.
+  const trashed = !searched && !inCollection && view.status.length === 1 && view.status[0] === "deleted";
+  const title =
+    activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? (trashed ? "Recently deleted" : "All assets")))));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
   // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
   const root = inCollection && !activeSearch ? { label: "Collections", href: "/collections" } : everything || activeSearch || startScreen ? { label: "Explore", href: "/" } : { label: "Assets", href: "/?browse" };
@@ -1194,6 +1197,7 @@ export function Gallery({
       versionFile.current?.click();
     },
     onPick: () => pick(a, false),
+    addTo: { into: editable, add: (c: Collection) => void bulk.members(c, "add", [a]) },
     selected: selected.has(a.id),
     onChanged: refreshSoon,
     local: (fn) => patch([a.id], fn),
@@ -1356,7 +1360,9 @@ export function Gallery({
                   <IconLock /> Private
                 </Badge>
               )}
-              {view.review ? (
+              {trashed ? (
+                <InfoTip>Deleted assets stay here 30 days, their links off, then they are gone for good. Restore one from its menu, or several from the selection bar.</InfoTip>
+              ) : view.review ? (
                 <InfoTip>What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it.</InfoTip>
               ) : searched ? (
                 <InfoTip>Approved and in date, unless Status says otherwise.</InfoTip>
@@ -1693,6 +1699,7 @@ export function Gallery({
                         onCursor={setCursor}
                         large={density === "l"}
                         open={view.asset === a.id}
+                        menu={<AssetMenuButton asset={a} {...menuFor(a)} />}
                       />
                     </li>
                   </AssetMenu>
@@ -1961,6 +1968,7 @@ export const AssetCard = memo(function AssetCard({
   onCursor,
   large = false,
   open = false,
+  menu,
 }: {
   asset: Asset;
   onOpen?: (a: Asset) => void;
@@ -1977,6 +1985,8 @@ export const AssetCard = memo(function AssetCard({
   large?: boolean;
   /** Shown in the viewer: its picture has moved there (the open's view transition). */
   open?: boolean;
+  /** Its menu on a ⋯ (asset-menu.tsx AssetMenuButton), beside the card's own button rather than in it. */
+  menu?: React.ReactNode;
 }) {
   const [hover, setHover] = useState(false);
   const [peek, setPeek] = useState(false);
@@ -2138,6 +2148,7 @@ export const AssetCard = memo(function AssetCard({
           )}
         />
       )}
+      {menu}
     </div>
   );
 });

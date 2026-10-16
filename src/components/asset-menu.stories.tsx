@@ -1,8 +1,8 @@
 import preview from "#.storybook/preview";
 import { http, HttpResponse } from "msw";
-import { expect, fn, screen, waitFor } from "storybook/test";
+import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { as, byId, collections, renditions } from "#.storybook/fixtures/library";
-import { AssetMenu } from "@/components/asset-menu";
+import { AssetMenu, AssetMenuButton } from "@/components/asset-menu";
 import { AssetCard } from "@/components/gallery";
 
 const sent: { method: string; url: string; body: unknown }[] = [];
@@ -125,5 +125,34 @@ export const Selection = meta.story({
     await userEvent.click(await screen.findByRole("menuitem", { name: "Logos" }));
     await expect(args.bulk?.add).toHaveBeenCalledWith(collections[1]);
     await close(userEvent);
+  },
+});
+
+/** One asset's menu adds it to a collection, as a selection's does: the collections it isn't in yet. */
+export const AddToCollection = meta.story({
+  args: { addTo: { into: collections, add: fn() } },
+  play: async ({ args, canvas, userEvent }) => {
+    const menu = await open(canvas, userEvent, "Autumn campaign hero");
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Add to collection" }));
+    const target = collections.find((c) => !args.asset.collections.includes(c.id))!;
+    await userEvent.click(await screen.findByRole("menuitem", { name: target.name }));
+    await expect(args.addTo!.add).toHaveBeenCalledWith(target);
+    await close(userEvent);
+  },
+});
+
+/** The card's ⋯: the same menu, for touch and keyboards. */
+export const MenuButton = meta.story({
+  render: (args) => (
+    <div className="group relative w-56">
+      <AssetCard asset={args.asset} onOpen={fn()} menu={<AssetMenuButton {...args} />} />
+    </div>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "More for Autumn campaign hero" }));
+    await expect(await screen.findByRole("menuitem", { name: /Open/ })).toBeInTheDocument();
+    await expect(screen.getByRole("menuitem", { name: "Download" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   },
 });

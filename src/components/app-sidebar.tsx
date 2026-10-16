@@ -37,6 +37,7 @@ import {
   IconTypography,
   IconUpload,
   IconWorld,
+  IconTrash,
 } from "@/components/icons";
 import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { useAssistant } from "@/components/assistant";
@@ -112,8 +113,9 @@ export function AppSidebar({
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
   const filtering = !!(view.tags.length || view.types.length || view.status.length || Object.keys(view.filters).length);
+  const trash = inLibrary && view.status.length === 1 && view.status[0] === "deleted";
   // The plain grid (?browse), or assets narrowed with no words: Assets. A search of everything, or the start: Explore.
-  const assetsView = inLibrary && !view.collection && !onSearch && (params.has("browse") || (filtering && !view.q.trim()));
+  const assetsView = inLibrary && !view.collection && !onSearch && !trash && (params.has("browse") || (filtering && !view.q.trim()));
   const at = {
     catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
@@ -129,7 +131,7 @@ export function AppSidebar({
     automations: pathname === "/automations",
     // A collection or saved search is its own item, so none of these is lit for one.
     assets: assetsView,
-    explore: inLibrary && !view.collection && !onSearch && !assetsView && !(view.in === "component" && !view.q.trim()),
+    explore: inLibrary && !view.collection && !onSearch && !assetsView && !trash && !(view.in === "component" && !view.q.trim()),
   };
 
   return (
@@ -229,6 +231,8 @@ export function AppSidebar({
           <ExpandItem />
           {/* Agents and keys turned off here (Settings, Features): nothing to connect. */}
           {!me.off.includes("agents") && <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />}
+          {/* The 30-day trash, a place of its own rather than a status to filter by: each asset there restores from its menu. */}
+          {can("asset.delete") && <Place href="/?browse&status=deleted" label="Recently deleted" icon={<IconTrash />} active={trash} />}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">

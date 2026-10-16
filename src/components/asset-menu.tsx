@@ -16,6 +16,7 @@ import {
   IconTrash,
   IconUpload,
   IconX,
+  IconDots,
 } from "@/components/icons";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
@@ -36,6 +37,18 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { IconButton } from "@/components/icon-button";
 import { Kbd } from "@/components/ui/kbd";
 import { complain } from "@/lib/send";
 import { undoable } from "@/lib/undo";
@@ -75,6 +88,8 @@ export type ActionContext = {
   onChanged: () => void;
   /** Change the listing's copy now; returns how to put it back. null takes it out. */
   local?: (fn: (a: Asset) => Asset | null) => () => void;
+  /** Collections this asset can be added to, and how: the same Add to as a selection's. */
+  addTo?: { into: Collection[]; add: (c: Collection) => void };
   /** The selection, when this asset is part of one bigger than itself: bulk items act on all of it. */
   bulk?: {
     count: number;
@@ -155,6 +170,8 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
   }
 
   const gone = (): Asset | null => null;
+  // The collections it isn't in yet, of those this person may add to.
+  const addable = ctx.addTo?.into.filter((c) => !a.collections.includes(c.id)) ?? [];
   return [
     [
       { id: "open", label: "Open", icon: <IconArrowsMaximize />, run: ctx.onOpen, shortcut: "↵" },
@@ -172,6 +189,16 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
         },
       },
       ...(live ? [{ id: "share", label: "Share…", icon: <IconShare />, run: ctx.onShare }] : []),
+      ...(live && addable.length
+        ? [
+            {
+              id: "add",
+              label: "Add to collection",
+              icon: <IconFolderPlus />,
+              items: addable.map((c) => ({ id: c.id, label: c.name, icon: <CollectionIcon icon={c.icon} />, run: () => ctx.addTo!.add(c) })),
+            },
+          ]
+        : []),
       ...(live && ctx.onNewVersion && can("asset.version", a) ? [{ id: "version", label: "Upload a new version…", icon: <IconUpload />, run: ctx.onNewVersion }] : []),
       ...(!live
         ? []
@@ -330,5 +357,58 @@ function MenuBody({ asset: a, ctx }: { asset: Asset; ctx: ActionContext }) {
         </Fragment>
       ))}
     </>
+  );
+}
+
+function DropdownItems({ items }: { items: AssetAction[] }) {
+  return items.map((it) =>
+    it.items ? (
+      <DropdownMenuSub key={it.id}>
+        <DropdownMenuSubTrigger>
+          {it.icon} {it.label}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="max-h-72 w-60 overflow-y-auto">
+          <DropdownItems items={it.items} />
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    ) : (
+      <DropdownMenuItem key={it.id} variant={it.destructive ? "destructive" : "default"} onSelect={it.run}>
+        {it.icon} {it.label}
+        {it.hint && <span className="text-muted-foreground ml-auto pl-4 font-mono text-2xs">{it.hint}</span>}
+      </DropdownMenuItem>
+    ),
+  );
+}
+
+/**
+ * The same menu as an asset's right click, on a ⋯ over its card: touch has
+ * no right click, and a keyboard reaches it in turn. Shown on hover where
+ * there is one, always where there isn't.
+ */
+export function AssetMenuButton({ asset: a, ...ctx }: ActionContext & { asset: Asset }) {
+  const can = useCan();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          label={`More for ${a.metadata?.title || a.filename}`}
+          size="icon-xs"
+          variant="secondary"
+          // Beside the card's checkbox (top right), never over it.
+          className="bg-background/80 absolute top-1.5 right-8 z-10 backdrop-blur pointer-coarse:right-9 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 data-[state=open]:opacity-100"
+        >
+          <IconDots />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>{ctx.bulk ? `${ctx.bulk.count} selected` : a.metadata?.title || a.filename}</DropdownMenuLabel>
+        {assetActions(a, can, ctx).map((g, i) => (
+          <Fragment key={i}>
+            <DropdownMenuSeparator />
+            <DropdownItems items={g} />
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

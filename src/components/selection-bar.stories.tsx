@@ -80,13 +80,27 @@ export const AddToCollection = meta.story({
   },
 });
 
-/** The last day of use, set across the selection. */
+/** Expiry, set across the selection. */
 export const Expiry = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Expiry" }));
-    await userEvent.type(await screen.findByLabelText(/Last day of use/, { selector: "input" }), "2026-12-31");
+    await userEvent.type(await screen.findByLabelText(/Expiry/, { selector: "input" }), "2026-12-31");
     await userEvent.click(screen.getByRole("button", { name: "Set" }));
     await waitFor(() => expect(sent).toHaveLength(3));
+  },
+});
+
+/** Set field: one custom field's value on every asset picked, an Undo away. */
+export const SetField = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Set field" }));
+    const pop = within(await screen.findByRole("dialog", { name: "Set a field" }));
+    await userEvent.click(pop.getByRole("combobox", { name: "Field" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Campaign code" }));
+    await userEvent.type(await pop.findByRole("textbox", { name: /Campaign code/ }), "Q4-24");
+    await userEvent.click(pop.getByRole("button", { name: "Set" }));
+    await waitFor(() => expect(sent.filter((x) => x.method === "PATCH")).toHaveLength(3));
+    await expect(sent.every((x) => (x.body as { fields?: object }).fields && JSON.stringify(x.body) === JSON.stringify({ fields: { campaign_code: "Q4-24" } }))).toBe(true);
   },
 });
 
