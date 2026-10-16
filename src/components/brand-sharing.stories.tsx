@@ -39,7 +39,7 @@ const meta = preview.meta({
 /** Acme, public on BrandHub: its badge and brand.json, three portals, the one BrandHub links marked. */
 export const Playground = meta.story({
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Public: anyone and any agent reads its latest release.")).toBeInTheDocument();
+    await expect(canvas.getByText("Public on BrandHub: anyone and any agent reads its latest release.")).toBeInTheDocument();
     await expect(canvas.getByRole("img", { name: "The brand's README badge" })).toBeInTheDocument();
     await expect(canvas.getByText(/On acme.test, at/)).toBeInTheDocument();
     const acme = await row("Acme brand portal");
@@ -53,13 +53,13 @@ export const Playground = meta.story({
 export const MakePublic = meta.story({
   args: { hub: hub() },
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByText("Private: only people in this project, signed in.")).toBeInTheDocument();
+    await expect(canvas.getByText("Only people given access: this project's people, signed in.")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Make public on BrandHub" }));
     const ask = await screen.findByRole("alertdialog", { name: "Make Acme public?" });
     await userEvent.click(within(ask).getByRole("button", { name: "Make public on BrandHub" }));
     await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/acme/hub", body: { visibility: "public" } }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-    await expect(await canvas.findByText("Public: anyone and any agent reads its latest release.")).toBeInTheDocument();
+    await expect(await canvas.findByText("Public on BrandHub: anyone and any agent reads its latest release.")).toBeInTheDocument();
     await expect(getRouter().refresh).toHaveBeenCalled();
   },
 });

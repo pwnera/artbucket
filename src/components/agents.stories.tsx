@@ -266,7 +266,7 @@ export const Viewer = meta.story({
     await userEvent.click(canvas.getByRole("radio", { name: "Automations" }));
     await userEvent.click(canvas.getByRole("button", { name: "Connect Zapier" }));
     const dialog = await screen.findByRole("dialog", { name: "Zapier" });
-    await expect(within(dialog).getByText("Needs a key: ask an admin for one with the Suggest scope.")).toBeInTheDocument();
+    await expect(within(dialog).getByText("Needs a key: ask an admin for a Contributor key.")).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
     await settled();
   },

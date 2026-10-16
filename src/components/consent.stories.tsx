@@ -45,7 +45,7 @@ export const Playground = meta.story({
 /** Approve: the request goes back with the projects and the scope picked. */
 export const Approve = meta.story({
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("radio", { name: /Suggest/ }));
+    await userEvent.click(canvas.getByRole("radio", { name: /Contributor/ }));
     await userEvent.click(canvas.getByRole("button", { name: "Allow" }));
     await waitFor(() => expect(body).toEqual({ request, allow: true, projects: ["prj_acme"], scope: "propose" }));
     // Busy until the next page paints.
@@ -65,10 +65,10 @@ export const Deny = meta.story({
 export const SeveralProjects = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("checkbox", { name: /^Northwind/ }));
-    await expect(canvas.getByText("Read only here")).toBeInTheDocument();
+    await expect(canvas.getByText("Viewer here")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("checkbox", { name: /^Acme/ }));
     // Only Northwind: read is the most it may get.
-    await expect(canvas.getByRole("radio", { name: /Read only/ })).toBeChecked();
+    await expect(canvas.getByRole("radio", { name: /Viewer/ })).toBeChecked();
     await expect(canvas.queryByRole("radio", { name: /Edit/ })).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("checkbox", { name: /^Northwind/ }));
     await expect(canvas.getByRole("button", { name: "Allow" })).toBeDisabled();
@@ -129,7 +129,7 @@ export const DeviceCode = meta.story({
     await userEvent.click(canvas.getByRole("button", { name: "Allow" }));
     await waitFor(() => expect(body).toEqual({ allow: true, projects: ["prj_acme"], scope: "write" }));
     await expect(await canvas.findByRole("heading", { name: "Connected" })).toBeInTheDocument();
-    await expect(canvas.getByText(/can now work in Acme with Edit access/)).toBeInTheDocument();
+    await expect(canvas.getByText(/can now work in Acme as an Editor/)).toBeInTheDocument();
   },
 });
 

@@ -123,6 +123,13 @@ export function previewAtHost(host: string, domain: string | undefined, isName: 
 export const PORTAL_ACCESS = ["public", "password", "members"] as const;
 export type PortalAccess = (typeof PORTAL_ACCESS)[number];
 
+/** Who may open a portal or a built site, in the same words wherever it is set or shown. */
+export const ACCESS_WORDS: Record<PortalAccess, { label: string; hint: string }> = {
+  public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it" },
+  password: { label: "Whoever has the password", hint: "Anyone else can ask for access" },
+  members: { label: "People in this project", hint: "Signed in; anyone else can ask for access" },
+};
+
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "A color is #RRGGBB");
 
 /** How a portal looks: its logo (an asset of the library), accent and background. Null: the app's own. */

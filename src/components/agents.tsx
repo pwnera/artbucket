@@ -436,7 +436,7 @@ function Setup({
           )
         ) : (
           <p className="text-muted-foreground text-sm">
-            {agent.key ? "Without OAuth it needs a key" : "Needs a key"}: ask an admin for one with the Suggest scope.
+            {agent.key ? "Without OAuth it needs a key" : "Needs a key"}: ask an admin for a Contributor key.
           </p>
         ))}
 

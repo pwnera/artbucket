@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { slugOf } from "@/lib/catalog";
 import { formatSize } from "@/lib/limits";
-import { PORTAL_ACCESS, type PortalAccess } from "@/lib/portal";
+import { ACCESS_WORDS, PORTAL_ACCESS, type PortalAccess } from "@/lib/portal";
 import { send } from "@/lib/send";
 import { BUILD_KINDS, SITE_KIND_LABEL, type BuildKind, type DeploymentKind } from "@/lib/sites";
 import { ago } from "@/lib/time";
@@ -332,7 +332,6 @@ function BuildFromGit({ site, template }: { site: Portal; template: string }) {
   );
 }
 
-const WHO: Record<PortalAccess, string> = { public: "Anyone with the address", password: "Whoever has the password", members: "People in this project, signed in" };
 
 /**
  * Who may open a built site, as for a portal (a brand portal's own dialog
@@ -358,7 +357,7 @@ function WhoGetsIn({ site, onSaved }: { site: Portal; onSaved: (site: Portal) =>
           if (!saved) return;
           setPassword("");
           onSaved(saved);
-          toast.success(`${WHO[saved.access]} can open it`);
+          toast.success(`${ACCESS_WORDS[saved.access].label} can open it`);
         }}
       >
         <Select value={access} onValueChange={(v) => setAccess(v as PortalAccess)}>
@@ -368,7 +367,7 @@ function WhoGetsIn({ site, onSaved }: { site: Portal; onSaved: (site: Portal) =>
           <SelectContent>
             {PORTAL_ACCESS.map((a) => (
               <SelectItem key={a} value={a}>
-                {WHO[a]}
+                {ACCESS_WORDS[a].label}
               </SelectItem>
             ))}
           </SelectContent>
