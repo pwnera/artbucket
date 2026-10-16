@@ -18,6 +18,8 @@ import { useShell } from "@/components/shell";
 import { TokensView } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import { Confirm } from "@/components/confirm";
 import type { HeadBrand, Release } from "@/lib/brand-head";
 import { ACCESS_WORDS } from "@/lib/portal";
@@ -82,8 +84,12 @@ export function BrandSharing({
 
   // Said while anyone outside the team reads it: public on BrandHub, or on a portal not just for members.
   const outside = hub?.visibility === "public" || !!portals?.some((p) => p.access !== "members");
+  const publicly = hub?.visibility === "public" || !!portals?.some((p) => p.access === "public" && !p.expired);
   return (
     <div className="grid gap-4">
+      {!publicly && portals && hub && can("brand.publish", brand) && can("portal.manage") && (
+        <SharePublicly brand={brand} released={!!release} onDone={() => router.refresh()} />
+      )}
       {outside && files && <FilesOut name={brand.name} files={files} />}
       {hub && (
         <Group
@@ -159,6 +165,50 @@ export function BrandSharing({
         </Group>
       </section>
     </div>
+  );
+}
+
+/**
+ * Shared with everyone in one step: released first when it never was, a
+ * public portal showing it (POST /api/v1/sites, at the first free address of
+ * its slug), and, when asked, public on BrandHub for agents.
+ */
+function SharePublicly({ brand, released, onDone }: { brand: HeadBrand; released: boolean; onDone: () => void }) {
+  const [hub, setHub] = useState(true);
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    setBusy(true);
+    try {
+      const at = encodeURIComponent(brand.slug);
+      if (!released && !(await send("POST", `/api/v1/brands/${at}/publish`, { note: "First release" }))) return;
+      // Its slug, or the first free one after it: brand, brand-2, brand-3...
+      let slug = brand.slug;
+      for (let n = 2; n < 10; n++) {
+        const free = (await send("GET", `/api/v1/sites/address?${new URLSearchParams({ slug })}`)) as { available: boolean } | null;
+        if (!free || free.available) break;
+        slug = `${brand.slug}-${n}`;
+      }
+      const portal = (await send("POST", "/api/v1/sites", { name: brand.name, slug, access: "public", brands: [brand.slug] })) as Portal | null;
+      if (!portal) return;
+      if (hub) await send("PATCH", `/api/v1/brands/${at}/hub`, { visibility: "public" });
+      toast.success(`${brand.name} is public`, { description: portal.url, action: { label: "Open", onClick: () => window.open(portal.url, "_blank", "noopener") } });
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Group title="Share publicly" description={`A public portal where anyone reads ${brand.name} and takes its files${released ? "" : ", after its first release"}. You can close it, or hide it again, any time.`}>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button size="sm" pending={busy} onClick={() => void go()}>
+          <IconWorld aria-hidden /> Share publicly
+        </Button>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={hub} onCheckedChange={(v) => setHub(v === true)} />
+          Also on BrandHub, for agents
+        </label>
+      </div>
+    </Group>
   );
 }
 

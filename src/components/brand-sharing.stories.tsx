@@ -144,3 +144,23 @@ export const NoBrandHub = meta.story({
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/** Shared with nobody yet, never released: Share publicly releases it, makes a public portal at a free address, and lists it on BrandHub. */
+export const SharePublicly = meta.story({
+  args: { hub: hub({ visibility: "private", published: false }), portals: [], release: null },
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      sent.on("post", "/api/v1/brands/acme/publish", { number: 1 }),
+      http.get("/api/v1/sites/address", ({ request }) => {
+        const slug = new URL(request.url).searchParams.get("slug");
+        return HttpResponse.json({ data: { slug, available: slug !== "acme", reason: slug === "acme" ? "acme is taken" : null } });
+      }),
+      sent.on("post", "/api/v1/sites", { ...portals[0], slug: "acme-2", url: "https://acme-2.artbucket.test", access: "public" }),
+    ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Share publicly" }));
+    await waitFor(() => expect(sent.last("PATCH")).toMatchObject({ path: "/api/v1/brands/acme/hub", body: { visibility: "public" } }));
+    await expect(sent.last("POST")).toMatchObject({ path: "/api/v1/sites", body: { name: "Acme", slug: "acme-2", access: "public", brands: ["acme"] } });
+    await expect(await screen.findByText("Acme is public")).toBeInTheDocument();
+  },
+});
