@@ -31,6 +31,7 @@ import { copy } from "@/components/brand-values";
 import { ColorField } from "@/components/color-field";
 import { send } from "@/lib/send";
 import { Confirm } from "@/components/confirm";
+import { useCan } from "@/components/can";
 import { Fold } from "@/components/fold";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
@@ -114,6 +115,80 @@ const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof I
   password: { ...ACCESS_WORDS.password, icon: IconLock },
   members: { ...ACCESS_WORDS.members, icon: IconUsers },
 };
+
+/**
+ * A new domain of the organization's, added and verified without leaving the
+ * site (POST /api/v1/domains, then its verify): once verified, the site takes it.
+ */
+function AddDomain({ onVerified }: { onVerified: (host: string) => void }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [host, setHost] = useState("");
+  const [added, setAdded] = useState<{ host: string; record: { name: string; value: string }; cname: { name: string; value: string } | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!open)
+    return (
+      <Button type="button" variant="link" size="sm" className="justify-self-start px-0" onClick={() => setOpen(true)}>
+        <IconPlus /> Add a domain
+      </Button>
+    );
+  async function add() {
+    setBusy(true);
+    const d = await send("POST", "/api/v1/domains", { host: host.trim().toLowerCase() });
+    setBusy(false);
+    if (d) setAdded(d);
+  }
+  async function check() {
+    if (!added) return;
+    setBusy(true);
+    const d = await send("POST", `/api/v1/domains/${encodeURIComponent(added.host)}/verify`);
+    setBusy(false);
+    if (!d) return;
+    toast.success(`${added.host} is verified`);
+    onVerified(added.host);
+    setOpen(false);
+    setAdded(null);
+    setHost("");
+  }
+  return (
+    <div className="bg-muted/50 grid gap-2 rounded-md p-3 text-xs">
+      {!added ? (
+        <>
+          <Label htmlFor={`${id}-host`}>A domain of the organization&apos;s</Label>
+          <div className="flex gap-2">
+            <Input id={`${id}-host`} value={host} onChange={(e) => setHost(e.target.value)} placeholder="brand.example.com" className="h-8" />
+            <Button type="button" size="sm" pending={busy} disabled={!host.trim()} onClick={() => void add()}>
+              Add
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p>At your DNS host{added.cname ? ", point it here with a CNAME record, and" : ","} add a TXT record to prove it is yours:</p>
+          {added.cname && (
+            <p className="flex items-center gap-2">
+              <span className="font-mono break-all">
+                {added.cname.name} → {added.cname.value}
+              </span>
+              <CopyButton text={added.cname.value} label="Copy the target" what="the target" />
+            </p>
+          )}
+          <p className="flex items-center gap-2">
+            <span className="font-mono break-all">{added.record.name}</span>
+            <CopyButton text={added.record.name} label="Copy the name" what="the name" />
+          </p>
+          <p className="flex items-center gap-2">
+            <span className="font-mono break-all">{added.record.value}</span>
+            <CopyButton text={added.record.value} label="Copy the value" what="the value" />
+          </p>
+          <Button type="button" size="sm" variant="outline" className="justify-self-start" pending={busy} onClick={() => void check()}>
+            Check now
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
 
 /** The Select's value for "no domain": /p/{slug} only. */
 const NO_DOMAIN = "none";
@@ -625,6 +700,7 @@ export function PortalDialog({
   onDeleted: (id: string) => void;
 }) {
   const id = useId();
+  const can = useCan();
   const formRef = useRef<HTMLFormElement>(null);
   const [start] = useState(() => {
     const f = formOf(portal);
@@ -1011,9 +1087,9 @@ export function PortalDialog({
           <div className="grid gap-2">
             <div className="flex items-center gap-1.5">
               <Label htmlFor={`${id}-domain`}>Domain of its own</Label>
-              <InfoTip>Your organization&apos;s verified domains. Add one in Settings, Domains.</InfoTip>
+              <InfoTip>Your organization&apos;s verified domains. An organization admin adds one here, under the list.</InfoTip>
             </div>
-            <Select value={f.domain} onValueChange={(domain) => set({ domain })}>
+            <Select value={f.domain} onValueChange={(domain) => domain && set({ domain })}>
               <SelectTrigger id={`${id}-domain`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -1064,6 +1140,15 @@ export function PortalDialog({
                   </Button>
                 </div>
               )
+            )}
+            {can("organization.manage") && (
+              <AddDomain
+                onVerified={(host) => {
+                  // Among the options before it is picked: the Select drops a value it has no option for.
+                  setHosts((h) => [...(h ?? []).filter((x) => x.host !== host), { host, portal: null }]);
+                  set({ domain: host });
+                }}
+              />
             )}
           </div>
             </Fold>
