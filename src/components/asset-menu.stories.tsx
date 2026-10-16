@@ -1,6 +1,6 @@
 import preview from "#.storybook/preview";
 import { http, HttpResponse } from "msw";
-import { expect, fn, screen, waitFor } from "storybook/test";
+import { expect, fn, screen, waitFor, within } from "storybook/test";
 import { as, byId, collections, renditions } from "#.storybook/fixtures/library";
 import { AssetMenu } from "@/components/asset-menu";
 import { AssetCard } from "@/components/gallery";
@@ -124,6 +124,19 @@ export const Selection = meta.story({
     await userEvent.click(screen.getByRole("menuitem", { name: /Add 12 to/ }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Logos" }));
     await expect(args.bulk?.add).toHaveBeenCalledWith(collections[1]);
+    await close(userEvent);
+  },
+});
+
+/** One asset's menu adds it to a collection, as a selection's does: the collections it isn't in yet. */
+export const AddToCollection = meta.story({
+  args: { addTo: { into: collections, add: fn() } },
+  play: async ({ args, canvas, userEvent }) => {
+    const menu = await open(canvas, userEvent, "Autumn campaign hero");
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Add to collection" }));
+    const target = collections.find((c) => !args.asset.collections.includes(c.id))!;
+    await userEvent.click(await screen.findByRole("menuitem", { name: target.name }));
+    await expect(args.addTo!.add).toHaveBeenCalledWith(target);
     await close(userEvent);
   },
 });

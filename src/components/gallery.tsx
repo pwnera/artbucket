@@ -1194,6 +1194,7 @@ export function Gallery({
       versionFile.current?.click();
     },
     onPick: () => pick(a, false),
+    addTo: { into: editable, add: (c: Collection) => void bulk.members(c, "add", [a]) },
     selected: selected.has(a.id),
     onChanged: refreshSoon,
     local: (fn) => patch([a.id], fn),

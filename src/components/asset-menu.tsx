@@ -75,6 +75,8 @@ export type ActionContext = {
   onChanged: () => void;
   /** Change the listing's copy now; returns how to put it back. null takes it out. */
   local?: (fn: (a: Asset) => Asset | null) => () => void;
+  /** Collections this asset can be added to, and how: the same Add to as a selection's. */
+  addTo?: { into: Collection[]; add: (c: Collection) => void };
   /** The selection, when this asset is part of one bigger than itself: bulk items act on all of it. */
   bulk?: {
     count: number;
@@ -155,6 +157,8 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
   }
 
   const gone = (): Asset | null => null;
+  // The collections it isn't in yet, of those this person may add to.
+  const addable = ctx.addTo?.into.filter((c) => !a.collections.includes(c.id)) ?? [];
   return [
     [
       { id: "open", label: "Open", icon: <IconArrowsMaximize />, run: ctx.onOpen, shortcut: "↵" },
@@ -172,6 +176,16 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
         },
       },
       ...(live ? [{ id: "share", label: "Share…", icon: <IconShare />, run: ctx.onShare }] : []),
+      ...(live && addable.length
+        ? [
+            {
+              id: "add",
+              label: "Add to collection",
+              icon: <IconFolderPlus />,
+              items: addable.map((c) => ({ id: c.id, label: c.name, icon: <CollectionIcon icon={c.icon} />, run: () => ctx.addTo!.add(c) })),
+            },
+          ]
+        : []),
       ...(live && ctx.onNewVersion && can("asset.version", a) ? [{ id: "version", label: "Upload a new version…", icon: <IconUpload />, run: ctx.onNewVersion }] : []),
       ...(!live
         ? []
