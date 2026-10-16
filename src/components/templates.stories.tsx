@@ -127,7 +127,7 @@ export const Phone = meta.story({ args: { hub }, globals: { viewport: { value: "
  */
 export const OnArtbucket = meta.story({
   args: { hub: { ...hub, url: "https://hub.artbucket.io/artbucket/artbucket", verified: "brand.artbucket.io" } },
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Share card" })).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Download the press kit" })).toHaveAttribute("href", "https://hub.artbucket.io/artbucket/artbucket/press-kit.zip");

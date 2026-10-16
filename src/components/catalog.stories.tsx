@@ -6,7 +6,7 @@ import { inApp } from "#.storybook/fixtures/library";
 import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
 import { http, HttpResponse } from "msw";
 import { useEffect, useState } from "react";
-import { expect, screen, waitFor, within } from "storybook/test";
+import { expect, fireEvent, screen, waitFor, within } from "storybook/test";
 import { CatalogExplorer, type Tab, type TreeProject } from "@/components/catalog";
 
 const sent = recorder();
@@ -293,7 +293,7 @@ export const Dark = meta.story({ args: { object: logo, folder: null }, globals: 
  * click, with our own names in the page and in what its tabs fetch.
  */
 export const OnArtbucket = meta.story({
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   beforeEach: (ctx) => {
     // One hop at a time, as the API answers `depth=1`: the portal comes in with the brand's or the press kit's +.
     ctx.msw.use(
@@ -337,12 +337,14 @@ export const OnArtbucketProject = OnArtbucket.extend({
 /** The home's Lineage (artbucket.io/#lineage): our logo's Lineage with the room it wants, the sidebar folded and the tree hidden. */
 export const OnArtbucketLineage = OnArtbucket.extend({
   globals: { fixture: "artbucket", sidebar: "folded" },
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Hide the tree" }));
+  // fireEvent, as framed by artbucket.io the story's document isn't focused. On a phone's width there is no tree.
+  play: async ({ canvas }) => {
+    const tree = canvas.queryByRole("button", { name: "Hide the tree" });
+    if (tree) fireEvent.click(tree);
     await expect(await canvas.findByText("Changing artbucket-logo.svg reaches 3 things downstream, in 1 project.", {}, { timeout: 15_000 })).toBeInTheDocument();
     // The graph fits itself to the room it had as it drew: fitted again, to the tree's room too.
     await expect(await canvas.findByText("Press kit")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Fit View" }));
+    fireEvent.click(canvas.getByRole("button", { name: "Fit View" }));
     // Left as a visitor finds it: no button focused, so no tooltip or ring stays up.
     (document.activeElement as HTMLElement | null)?.blur();
     await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);

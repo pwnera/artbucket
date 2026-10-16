@@ -400,7 +400,7 @@ const catalogSearch = http.get("/api/v1/catalog", ({ request }) => {
  */
 export const OnArtbucket = meta.story({
   decorators: [inApp],
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/assets", query: { browse: "" } } } },
   // The header's box searches everything, as in the app: what else matches comes above the assets.
   beforeEach: (ctx) => {
@@ -421,7 +421,7 @@ export const OnArtbucket = meta.story({
  */
 export const OnArtbucketSearch = meta.story({
   decorators: [inApp],
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   // Our name, which the brand, its portal, its rule, its logos and its typeface all carry (the fixtures ask for Acme's).
   parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/assets", query: { q: "artbucket" } } } },
   beforeEach: (ctx) => {
@@ -442,7 +442,7 @@ export const OnArtbucketSearch = meta.story({
  */
 export const ReviewOnArtbucket = meta.story({
   decorators: [inApp],
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   parameters: { ...page, nextjs: { navigation: { pathname: "/review" } } },
   beforeEach: (ctx) => {
     ctx.msw.use(...library());

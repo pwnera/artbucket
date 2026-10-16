@@ -182,13 +182,11 @@ export const LongNames = meta.story({
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
-/** As artbucket.io frames it (`globals=fixture:artbucket;sidebar:open`): our own names, the app's sidebar open. */
+/** As artbucket.io frames it (`globals=fixture:artbucket`): our own names, in the app's shell. */
 export const OnArtbucket = meta.story({
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("www.artbucket.io · Since Sep 20, 412 loads")).toBeInTheDocument();
     await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
-    // On a phone's width the sidebar is a sheet, closed.
-    if (innerWidth >= 768) await expect(document.querySelector("[data-slot=sidebar]")).toHaveAttribute("data-state", "expanded");
   },
 });

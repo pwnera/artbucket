@@ -28,6 +28,29 @@ const RULES = "https://hub.artbucket.io/artbucket/artbucket/rules.json";
 type Release = { rules: { key: string; context: string | null; value: unknown }[] };
 let release: Promise<Release | undefined> | undefined;
 
+// Framed by another origin (artbucket.io shows the app's screens this way): what would leave the story does nothing,
+// so a link, a form or a new window never lands the frame on a page that isn't there. Links go to other pages, which
+// a story doesn't have, so they are stopped before the app sees them (no pending spinner either); what changes in
+// place (buttons, tabs, router.push) still works. Here, in Storybook and in tests, the parent is the same origin.
+const elsewhere = (() => {
+  try {
+    return window.parent !== window && !window.parent.location.href;
+  } catch {
+    return true;
+  }
+})();
+if (elsewhere) {
+  const stay = (e: Event) => {
+    if (!(e.target as Element).closest?.("a[href]")) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  window.addEventListener("click", stay, true);
+  window.addEventListener("auxclick", stay, true);
+  window.addEventListener("submit", (e) => e.preventDefault());
+  window.open = () => null;
+}
+
 // findBy and waitFor wait up to 5s, not 1s: the whole suite runs in parallel, and a lazy chunk (React Flow, an
 // editor) can take longer than a second to land under that load. A story that passes waits only as long as it must.
 configure({ asyncUtilTimeout: 5000 });

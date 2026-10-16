@@ -240,7 +240,7 @@ const samples: Record<string, Record<string, unknown>> = {
  * recipe opens the dialog on it.
  */
 export const OnArtbucket = meta.story({
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   beforeEach: (ctx) => {
     const runs: Record<string, unknown[]> = { aut_release: [run("run_release", samples.aut_release, twoDaysAgo)] };
     ctx.msw.use(
@@ -270,7 +270,7 @@ export const OnArtbucket = meta.story({
  * field live (When, Then, a webhook's As), and Make it adding it to the list.
  */
 export const OnArtbucketNew = meta.story({
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   beforeEach: swapApi,
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "New automation" }));

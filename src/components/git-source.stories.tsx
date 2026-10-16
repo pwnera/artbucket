@@ -96,7 +96,7 @@ export const Loading = meta.story({ args: { source: null } });
  */
 export const OnArtbucket = meta.story({
   decorators: [withMe(me), inApp],
-  globals: { fixture: "artbucket", sidebar: "open" },
+  globals: { fixture: "artbucket" },
   parameters: { layout: "fullscreen" },
   beforeEach: (ctx) => {
     mocked(useSelectedLayoutSegments).mockReturnValue([]);
