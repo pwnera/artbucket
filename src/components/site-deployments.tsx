@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconUpload } from "@/components/icons";
+import { IconUpload, IconWorld } from "@/components/icons";
+import { AppHeader, PageHeader } from "@/components/page";
 import type { Portal } from "@/components/portals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { slugOf } from "@/lib/catalog";
 import { formatSize } from "@/lib/limits";
@@ -141,7 +143,60 @@ export function BuildSiteDialog({
   );
 }
 
-function Deployments({ site }: { site: Portal }) {
+/**
+ * An external site's page (/sites/{id}): what the catalog, lineage, Fixes and
+ * search call it and say of it, edited here, then what its CI recorded.
+ */
+export function ExternalSitePage({ site: initial }: { site: Portal }) {
+  const [site, setSite] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const id = useId();
+  async function save(form: FormData) {
+    const name = String(form.get("name") ?? "").trim();
+    const url = String(form.get("url") ?? "").trim();
+    const intro = String(form.get("intro") ?? "").trim();
+    setBusy(true);
+    const saved: Portal | null = await send("PATCH", `/api/v1/sites/${site.id}`, { name, url: url || null, intro: intro || null });
+    setBusy(false);
+    if (!saved) return;
+    setSite(saved);
+    toast.success("Saved");
+  }
+  return (
+    <>
+      <AppHeader trail={[{ label: "Sites", href: "/sites" }, { label: site.name }]} />
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
+        <PageHeader icon={<IconWorld />} title={site.name} description="Hosted elsewhere. What it is called and says here is what the catalog, lineage, Fixes and search show." />
+        <form action={(f) => void save(f)} className="grid gap-4 rounded-xl border p-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-name`}>Name</Label>
+            <Input id={`${id}-name`} name="name" required maxLength={120} defaultValue={site.name} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-url`}>Address</Label>
+            <Input id={`${id}-url`} name="url" type="url" maxLength={2048} placeholder="https://app.example.com" defaultValue={site.externalUrl ?? ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${id}-intro`}>Description</Label>
+            <Textarea id={`${id}-intro`} name="intro" maxLength={4000} rows={3} placeholder="What it is and who runs it" defaultValue={site.intro ?? ""} />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Its CI names it <code>{site.slug}</code> (<code>--site {site.slug}</code>): that stays as it is.
+          </p>
+          <div>
+            <Button type="submit" size="sm" pending={busy}>
+              Save
+            </Button>
+          </div>
+        </form>
+        <Deployments site={site} Heading="h2" />
+      </div>
+    </>
+  );
+}
+
+/** `Heading`: h3 under a dialog's title, h2 on a page of its own. */
+function Deployments({ site, Heading = "h3" }: { site: Portal; Heading?: "h2" | "h3" }) {
   const portal = site.kind === "portal";
   const external = site.kind === "external";
   const [list, setList] = useState<Deployment[] | null>(null);
@@ -258,7 +313,7 @@ function Deployments({ site }: { site: Portal }) {
         </>
       )}
       <section aria-label="Deployments" className="grid gap-2">
-        <h3 className="text-sm font-medium">{external ? "Scans" : "Deployments"}</h3>
+        <Heading className="text-sm font-medium">{external ? "Scans" : "Deployments"}</Heading>
         {list === null ? (
           <ul aria-busy aria-label="Loading the deployments" className="divide-y rounded-lg border">
             {[0, 1].map((i) => (
