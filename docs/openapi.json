@@ -15860,6 +15860,22 @@
             "description": "Repeat for several"
           },
           {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "image",
+                "video",
+                "audio",
+                "font",
+                "document",
+                "other"
+              ]
+            },
+            "description": "An asset's file kind: only assets; repeat for several"
+          },
+          {
             "name": "project",
             "in": "query",
             "schema": {

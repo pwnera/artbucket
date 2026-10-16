@@ -256,6 +256,8 @@ async function whereOf(caller: Caller, q: CatalogQuery, reaches: Reach[]): Promi
     seen(reaches),
     tsq ? sql`${o.search} @@ ${tsq}` : undefined,
     q.types.length ? inArray(o.type, q.types) : undefined,
+    // A file kind is an asset's: read from its media type, as asset search reads it (lib/core/assets.ts assetType).
+    q.kinds.length ? and(eq(o.type, "asset"), inArray(o.id, db.select({ id: assets.id }).from(assets).where(inArray(assetType, q.kinds)))) : undefined,
     q.projects.length ? inArray(projects.slug, q.projects) : undefined,
     q.statuses.length ? inArray(o.status, q.statuses) : undefined,
     ...q.tags.map((t) => sql`${o.tags} @> ${JSON.stringify([t.toLowerCase()])}::jsonb`),

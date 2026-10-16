@@ -667,6 +667,7 @@ export function openapi(serverUrl: string) {
           query: {
             q: { schema: str, description: "Free words and inline filters" },
             type: { schema: { type: "string", enum: [...CATALOG_TYPES] }, description: "Repeat for several" },
+            kind: { schema: { type: "string", enum: ["image", "video", "audio", "font", "document", "other"] }, description: "An asset's file kind: only assets; repeat for several" },
             project: { schema: str, description: "A project's slug" },
             status: { schema: { type: "string", enum: [...CATALOG_STATUSES] }, description: "Repeat for several" },
             tag: { schema: str, description: "Carrying this tag" },

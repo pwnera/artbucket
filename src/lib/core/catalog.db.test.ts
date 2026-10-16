@@ -171,3 +171,10 @@ test("asked for, a search counts its matches' tags, and their statuses past the 
   assert.ok(Array.isArray(r.facets!.tags));
   assert.equal((await searchCatalog(ada.caller, parseQuery("logo"))).facets, undefined);
 });
+
+test("kind: finds assets of a file kind, and nothing else", async () => {
+  const images = await searchCatalog(ada.caller, parseQuery("logo kind:image"), { record: false });
+  assert.ok(images.items.length >= 1);
+  assert.ok(images.items.every((i) => i.type === "asset"));
+  assert.equal((await searchCatalog(ada.caller, parseQuery("logo kind:font"), { record: false })).items.length, 0);
+});
