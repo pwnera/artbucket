@@ -4,13 +4,18 @@ import { expect, screen, waitFor, within } from "storybook/test";
 import { recorder } from "#.storybook/fixtures/brands";
 import { inApp, renditions } from "#.storybook/fixtures/library";
 import { offline, partners, pendingDomain, portal, PORTAL_DOMAIN, portals, sitesApi, team, verified } from "#.storybook/fixtures/sites";
-import { Portals } from "@/components/portals";
+import { PortalPage, Portals } from "@/components/portals";
 
 const sent = recorder();
 const made = portal({ id: "sit_new", slug: "press-kit", name: "Press kit", access: "password", password: true });
 
 /** The page at ?{query}: the app opens a portal's editor (?edit=), a new one (?new=portal) or its requests (?open=) this way. */
 const at = (query: Record<string, string> = {}) => ({ nextjs: { navigation: { pathname: "/sites", query } } });
+/** A portal's own page (PortalPage), once its heading is drawn: the editor is the page. */
+const page = async (name: string) => {
+  await screen.findByRole("heading", { name });
+  return within(document.body);
+};
 
 /**
  * Sites (Portals): the project's brand portals and built sites, each row with its access, its warnings (a domain not
@@ -146,9 +151,10 @@ export const AddressRefused = meta.story({
 
 /** Behind a password: the password field says Unchanged, and is needed only to change it. */
 export const EditPasswordPortal = meta.story({
-  parameters: at({ edit: partners.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={partners} portalDomain={PORTAL_DOMAIN} />,
   play: async () => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Partner hub" }));
+    const it = await page("Partner hub");
     await expect(it.getByRole("radio", { name: /Whoever has the password/ })).toBeChecked();
     await expect(it.getByLabelText("Password")).toHaveAttribute("placeholder", "Unchanged");
     await expect(it.getByLabelText("Password")).not.toBeRequired();
@@ -157,9 +163,10 @@ export const EditPasswordPortal = meta.story({
 
 /** For the team: signed in to get in, never at {slug}.artbucket.test, and its brands' releases said. */
 export const EditMembersPortal = meta.story({
-  parameters: at({ edit: team.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={team} portalDomain={PORTAL_DOMAIN} />,
   play: async () => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Team guidelines" }));
+    const it = await page("Team guidelines");
     await expect(it.getByRole("radio", { name: /People in this project/ })).toBeChecked();
     await expect(it.getByText("/p/")).toBeInTheDocument();
     await expect(await it.findByText("Not released: visitors see nothing")).toBeInTheDocument();
@@ -168,9 +175,10 @@ export const EditMembersPortal = meta.story({
 
 /** Downloads: each preset a checkbox, in the order the portal offers them, summed up on the fold. */
 export const Presets = meta.story({
-  parameters: at({ edit: verified.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={verified} portalDomain={PORTAL_DOMAIN} />,
   play: async ({ userEvent }) => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Acme press kit" }));
+    const it = await page("Acme press kit");
     await userEvent.click(it.getByText("Downloads"));
     for (const name of ["Story", "PNG", "Original"]) await userEvent.click(it.getByRole("checkbox", { name }));
     await userEvent.click(it.getByRole("checkbox", { name: "Print" }));
@@ -182,9 +190,10 @@ export const Presets = meta.story({
 
 /** A domain of its own, picked from the organization's verified ones (one already on another portal). */
 export const AddDomain = meta.story({
-  parameters: at({ edit: partners.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={partners} portalDomain={PORTAL_DOMAIN} />,
   play: async ({ userEvent }) => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Partner hub" }));
+    const it = await page("Partner hub");
     await userEvent.click(it.getByText("Domain"));
     await userEvent.click(it.getByRole("combobox", { name: "Domain of its own" }));
     await expect(await screen.findByRole("option", { name: /brand\.acme\.test/ })).toHaveAttribute("aria-disabled", "true");
@@ -197,11 +206,12 @@ export const AddDomain = meta.story({
 
 /** Its domain added, not seen yet: the records to set at the DNS host, then Check now. */
 export const DomainPending = meta.story({
-  parameters: at({ edit: pendingDomain.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={pendingDomain} portalDomain={PORTAL_DOMAIN} />,
   beforeEach: ({ msw }) =>
     void msw.use(http.post("/api/v1/sites/:id/domain", () => HttpResponse.json({ data: { ...pendingDomain, domain: { ...pendingDomain.domain!, verified: true } } }))),
   play: async ({ userEvent }) => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Retail partners" }));
+    const it = await page("Retail partners");
     await expect(it.getByText(/retail\.acme\.test → domains\.artbucket\.test/)).toBeInTheDocument();
     await expect(it.getByText("_artbucket-challenge.retail.acme.test")).toBeInTheDocument();
     await userEvent.click(it.getByRole("button", { name: "Check now" }));
@@ -211,9 +221,10 @@ export const DomainPending = meta.story({
 
 /** Verified: the portal answers there, and the slug is only its short link. */
 export const DomainVerified = meta.story({
-  parameters: at({ edit: verified.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={verified} portalDomain={PORTAL_DOMAIN} />,
   play: async ({ userEvent }) => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Acme press kit" }));
+    const it = await page("Acme press kit");
     await expect(it.getByLabelText("Short link")).toHaveValue("press");
     await userEvent.click(it.getByText("Domain"));
     await expect(it.getByText(/Verified: the portal answers at brand\.acme\.test/)).toBeInTheDocument();
@@ -222,7 +233,8 @@ export const DomainVerified = meta.story({
 
 /** The records aren't there yet: the server says what it found, and the records stay to copy. */
 export const DomainFailing = meta.story({
-  parameters: at({ edit: pendingDomain.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={pendingDomain} portalDomain={PORTAL_DOMAIN} />,
   beforeEach: ({ msw }) =>
     void msw.use(
       http.post("/api/v1/sites/:id/domain", () =>
@@ -230,7 +242,7 @@ export const DomainFailing = meta.story({
       ),
     ),
   play: async ({ userEvent }) => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Retail partners" }));
+    const it = await page("Retail partners");
     await userEvent.click(it.getByRole("button", { name: "Check now" }));
     await expect(await screen.findByText("No TXT record at _artbucket-challenge.retail.acme.test yet")).toBeInTheDocument();
     await expect(it.getByRole("button", { name: "Check now" })).toBeEnabled();
@@ -239,9 +251,10 @@ export const DomainFailing = meta.story({
 
 /** Offline: its Open until fold opens on the closing date, with Reopen. */
 export const EditOffline = meta.story({
-  parameters: at({ edit: offline.id }),
+  parameters: at(),
+  render: () => <PortalPage portal={offline} portalDomain={PORTAL_DOMAIN} />,
   play: async () => {
-    const it = within(await screen.findByRole("dialog", { name: "Edit Spring launch 2026" }));
+    const it = await page("Spring launch 2026");
     await expect(it.getByText(/Closed on .* Pick a new date or clear it to reopen\./)).toBeInTheDocument();
     await expect(it.getByRole("button", { name: "Reopen" })).toBeInTheDocument();
   },

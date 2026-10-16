@@ -180,7 +180,7 @@ export function openPath(item: { id: string; type: CatalogType; slug: string; pa
     case "brand":
       return `/brands/${item.slug}?${w}`;
     case "site":
-      return `/sites?edit=${item.id}&${w}`;
+      return `/sites/${item.id}?${w}`;
     case "rule":
       return `/brands/${brand}/rules?${w}#rule-${encodeURIComponent(item.slug)}`;
     case "page":
