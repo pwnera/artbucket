@@ -16,8 +16,8 @@ const plain: BrandingSetting = {
   own: false,
 };
 const brands = [
-  { id: "brd_acme", name: "Acme" },
-  { id: "brd_northwind", name: "Northwind" },
+  { id: "brd_acme", slug: "acme", name: "Acme" },
+  { id: "brd_northwind", slug: "northwind", name: "Northwind" },
 ];
 
 const meta = preview.meta({
@@ -49,7 +49,7 @@ export const Accent = meta.story({
   args: { setting: plain },
   beforeEach: ({ msw }) => void msw.use(sent.on("patch", "/api/v1/settings/:key", {})),
   play: async ({ canvas, userEvent }) => {
-    const hex = canvas.getByRole("textbox", { name: "Accent, hex" });
+    const hex = canvas.getByRole("textbox", { name: "App accent, hex" });
     await userEvent.clear(hex);
     await userEvent.type(hex, "#ff5b1f");
     await expect(canvas.getByRole("button", { name: "Back to the product's own accent" })).toBeInTheDocument();
@@ -123,7 +123,7 @@ export const Viewer = meta.story({
 export const LongNames = meta.story({
   args: {
     setting: { ...own, value: { ...own.value, name: "Acme International Holdings Brand Library", tagline: "Every logo, typeface, photo and guideline of every Acme brand, for partners and agencies" } },
-    brands: [{ id: "brd_long", name: "Acme International Holdings Partner Programme for Resellers" }],
+    brands: [{ id: "brd_long", slug: "acme-international", name: "Acme International Holdings Partner Programme for Resellers" }],
   },
 });
 

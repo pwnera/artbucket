@@ -49,24 +49,20 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
   return (
     <div className="grid gap-4">
       <Group title="Name and address">
-        <form
-          className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void patch("name", { name });
-          }}
-        >
-          <div className="grid gap-1.5">
-            <Label htmlFor="brand-name">Name</Label>
-            <Input id="brand-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-          </div>
-          <span className="flex items-center gap-2">
-            <SavedMark at={saved.name} />
-            <Button type="submit" variant="outline" pending={busy === "name"} disabled={!name.trim() || name === brand.name}>
-              Rename
-            </Button>
-          </span>
-        </form>
+        {/* Saved as it is left, as every other field is; the address alone asks, since links break when it moves. */}
+        <div className="grid gap-1.5">
+          <Label htmlFor="brand-name" className="flex items-center gap-2">
+            Name <SavedMark at={saved.name} />
+          </Label>
+          <Input
+            id="brand-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => (name.trim() && name !== brand.name ? void patch("name", { name: name.trim() }) : setName(brand.name))}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            maxLength={80}
+          />
+        </div>
         <form
           className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
           onSubmit={(e) => {
@@ -87,40 +83,29 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
             </Button>
           </span>
         </form>
-        <form
-          className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void patch("domain", { domain: domain.trim() || null });
-          }}
-        >
-          <div className="grid gap-1.5">
-            <Label htmlFor="brand-domain">
-              Domain <InfoTip>The brand&apos;s own website. Whoever proves they hold it may claim the brand&apos;s BrandHub listing.</InfoTip>
-            </Label>
-            <Input
-              id="brand-domain"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              maxLength={253}
-              placeholder="acme.com"
-              inputMode="url"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="font-mono"
-            />
-          </div>
-          <span className="flex items-center gap-2">
+        <div className="grid gap-1.5">
+          <Label htmlFor="brand-domain" className="flex items-center gap-2">
+            Domain <InfoTip>The brand&apos;s own website. Whoever proves they hold it may claim the brand&apos;s BrandHub listing.</InfoTip>
             <SavedMark at={saved.domain} />
-            <Button type="submit" variant="outline" pending={busy === "domain"} disabled={domain.trim() === (brand.domain ?? "")}>
-              Save
-            </Button>
-          </span>
-        </form>
+          </Label>
+          <Input
+            id="brand-domain"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            onBlur={() => domain.trim() !== (brand.domain ?? "") && void patch("domain", { domain: domain.trim() || null })}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            maxLength={253}
+            placeholder="acme.com"
+            inputMode="url"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="font-mono"
+          />
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
           <p className="flex items-center gap-1.5 text-sm">
-            {brand.private ? "Private" : "Everyone in the project"}
-            <InfoTip>A private brand is reached only by people given access to it, and admins: a draft kept from the rest of the project. Portals and BrandHub are apart.</InfoTip>
+            {brand.private ? "Only people given access" : "Everyone in the project"}
+            <InfoTip>Limited, it is reached only by people given access to it, and admins: a draft kept from the rest of the project. Who reads it outside the team (portals, BrandHub) is on Sharing.</InfoTip>
           </p>
           <Button
             variant="outline"
@@ -131,11 +116,11 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
               const done = await send("PATCH", `/api/v1/brands/${b}`, { private: !brand.private });
               setBusy(null);
               if (!done) return;
-              toast.success(brand.private ? `${brand.name} is the project's again` : `${brand.name} is private`);
+              toast.success(brand.private ? `${brand.name} is the project's again` : `Only people given access reach ${brand.name}`);
               router.refresh();
             }}
           >
-            {brand.private ? "Open to the project" : "Make private"}
+            {brand.private ? "Open to the project" : "Limit to people given access"}
           </Button>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">

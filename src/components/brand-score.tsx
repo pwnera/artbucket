@@ -13,14 +13,14 @@ import { brandPath, guidelinesPath, rulesPath } from "@/lib/site";
 import type { Target } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-/** Where a step is taken in the app: rules on the Rules tab, the look on Theme, pages by the ways to change them. */
+/** Where a step is taken in the app: rules on the Rules tab, the look on Look, pages by the ways to change them. */
 const whereTo = (slug: string, id: Status["steps"][number]["id"]) =>
   id === "portal"
     ? `/sites?${new URLSearchParams({ new: slug })}`
     : id === "publish"
       ? brandPath(slug, "/releases/new")
       : id === "look"
-        ? brandPath(slug, "/theme")
+        ? brandPath(slug, "/look")
         : id === "pages"
           ? guidelinesPath(slug, { ways: "1" })
           : rulesPath(slug);

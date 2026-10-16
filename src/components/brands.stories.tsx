@@ -80,41 +80,14 @@ export const FindAndFilter = meta.story({
 /** Opened from a brand's Settings with its name in the search. */
 export const Searched = meta.story({ args: { q: "north" } });
 
-/** The list: a row each, with BrandHub's actions. The choice is kept for this browser. */
+/** The list: a row each, and Sharing, where who reads it on BrandHub is set. The choice is kept for this browser. */
 export const List = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("radio", { name: "List" }));
-    await expect(await canvas.findByRole("button", { name: /Make private/ })).toBeInTheDocument();
+    const sharing = await canvas.findAllByRole("link", { name: "Sharing" });
+    await expect(sharing[0]).toHaveAttribute("href", "/brands/acme/sharing");
     await expect(localStorage.getItem(LAYOUT)).toBe("list");
-    // Never released: nothing on BrandHub to make public yet.
-    await expect(canvas.getByRole("button", { name: /Make public/ })).toBeDisabled();
     await expect(canvas.getByText("Never released: BrandHub shows it once it is")).toBeInTheDocument();
-  },
-});
-
-/** Make public asks first, then PATCHes BrandHub's visibility and reads the page again. */
-export const MakePublic = meta.story({
-  args: { brands: [{ ...brandRows[0], visibility: "private" as const, hub: hub() }, brandRows[1]] },
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("radio", { name: "List" }));
-    const row = within(within(canvas.getByRole("list", { name: "Every brand" })).getAllByRole("listitem")[0]);
-    await userEvent.click(row.getByRole("button", { name: /Make public/ }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Make Acme public?" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Make public" }));
-    await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/acme/hub", body: { visibility: "public" } }));
-    await expect(await screen.findByText("Acme is public on BrandHub")).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-    await expect(getRouter().refresh).toHaveBeenCalled();
-  },
-});
-
-/** Make private takes effect at once: it hides the brand, never shows more. */
-export const MakePrivate = meta.story({
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("radio", { name: "List" }));
-    await userEvent.click(await canvas.findByRole("button", { name: /Make private/ }));
-    await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/acme/hub", body: { visibility: "private" } }));
-    await expect(await screen.findByText("Acme is private again")).toBeInTheDocument();
   },
 });
 

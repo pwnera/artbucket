@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { toast } from "sonner";
 import { IconAlertTriangle, IconCircleCheck, IconPalette, IconPlus, IconTrash } from "@/components/icons";
 import { Fold } from "@/components/fold";
 import { IconButton } from "@/components/icon-button";
 import { SiteLinkIcon } from "@/components/site/link-icon";
 import { LibraryPicker } from "@/components/asset-picker";
+import { ColorField } from "@/components/color-field";
+import { GoogleFontImport } from "@/components/font-preview";
 import { GRADE_STYLE } from "@/components/brand-values";
 import { Thumb } from "@/components/thumb";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { z } from "zod";
 import { LOOKS, type ThemePatch, type ThemeSettings } from "@/lib/brand-theme";
 import { grade } from "@/lib/color";
+import { keyFor } from "@/lib/presets";
 import { fontValue, ruleName, type Rule } from "@/lib/rules";
 import { send } from "@/lib/send";
 import type { PageView } from "@/lib/site";
@@ -27,7 +31,9 @@ type Theme = PageView["theme"];
 /** What PATCH /theme takes: a key left out keeps its value, null clears it back to the rules' answer. */
 type Patch = z.output<typeof ThemePatch>;
 /** What a slot is picked from: a rule as GET /brand/rules or a view gives it. */
-type Choice = Pick<Rule, "key" | "label" | "context" | "type" | "value" | "assets">;
+type Choice = Pick<Rule, "id" | "key" | "label" | "context" | "type" | "value" | "assets">;
+/** What a slot's own editor changes on the rule behind it: its value, its files. */
+type RuleChange = { value?: Rule["value"]; assets?: { id: string; rendition: string | null }[] };
 
 const AUTO = "*";
 const COLORS = [
@@ -118,7 +124,9 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
     setS(theme.settings);
   }
   const [fetched, setRules] = useState<Choice[] | null>(null);
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<"device" | "logo" | "fontFile" | null>(null);
+  const [fontFor, setFontFor] = useState<(typeof FONTS)[number][0] | null>(null);
+  const [fileFor, setFileFor] = useState<(typeof FONTS)[number][0] | null>(null);
   // The theme reads the default context's.
   const rules = (given ?? fetched)?.filter((r) => r.context === null) ?? null;
 
@@ -143,6 +151,53 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
     else setS(theme.settings);
   };
 
+  /**
+   * The rule that fills a slot now: the one named, else the one the theme
+   * picked by itself, found by its key (the logo) or by what it holds.
+   */
+  const filling = (k: (typeof COLORS)[number][0] | (typeof FONTS)[number][0] | "logo"): Choice | null => {
+    const named = s[k] as string | null | undefined;
+    if (named) return rules?.find((r) => r.key === named) ?? null;
+    if (k === "logo") return rules?.find((r) => r.key === theme.logo?.key) ?? null;
+    if (k === "head" || k === "body" || k === "label") return rules?.find((r) => r.type === "font" && fontValue(r.value).family === theme.faces[k]?.family) ?? null;
+    const used = theme[k]?.toLowerCase();
+    return rules?.find((r) => r.type === "color" && String(r.value).toLowerCase() === used) ?? null;
+  };
+
+  /**
+   * Change the rule behind a slot (decision: one source, which tokens and
+   * BrandHub read too): its value or files, a draft like any edit on Rules.
+   * A slot nothing fills yet gets a rule of its own, named for it, and is
+   * set to it. The page behind re-themes with the view (`onSaved`).
+   */
+  const writeRule = async (k: keyof Patch, r: Choice | null, change: RuleChange, make: { section: string; name: string; type: Rule["type"]; value: Rule["value"] }) => {
+    if (r) {
+      held(k, r, change);
+      if (!(await send("PATCH", `/api/v1/brand/rules/${r.id}`, change))) return;
+    } else {
+      const key = keyFor(make.section, make.name, new Set((rules ?? []).map((x) => x.key)));
+      const made = key && ((await send("POST", `/api/v1/brand/rules?brand=${encodeURIComponent(slug)}`, { key, label: make.name, type: make.type, value: make.value, ...change })) as Choice | null);
+      if (!made) return;
+      setRules((rs) => [...(rs ?? []), made]);
+      await save({ [k]: made.key } as Patch);
+    }
+    onSaved?.();
+  };
+  /**
+   * Shown at once: the rule's new value or files, and an Automatic slot named
+   * for the rule it showed, so it stays on that rule while its value moves.
+   */
+  const held = (k: keyof Patch, r: Choice, change: RuleChange) => {
+    setRules((rs) => rs && rs.map((x) => (x.id === r.id ? ({ ...x, ...change } as Choice) : x)));
+    if (!s[k]) void save({ [k]: r.key } as Patch);
+  };
+  // A color picker moves the value as it is dragged: the rule is written once it rests.
+  const resting = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const later = (k: string, fn: () => void) => {
+    clearTimeout(resting.current[k]);
+    resting.current[k] = setTimeout(fn, 400);
+  };
+
   /** A slot's choices: the rules that can fill it, and the one named now even when it has gone. */
   const slot = (k: keyof Patch, fits: (r: Choice) => boolean, show: (r: Choice) => React.ReactNode) => {
     const named = s[k] as string | null | undefined;
@@ -163,10 +218,38 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
       <span className="text-muted-foreground">{fontValue(r.value).family}</span>
     </>
   );
-  const colorPick = ([k, label]: (typeof COLORS)[number]) => <Pick key={k} label={label} hint={<Used hex={theme[k]} />} {...slot(k, (r) => r.type === "color", color)} />;
-  const fontPick = ([k, label]: (typeof FONTS)[number]) => (
-    <Pick key={k} label={label} hint={<span className="text-muted-foreground truncate text-xs">{theme.faces[k]?.family ?? "The app's"}</span>} {...slot(k, (r) => r.type === "font", font)} />
-  );
+  // Each slot edits its value in place, on the rule behind it; which rule fills it is the select's, a second choice.
+  const colorPick = ([k, label]: (typeof COLORS)[number]) => {
+    const r = filling(k);
+    const hex = String(r?.value ?? theme[k] ?? "#888888");
+    return (
+      <Pick key={k} label={label} hint={<Used hex={theme[k]} />} {...slot(k, (x) => x.type === "color", color)}>
+        <ColorField
+          label={`${label} color`}
+          value={/^#[0-9a-f]{6}$/i.test(hex) ? hex : "#888888"}
+          onChange={(v) => {
+            if (r) held(k, r, { value: v });
+            later(k, () => void writeRule(k, r, { value: v }, { section: "color", name: label, type: "color", value: v }));
+          }}
+        />
+      </Pick>
+    );
+  };
+  const fontPick = ([k, label]: (typeof FONTS)[number]) => {
+    return (
+      <Pick key={k} label={label} hint={<span className="text-muted-foreground truncate text-xs">{theme.faces[k]?.family ?? "The app's"}</span>} {...slot(k, (x) => x.type === "font", font)}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setFontFor(k)}>
+            Change font
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setFileFor(k)}>
+            Add font files
+          </Button>
+        </div>
+      </Pick>
+    );
+  };
+  const logo = filling("logo");
 
   // The look whose every setting is the theme's now; none when one was changed by hand.
   const look =
@@ -241,7 +324,18 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
       </Group>
 
       <Group title="Logo">
-        <Pick label="Logo" {...slot("logo", (r) => r.assets.length > 0, (r) => ruleName(r))} />
+        <Pick label="Logo" {...slot("logo", (r) => r.assets.length > 0, (r) => ruleName(r))}>
+          <div className="flex items-center gap-2">
+            {logo?.assets[0] && (
+              <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-md border">
+                <Thumb src={`/a/${logo.assets[0].id}/w_160,f_webp`} alt="The logo" />
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setPicking("logo")}>
+              {logo?.assets[0] ? "Replace" : "Choose"}
+            </Button>
+          </div>
+        </Pick>
         <Fold bare title="Device" summary={s.device ? "Set" : "None"}>
           <div className="grid gap-1.5">
             <p className="text-muted-foreground text-xs">Symbol or pattern, for covers, dividers and grounds.</p>
@@ -251,7 +345,7 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
                   <Thumb src={`/a/${s.device}/w_160,f_webp`} alt="The device" />
                 </span>
               )}
-              <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+              <Button variant="outline" size="sm" onClick={() => setPicking("device")}>
                 {s.device ? "Replace" : "Choose"}
               </Button>
               {s.device && (
@@ -396,15 +490,55 @@ export function ThemeEditor({ slug, theme, active, onSaved, onPatch, rules: give
         </Fold>
       </Group>
 
-      {picking && (
+      {picking === "device" && (
         <LibraryPicker
           title="Choose the device"
           description="An image, ideally an SVG: the brand's symbol or pattern."
           filter={(a) => a.mime.startsWith("image/")}
-          onClose={() => setPicking(false)}
+          onClose={() => setPicking(null)}
           onPick={(a) => {
-            setPicking(false);
+            setPicking(null);
             void save({ device: a.id });
+          }}
+        />
+      )}
+      {picking === "logo" && (
+        <LibraryPicker
+          title="Choose the logo"
+          description="The approved file, ideally an SVG: it goes first on the logo rule."
+          filter={(a) => a.mime.startsWith("image/")}
+          onClose={() => setPicking(null)}
+          onPick={(a) => {
+            setPicking(null);
+            const files = [{ id: a.id, rendition: null }, ...(logo?.assets ?? []).filter((x) => x.id !== a.id).map((x) => ({ id: x.id, rendition: x.rendition }))];
+            void writeRule("logo", logo, { assets: files }, { section: "logo", name: "Primary", type: "text", value: "The approved logo" });
+          }}
+        />
+      )}
+      {/* A face from Google Fonts: its files land in the library and on the rule, its name in the rule's value. */}
+      <GoogleFontImport
+        open={!!fontFor}
+        onOpenChange={(o) => !o && setFontFor(null)}
+        onDone={(ids, family) => {
+          const k = fontFor!;
+          const r = filling(k);
+          setFontFor(null);
+          const value = { ...fontValue(r?.value ?? family), family };
+          void writeRule(k, r, { value, assets: ids.map((id) => ({ id, rendition: null })) }, { section: "type", name: FONTS.find(([x]) => x === k)![1], type: "font", value });
+        }}
+      />
+      {fileFor && (
+        <LibraryPicker
+          title="Add a font file"
+          description="A file the brand owns, uploaded to the library: the pages load it for this face."
+          filter={(a) => a.mime.startsWith("font/") || /\.(woff2?|[ot]tf)$/i.test(a.filename)}
+          onClose={() => setFileFor(null)}
+          onPick={(a) => {
+            const k = fileFor;
+            const r = filling(k);
+            setFileFor(null);
+            if (!r) return void toast.error("Pick or change the font first", { description: "The file goes on the rule that names the face." });
+            void writeRule(k, r, { assets: [...r.assets.map((x) => ({ id: x.id, rendition: x.rendition })), { id: a.id, rendition: null }] }, { section: "type", name: "", type: "font", value: "" });
           }}
         />
       )}
@@ -443,18 +577,21 @@ const Used = ({ hex }: { hex: string | null }) =>
     <span className="text-muted-foreground text-xs">The app&apos;s</span>
   );
 
+/** A slot: which rule fills it, and under it (`children`) its value, edited in place on that rule. */
 function Pick({
   label,
   hint,
   value,
   options,
   onChange,
+  children,
 }: {
   label: string;
   hint?: React.ReactNode;
   value: string;
   options: [string, React.ReactNode][];
   onChange: (v: string) => void;
+  children?: React.ReactNode;
 }) {
   const id = useId();
   return (
@@ -477,6 +614,7 @@ function Pick({
           ))}
         </SelectContent>
       </Select>
+      {children}
     </div>
   );
 }

@@ -102,7 +102,7 @@ const NEXT: Record<string, { label: string; tab: string }> = {
   type: { label: "Name the typefaces", tab: "/rules" },
   logo: { label: "Attach the logo", tab: "/rules" },
   voice: { label: "Describe the voice", tab: "/rules" },
-  look: { label: "Pick a look", tab: "/theme" },
+  look: { label: "Pick a look", tab: "/look" },
   pages: { label: "Fill in the pages", tab: "/guidelines" },
   portal: { label: "Share it on a portal", tab: "/sharing" },
 };

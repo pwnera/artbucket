@@ -22,7 +22,7 @@ export const guidelinesPath = (slug: string, q: Record<string, string | null | u
 export const rulesPath = (slug: string, key?: string) => `${brandPath(slug, "/rules")}${key ? `#rule-${encodeURIComponent(key)}` : ""}`;
 
 /** Where each of the retired builder's panels' work is on the brand now. */
-const PANEL_TABS: Record<string, string> = { rules: "/rules", history: "/releases", tokens: "/theme", publish: "/releases/new" };
+const PANEL_TABS: Record<string, string> = { rules: "/rules", history: "/releases", tokens: "/look", publish: "/releases/new" };
 
 /**
  * Where an address of the retired guidelines builder (/brands/{slug}/guidelines/edit,

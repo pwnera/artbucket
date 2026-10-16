@@ -6,10 +6,8 @@ import type { BrandInfo } from "@/components/brand-switcher";
 import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { contextLabel } from "@/lib/rules";
 import { TOKEN_FORMAT_IDS, TOKEN_FORMATS, type TokenFormat, type TokenFormatId } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 
@@ -30,78 +28,57 @@ const GROUPS = [...new Set(Object.values(TOKEN_FORMATS).map((f: TokenFormat) => 
 }));
 
 /**
- * The brand as code: pick the format your stack reads, see exactly what it
- * gets, copy it, download it, or link it. Each preview is fetched from the
- * API, so it is the file an agent or a build would get.
+ * The brand as code, in place on its Sharing tab: pick the format your stack
+ * reads, see exactly what it gets, copy it, download it, or link it. Each
+ * preview is fetched from the API, so it is the file an agent or a build
+ * would get.
  */
-export function TokensDialog({
-  brand,
-  context,
-  open,
-  onOpenChange,
-}: {
-  brand: TokenBrand;
-  context?: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  // Outlives the dialog, so it opens on the format you last looked at.
+export function TokensView({ brand, context, className }: { brand: TokenBrand; context?: string; className?: string }) {
   const [format, setFormat] = useState<TokenFormatId>("css");
   const f = TOKEN_FORMATS[format];
   const name = `${brand.slug}${context ? `-${context}` : ""}`;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[85svh] flex-col gap-0 p-0 sm:max-w-5xl">
-        <DialogHeader className="border-b p-4 pr-12">
-          <DialogTitle>Design tokens</DialogTitle>
-          <DialogDescription>
-            {brand.name}
-            {context && ` in ${contextLabel(context)}`}: each file is also a link that stays current.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <nav aria-label="Formats" className="hidden w-52 shrink-0 space-y-4 overflow-y-auto border-r p-2 md:block">
-            {GROUPS.map(({ group, ids }) => (
-              <div key={group} className="space-y-0.5">
-                <p className="text-muted-foreground px-2 pb-1 text-xs font-medium">{group}</p>
-                {ids.map((id) => (
-                  <Button
-                    key={id}
-                    variant="ghost"
-                    size="sm"
-                    aria-current={id === format || undefined}
-                    onClick={() => setFormat(id)}
-                    className={cn("w-full justify-start px-2", id === format ? "bg-muted" : "text-muted-foreground font-normal")}
-                  >
-                    {TOKEN_FORMATS[id].label}
-                  </Button>
-                ))}
-              </div>
+    <div className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border md:flex-row", className)}>
+      <nav aria-label="Formats" className="hidden w-52 shrink-0 space-y-4 overflow-y-auto border-r p-2 md:block">
+        {GROUPS.map(({ group, ids }) => (
+          <div key={group} className="space-y-0.5">
+            <p className="text-muted-foreground px-2 pb-1 text-xs font-medium">{group}</p>
+            {ids.map((id) => (
+              <Button
+                key={id}
+                variant="ghost"
+                size="sm"
+                aria-current={id === format || undefined}
+                onClick={() => setFormat(id)}
+                className={cn("w-full justify-start px-2", id === format ? "bg-muted" : "text-muted-foreground font-normal")}
+              >
+                {TOKEN_FORMATS[id].label}
+              </Button>
             ))}
-          </nav>
-          <div className="border-b p-2 md:hidden">
-            <Select value={format} onValueChange={(v) => setFormat(v as TokenFormatId)}>
-              <SelectTrigger className="w-full" aria-label="Format">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GROUPS.map(({ group, ids }) => (
-                  <SelectGroup key={group}>
-                    <SelectLabel>{group}</SelectLabel>
-                    {ids.map((id) => (
-                      <SelectItem key={id} value={id}>
-                        {TOKEN_FORMATS[id].label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-          <Preview path={tokensPath(brand, context, format)} file={f.file(name)} hint={f.hint} />
-        </div>
-      </DialogContent>
-    </Dialog>
+        ))}
+      </nav>
+      <div className="border-b p-2 md:hidden">
+        <Select value={format} onValueChange={(v) => setFormat(v as TokenFormatId)}>
+          <SelectTrigger className="w-full" aria-label="Format">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {GROUPS.map(({ group, ids }) => (
+              <SelectGroup key={group}>
+                <SelectLabel>{group}</SelectLabel>
+                {ids.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {TOKEN_FORMATS[id].label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Preview path={tokensPath(brand, context, format)} file={f.file(name)} hint={f.hint} />
+    </div>
   );
 }
 

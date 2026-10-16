@@ -11,9 +11,9 @@ const theme = { ...deriveTheme(rules), settings: {} };
 let body: unknown;
 
 const meta = preview.meta({
-  title: "App/Features/Brands/Theme tab",
+  title: "App/Features/Brands/Look tab",
   component: BrandThemeTab,
-  args: { slug: "acme", theme, behind: false, released: true },
+  args: { slug: "acme", theme },
   decorators: [withMe(me)],
   beforeEach: ({ msw }) => {
     body = undefined;
@@ -21,27 +21,11 @@ const meta = preview.meta({
   },
 });
 
-/** The Theme tab, released and up to date: the editor alone. */
+/** The Look tab: the editor alone; the header says what isn't released and offers Release. */
 export const Playground = meta.story({
   play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("radiogroup", { name: "Style" })).toBeInTheDocument();
     await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
-  },
-});
-
-/** A change not yet released: portals wear the last release's theme, so the tab says so and offers Release. */
-export const Behind = meta.story({
-  args: { behind: true },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText(/Unreleased changes. Portals and BrandHub show the last release's theme/)).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/acme/releases/new");
-  },
-});
-
-/** Never released (Northwind). */
-export const NeverReleased = meta.story({
-  args: { slug: "northwind", released: false },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByText("Not released yet. Release the brand to put this theme on its portals.")).toBeInTheDocument();
   },
 });
 
@@ -71,4 +55,4 @@ export const SaveFails = meta.story({
   },
 });
 
-export const Phone = meta.story({ args: { behind: true }, globals: { viewport: { value: "phone" } } });
+export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });

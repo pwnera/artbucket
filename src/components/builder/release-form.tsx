@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { IconCheck, IconMessageCircle, IconWorldUpload } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import Link from "next/link";
+import { Fold } from "@/components/fold";
 import { toast } from "sonner";
 import { LibraryPicker } from "@/components/asset-picker";
 import type { Transport } from "@/components/builder/use-builder";
@@ -100,9 +101,11 @@ const draftDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, {
 
 /**
  * The release form, on the brand's new release page: `onClose` is Cancel and, once
- * released, Done; `onDone`, when given, is Done instead.
+ * released, Done; `onDone`, when given, is Done instead. `compact`: the
+ * header's popover, a note and what changes (folded), with the full page a
+ * link away for an image, a portal or BrandHub, and a long note.
  */
-export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onClose: () => void; onDone?: () => void }) {
+export function ReleaseForm({ host, onClose, onDone, compact = false }: { host: ReleaseHost; onClose: () => void; onDone?: () => void; compact?: boolean }) {
   const { brand, transport } = host;
   // What is still on its way to the server isn't in the version a publish would take.
   const saving = useSyncExternalStore(subscribe, snapshot, () => IDLE).inFlight > 0;
@@ -118,8 +121,8 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   const can = useCan();
   const status = host.status;
   const shared = !!status?.portals?.length || status?.hub?.visibility === "public";
-  const portalOffer = !shared && status?.portals?.length === 0;
-  const hubOffer = !shared && status?.hub?.visibility === "private" && can("brand.publish", host.target);
+  const portalOffer = !compact && !shared && status?.portals?.length === 0;
+  const hubOffer = !compact && !shared && status?.hub?.visibility === "private" && can("brand.publish", host.target);
   const [door, setDoor] = useState<Door>("members");
   const [hubPublic, setHubPublic] = useState(false);
   // Out past the team: a portal not for members, public on BrandHub, or about to be either.
@@ -199,7 +202,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
   const draft = news && "draft" in news ? news : null;
   const current = draft && draft.draft !== null && draft.draft === draft.since;
   // What releasing does to the Brand Agent Score: the Released step, done.
-  const step = host.status?.steps.find((s) => s.id === "publish");
+  const step = host.status?.steps?.find((s) => s.id === "publish");
   const score = host.status && step && !step.done && !current ? { was: host.status.score, is: Math.min(100, host.status.score + step.points) } : null;
   const n = draft?.draft;
   return (
@@ -207,7 +210,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
       <header className="grid gap-1.5">
         {/* pe-8: the badge stays clear of the dialog's close button, top right. */}
         <div className="flex flex-wrap items-center justify-between gap-2 pe-8">
-          <h2 className="font-display flex items-center gap-2 text-xl font-semibold">
+          <h2 className={cn("font-display flex items-center gap-2 font-semibold", compact ? "text-base" : "text-xl")}>
             <IconWorldUpload aria-hidden className="size-5" /> {n && !current ? `Release @${n}` : "Release"}
             <InfoTip>Portals and BrandHub show the latest release. Until then, readers see what they saw before.</InfoTip>
           </h2>
@@ -217,7 +220,7 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
 
       <div className="grid gap-1.5">
         <Label htmlFor="publish-note">Note for readers</Label>
-        <Textarea id="publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={3} placeholder="What changed, and why" />
+        <Textarea id="publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={compact ? 2 : 3} placeholder="What changed, and why" />
       </div>
 
       <section aria-labelledby="publish-news" aria-busy={!news || saving} className="grid gap-2">
@@ -234,7 +237,14 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         ) : current ? (
           <p className="text-muted-foreground text-sm">Nothing new: readers already see @{news.draft}.</p>
         ) : news.changes && news.since ? (
-          <Changes lines={news.changes} />
+          compact ? (
+            // Folded in the popover: the count says enough to release; the lines are a click away.
+            <Fold bare title={`${news.changes.length} ${news.changes.length === 1 ? "change" : "changes"}`} summary="Show">
+              <Changes lines={news.changes} />
+            </Fold>
+          ) : (
+            <Changes lines={news.changes} />
+          )
         ) : (
           <p className="text-sm">First release: every page and rule.</p>
         )}
@@ -266,24 +276,26 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
         </p>
       )}
 
-      <div className="grid gap-1.5">
-        <p className="text-sm font-medium">Image</p>
-        <div className="flex items-center gap-2">
-          {image && (
-            <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-md border">
-              <Thumb src={url(image, "/w_160,f_webp")} alt="The note's image" />
-            </span>
-          )}
-          <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
-            {image ? "Replace" : "Choose"}
-          </Button>
-          {image && (
-            <Button variant="ghost" size="sm" onClick={() => setImage(null)}>
-              Remove
+      {!compact && (
+        <div className="grid gap-1.5">
+          <p className="text-sm font-medium">Image</p>
+          <div className="flex items-center gap-2">
+            {image && (
+              <span className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-md border">
+                <Thumb src={url(image, "/w_160,f_webp")} alt="The note's image" />
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setPicking(true)}>
+              {image ? "Replace" : "Choose"}
             </Button>
+            {image && (
+              <Button variant="ghost" size="sm" onClick={() => setImage(null)}>
+                Remove
+              </Button>
           )}
         </div>
       </div>
+      )}
 
       {(portalOffer || hubOffer) && (
         <fieldset className="grid gap-3 rounded-lg border p-3">
@@ -326,9 +338,17 @@ export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onCl
       )}
 
       <footer className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
+        {compact ? (
+          <Button variant="ghost" asChild className="sm:me-auto">
+            <Link href={`/brands/${encodeURIComponent(brand)}/releases/new`} onClick={onClose}>
+              Open full page
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        )}
         <Button onClick={publish} disabled={busy || saving || !!current}>
           {busy || saving ? <Spinner /> : <IconWorldUpload />}
           {saving ? "Saving" : n && !current ? `Release @${n}` : "Release"}

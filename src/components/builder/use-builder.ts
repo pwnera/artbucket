@@ -29,7 +29,6 @@ import {
   travel,
 } from "@/lib/builder-ops";
 import { useSource, useStatus } from "@/components/builder/use-status";
-import { usePref } from "@/components/sidebar-prefs";
 import { boundKeys, canon, type Section } from "@/lib/pages";
 import { sendResult, type Sent } from "@/lib/send";
 import type { Media, PageView } from "@/lib/site";
@@ -64,9 +63,6 @@ const network: Transport = (method, url, body, headers) => sendResult(method, ur
 /** The sheet or dialog open over the canvas: the top bar opens them, the builder draws them, a deep link can too. */
 export type Panel = "rules" | "history" | "tokens" | "publish" | null;
 
-/** The panel docked beside the canvas, which never covers it: the picked section's settings, blocks and rules to drag in, or the theme, so the page re-themes in view. */
-export type Dock = "section" | "insert" | "theme" | "comments" | null;
-
 /** What a copied section is on the clipboard: JSON under this key, so a paste knows it from any other text. */
 export const CLIP = "artbucket/section";
 
@@ -82,9 +78,6 @@ export function unclip(text: string): Record<string, unknown> | null {
 }
 
 const SAVE = "builder-save";
-/** Where the page list's open or closed is remembered. */
-const PAGES = "artbucket:builder-pages";
-const FLOAT = "artbucket:builder-panel-float";
 
 /** The last section copied from a menu, for a paste the clipboard won't give back (permission refused). */
 let copied: string | null = null;
@@ -107,21 +100,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
   // a production build inlines `network` into the default above, a new function each render.
   const send = useCallback<Transport>((method, url, body) => live.current.transport(method, url, body), []);
   const [panel, setPanel] = useState<Panel>(null);
-  const [dock, setDock] = useState<Dock>(null);
-  // The item the section panel sets up, by its section and index: a right click's "Item settings".
-  const [item, setItem] = useState<{ section: string; i: number } | null>(null);
   // Sections picked besides the one selected, with Shift or Cmd (b.pick), for changes to all of them at once.
   const [also, setAlso] = useState<string[]>([]);
-  // The library floating over the canvas (library-panel.tsx), to drag assets onto the page.
-  const [library, setLibrary] = useState(false);
-  // Marking what changed since the last publish on the canvas (changes.tsx).
-  const [changes, setChanges] = useState(false);
-  // The page list beside the canvas: open unless the person closed it in this browser.
-  const [pagesOpen, setPagesOpen] = usePref(PAGES, true);
-  // The panel (b.dock) floats over the canvas instead of beside it: kept in this browser, as the page list's is.
-  const [floating, setFloating] = usePref(FLOAT, false);
-  // The page whose settings are open, by slug: the page list's menu and the bar's title open them.
-  const [pageSettings, setPageSettings] = useState<string | null>(null);
   const { status, refresh: refreshStatus } = useStatus(brand, send);
   // The repository the brand is kept in too (brand as code), for the bar's sync state.
   const source = useSource(brand, send);
@@ -526,26 +506,8 @@ export function useBuilder(brand: string, init: Init, transport: Transport = net
     canRedo: depth.future > 0,
     panel,
     setPanel,
-    dock,
-    setDock,
-    item,
-    setItem,
     /** Every section picked on the page, the selection first: more than one after Shift or Cmd clicks (pick). */
     picked,
-    /** Whether the library panel floats over the canvas. */
-    library,
-    setLibrary,
-    /** Whether the canvas marks what changed since the last publish. */
-    changes,
-    setChanges,
-    /** Whether the page list shows beside the canvas. */
-    pagesOpen,
-    setPagesOpen,
-    /** Whether the panel floats over the canvas (floating-panel.tsx) rather than docking beside it. */
-    floating,
-    setFloating,
-    pageSettings,
-    setPageSettings,
     /** The launch checklist and whether readers see the latest (use-status.ts); null until read. */
     status,
     refreshStatus,

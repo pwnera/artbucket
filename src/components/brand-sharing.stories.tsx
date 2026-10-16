@@ -49,14 +49,14 @@ export const Playground = meta.story({
   },
 });
 
-/** Private: Make public asks first, then PATCHes the visibility; what comes back is shown at once. */
+/** Private: Make public on BrandHub asks first, then PATCHes the visibility; what comes back is shown at once. */
 export const MakePublic = meta.story({
   args: { hub: hub() },
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByText("Private: only people in this project, signed in.")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Make public" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Make public on BrandHub" }));
     const ask = await screen.findByRole("alertdialog", { name: "Make Acme public?" });
-    await userEvent.click(within(ask).getByRole("button", { name: "Make public" }));
+    await userEvent.click(within(ask).getByRole("button", { name: "Make public on BrandHub" }));
     await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/acme/hub", body: { visibility: "public" } }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     await expect(await canvas.findByText("Public: anyone and any agent reads its latest release.")).toBeInTheDocument();
@@ -64,13 +64,13 @@ export const MakePublic = meta.story({
   },
 });
 
-/** Make private takes effect at once. */
+/** Hide from the public takes effect at once. */
 export const MakePrivate = meta.story({
   beforeEach: ({ msw }) => void msw.use(sent.on("patch", "/api/v1/brands/acme/hub", hub())),
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Make private" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Hide from the public" }));
     await waitFor(() => expect(sent.last("PATCH")?.body).toEqual({ visibility: "private" }));
-    await expect(await canvas.findByRole("button", { name: "Make public" })).toBeInTheDocument();
+    await expect(await canvas.findByRole("button", { name: "Make public on BrandHub" })).toBeInTheDocument();
   },
 });
 
@@ -78,7 +78,7 @@ export const MakePrivate = meta.story({
 export const NeverReleased = meta.story({
   args: { hub: hub({ published: null, portal: null }), release: null, portals: [] },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("button", { name: "Make public" })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: "Make public on BrandHub" })).toBeDisabled();
     await expect(canvas.queryByRole("link", { name: /See it on BrandHub/ })).not.toBeInTheDocument();
     await expect(canvas.queryByText("Share card and templates")).not.toBeInTheDocument();
   },

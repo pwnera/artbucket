@@ -14,7 +14,7 @@ const meta = preview.meta({
   title: "App/Features/Brands/Header",
   component: BrandHeader,
   args: { brand: acme, origin: "https://app.artbucket.test", rules, status, release, at: "overview" as const, compact: false },
-  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "theme", "insights", "settings"] } },
+  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "look", "insights", "settings"] } },
   parameters: { layout: "fullscreen" },
   decorators: [withMe(me)],
   beforeEach: ({ msw }) => {
@@ -42,9 +42,9 @@ export const Playground = meta.story({
     await expect(canvas.getByRole("img", { name: "acme.test verified" })).toBeInTheDocument();
     await expect(canvas.getByText("acme/acme")).toBeInTheDocument();
     await expect(canvas.getByText("Unreleased changes")).toBeInTheDocument();
-    // Behind the live release: Release is the one filled button.
-    await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/acme/releases/new");
-    await expect(canvas.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
+    // Behind the live release: Release is the one filled button, and opens in place.
+    await expect(canvas.getByRole("button", { name: "Release" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     await expect(canvas.getByText(/Signal orange for alerts/)).toBeInTheDocument();
   },
 });
@@ -65,7 +65,7 @@ export const UpToDate = meta.story({
   args: { status: { ...status, publish: "current" as const } },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Up to date")).toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
   },
 });
 
@@ -74,7 +74,7 @@ export const NeverReleased = meta.story({
   args: { brand: northwind, rules: [], status: emptyStatus, release: null },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Never released")).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/northwind/releases/new");
+    await expect(canvas.getByRole("button", { name: "Release" })).toBeInTheDocument();
   },
 });
 
@@ -96,20 +96,17 @@ export const CopyTheAddress = meta.story({
   },
 });
 
-/** Use this brand, Tokens: every format in a dialog, the file fetched as the brand is now. */
-export const TokensDialog = meta.story({
+/** Use this brand, Tokens: every format is on the brand's Sharing tab, the one place for them. */
+export const Tokens = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: /Use this brand/ }));
     const tokens = (await screen.findByText("Tokens")).closest("li")!;
     await userEvent.click(within(tokens as HTMLElement).getByRole("button", { name: "Get" }));
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
-    await waitFor(() => expect(dialog).toHaveTextContent("--color-primary: #2f62ff"));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Design tokens" })).not.toBeInTheDocument());
+    await waitFor(() => expect(getRouter().push).toHaveBeenCalledWith("/brands/acme/sharing#tokens"));
   },
 });
 
-/** Start from this brand: Duplicate copies it into a new brand, then opens it. */
+/** Start from this brand: Duplicate makes "Acme copy" at once, opens it, and its toast offers Rename. */
 export const Duplicate = meta.story({
   beforeEach: ({ msw }) =>
     void msw.use(
@@ -121,11 +118,11 @@ export const Duplicate = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: /Use this brand/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Duplicate" }));
-    const dialog = await screen.findByRole("dialog", { name: "Duplicate Acme" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
     await waitFor(() => expect(body).toEqual({ name: "Acme copy", from: "acme" }));
     await expect(await screen.findByText("Created Acme copy")).toBeInTheDocument();
     await expect(getRouter().push).toHaveBeenCalledWith("/brands/acme-copy");
+    await userEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await expect(getRouter().push).toHaveBeenCalledWith("/brands/acme-copy/settings");
   },
 });
 
@@ -134,7 +131,7 @@ export const Pin = meta.story({
   play: async ({ canvas, userEvent }) => {
     const more = canvas.getByRole("button", { name: "More for Acme" });
     await userEvent.click(more);
-    await expect(await screen.findByRole("menuitem", { name: "Theme" })).toHaveAttribute("href", "/brands/acme/theme");
+    await expect(await screen.findByRole("menuitem", { name: "Settings" })).toHaveAttribute("href", "/brands/acme/settings");
     await userEvent.click(screen.getByRole("menuitem", { name: "Pin to the sidebar" }));
     await waitFor(() => expect(JSON.parse(localStorage.getItem(PINS) ?? "[]")).toEqual([{ id: "brd_acme", type: "brand", label: "Acme", href: "/brands/acme" }]));
     // Closed for good before it opens again: a click while it fades out would land on the closing menu.
@@ -169,8 +166,8 @@ export const ConnectGit = meta.story({
 export const Viewer = meta.story({
   decorators: [withMe(viewer)],
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
   },
 });
 
@@ -190,7 +187,7 @@ export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 export const Compact = meta.story({
   args: { compact: true, at: "guidelines" as const },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("link", { name: "Edit" })).toHaveAttribute("title", "Edit");
+    await expect(canvas.getByRole("button", { name: "Edit" })).toHaveAttribute("title", "Edit");
     await expect(canvas.getByRole("link", { name: "Guidelines" })).toHaveAttribute("aria-current", "page");
   },
 });
@@ -220,5 +217,47 @@ export const Addresses = meta.story({
   play: async ({ canvas }) => {
     await expect(canvas.queryByText("brand.json")).not.toBeInTheDocument();
     await expect(canvas.getByText("PowerPoint template")).toBeInTheDocument();
+  },
+});
+
+/** Release opens in place: the note, what changes folded, and the full page a link away. */
+export const ReleaseInPlace = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Release" }));
+    await expect(await screen.findByRole("textbox", { name: "Note for readers" })).toBeInTheDocument();
+    await expect(screen.getByRole("link", { name: "Open full page" })).toHaveAttribute("href", "/brands/acme/releases/new");
+    await userEvent.click(canvas.getByRole("button", { name: "Release" }));
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Note for readers" })).not.toBeInTheDocument());
+  },
+});
+
+/** Edit offers what is edited here first, the rules and the look, then the ways to change the pages. */
+export const EditMenu = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    await expect(await screen.findByRole("menuitem", { name: "Rules" })).toHaveAttribute("href", "/brands/acme/rules");
+    await expect(screen.getByRole("menuitem", { name: /^Look/ })).toHaveAttribute("href", "/brands/acme/look");
+    await expect(screen.getByRole("menuitem", { name: "Change the pages…" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  },
+});
+
+/** The name is edited where it is shown: a click makes it a field, Enter saves it. */
+export const RenameInPlace = meta.story({
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      http.patch("/api/v1/brands/acme", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: { ...acme, name: "Acme Inc" } });
+      }),
+    ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Acme" }));
+    const field = canvas.getByRole("textbox", { name: "Brand name" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "Acme Inc{Enter}");
+    await waitFor(() => expect(body).toEqual({ name: "Acme Inc" }));
+    await expect(getRouter().refresh).toHaveBeenCalled();
   },
 });

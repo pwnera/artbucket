@@ -23,7 +23,7 @@ import {
   IconWorld,
   IconWorldUpload,
 } from "@/components/icons";
-import { BrandDialog, brandHref, type BrandInfo } from "@/components/brand-switcher";
+import { brandHref, type BrandInfo } from "@/components/brand-switcher";
 import { BrandTabs, useBrandMore, useBrandTabs, type BrandTab } from "@/components/brand-tabs";
 import { useSource, type Status } from "@/components/builder/use-status";
 import { useCan, useMe } from "@/components/can";
@@ -33,7 +33,7 @@ import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
 import { AppHeader } from "@/components/page";
 import { TabNav } from "@/components/hub";
-import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
+import { tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -44,14 +44,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { sendResult } from "@/lib/send";
+import { send, sendResult } from "@/lib/send";
+import { Input } from "@/components/ui/input";
+import { ReleaseForm } from "@/components/builder/release-form";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness";
 import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, guidelinesPath } from "@/lib/site";
-import { LinkIcon } from "@/components/link-pending";
 import { SaveStatus } from "@/components/save-status";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { usePins } from "@/components/sidebar-prefs";
@@ -135,19 +136,28 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit", brand)} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit", brand) && (
-        <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
-          <Link href={guidelinesPath(brand.slug, editing)}>
-            <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
-          </Link>
-        </Button>
+        // What can be edited here first (the rules, the look), then the ways to change the pages, which are made elsewhere.
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" title={compact ? "Edit" : undefined}>
+              <IconPencil aria-hidden /> <span className={word}>Edit</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem asChild>
+              <Link href={brandPath(brand.slug, "/rules")}>Rules</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={brandPath(brand.slug, "/look")}>Look: accent, type, logo</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={guidelinesPath(brand.slug, editing)}>Change the pages…</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-      {can("brand.edit", brand) && status?.publish !== "current" && (
-        <Button asChild size="sm" title={compact ? "Release" : undefined}>
-          <Link href={brandPath(brand.slug, "/releases/new")}>
-            <LinkIcon icon={<IconWorldUpload aria-hidden />} /> <span className={word}>Release</span>
-          </Link>
-        </Button>
-      )}
+      {can("brand.edit", brand) && status?.publish !== "current" && <ReleaseButton brand={brand} word={word} compact={compact} />}
       <BrandMenu brand={brand} at={at} connect={source && !source.source ? source.connect : null} />
     </div>
   );
@@ -195,7 +205,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
           {mark}
           <div className="grid min-w-0 gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display truncate text-2xl font-semibold tracking-tight">{brand.name}</h1>
+              {can("brand.edit", brand) ? <BrandName brand={brand} /> : <h1 className="font-display truncate text-2xl font-semibold tracking-tight">{brand.name}</h1>}
               {/* Icons, their words their tooltips: the badges crowded the actions. */}
               {hub?.verified && (
                 <span role="img" aria-label={`${hub.verified} verified`} title={`${hub.verified} verified: its organization proved it holds the domain`} className="text-success">
@@ -300,8 +310,17 @@ function LivePlaces({
 function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandInfo; origin: string; hub: Status["hub"]; release: Release | null; compact?: boolean }) {
   const router = useRouter();
   const can = useCan();
-  const [copying, setCopying] = useState<{ open: boolean; n: number } | null>(null);
-  const [tokens, setTokens] = useState(false);
+  const [copying, setCopying] = useState(false);
+  // Made at once, named "<name> copy": the toast offers renaming it, which its own header does in place.
+  const duplicate = async () => {
+    setCopying(true);
+    const b = (await send("POST", "/api/v1/brands", { name: `${brand.name} copy`, from: brand.slug })) as BrandInfo | null;
+    setCopying(false);
+    if (!b) return;
+    toast.success(`Created ${b.name}`, { description: "Its rules, pages and look, copied.", action: { label: "Rename", onClick: () => router.push(brandPath(b.slug, "/settings")) } });
+    router.push(brandHref(b));
+    router.refresh();
+  };
   return (
     <>
       <Popover>
@@ -320,7 +339,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" aria-label="Use this brand" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
-          <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
+          <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => router.push(`${brandPath(brand.slug, "/sharing")}#tokens`)} />
           {can("brand.create") && (
             <>
               <Separator />
@@ -329,7 +348,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
                   <span className="text-sm font-medium">Start from this brand</span>
                   <span className="text-muted-foreground text-xs">Copy its rules into a new brand</span>
                 </span>
-                <Button size="xs" variant="outline" onClick={() => setCopying((c) => ({ open: true, n: (c?.n ?? 0) + 1 }))}>
+                <Button size="xs" variant="outline" pending={copying} onClick={() => void duplicate()}>
                   <IconCopy aria-hidden /> Duplicate
                 </Button>
               </div>
@@ -337,21 +356,6 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           )}
         </PopoverContent>
       </Popover>
-      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
-      {copying && (
-        <BrandDialog
-          key={copying.n}
-          open={copying.open}
-          editing={{ kind: "copy", brand }}
-          onClose={() => setCopying((c) => c && { ...c, open: false })}
-          onDone={(b) => {
-            setCopying((c) => c && { ...c, open: false });
-            toast.success(`Created ${b.name}`);
-            router.push(brandHref(b));
-            router.refresh();
-          }}
-        />
-      )}
     </>
   );
 }
@@ -452,10 +456,95 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
   );
 }
 
+/**
+ * The brand's name, edited where it is shown: a click makes it a field,
+ * Enter or leaving saves it (PATCH /api/v1/brands/{slug}), Escape puts it
+ * back. Its address stays; Settings changes that.
+ */
+function BrandName({ brand }: { brand: BrandInfo }) {
+  const router = useRouter();
+  const [text, setText] = useState<string | null>(null);
+  const done = async (save: boolean) => {
+    const name = text?.trim();
+    setText(null);
+    if (!save || !name || name === brand.name) return;
+    if (await send("PATCH", `/api/v1/brands/${encodeURIComponent(brand.slug)}`, { name })) router.refresh();
+  };
+  const cls = "font-display truncate text-2xl font-semibold tracking-tight";
+  if (text === null)
+    return (
+      <h1 className={cls}>
+        {/* eslint-disable-next-line no-restricted-syntax -- the heading's own text, as the click target that makes it a field */}
+        <button type="button" title="Rename" onClick={() => setText(brand.name)} className="hover:bg-muted -mx-1 cursor-text truncate rounded px-1 text-start">
+          {brand.name}
+        </button>
+      </h1>
+    );
+  return (
+    <h1 className={cls}>
+      <Input
+        aria-label="Brand name"
+        autoFocus
+        value={text}
+        maxLength={80}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => void done(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") void done(false);
+        }}
+        className="font-display h-9 w-[min(24rem,70vw)] text-2xl font-semibold tracking-tight md:text-2xl"
+      />
+    </h1>
+  );
+}
+
+/**
+ * Release, in place: a popover with the note and what changes, folded, and
+ * the full page a link away for an image, a portal or a long note (decision 2).
+ */
+function ReleaseButton({ brand, word, compact }: { brand: BrandInfo; word?: string; compact?: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" title={compact ? "Release" : undefined}>
+          <IconWorldUpload aria-hidden /> <span className={word}>Release</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="max-h-[80vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto"
+        // Typing starts in the note, not on the title's info button.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          requestAnimationFrame(() => document.getElementById("publish-note")?.focus());
+        }}
+      >
+        <ReleaseForm
+          compact
+          host={{
+            brand: brand.slug,
+            target: brand,
+            name: brand.name,
+            transport: quietly,
+            // The page reads the score and who sees it; the popover leaves those offers to it.
+            status: null,
+            comments: { open: 0, review: guidelinesPath(brand.slug, { comments: "1" }) },
+            released: () => router.refresh(),
+          }}
+          onClose={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** The crumb after the brand's name, by the address under /brands/{slug}; none on the Overview. */
 const CRUMBS: Record<string, string> = {
   rules: "Rules",
-  theme: "Theme",
+  look: "Look",
   assets: "Assets",
   releases: "Releases",
   "releases/new": "New release",
@@ -485,11 +574,11 @@ export function BrandPageHeader({ importing, ...head }: Omit<BrandHeaderProps, "
   );
 }
 
-const MORE_ICON = { theme: IconPalette, insights: IconChartBar, settings: IconSettings } as Partial<Record<BrandTab, typeof IconPalette>>;
+const MORE_ICON = { insights: IconChartBar, settings: IconSettings } as Partial<Record<BrandTab, typeof IconPalette>>;
 
 /**
  * The brand's menu, at the end of its header: the pages that aren't tabs
- * (Theme, Insights, Settings), then what is done to it now and then: keep
+ * (Insights, Settings), then what is done to it now and then: keep
  * it in Git, pin it to the sidebar, open it in the catalog (its lineage and
  * who reaches it).
  */

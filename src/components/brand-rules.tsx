@@ -1,37 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { IconCode } from "@/components/icons";
 import type { BrandInfo } from "@/components/brand-switcher";
-import { TokensDialog } from "@/components/tokens-dialog";
 import { ColorCells, ColorHead } from "@/components/color-table";
 import { FileThumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { inkOn } from "@/lib/color";
 import { colorTable, darkContext, hasDark } from "@/lib/color-table";
+import { brandPath } from "@/lib/site";
 import { contextLabel, fontLabel, fontValue, ruleLabel, ruleName, section, type Rule, type RuleValue } from "@/lib/rules";
 
 /**
  * The brand's tokens, in every format the API serves (DESIGN.md among them),
- * above its rules on the Rules tab, read-only or not: one line, the formats
- * in the dialog, each to look at, copy, download or link.
+ * above its rules on the Rules tab: one line, and the formats on its Sharing
+ * tab, the one place for them, each to look at, copy, download or link.
  */
 export function UseInCode({ brand }: { brand: BrandInfo }) {
-  const [tokens, setTokens] = useState(false);
   return (
-    <>
-      <section className="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3">
-        <div className="grid min-w-0 flex-1">
-          <h2 className="font-medium">Use in code</h2>
-          <p className="text-muted-foreground text-sm">Colors, faces and the type scale as tokens: CSS, Tailwind, shadcn/ui, DTCG, DESIGN.md and more.</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setTokens(true)}>
+    <section className="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3">
+      <div className="grid min-w-0 flex-1">
+        <h2 className="font-medium">Use in code</h2>
+        <p className="text-muted-foreground text-sm">Colors, faces and the type scale as tokens: CSS, Tailwind, shadcn/ui, DTCG, DESIGN.md and more.</p>
+      </div>
+      <Button size="sm" variant="outline" asChild>
+        <Link href={`${brandPath(brand.slug, "/sharing")}#tokens`}>
           <IconCode aria-hidden /> Get tokens
-        </Button>
-      </section>
-      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
-    </>
+        </Link>
+      </Button>
+    </section>
   );
 }
 

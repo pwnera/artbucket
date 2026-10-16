@@ -156,7 +156,7 @@ export const GoogleFonts = meta.story({
     await userEvent.click(within(dialog).getByRole("button", { name: "Import" }));
     await expect(await screen.findByText("Imported Lora")).toBeInTheDocument();
     await expect(within(dialog).getByRole("button", { name: "Imported" })).toBeDisabled();
-    await expect(done).toHaveBeenCalledWith(["ast_lora_400", "ast_lora_700"]);
+    await expect(done).toHaveBeenCalledWith(["ast_lora_400", "ast_lora_700"], "Lora");
   },
 });
 

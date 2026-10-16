@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { IconBook, IconDots, IconLayoutGrid, IconList, IconLock, IconPalette, IconPlus, IconSearch, IconStar, IconWorld } from "@/components/icons";
 import { toast } from "sonner";
 import { brandHref, type BrandInfo } from "@/components/brand-switcher";
-import { Confirm } from "@/components/confirm";
 import { BrandTile, FACES, pill, Preview, type TileLook } from "@/components/hub";
 import { LinkSpinner } from "@/components/link-pending";
 import { InfoTip } from "@/components/info-tip";
@@ -96,7 +95,6 @@ export function BrandsPage({
     url.searchParams.delete("new");
     window.history.replaceState(window.history.state, "", url);
   }, [create]);
-  const [going, setGoing] = useState<BrandRow | null>(null);
   // Cards until someone picks the list; kept per browser, like the library's layout. Storage may refuse.
   const stored = useSyncExternalStore(
     () => () => {},
@@ -208,28 +206,12 @@ export function BrandsPage({
         ) : (
           <ul aria-labelledby="brands-list" data-vt="brands-list" className="divide-y rounded-lg border">
             {shown.map((b) => (
-              <Row key={b.slug} b={b} canShare={canShare} onPublic={() => setGoing(b)} onHub={(patch) => setHub(b, patch)} />
+              <Row key={b.slug} b={b} canShare={canShare} onHub={(patch) => setHub(b, patch)} />
             ))}
           </ul>
         )}
       </div>
 
-      <Confirm
-        open={!!going}
-        onOpenChange={(o) => !o && setGoing(null)}
-        title={`Make ${going?.name ?? "it"} public?`}
-        says={
-          <>
-            Anyone, and any agent, will read its latest release on BrandHub, with its usable files, and each release after. You can make it
-            private again.
-          </>
-        }
-        action="Make public"
-        destructive={false}
-        run={async () => {
-          if (going && (await setHub(going, { visibility: "public" }))) setGoing(null);
-        }}
-      />
       <NewBrand
         key={round}
         open={creating}
@@ -292,18 +274,15 @@ function Card({ b, face }: { b: BrandRow; face: boolean }) {
 function Row({
   b,
   canShare,
-  onPublic,
   onHub,
 }: {
   b: BrandRow;
   canShare: boolean;
-  onPublic: () => void;
   onHub: (patch: { visibility?: "public" | "private"; portal?: string | null }) => Promise<boolean>;
 }) {
   const hub = b.hub;
   const open = b.visibility === "public";
-  // Until the change and the refresh after it land: the button spins rather than seeming dead.
-  const [changing, change] = useTransition();
+  const [, change] = useTransition();
   const set = (patch: Parameters<typeof onHub>[0]) => change(async () => void (await onHub(patch)));
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-3 p-4">
@@ -349,16 +328,12 @@ function Row({
               <ExternalLink href={hub.url}>BrandHub</ExternalLink>
             </Button>
           )}
-          {canShare &&
-            (open ? (
-              <Button variant="outline" size="sm" pending={changing} onClick={() => set({ visibility: "private" })}>
-                <IconLock aria-hidden /> Make private
-              </Button>
-            ) : (
-              <Button size="sm" onClick={onPublic} disabled={!hub.published} title={hub.published ? undefined : "Release it first"}>
-                <IconWorld aria-hidden /> Make public
-              </Button>
-            ))}
+          {/* Who reads it on BrandHub is set in one place, its Sharing tab (and when releasing). */}
+          {canShare && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={brandPath(b.slug, "/sharing")}>Sharing</Link>
+            </Button>
+          )}
           {canShare && hub.portals && hub.portals.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
