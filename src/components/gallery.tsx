@@ -1160,7 +1160,10 @@ export function Gallery({
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
   const typeOnly = othersOnly && only && !searched ? TYPE_LABEL[only].many : null;
-  const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? "All assets"))));
+  // The trash (the sidebar's Recently deleted): named for what it is, not as a filter.
+  const trashed = !searched && !inCollection && view.status.length === 1 && view.status[0] === "deleted";
+  const title =
+    activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? (trashed ? "Recently deleted" : "All assets")))));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
   // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
   const root = inCollection && !activeSearch ? { label: "Collections", href: "/collections" } : everything || activeSearch || startScreen ? { label: "Explore", href: "/" } : { label: "Assets", href: "/?browse" };
@@ -1357,7 +1360,9 @@ export function Gallery({
                   <IconLock /> Private
                 </Badge>
               )}
-              {view.review ? (
+              {trashed ? (
+                <InfoTip>Deleted assets stay here 30 days, their links off, then they are gone for good. Restore one from its menu, or several from the selection bar.</InfoTip>
+              ) : view.review ? (
                 <InfoTip>What agents, contributors and upload links sent in, and tags they suggested. Nothing reaches the library until someone approves it.</InfoTip>
               ) : searched ? (
                 <InfoTip>Approved and in date, unless Status says otherwise.</InfoTip>
