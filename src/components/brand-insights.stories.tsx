@@ -46,7 +46,7 @@ export const Playground = meta.story({
 export const ByFile = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("tab", { name: "File" }));
-    await expect(await canvas.findByRole("link", { name: /acme-logo.svg/ })).toHaveAttribute("href", "/?asset=ast_logo");
+    await expect(await canvas.findByRole("link", { name: /acme-logo.svg/ })).toHaveAttribute("href", "/assets?asset=ast_logo");
   },
 });
 

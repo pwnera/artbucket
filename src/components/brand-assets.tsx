@@ -40,7 +40,7 @@ export function BrandAssets({ assets, rules }: { assets: BrandAsset[] | null; ru
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {pictures.map((a) => (
               <li key={a.id}>
-                <Link href={`/?asset=${a.id}`} className="bg-card hover:border-foreground/30 grid overflow-hidden rounded-xl border">
+                <Link href={`/assets?asset=${a.id}`} className="bg-card hover:border-foreground/30 grid overflow-hidden rounded-xl border">
                   <span className="bg-checker relative grid aspect-square place-items-center border-b">
                     <Thumb src={`/a/${a.id}/w_320,f_webp`} alt={a.title} className="absolute inset-0 object-contain p-3" />
                   </span>
@@ -64,7 +64,7 @@ export function BrandAssets({ assets, rules }: { assets: BrandAsset[] | null; ru
               <ul className="bg-card divide-y rounded-xl border">
                 {files.map((a) => (
                   <li key={a.id}>
-                    <Link href={`/?asset=${a.id}`} className="hover:bg-muted/50 flex items-center gap-3 px-4 py-2.5">
+                    <Link href={`/assets?asset=${a.id}`} className="hover:bg-muted/50 flex items-center gap-3 px-4 py-2.5">
                       <Icon aria-hidden className="text-muted-foreground size-4 shrink-0" />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{a.filename}</span>
                       <span className="text-muted-foreground hidden max-w-[50%] truncate text-xs sm:block">{used(a)}</span>

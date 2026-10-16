@@ -12,7 +12,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 const RECENTS = "artbucket:recents:prj_acme";
 const recents = [
   { kind: "brand", id: "brd_acme", label: "Acme", href: "/brands/acme", at: NOW.getTime() - 60_000 },
-  { kind: "collection", id: "col_campaign", label: "Autumn campaign", href: "/?collection=col_campaign", at: NOW.getTime() - 120_000 },
+  { kind: "collection", id: "col_campaign", label: "Autumn campaign", href: "/assets?collection=col_campaign", at: NOW.getTime() - 120_000 },
 ];
 const pages = [
   { slug: "logo", title: "Logo", hidden: false, parent: null },
@@ -107,7 +107,7 @@ export const FindAnAsset = meta.story({
     const hero = await screen.findByRole("option", { name: /Autumn campaign hero/ });
     await waitFor(() => expect(hero).toHaveAttribute("aria-selected", "true"));
     await userEvent.keyboard("{Enter}");
-    await expect(getRouter().push).toHaveBeenCalledWith("/?asset=ast_hero");
+    await expect(getRouter().push).toHaveBeenCalledWith("/assets?asset=ast_hero");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
 });
@@ -127,7 +127,7 @@ export const ArrowsAndEnter = meta.story({
     await expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
     await expect(audit).toBeInTheDocument();
     await userEvent.keyboard("{ArrowUp}{Enter}");
-    await expect(getRouter().push).toHaveBeenCalledWith("/?q=audit%20log");
+    await expect(getRouter().push).toHaveBeenCalledWith("/assets?q=audit%20log");
   },
 });
 
@@ -202,7 +202,7 @@ export const Viewer = meta.story({
     await screen.findByRole("dialog");
     await expect(screen.queryByRole("option", { name: "New brand" })).not.toBeInTheDocument();
     await expect(screen.queryByRole("option", { name: "Invite people" })).not.toBeInTheDocument();
-    await expect(screen.getByRole("option", { name: /^Explore/ })).toBeInTheDocument();
+    await expect(screen.getByRole("option", { name: /^Home/ })).toBeInTheDocument();
     await close(userEvent);
   },
 });
@@ -236,8 +236,8 @@ export const FromTheShell = meta.story({
     await expect(await screen.findByRole("dialog", { name: "Jump to" })).toBeInTheDocument();
     await close(userEvent);
     await userEvent.keyboard("{Control>}k{/Control}");
-    await userEvent.type(await screen.findByRole("combobox"), "templates");
-    await waitFor(() => expect(screen.getByRole("option", { name: "Templates" })).toHaveAttribute("aria-selected", "true"));
+    await userEvent.type(await screen.findByRole("combobox"), "brand files");
+    await waitFor(() => expect(screen.getByRole("option", { name: "Brand files" })).toHaveAttribute("aria-selected", "true"));
     await userEvent.keyboard("{Enter}");
     await expect(getRouter().push).toHaveBeenCalledWith("/templates");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

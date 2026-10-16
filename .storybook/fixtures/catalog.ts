@@ -28,7 +28,7 @@ export const logo = describe("ast_logo", {
   usedByCount: 2,
   lineage: { up: 1, down: 3 },
   sharedWith: [{ grant: "grt_share_nw", project: { id: "prj_northwind", slug: "northwind", name: "Northwind" }, role: "Viewer" }],
-  open: "/?asset=ast_logo",
+  open: "/assets?asset=ast_logo",
   tags: ["logo", "primary"],
 });
 

@@ -109,6 +109,7 @@ import {
   GoogleLogo,
   Hash,
   Heart,
+  House,
   Image,
   ImageBroken,
   ImageSquare,
@@ -352,6 +353,7 @@ export const IconHeart = ph(Heart as Phosphor, "IconHeart");
 export const IconHelp = ph(Question as Phosphor, "IconHelp");
 export const IconHistory = ph(ClockCounterClockwise as Phosphor, "IconHistory");
 export const IconIcons = ph(Shapes as Phosphor, "IconIcons");
+export const IconHome = ph(House as Phosphor, "IconHome");
 export const IconInbox = ph(Tray as Phosphor, "IconInbox");
 export const IconInfoCircle = ph(Info as Phosphor, "IconInfoCircle");
 export const IconItalic = ph(TextItalic as Phosphor, "IconItalic");

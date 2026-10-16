@@ -574,7 +574,7 @@ export function SendLinkDialog({ link, onClose }: { link: ShareLink; onClose: ()
 
 /** The asset in the library: it opens for people with access to it, and nobody else. */
 function TeamLink({ id }: { id: string }) {
-  const href = typeof window === "undefined" ? "" : new URL(`/?asset=${id}`, window.location.origin).href;
+  const href = typeof window === "undefined" ? "" : new URL(`/assets?asset=${id}`, window.location.origin).href;
   return (
     <div className="grid gap-3 pt-1">
       <Snippet text={href} what="the link" />

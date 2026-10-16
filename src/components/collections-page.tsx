@@ -51,7 +51,7 @@ export function CollectionsPage() {
             {collections.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-4 py-3">
                 <CollectionIcon icon={c.icon} className="text-muted-foreground size-5" />
-                <Link href={`/?collection=${c.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
+                <Link href={`/assets?collection=${c.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
                   {c.name}
                 </Link>
                 {c.private && <IconLock aria-label="Private" className="text-muted-foreground size-4" />}
@@ -61,7 +61,7 @@ export function CollectionsPage() {
                     <IconSitemap />
                   </Link>
                 </IconButton>
-                <PinButton pin={{ id: c.id, type: "collection", label: c.name, href: `/?collection=${c.id}` }} />
+                <PinButton pin={{ id: c.id, type: "collection", label: c.name, href: `/assets?collection=${c.id}` }} />
                 {can("collection.edit", c) && (
                   <IconButton variant="ghost" size="icon-sm" label={`Edit ${c.name}`} onClick={() => openCollection(c)}>
                     <IconPencil />

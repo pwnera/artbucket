@@ -224,7 +224,7 @@ function InlineView({ n, onGo }: { n: Inline } & Go) {
       );
     case "collection":
       return (
-        <Chip path={`/?collection=${n.id}`} onGo={onGo} mark={<IconFolder className="text-muted-foreground size-3.5" />}>
+        <Chip path={`/assets?collection=${n.id}`} onGo={onGo} mark={<IconFolder className="text-muted-foreground size-3.5" />}>
           {n.name}
         </Chip>
       );
@@ -308,7 +308,7 @@ function AssetLink({ id, name, tile = false, onGo }: { id: string; name: string;
   // A tile keeps its square from the start, muted; the thumbnail fades in, so nothing jumps.
   const [loaded, setLoaded] = useState(false);
   const ext = (name.match(/\.(\w{1,5})$/)?.[1] ?? "file").toUpperCase();
-  const path = `/?asset=${id}`;
+  const path = `/assets?asset=${id}`;
   const thumb = blank ? (
     <span className={cn("bg-muted text-muted-foreground grid place-items-center font-mono font-semibold", tile ? "aspect-square w-full text-xs" : "size-6 rounded text-[0.5rem]")}>
       {ext}

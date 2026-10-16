@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ago, exact } from "@/lib/time";
+import { InboxTabs } from "@/components/inbox-tabs";
 
 /** GET /api/v1/fixes, as lib/schemas.ts Fixes has it. */
 export type FixesData = {
@@ -78,7 +79,7 @@ export function Fixes({ data, collections, issueUrl = null }: { data: FixesData 
   const done = rows.filter((r) => r.done);
   return (
     <>
-      <AppHeader trail={[{ label: "Fixes" }]} />
+      <AppHeader trail={[{ label: "Inbox", href: "/review" }, { label: "Fixes" }]} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <PageHeader
           icon={<IconTool />}
@@ -86,6 +87,7 @@ export function Fixes({ data, collections, issueUrl = null }: { data: FixesData 
           aside={data && data.open > 0 ? <Badge variant="secondary">{data.open} to do</Badge> : undefined}
           description="What needs a hand: sites showing an old version or built with an old component, searches that found nothing, licenses about to end."
         />
+        <InboxTabs current="fixes" />
         {me && !has(me, "fixes") ? (
           <PlanGate
             icon={<IconTool />}
@@ -200,13 +202,13 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       <span className="inline-flex items-center gap-2">
         <Done>Replaced</Done>
         <Button size="xs" variant="ghost" asChild>
-          <Link href={`/?asset=${l.replacement.id}`}>Open the replacement</Link>
+          <Link href={`/assets?asset=${l.replacement.id}`}>Open the replacement</Link>
         </Button>
       </span>
     ),
     action: (
       <Button size="xs" variant="outline" asChild>
-        <Link href={`/?asset=${l.asset.id}`}>Open the asset</Link>
+        <Link href={`/assets?asset=${l.asset.id}`}>Open the asset</Link>
       </Button>
     ),
   }));

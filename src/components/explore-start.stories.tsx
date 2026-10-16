@@ -1,7 +1,8 @@
 import preview from "#.storybook/preview";
 import { NOW } from "#.storybook/fixtures/brands";
 import { collections, inApp, renditions } from "#.storybook/fixtures/library";
-import { expect, fn, spyOn, waitFor, within } from "storybook/test";
+import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
+import { expect, waitFor, within } from "storybook/test";
 import { ExploreStart } from "@/components/explore-start";
 
 const RECENTS = "artbucket:recents:prj_acme";
@@ -11,19 +12,19 @@ const minutes = (n: number) => NOW.getTime() - n * 60_000;
 /** What Ada opened lately in Acme: a brand, a collection and an asset. */
 const recents = [
   { kind: "brand", id: "brd_acme", label: "Acme", href: "/brands/acme", at: minutes(20) },
-  { kind: "collection", id: "col_campaign", label: "Autumn campaign", href: "/?collection=col_campaign", at: minutes(90) },
-  { kind: "asset", id: "ast_hero", label: "Autumn campaign hero", href: "/?asset=ast_hero", at: minutes(180) },
+  { kind: "collection", id: "col_campaign", label: "Autumn campaign", href: "/assets?collection=col_campaign", at: minutes(90) },
+  { kind: "asset", id: "ast_hero", label: "Autumn campaign hero", href: "/assets?asset=ast_hero", at: minutes(180) },
 ];
 
-/** Added lately, as Explore's first page of assets lists them. */
+/** Added lately, as the first page of assets lists them. */
 const latest = [
   { id: "ast_hero", filename: "autumn-campaign-hero.jpg", createdAt: "2026-09-02T09:00:00Z", metadata: { title: "Autumn campaign hero" } },
   { id: "ast_logo", filename: "acme-logo.svg", createdAt: "2026-09-01T09:00:00Z" },
   { id: "ast_brief", filename: "brand-brief-2026.pdf", createdAt: "2026-08-28T09:00:00Z" },
 ];
 
-const pushed = fn();
-const went = (href: string) => expect(pushed).toHaveBeenCalledWith(null, "", href);
+// On Home, its links go through the router to Assets.
+const went = (href: string) => expect(getRouter().push).toHaveBeenCalledWith(href);
 
 /** Seed this browser's preferences for a story, and put them back after. */
 const prefs = (values: Record<string, unknown>) => () => {
@@ -42,9 +43,9 @@ const prefs = (values: Record<string, unknown>) => () => {
   };
 };
 
-/** Explore before anything is asked (/): one box that searches everything, the types to browse, then what is yours lately. */
+/** Home (/): one box that searches everything, the types to browse, then what is yours lately. */
 const meta = preview.meta({
-  title: "App/Features/Catalog/Explore start",
+  title: "App/Features/Catalog/Home",
   component: ExploreStart,
   args: { latest, collections, searches: [], setup: null },
   parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/" } } },
@@ -52,14 +53,7 @@ const meta = preview.meta({
   decorators: [inApp],
   beforeEach: async ({ msw }) => {
     msw.use(...renditions);
-    // On Explore, its links move within the page (pushState), not through the router: caught here, so the frame stays put.
-    pushed.mockClear();
-    const push = spyOn(window.history, "pushState").mockImplementation((...a) => void pushed(...a));
-    const restore = prefs({ [RECENTS]: recents, [QUERIES]: ["logo dark", "autumn"] })();
-    return () => {
-      push.mockRestore();
-      restore();
-    };
+    return prefs({ [RECENTS]: recents, [QUERIES]: ["logo dark", "autumn"] })();
   },
 });
 
@@ -77,7 +71,7 @@ export const Playground = meta.story({
 export const Search = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.type(canvas.getByRole("searchbox", { name: "Search everything" }), "press kit{Enter}");
-    await went("/?q=press%20kit");
+    await went("/assets?q=press%20kit");
   },
 });
 
@@ -88,7 +82,7 @@ export const RecentSearches = meta.story({
     await userEvent.click(canvas.getByRole("button", { name: "Forget autumn" }));
     await waitFor(() => expect(canvas.queryByRole("button", { name: "autumn" })).not.toBeInTheDocument());
     await userEvent.click(canvas.getByRole("button", { name: "logo dark" }));
-    await went("/?q=logo%20dark");
+    await went("/assets?q=logo%20dark");
   },
 });
 
@@ -96,10 +90,10 @@ export const RecentSearches = meta.story({
 export const Browse = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Rules" }));
-    await went("/?in=rule");
+    await went("/assets?in=rule");
     canvas.getByText("acme-logo.svg").closest("tr")!.focus();
     await userEvent.keyboard("{Enter}");
-    await went("/?browse&asset=ast_logo");
+    await went("/assets?browse&asset=ast_logo");
   },
 });
 

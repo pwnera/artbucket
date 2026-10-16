@@ -39,7 +39,7 @@ Open http://localhost:3000 and make an account. The first one is the admin of
 everything, and until it exists nothing else works, in the app or the API.
 Then drop in a file.
 
-The first time an admin opens Explore, its start page asks what they want to
+The first time an admin opens Home, the app's start page, it asks what they want to
 do: manage their company's brand and assets, create a
 brand for an open-source project, manage brands for clients, build a brand
 and a design system for a product, or give AI agents the brand. Each answer
@@ -47,7 +47,7 @@ is a short list that ends in its first win (a released brand, the brand in
 public, a client project, the brand in a Git repository, an agent's first
 MCP call), with connecting a Git repository where it fits, and each step
 checks itself off once it is done. Skipped or unfinished, the list stays
-on Explore's start page, under the search.
+on Home, under the search.
 
 ## Fill it with a demo
 
@@ -62,7 +62,7 @@ Effects files from open-source repositories, and Google Docs and Slides kept
 as links.
 
 It calls the app's API with a write key: after making the first account,
-open **Connections**, **API keys**, and make one with **Edit**. It runs from
+open **Integrations**, **API keys**, and make one with **Edit**. It runs from
 the clone with Node 22 or later and needs no `pnpm install`, so it works
 against the Docker-only path too:
 

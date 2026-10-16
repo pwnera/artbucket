@@ -55,7 +55,7 @@ export const Keyboard = meta.story({
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await userEvent.keyboard("g");
     await expect(canvas.getByText("then a letter")).toBeInTheDocument();
-    await userEvent.keyboard("r");
+    await userEvent.keyboard("i");
     await expect(getRouter().push).toHaveBeenCalledWith("/review");
     await expect(canvas.queryByText("then a letter")).not.toBeInTheDocument();
     await userEvent.keyboard("{Meta>}k{/Meta}");
@@ -75,7 +75,7 @@ export const KeyCaps = meta.story({
           </dd>
         </div>
       ))}
-      <dt>Review, by GoKeys</dt>
+      <dt>Inbox, by GoKeys</dt>
       <dd>
         <GoKeys to="/review" />
       </dd>

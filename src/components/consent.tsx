@@ -203,7 +203,7 @@ function Choose({
     );
   }
   return (
-    <Card title={`Connect ${options.client.name}`} lead={`It works in ${brand.name} as you, doing at most what you pick. Change or disconnect it any time from Connections.`}>
+    <Card title={`Connect ${options.client.name}`} lead={`It works in ${brand.name} as you, doing at most what you pick. Change or disconnect it any time from Integrations.`}>
       <form
         className="space-y-5"
         onSubmit={(e) => {

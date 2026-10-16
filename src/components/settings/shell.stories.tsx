@@ -24,9 +24,10 @@ export const Playground = meta.story({
     const nav = canvas.getByRole("navigation", { name: "Settings" });
     await expect(within(nav).getByRole("link", { name: "Single sign-on" })).toHaveAttribute("aria-current", "page");
     await expect(canvas.getByRole("heading", { name: "Single sign-on" })).toBeInTheDocument();
-    // Each section's link is its own address (hrefFor), Team and Automations pages of their own.
+    // Each section's link is its own address (hrefFor), Team a page of its own; Automations is in the sidebar.
     await expect(within(nav).getByRole("link", { name: "Groups" })).toHaveAttribute("href", "/settings/organization/groups");
     await expect(within(nav).getByRole("link", { name: "Team" })).toHaveAttribute("href", "/team");
+    await expect(within(nav).queryByRole("link", { name: "Automations" })).not.toBeInTheDocument();
     // Shown only where they apply (allowedFor): BrandHub with hub on, Email sending where the server sends none.
     await expect(within(nav).getByRole("link", { name: "BrandHub" })).toBeInTheDocument();
     await expect(within(nav).getByRole("link", { name: "Email sending" })).toBeInTheDocument();

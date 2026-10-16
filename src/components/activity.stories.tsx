@@ -23,7 +23,7 @@ const meta = preview.meta({
 export const Playground = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByText("3 assets"));
-    await expect(canvas.getByRole("link", { name: "autumn-lookbook-02.jpg" })).toHaveAttribute("href", "/?asset=ast_lb2");
+    await expect(canvas.getByRole("link", { name: "autumn-lookbook-02.jpg" })).toHaveAttribute("href", "/assets?asset=ast_lb2");
     await expect(canvas.getByText("“Out of focus, and the logo is cropped”")).toBeInTheDocument();
     await expect(canvas.getByText("That's everything.")).toBeInTheDocument();
   },

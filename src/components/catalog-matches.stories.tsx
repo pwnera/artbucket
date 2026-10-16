@@ -59,8 +59,8 @@ export const Playground = meta.story({
     const nav = await canvas.findByRole("navigation", { name: "What to explore" });
     await expect(nav).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: /^Everything/ })).toHaveAttribute("aria-current", "page");
-    await expect(canvas.getByRole("link", { name: /^Assets 128/ })).toHaveAttribute("href", "/?q=acme&in=asset");
-    await expect(canvas.getByRole("link", { name: /^Rules 13/ })).toHaveAttribute("href", "/?q=acme&in=rule");
+    await expect(canvas.getByRole("link", { name: /^Assets 128/ })).toHaveAttribute("href", "/assets?q=acme&in=asset");
+    await expect(canvas.getByRole("link", { name: /^Rules 13/ })).toHaveAttribute("href", "/assets?q=acme&in=rule");
     const list = canvas.getByRole("region", { name: "Results" });
     // Each opens where the app shows it: a brand its page, not the catalog's.
     await expect(list.querySelector('a[href^="/brands/acme?"]')).not.toBeNull();

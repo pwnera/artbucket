@@ -1,2 +1,2 @@
-/** /explore is Explore, which lives at / like /library did. */
+/** /explore is the library, at /assets now. */
 export { default } from "../library/page";

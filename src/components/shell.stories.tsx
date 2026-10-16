@@ -170,7 +170,7 @@ export const Phone = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Toggle sidebar" }));
     const sheet = await screen.findByRole("dialog", { name: "Sidebar" });
-    await expect(within(sheet).getByRole("link", { name: "Explore" })).toBeInTheDocument();
+    await expect(within(sheet).getByRole("link", { name: "Home" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },

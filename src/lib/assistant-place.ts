@@ -27,9 +27,9 @@ const page: Reads = (k, v) => k === "page" && IS_SLUG.test(v);
 const plain = (v: string) => v.length <= 300 && !/[\u0000-\u001f\u007f]/.test(v);
 
 const PLACES: [RegExp, Reads][] = [
-  // The library and Review: the same view, with its filters and an asset open.
-  [/^\/(?:review)?$/, library],
-  [/^\/(?:collections|activity|connections|fixes|automations|insights(?:\/(?:activity|checks))?)$/, nothing],
+  // The library and Review: the same view, with its filters and an asset open. Home (/) sends a view's query on to /assets.
+  [/^\/(?:assets|review)?$/, library],
+  [/^\/(?:collections|activity|connections|fixes|inbox|automations|insights(?:\/(?:activity|checks))?)$/, nothing],
   // A brand's templates, by its slug.
   [/^\/templates$/, (k, v) => k === "brand" && IS_SLUG.test(v)],
   // ?new=brand opens New brand, empty.

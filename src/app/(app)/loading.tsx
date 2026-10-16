@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * A page of the app while it streams in, for those without a loading of
- * their own (the library has one: (library)/loading.tsx). Shaped like the
+ * their own (the library has one: assets/loading.tsx). Shaped like the
  * library's pane: header, tabs, title, filters, tiles. The frame around it
  * stays (components/shell.tsx).
  */

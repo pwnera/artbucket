@@ -63,7 +63,7 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 /** An asset, linked to where the library opens it, with its version when it has several. */
 export function AssetLink({ a }: { a: Asset }) {
   return (
-    <Link href={`/?asset=${a.id}`} className="hover:underline">
+    <Link href={`/assets?asset=${a.id}`} className="hover:underline">
       {a.title}
       {a.version !== null && <span className="text-muted-foreground"> v{a.version}</span>}
     </Link>

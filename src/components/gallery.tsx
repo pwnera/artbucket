@@ -35,7 +35,8 @@ import { AssetTable } from "@/components/asset-table";
 import { AppHeader, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
 import { ComponentSheet } from "@/components/components-page";
-import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
+import { rememberQuery, useRecentQueries } from "@/components/explore-start";
+import { InboxTabs } from "@/components/inbox-tabs";
 import type { AddActions, AddId } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CollectionIcon, send, type Collection } from "@/components/collections";
@@ -47,7 +48,6 @@ import { IconGlyph } from "@/components/icon-glyph";
 import { IconPackImport } from "@/components/icon-packs";
 import { LinkImport, Lottie } from "@/components/media";
 import { deciding, SelectionBar, useBulk, type Patch } from "@/components/selection-bar";
-import { SetupChecklist } from "@/components/setup-checklist";
 import { useCan } from "@/components/can";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
@@ -191,7 +191,7 @@ const currentView = () => {
 function go(patch: Partial<View>, push = false) {
   const next = { ...currentView(), ...patch };
   // On Review, review is the page, not a parameter.
-  const base = onReview() && next.review ? REVIEW : "/";
+  const base = onReview() && next.review ? REVIEW : "/assets";
   // Which place it is (Assets' ?browse) stays as the view moves; Explore's type (?in=) is the view's own.
   const now = new URLSearchParams(window.location.search);
   const kept = [now.has("browse") && "browse"].filter(Boolean);
@@ -1001,9 +1001,6 @@ export function Gallery({
   const moving = shown !== apiQuery && placeOf(shown) !== place;
   // The welcome is for an empty library, not for a search that found nothing.
   const empty = assets.length === 0 && !filtered && !moving && !failure;
-  // Any view with a match means the library has assets; a search that finds nothing doesn't empty it.
-  const [stocked, setStocked] = useState(initial.total > 0);
-  if (!stocked && total > 0) setStocked(true);
 
   const picked = useMemo(() => assets.filter((a) => selected.has(a.id)), [assets, selected]);
   // The menu's Upload a new version, for the asset it was asked on; once it lands, the version opens.
@@ -1128,11 +1125,11 @@ export function Gallery({
 
   // What you open goes to the top of Recents in the sidebar: an asset, a saved search, a collection.
   const recent = open
-    ? { kind: "asset" as const, id: open.id, label: open.metadata?.title || open.filename, href: `/?asset=${open.id}` }
+    ? { kind: "asset" as const, id: open.id, label: open.metadata?.title || open.filename, href: `/assets?asset=${open.id}` }
     : activeSearch
-      ? { kind: "search" as const, id: activeSearch.id, label: activeSearch.name, href: `/?${canonical(activeSearch.query)}` }
+      ? { kind: "search" as const, id: activeSearch.id, label: activeSearch.name, href: `/assets?${canonical(activeSearch.query)}` }
       : inCollection
-        ? { kind: "collection" as const, id: inCollection.id, label: inCollection.name, href: `/?collection=${inCollection.id}` }
+        ? { kind: "collection" as const, id: inCollection.id, label: inCollection.name, href: `/assets?collection=${inCollection.id}` }
         : null;
   const recentKey = recent && JSON.stringify(recent);
   const rememberRecent = useRemember();
@@ -1141,7 +1138,7 @@ export function Gallery({
   }, [recentKey, rememberRecent]);
   // A search of the whole library is named by its words, as the prototype's “winter” is.
   const searched = !activeSearch && !view.review && !inCollection && view.q.trim() ? view.q.trim() : null;
-  // Explore before anything is asked opens on its search (components/explore-start.tsx); ?browse is the plain grid, Assets.
+  // ?browse keeps a search to assets alone, in their grid; without it, words search everything.
   const sp = useSearchParams();
   const browsing = sp.has("browse");
   // Explore searches everything: its words across every type, or one type (?in=) on its own.
@@ -1152,21 +1149,19 @@ export function Gallery({
   const narrow = narrowOf(view);
   // Explore's own list (components/catalog-matches.tsx) in place of the asset grid: every tab but Assets, unless a filter only assets have is on.
   const othersOnly = everything && only !== "asset" && !!narrow;
-  const startScreen =
-    !browsing && !only && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
   // A search that settled is one to come back to.
   const [recentQueries, setRecentQueries] = useRecentQueries();
   useEffect(() => {
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
   const typeOnly = othersOnly && only && !searched ? TYPE_LABEL[only].many : null;
-  // The trash (the sidebar's Recently deleted): named for what it is, not as a filter.
+  // The trash (the sidebar's Trash): named for what it is, not as a filter.
   const trashed = !searched && !inCollection && view.status.length === 1 && view.status[0] === "deleted";
   const title =
-    activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? (trashed ? "Recently deleted" : "All assets")))));
+    activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? (trashed ? "Trash" : "All assets")))));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
-  // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
-  const root = inCollection && !activeSearch ? { label: "Collections", href: "/collections" } : everything || activeSearch || startScreen ? { label: "Explore", href: "/" } : { label: "Assets", href: "/?browse" };
+  // Where the trail starts: a collection under Collections, the rest under Assets.
+  const root = inCollection && !activeSearch ? { label: "Collections", href: "/collections" } : { label: "Assets", href: "/assets" };
 
   // The tab says which view (or asset) it is; the history menu too.
   const tabTitle = open ? open.metadata?.title || open.filename : (where ?? root.label);
@@ -1217,9 +1212,9 @@ export function Gallery({
 
   return (
     <>
-      <AppHeader trail={reviewPage ? [{ label: "Review" }] : where ? [root, { label: where }] : [{ label: root.label }]}>
+      <AppHeader trail={reviewPage ? [{ label: "Inbox", href: "/review" }, { label: "Review" }] : where ? [root, { label: where }] : [{ label: root.label }]}>
         {/* The start screen's own box is the search there: one, not two. */}
-        <div className={cn("relative w-36 min-w-20 shrink! sm:w-64", startScreen && "hidden")}>
+        <div className={"relative w-36 min-w-20 shrink! sm:w-64"}>
           {searching ? (
             <Spinner className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           ) : (
@@ -1326,18 +1321,9 @@ export function Gallery({
       </AppHeader>
 
       <div
-        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6", !startScreen && "pt-4 md:pt-6", selecting && "pb-24 md:pb-24")}
+        className={cn("flex min-w-0 flex-1 flex-col gap-4 px-4 pt-4 pb-4 md:px-6 md:pt-6 md:pb-6", selecting && "pb-24 md:pb-24")}
         style={{ "--tile": TILE[density] } as React.CSSProperties}
       >
-        {startScreen ? (
-          <ExploreStart
-            latest={assets}
-            collections={collections}
-            searches={searches}
-            setup={<SetupChecklist uploaded={stocked} onUpload={canUpload ? () => choose(false) : undefined} />}
-          />
-        ) : (
-          <>
         <PageHeader
           icon={
             view.review ? <IconInbox /> : activeSearch ? <IconBookmark /> : inCollection ? <CollectionIcon icon={inCollection.icon} /> : everything ? <IconSearch /> : <IconPhoto />
@@ -1384,7 +1370,7 @@ export function Gallery({
           {/* What can be done with the collection itself: copy its link, share it, edit it. */}
           {inCollection && !activeSearch && (
             <CopyButton
-              text={async () => new URL(`/?collection=${inCollection.id}`, location.origin).href}
+              text={async () => new URL(`/assets?collection=${inCollection.id}`, location.origin).href}
               label="Copy link, for people with access"
               what="the link"
               size="icon-sm"
@@ -1416,6 +1402,7 @@ export function Gallery({
             onOpenComponent={openComponent}
           />
         )}
+        {reviewPage && <InboxTabs current="review" />}
         <ComponentSheet id={sp.get("component")} onClose={closeComponent} />
 
         {!othersOnly && (
@@ -1721,8 +1708,6 @@ export function Gallery({
                 Showing all {total.toLocaleString()} {total === 1 ? "asset" : "assets"}
               </p>
             )}
-          </>
-        )}
           </>
         )}
           </>

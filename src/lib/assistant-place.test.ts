@@ -7,8 +7,8 @@ const A = "6700995f-e0d8-4e6b-a64f-7abbf7ec1752";
 
 test("the assistant may take the person to the library's views, an asset, a brand and the app's pages", () => {
   assert.equal(assistantPlace("/", O), "/");
-  assert.equal(assistantPlace("/?q=summer&tag=people&type=image&f.channel=web", O), "/?q=summer&tag=people&type=image&f.channel=web");
-  assert.equal(assistantPlace(`/?asset=${A}`, O), `/?asset=${A}`);
+  assert.equal(assistantPlace("/assets?q=summer&tag=people&type=image&f.channel=web", O), "/assets?q=summer&tag=people&type=image&f.channel=web");
+  assert.equal(assistantPlace(`/assets?asset=${A}`, O), `/assets?asset=${A}`);
   assert.equal(assistantPlace("/review", O), "/review");
   assert.equal(assistantPlace("/review?type=video&status=proposed", O), "/review?type=video&status=proposed");
   assert.equal(assistantPlace("/brands/northwind-coffee", O), "/brands/northwind-coffee");
@@ -43,7 +43,7 @@ test("nowhere else: other origins, other pages, query a place doesn't read", () 
   }
   assert.equal(assistantPlace("/brands/x/guidelines?page=a&git=1&panel=git", O), "/brands/x/guidelines?page=a");
   assert.equal(assistantPlace("/review?anything=1", O), "/review");
-  assert.equal(assistantPlace("/?q=a&fields=1", O), "/?q=a");
+  assert.equal(assistantPlace("/assets?q=a&fields=1", O), "/assets?q=a");
   assert.equal(assistantPlace("/sites?edit=not-an-id&new=../x", O), "/sites");
   assert.equal(assistantPlace("/team?tab=keys", O), "/team");
 });

@@ -34,7 +34,7 @@ const storyId = (slug: string, name: string) => `${slug}--${name.toLowerCase().r
 export function ComponentPage({ c }: { c: Detail }) {
   return (
     <>
-      <AppHeader trail={[{ label: "Components", href: "/?in=component" }, { label: c.name }]} />
+      <AppHeader trail={[{ label: "Components", href: "/assets?in=component" }, { label: c.name }]} />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <ComponentView c={c} />
       </div>

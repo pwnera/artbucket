@@ -98,7 +98,7 @@ export const ObjectOverview = meta.story({
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("heading", { name: "acme-logo.svg" })).toBeInTheDocument();
     await expect(canvas.getByText("acme/acme/asset/acme-logo")).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Open asset" })).toHaveAttribute("href", "/?asset=ast_logo");
+    await expect(canvas.getByRole("link", { name: "Open asset" })).toHaveAttribute("href", "/assets?asset=ast_logo");
     // Its trail: the project, its brand's type, then the brand it is part of.
     const trail = within(canvas.getByRole("navigation", { name: "Where it is" }));
     await userEvent.click(trail.getAllByRole("button", { name: "Acme" })[1]);

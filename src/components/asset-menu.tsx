@@ -185,7 +185,7 @@ export function assetActions(a: Asset, can: ReturnType<typeof useCan>, ctx: Acti
         label: "Copy link (team)",
         icon: <IconCopy />,
         run: async () => {
-          if (await copyText(new URL(`/?asset=${a.id}`, location.origin).href, { what: "the link" })) toast.success("Copied a link for people with access");
+          if (await copyText(new URL(`/assets?asset=${a.id}`, location.origin).href, { what: "the link" })) toast.success("Copied a link for people with access");
         },
       },
       ...(live ? [{ id: "share", label: "Share…", icon: <IconShare />, run: ctx.onShare }] : []),

@@ -16,7 +16,7 @@ const meta = preview.meta({
 /** An editor's list: each row links to Explore, the catalog, a pin, and Edit. */
 export const Default = meta.story({
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByRole("link", { name: "Autumn campaign" })).toHaveAttribute("href", "/?collection=col_campaign");
+    await expect(canvas.getByRole("link", { name: "Autumn campaign" })).toHaveAttribute("href", "/assets?collection=col_campaign");
     await expect(canvas.getByLabelText("Private")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Edit Logos" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit collection" });

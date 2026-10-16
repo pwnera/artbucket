@@ -611,7 +611,7 @@ export function AssetEditor({
     Object.keys(asset.fields).length > 0 ||
     Object.keys(asset.inherited).length > 0;
   const pending = asset.proposedTags.length > 0 || Object.keys(asset.proposedFields ?? {}).length > 0;
-  const link = () => new URL(`/?asset=${asset.id}`, location.origin).href;
+  const link = () => new URL(`/assets?asset=${asset.id}`, location.origin).href;
 
   // The library's own menu, less what this view already has a place for (open, download, approve, reject).
   // A delete closes the viewer once it has gone through.

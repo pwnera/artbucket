@@ -6,7 +6,7 @@ import { gitLink } from "@/lib/git";
 import { brands, get, whoami } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Connections" };
+export const metadata: Metadata = { title: "Integrations" };
 
 /**
  * Connections: where a person connects an agent, sees the ones connected,

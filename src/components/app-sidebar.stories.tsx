@@ -15,7 +15,7 @@ const fn0 = () => {};
 
 /**
  * The app's one sidebar, in the shell as the (app) layout mounts it: the places, the content, what the person pinned,
- * and at the foot Connections, Settings, BrandHub and the account. Every item is a link.
+ * and at the foot Integrations, Automations, Trash, Settings, BrandHub and the account. Every item is a link.
  */
 const meta = preview.meta({
   title: "App/Features/Shell/Sidebar",
@@ -41,12 +41,15 @@ const meta = preview.meta({
   },
 });
 
-/** An admin on the catalog: it is lit, Review and Fixes count what waits, storage stands at the foot. */
+/** An admin on the catalog: it is lit, the Inbox counts what waits in Review and Fixes, storage stands at the foot. */
 export const Playground = meta.story({
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("link", { name: "Catalog" })).toHaveAttribute("data-active", "true");
-    await expect(canvas.getByRole("link", { name: /^Review\s*, 3 waiting$/ })).toHaveAttribute("href", "/review");
-    await expect(canvas.getByRole("link", { name: /^Fixes\s*, 2 to do$/ })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Trash" })).toHaveAttribute("href", "/assets?browse&status=deleted");
+    await expect(canvas.getByRole("link", { name: /^Inbox\s*, 3 in Review, 2 in Fixes$/ })).toHaveAttribute("href", "/review");
+    for (const name of ["Explore", "Review", /^Fixes/]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Automations" })).toHaveAttribute("href", "/automations");
+    await expect(canvas.getByRole("link", { name: "Integrations" })).toHaveAttribute("href", "/connections");
     await expect(await canvas.findByRole("link", { name: "38 GB of 100 GB used" })).toHaveAttribute("href", "/settings/organization/usage");
     await expect(canvas.getByRole("link", { name: /^BrandHub/ })).toHaveAttribute("target", "_blank");
   },
@@ -84,11 +87,11 @@ export const Folded = meta.story({
 /** Every item is a link, reached with Tab in order; Jump to opens ⌘K. */
 export const Keyboard = meta.story({
   play: async ({ canvas, userEvent }) => {
-    canvas.getByRole("link", { name: "Explore" }).focus();
+    canvas.getByRole("link", { name: "Home" }).focus();
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Catalog" })).toHaveFocus();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: /^Review\s*, 3 waiting$/ })).toHaveFocus();
+    await expect(canvas.getByRole("link", { name: /^Inbox\s*, 3 in Review, 2 in Fixes$/ })).toHaveFocus();
     canvas.getByRole("button", { name: /Jump to/ }).focus();
     await userEvent.keyboard("{Enter}");
     await expect(await screen.findByRole("dialog", { name: "Jump to" })).toBeInTheDocument();
@@ -115,7 +118,7 @@ export const Pinned = meta.story({
       PINS,
       JSON.stringify([
         { id: "brd_acme", type: "brand", label: "Acme", href: "/brands/acme" },
-        { id: "col_press", type: "collection", label: "Press kit for every reseller in the region", href: "/?collection=col_press" },
+        { id: "col_press", type: "collection", label: "Press kit for every reseller in the region", href: "/assets?collection=col_press" },
       ]),
     ),
   play: async ({ canvas, userEvent }) => {
@@ -126,12 +129,12 @@ export const Pinned = meta.story({
   },
 });
 
-/** A viewer: the places to look, no counts to clear, no Fixes, Insights, Automations, Sites or storage. */
+/** A viewer: the places to look, an Inbox with no count to clear, no Insights, Sites or storage. */
 export const Viewer = meta.story({
   args: { me: viewer },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("link", { name: "Review" })).toBeInTheDocument();
-    for (const name of [/^Fixes/, "Insights", "Automations", "Sites"]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
+    for (const name of ["Insights", "Sites", "Automations"]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("link", { name: /used$/ })).not.toBeInTheDocument();
   },
 });
@@ -150,7 +153,7 @@ export const Phone = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Toggle sidebar" }));
     const sheet = await screen.findByRole("dialog", { name: "Sidebar" });
-    await userEvent.click(within(sheet).getByRole("link", { name: "Templates" }));
+    await userEvent.click(within(sheet).getByRole("link", { name: "Brands" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   },
 });
