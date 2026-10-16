@@ -28,12 +28,12 @@ const ORDER: CatalogType[] = ["brand", "collection", "asset", "site"];
 export const NEW: Partial<Record<CatalogType, { href: string; label: string; may: Action }>> = {
   brand: { href: "/brands?new=brand", label: "New brand", may: "brand.create" },
   collection: { href: "/collections?new", label: "New collection", may: "collection.create" },
-  asset: { href: "/?browse", label: "Upload assets in Explore", may: "project.upload" },
+  asset: { href: "/assets?browse", label: "Upload assets in Explore", may: "project.upload" },
   site: { href: "/sites?new=portal", label: "New site", may: "portal.manage" },
 };
 export const LIST: Partial<Record<CatalogType, { href: string; label: string }>> = {
   brand: { href: "/brands", label: "All brands" },
-  asset: { href: "/?browse", label: "Browse the assets in Explore" },
+  asset: { href: "/assets?browse", label: "Browse the assets in Explore" },
   site: { href: "/sites", label: "Manage sites" },
 };
 const PARTS: CatalogType[] = ["rule", "page", "component"];

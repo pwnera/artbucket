@@ -30,10 +30,10 @@ export const rememberQuery = (list: string[], q: string) => [q, ...list.filter((
 
 /** Everything there is to explore, a type at a time: assets in their grid, the rest as Explore's matches (?in=). */
 const CHIPS: { label: string; href: string; icon: React.ReactNode }[] = [
-  { label: TYPE_LABEL.asset.many, href: "/?browse", icon: <TypeIcon type="asset" className="text-muted-foreground size-4" /> },
+  { label: TYPE_LABEL.asset.many, href: "/assets?browse", icon: <TypeIcon type="asset" className="text-muted-foreground size-4" /> },
   ...(["brand", "collection", "rule", "page", "component", "site"] as const).map((t) => ({
     label: TYPE_LABEL[t].many,
-    href: `/?in=${t}`,
+    href: `/assets?in=${t}`,
     icon: <TypeIcon type={t} className="text-muted-foreground size-4" />,
   })),
   { label: "In review", href: "/review", icon: <IconInbox className="text-muted-foreground size-4" /> },
@@ -59,7 +59,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
       .map((b) => ({ key: `brand:${b.id}`, type: "brand" as const, name: b.name, sub: "Brand", href: brandHref(b) })),
     ...collections
       .filter((c) => !opened.some((r) => r.id === c.id))
-      .map((c) => ({ key: `collection:${c.id}`, type: "collection" as const, name: c.name, sub: "Collection", href: `/?collection=${c.id}` })),
+      .map((c) => ({ key: `collection:${c.id}`, type: "collection" as const, name: c.name, sub: "Collection", href: `/assets?collection=${c.id}` })),
   ].slice(0, 8);
 
   const openedFiles = recents.filter((r) => r.kind === "asset").map((r) => ({ id: r.id, name: r.label, reason: `You opened it ${ago(new Date(r.at))}`, href: r.href }));
@@ -67,7 +67,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
     ...openedFiles,
     ...latest
       .filter((a) => !openedFiles.some((r) => r.id === a.id))
-      .map((a) => ({ id: a.id, name: a.metadata?.title || a.filename, reason: `Added ${day(a.createdAt)}`, href: `/?browse&asset=${a.id}` })),
+      .map((a) => ({ id: a.id, name: a.metadata?.title || a.filename, reason: `Added ${day(a.createdAt)}`, href: `/assets?browse&asset=${a.id}` })),
   ].slice(0, 10);
 
   return (
@@ -97,7 +97,7 @@ export function ExploreStart({ latest, collections, searches, setup }: { latest:
       )}
 
       {files.length > 0 && (
-        <Section title="Assets for you" aside={<ViewAll href="/?browse">All assets</ViewAll>}>
+        <Section title="Assets for you" aside={<ViewAll href="/assets?browse">All assets</ViewAll>}>
           <div className="overflow-hidden rounded-xl border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-muted-foreground text-left text-xs">
@@ -149,7 +149,7 @@ function SearchBox() {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [queries, setQueries] = useRecentQueries();
-  const go = (q: string) => q.trim() && navigate(`/?q=${encodeURIComponent(q.trim())}`);
+  const go = (q: string) => q.trim() && navigate(`/assets?q=${encodeURIComponent(q.trim())}`);
   const rows = queries.slice(0, 8).map((q) => ({ key: q, label: q, run: () => go(q), forget: () => setQueries(queries.filter((x) => x !== q)) }));
   return (
     <form

@@ -326,7 +326,7 @@ function Target({ item: i }: { item: Item }) {
   }
   if (i.assetId && i.verb !== "deleted") {
     return (
-      <Link href={`/?asset=${i.assetId}`} className="font-medium hover:underline">
+      <Link href={`/assets?asset=${i.assetId}`} className="font-medium hover:underline">
         {i.label}
       </Link>
     );

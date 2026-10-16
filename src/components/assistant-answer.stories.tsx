@@ -76,7 +76,7 @@ export const Playground = meta.story({
     await userEvent.click(canvas.getByRole("link", { name: /Acme's rules/ }));
     await expect(args.onGo).toHaveBeenCalledWith("/brands/acme/rules");
     await userEvent.click(canvas.getAllByRole("link", { name: "acme-logo.svg" })[0]);
-    await expect(args.onGo).toHaveBeenLastCalledWith(`/?asset=${LOGO}`);
+    await expect(args.onGo).toHaveBeenLastCalledWith(`/assets?asset=${LOGO}`);
     await userEvent.click(canvas.getByRole("link", { name: /Ada Lovelace/ }));
     await expect(args.onGo).toHaveBeenLastCalledWith("/team");
     await userEvent.click(canvas.getByRole("button", { name: "Which logo for dark grounds?" }));

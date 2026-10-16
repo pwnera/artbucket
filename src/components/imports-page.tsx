@@ -18,6 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { sendResult } from "@/lib/send";
 import { cn } from "@/lib/utils";
+import { InboxTabs } from "@/components/inbox-tabs";
 
 /**
  * The project's brand imports, every one kept as its history (Intelligence's GET /brand-import, a page at a time),
@@ -190,7 +191,7 @@ export function ImportsPage() {
     return true;
   }
 
-  const trail = [{ label: "Brands", href: "/brands" }, { label: "Imports" }];
+  const trail = [{ label: "Inbox", href: "/review" }, { label: "Imports" }];
   if (!url) {
     return (
       <>
@@ -222,6 +223,7 @@ export function ImportsPage() {
             </Button>
           )}
         </PageHeader>
+        <InboxTabs current="imports" />
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-48 flex-1">

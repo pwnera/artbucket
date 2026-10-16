@@ -18,7 +18,7 @@ const meta = preview.meta({
 export const Playground = meta.story({
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Logos and images 3" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: /Acme logo, full color/ })).toHaveAttribute("href", "/?asset=ast_logo");
+    await expect(canvas.getByRole("link", { name: /Acme logo, full color/ })).toHaveAttribute("href", "/assets?asset=ast_logo");
     await expect(canvas.getByText("Primary logo, the Logo page")).toBeInTheDocument();
   },
 });

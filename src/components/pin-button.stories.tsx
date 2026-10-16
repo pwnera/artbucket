@@ -2,7 +2,7 @@ import preview from "#.storybook/preview";
 import { expect } from "storybook/test";
 import { PinButton } from "@/components/pin-button";
 
-const pin = { id: "col_logos", type: "collection" as const, label: "Acme logos", href: "/?collection=col_logos" };
+const pin = { id: "col_logos", type: "collection" as const, label: "Acme logos", href: "/assets?collection=col_logos" };
 
 const meta = preview.meta({
   title: "App/Patterns/Pin button",

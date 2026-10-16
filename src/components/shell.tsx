@@ -32,6 +32,8 @@ type ShellValue = {
   forgetSearch: (id: string) => void;
   reviewCount: number;
   setReviewCount: Setter<number>;
+  /** What isn't done in Fixes, for the Inbox's tabs. */
+  fixesCount: number;
   brands: BrandInfo[];
   setBrands: Setter<BrandInfo[]>;
   /** Folds the sidebar to icons while true, without touching what the person chose. */
@@ -292,13 +294,13 @@ export function Shell({
     if (res?.ok) setCollections((await res.json()).data);
     // A new collection opens; a deleted one that was open drops back to everything.
     if (c && !was) {
-      const href = `/?collection=${c.id}`;
-      if (pathname === "/") window.history.pushState(null, "", href);
+      const href = `/assets?collection=${c.id}`;
+      if (pathname === "/assets") window.history.pushState(null, "", href);
       else router.push(href);
-    } else if (!c && was && pathname === "/" && params.get("collection") === was.id) {
+    } else if (!c && was && pathname === "/assets" && params.get("collection") === was.id) {
       const q = new URLSearchParams(window.location.search);
       q.delete("collection");
-      window.history.pushState(null, "", q.size ? `/?${q}` : "/");
+      window.history.pushState(null, "", q.size ? `/assets?${q}` : "/assets");
     }
   }
 
@@ -328,6 +330,7 @@ export function Shell({
       forgetSearch: (id) => void forget(id),
       reviewCount,
       setReviewCount,
+      fixesCount: sidebar.fixesCount,
       brands,
       setBrands,
       setSqueeze,
@@ -341,7 +344,7 @@ export function Shell({
     }),
     // forget reads `searches`, which is here: it is the same function for the same list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collections, searches, reviewCount, brands, add, setCommands, openCollection, collectionEdits, libraryEdits],
+    [collections, searches, reviewCount, sidebar.fixesCount, brands, add, setCommands, openCollection, collectionEdits, libraryEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;

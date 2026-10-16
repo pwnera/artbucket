@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  IconBolt,
   IconBook,
   IconBookmark,
   IconChartBar,
@@ -16,6 +15,7 @@ import {
   IconFolderUp,
   IconFolders,
   IconIcons,
+  IconHome,
   IconInbox,
   IconLayoutGrid,
   IconLayoutSidebarLeftExpand,
@@ -33,7 +33,6 @@ import {
   IconSitemap,
   IconSparkles,
   IconTemplate,
-  IconTool,
   IconTypography,
   IconUpload,
   IconWorld,
@@ -43,7 +42,7 @@ import { AccountMenu, ProjectSwitcher, type Me } from "@/components/account";
 import { useAssistant } from "@/components/assistant";
 import { ExternalLink } from "@/components/external-link";
 import { useCan } from "@/components/can";
-import { signalHint, useImportSignal } from "@/components/import-signal";
+import { useInbox } from "@/components/inbox-tabs";
 import { usePins, type Recent } from "@/components/sidebar-prefs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useShell, type AddId } from "@/components/shell";
@@ -72,11 +71,11 @@ import { LinkIcon } from "@/components/link-pending";
 export type SavedSearch = { id: string; name: string; query: string };
 
 /**
- * The app's one sidebar, the same on every page: the places (Explore, which
- * searches everything, Catalog, Review, Fixes, Insights, Automations), the
- * content (Brands, Assets, Collections, Components, Templates, Sites), and at
- * the foot Connections, Settings and BrandHub, which opens in a new tab. Every item is a link, and every view
- * it links to is a URL.
+ * The app's one sidebar, the same on every page: the places (Home, Catalog,
+ * Inbox, Insights), the content (Brands, Assets, Collections, Components,
+ * Brand files, Sites), and at the foot Integrations, Trash, Settings and
+ * BrandHub, which opens in a new tab. Every item is a link, and every view it
+ * links to is a URL.
  *
  * Library links move within the page (history.pushState) when you are
  * already on it: the library draws its own view from the URL, so there is no
@@ -105,35 +104,27 @@ export function AppSidebar({
   const can = useCan();
   const pathname = usePathname();
   const params = useSearchParams();
-  const inLibrary = pathname === "/";
-  // Brand imports at work, and plans waiting for whoever may apply them: only where Intelligence offers imports.
-  const imports = useImportSignal(me.brandImport && can("import.read") ? me.brandImport.replace(/\/+$/, "") : null);
-  const importCount = (imports?.running ?? 0) + (imports?.waiting ?? 0) + (imports?.stopped ?? 0);
+  const inLibrary = pathname === "/assets";
   const view = parseView(params);
   const query = viewQuery(view, false);
   const onSearch = inLibrary && searches.some((s) => canonical(s.query) === query);
-  const filtering = !!(view.tags.length || view.types.length || view.status.length || Object.keys(view.filters).length);
   const trash = inLibrary && view.status.length === 1 && view.status[0] === "deleted";
-  // The plain grid (?browse), or assets narrowed with no words: Assets. A search of everything, or the start: Explore.
-  const assetsView = inLibrary && !view.collection && !onSearch && !trash && (params.has("browse") || (filtering && !view.q.trim()));
+  const inbox = useInbox({ review: reviewCount, fixes: fixesCount });
   const at = {
+    home: pathname === "/",
     catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
     insights: pathname.startsWith("/insights"),
-    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand" || pathname === "/imports" || pathname.startsWith("/imports/"),
+    brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
-    sites: pathname === "/sites",
+    sites: pathname === "/sites" || pathname.startsWith("/sites/"),
     // Explore's Components tab, with nothing typed: the page Components was.
     components: pathname.startsWith("/components") || (inLibrary && view.in === "component" && !view.q.trim()),
-    review: pathname === "/review",
-    fixes: pathname === "/fixes",
+    inbox: pathname === "/review" || pathname === "/fixes" || pathname === "/imports" || pathname.startsWith("/imports/"),
     templates: pathname === "/templates",
-    automations: pathname === "/automations",
-    // A collection or saved search is its own item, so none of these is lit for one.
-    assets: assetsView,
-    explore: inLibrary && !view.collection && !onSearch && !assetsView && !trash && !(view.in === "component" && !view.q.trim()),
+    // A collection, a saved search or the trash is its own item, so Assets isn't lit for one.
+    assets: inLibrary && !view.collection && !onSearch && !trash && !(view.in === "component" && !view.q.trim()),
   };
-
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -172,32 +163,19 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* The places: find anything, govern it, what waits on you, how it is used, what runs on its own. The catalog holds every object. */}
-              <Place href="/" label="Explore" icon={<IconSearch />} active={at.explore} />
+              {/* The places: where you start, every object as a tree, what waits on you, how it is used. */}
+              <Place href="/" label="Home" icon={<IconHome />} active={at.home} />
               <Place href="/catalog" label="Catalog" icon={<IconSitemap />} active={at.catalog} />
+              {/* Review, Fixes and Imports, one count of what waits on this person. */}
               <Place
                 href="/review"
-                label="Review"
+                label="Inbox"
                 icon={<IconInbox />}
-                active={at.review}
-                // What waits is a call to act only for whoever may approve it: a viewer sees the queue, not a count to clear.
-                badge={(can("asset.review") && reviewCount) || undefined}
-                hint={can("asset.review") && reviewCount ? `${reviewCount} waiting` : undefined}
+                active={at.inbox}
+                badge={inbox.total || undefined}
+                hint={inbox.total ? inbox.tabs.filter((t) => t.count).map((t) => `${t.count} in ${t.label}`).join(", ") : undefined}
               />
-              {/* What Insights found to act on, in one list: a count of what isn't done, as Review counts what waits. */}
-              {can("insights.read") && (
-                <Place
-                  href="/fixes"
-                  label="Fixes"
-                  icon={<IconTool />}
-                  active={at.fixes}
-                  badge={fixesCount || undefined}
-                  hint={fixesCount ? `${fixesCount} to do` : undefined}
-                />
-              )}
               {can("insights.read") && <Place href="/insights" label="Insights" icon={<IconChartBar />} active={at.insights} />}
-              {/* A brand's editors make its release automations; the project's admins the rest. */}
-              {can("automation.manage") && <Place href="/automations" label="Automations" icon={<IconBolt />} active={at.automations} />}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -207,13 +185,13 @@ export function AppSidebar({
           <SidebarGroupLabel>Content</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} badge={importCount || undefined} hint={signalHint(imports)} />
-              <Place href="/?browse" label="Assets" icon={<IconPhoto />} active={at.assets} />
+              <Place href="/brands" label="Brands" icon={<IconPalette />} active={at.brands} />
+              <Place href="/assets" label="Assets" icon={<IconPhoto />} active={at.assets} />
               <Place href="/collections" label="Collections" icon={<IconFolders />} active={at.collections} />
               {/* What the project's Storybooks document, each component's versions and what is built with them. */}
-              <Place href="/?in=component" label="Components" icon={<IconComponents />} active={at.components} />
+              <Place href="/assets?in=component" label="Components" icon={<IconComponents />} active={at.components} />
               {/* What a release makes for people to use elsewhere: share cards, Office templates, the press kit. */}
-              <Place href="/templates" label="Templates" icon={<IconTemplate />} active={at.templates} />
+              <Place href="/templates" label="Brand files" icon={<IconTemplate />} active={at.templates} />
               {can("portal.manage") && !me.off.includes("portals") && <Place href="/sites" label="Sites" icon={<IconWorld />} active={at.sites} />}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -229,10 +207,10 @@ export function AppSidebar({
         {can("organization.manage") && <StorageLine />}
         <SidebarMenu>
           <ExpandItem />
-          {/* Agents and keys turned off here (Settings, Features): nothing to connect. */}
-          {!me.off.includes("agents") && <Place href="/connections" label="Connections" icon={<IconRobot />} active={at.connections} />}
+          {/* Agents, keys and Git; turned off here (Settings, Features): nothing to connect. */}
+          {!me.off.includes("agents") && <Place href="/connections" label="Integrations" icon={<IconRobot />} active={at.connections} />}
           {/* The 30-day trash, a place of its own rather than a status to filter by: each asset there restores from its menu. */}
-          {can("asset.delete") && <Place href="/?browse&status=deleted" label="Recently deleted" icon={<IconTrash />} active={trash} />}
+          {can("asset.delete") && <Place href="/assets?browse&status=deleted" label="Trash" icon={<IconTrash />} active={trash} />}
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith("/settings")} tooltip="Settings">
               <NavLink href="/settings">
@@ -346,7 +324,7 @@ export function NewMenuContent({ side, align = "start" }: { side?: "right" | "bo
   const addItem = (id: AddId) => {
     const allowed = add ? !!add[id] : id === "request" ? can("share.collect_project") : can("project.upload");
     const def = ADD.find((d) => d.id === id)!;
-    return allowed && { ...def, run: () => (add?.[id] ? add[id]!() : navigate(`/?browse&add=${id}`)) };
+    return allowed && { ...def, run: () => (add?.[id] ? add[id]!() : navigate(`/assets?browse&add=${id}`)) };
   };
   const groups = [
     [addItem("files"), addItem("folder"), addItem("private")],
@@ -480,7 +458,7 @@ function Place({
   );
 }
 
-const isLibrary = (href: string) => href === "/" || href.startsWith("/?");
+const isLibrary = (href: string) => href === "/assets" || href.startsWith("/assets?");
 
 /**
  * Move within the library without a round trip: it draws its view from the
@@ -496,7 +474,7 @@ export function pushView(href: string) {
 export function useNavigate() {
   const router = useRouter();
   const pathname = usePathname();
-  return useCallback((href: string) => (pathname === "/" && isLibrary(href) ? pushView(href) : router.push(href)), [router, pathname]);
+  return useCallback((href: string) => (pathname === "/assets" && isLibrary(href) ? pushView(href) : router.push(href)), [router, pathname]);
 }
 
 /**
@@ -522,7 +500,7 @@ export function NavLink({
       {...props}
       onClick={(e) => {
         setOpenMobile(false);
-        if (pathname !== "/" || !isLibrary(href)) return;
+        if (pathname !== "/assets" || !isLibrary(href)) return;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
         pushView(href);

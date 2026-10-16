@@ -117,7 +117,7 @@ export function CatalogMatches({
     if (t) p.set("in", t);
     else p.delete("in");
     if (t !== "asset") for (const k of [...p.keys()]) if (k === "type" || k.startsWith("f.")) p.delete(k);
-    return p.size ? `/?${p}` : "/";
+    return p.size ? `/assets?${p}` : "/";
   };
   const tab = (t: CatalogType | null, label: string, n?: number) => (
     <NavLink

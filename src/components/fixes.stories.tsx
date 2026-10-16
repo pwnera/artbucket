@@ -64,7 +64,7 @@ export const Playground = meta.story({
     const done = canvas.getByRole("heading", { name: /Done/ }).closest("section")!;
     await expect(within(done).getByText("Notified 3 days ago")).toBeInTheDocument();
     await expect(within(done).getByText("Requested 5 days ago")).toBeInTheDocument();
-    await expect(within(done).getByRole("link", { name: "Open the replacement" })).toHaveAttribute("href", "/?asset=ast_team_2026");
+    await expect(within(done).getByRole("link", { name: "Open the replacement" })).toHaveAttribute("href", "/assets?asset=ast_team_2026");
   },
 });
 

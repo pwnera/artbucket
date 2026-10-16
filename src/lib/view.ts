@@ -1,5 +1,5 @@
 /**
- * The library's view as a URL: what the page shows is `/?{query}`, so any
+ * The library's view as a URL: what the page shows is `/assets?{query}`, so any
  * view can be linked, bookmarked, reloaded and gone back to. The query is the
  * /api/v1/assets query string, plus one key only the page reads: `asset`
  * (the one open).
@@ -38,7 +38,7 @@ export function parseView(params: URLSearchParams): View {
     types: params.getAll("type"),
     status: params.getAll("status"),
     collection: params.get("collection"),
-    // `/?review` as well as `/?review=true`: the short form is what people type.
+    // `/assets?review` as well as `/assets?review=true`: the short form is what people type.
     review: params.has("review") && params.get("review") !== "false",
     filters,
     extra,

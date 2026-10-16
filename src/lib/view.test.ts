@@ -10,7 +10,7 @@ test("a view round-trips through its URL, in canonical order", () => {
   assert.equal(viewQuery(v, false), "q=fox&tag=x&type=font&type=image&collection=c1&f.channel=web&f.budget.gte=10");
 });
 
-test("/?review opens the queue; a saved search matches however it was written", () => {
+test("/assets?review opens the queue; a saved search matches however it was written", () => {
   assert.equal(parseView(new URLSearchParams("review")).review, true);
   assert.equal(parseView(new URLSearchParams("review=false")).review, false);
   assert.equal(canonical("f.channel=web&q=fox"), "q=fox&f.channel=web");

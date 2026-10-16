@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { brands, get, whoami } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Templates" };
+export const metadata: Metadata = { title: "Brand files" };
 
 /**
  * A brand's templates (`?brand=`, else the default one): its latest release

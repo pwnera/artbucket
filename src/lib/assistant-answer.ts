@@ -122,7 +122,7 @@ export const VERDICTS: Record<Verdict, string> = { yes: "May use", conditions: "
 /** A place as the model names it (asset/ID, brand/SLUG/TAB, review), as the app's path; null when it isn't one. */
 export function placePath(spec: string): string | null {
   const p = String(spec).split("/").filter(Boolean);
-  if (p[0] === "asset") return p.length === 2 && IS_UUID.test(p[1]) ? `/?asset=${p[1].toLowerCase()}` : null;
+  if (p[0] === "asset") return p.length === 2 && IS_UUID.test(p[1]) ? `/assets?asset=${p[1].toLowerCase()}` : null;
   if (p[0] === "brand" && SLUG.test(p[1] || "")) {
     if (p.length === 2 || (p.length === 3 && p[2] === "overview")) return `/brands/${p[1]}`;
     if (p.length === 4 && p[2] === "guidelines" && SLUG.test(p[3])) return `/brands/${p[1]}/guidelines?page=${p[3]}`;

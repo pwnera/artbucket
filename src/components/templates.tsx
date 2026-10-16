@@ -85,9 +85,9 @@ export function Templates({
   const listed = published?.visibility === "public" ? published : null;
   return (
     <>
-      <AppHeader trail={[{ label: "Templates" }]} />
+      <AppHeader trail={[{ label: "Brands", href: "/brands" }, { label: "Brand files" }]} />
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-        <PageHeader icon={<IconTemplate />} title="Templates" description="Files made from your brand's latest release, ready to use: a share card for links, slides, documents and the press kit.">
+        <PageHeader icon={<IconTemplate />} title="Brand files" description="Files made from your brand's latest release, ready to use: a share card for links, slides, documents and the press kit.">
           {brand && brands.length > 1 && (
             <Select value={brand.slug} onValueChange={(slug) => router.push(`/templates?${new URLSearchParams({ brand: slug })}`)}>
               <SelectTrigger size="sm" className="w-44" aria-label="Brand">
@@ -143,7 +143,7 @@ export function Templates({
             {!planned && (
               <PlanGate
                 icon={<IconTemplate />}
-                title="Templates aren't in your plan"
+                title="Brand files aren't in your plan"
                 description={`${listed ? "" : "Share cards for any page, and "}PowerPoint and Word templates that wear each release: its colors, its fonts and its current logo, your designers' own files included.`}
               />
             )}

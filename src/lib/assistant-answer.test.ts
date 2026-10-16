@@ -72,7 +72,7 @@ test("a typeface: its name, its role, the library's file to draw it with", () =>
 });
 
 test("a place in the app: only the app's own, as open_in_app takes them", () => {
-  assert.equal(placePath(`asset/${A}`), `/?asset=${A}`);
+  assert.equal(placePath(`asset/${A}`), `/assets?asset=${A}`);
   assert.equal(placePath("brand/acme"), "/brands/acme");
   assert.equal(placePath("brand/acme/rules"), "/brands/acme/rules");
   assert.equal(placePath("brand/acme/guidelines/colors"), "/brands/acme/guidelines?page=colors");

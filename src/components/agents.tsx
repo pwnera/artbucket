@@ -209,10 +209,10 @@ export function Agents({
 
   return (
     <>
-      <AppHeader trail={[{ label: "Connections", href: "/connections" }, { label: LABEL[current]! }]} />
+      <AppHeader trail={[{ label: "Integrations", href: "/connections" }, { label: LABEL[current]! }]} />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-        <PageHeader icon={<IconPlugConnected />} title="Connections" description="Agents, apps and code that work with the brand, and the repositories it lives in.">
+        <PageHeader icon={<IconPlugConnected />} title="Integrations" description="Agents, apps and code that work with the brand, and the repositories it lives in.">
           {ANY && (
             <Button variant="outline" size="sm" onClick={() => pick(ANY)}>
               <IconPlus /> Custom connection

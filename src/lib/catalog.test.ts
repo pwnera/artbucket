@@ -46,7 +46,7 @@ test("a click goes where the app shows each type: a component to its page, a rul
   const base = { id: "c1", slug: "ui-button", project };
   assert.equal(openPath({ ...base, type: "component", parent: { id: "s1", slug: "storybook" } }), "/components/c1?project=p1");
   assert.equal(openPath({ ...base, type: "rule", slug: "logo.primary", parent: { id: "b1", slug: "acme" } }), "/brands/acme/rules?project=p1#rule-logo.primary");
-  assert.equal(openPath({ ...base, type: "collection", parent: null }), "/?collection=c1&project=p1");
+  assert.equal(openPath({ ...base, type: "collection", parent: null }), "/assets?collection=c1&project=p1");
 });
 
 test("kind: is an asset's file kind, type: what an object is; an unknown kind stays a word", () => {

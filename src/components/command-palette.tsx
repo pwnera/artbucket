@@ -14,6 +14,7 @@ import {
   IconFileText,
   IconFolderPlus,
   IconHistory,
+  IconHome,
   IconInbox,
   IconKeyboard,
   IconMailPlus,
@@ -338,7 +339,7 @@ export function CommandPalette({
                 // The server already matched it (captions, fields); the query keeps it past cmdk's own filter.
                 value={assetValue(a)}
                 keywords={[q, ...a.tags]}
-                onSelect={() => go(`/?asset=${a.id}`)}
+                onSelect={() => go(`/assets?asset=${a.id}`)}
               >
                 <span className="bg-muted relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border">
                   {hasPreview(a) ? (
@@ -467,16 +468,16 @@ export function CommandPalette({
         </CommandGroup>
 
         <CommandGroup heading="Go to">
-          <CommandItem value="Explore search everything find" onSelect={() => go("/")}>
-            <IconSearch /> Explore
+          <CommandItem value="Home start explore recent setup" onSelect={() => go("/")}>
+            <IconHome /> Home
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Assets library all files images" onSelect={() => go("/?browse")}>
+          <CommandItem value="Assets library all files images" onSelect={() => go("/assets")}>
             <IconPhoto /> Assets
             <CommandShortcut className="tracking-normal">
-              <GoKeys to="/?browse" />
+              <GoKeys to="/assets" />
             </CommandShortcut>
           </CommandItem>
           <CommandItem value="Brands guidelines rules theme" onSelect={() => go("/brands")}>
@@ -497,8 +498,8 @@ export function CommandPalette({
               <GoKeys to="/brand" />
             </CommandShortcut>
           </CommandItem>
-          <CommandItem value="Review suggested approve" onSelect={() => go("/review")}>
-            <IconInbox /> Review
+          <CommandItem value="Inbox review suggested approve waiting" onSelect={() => go("/review")}>
+            <IconInbox /> Inbox
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/review" />
             </CommandShortcut>
@@ -535,8 +536,8 @@ export function CommandPalette({
               <IconTool /> Fixes
             </CommandItem>
           )}
-          <CommandItem value="Templates share card og image powerpoint word press kit" onSelect={() => go("/templates")}>
-            <IconTemplate /> Templates
+          <CommandItem value="Brand files templates share card og image powerpoint word press kit" onSelect={() => go("/templates")}>
+            <IconTemplate /> Brand files
           </CommandItem>
           {can("automation.manage") && (
             <CommandItem value="Automations email webhook release license notify" onSelect={() => go("/automations")}>
@@ -575,7 +576,7 @@ export function CommandPalette({
         {term && collections.length > 0 && (
           <CommandGroup heading="Collections">
             {collections.map((c) => (
-              <CommandItem key={c.id} value={`collection ${c.id} ${c.name}`} onSelect={() => go(`/?collection=${c.id}`)}>
+              <CommandItem key={c.id} value={`collection ${c.id} ${c.name}`} onSelect={() => go(`/assets?collection=${c.id}`)}>
                 <CollectionIcon icon={c.icon} /> {c.name}
                 <CommandShortcut className="tracking-normal">{c.count}</CommandShortcut>
               </CommandItem>
@@ -586,7 +587,7 @@ export function CommandPalette({
         {term && searches.length > 0 && (
           <CommandGroup heading="Saved searches">
             {searches.map((s) => (
-              <CommandItem key={s.id} value={`search ${s.id} ${s.name}`} onSelect={() => go(`/?${canonical(s.query)}`)}>
+              <CommandItem key={s.id} value={`search ${s.id} ${s.name}`} onSelect={() => go(`/assets?${canonical(s.query)}`)}>
                 <IconBookmark /> {s.name}
               </CommandItem>
             ))}
@@ -618,7 +619,7 @@ export function CommandPalette({
         {/* Always there, always last: the library's full search, when a quick match isn't enough. It is also the empty state. */}
         {term && (
           <CommandGroup>
-            <CommandItem value={LIBRARY} onSelect={() => go(`/?q=${encodeURIComponent(term)}`)}>
+            <CommandItem value={LIBRARY} onSelect={() => go(`/assets?q=${encodeURIComponent(term)}`)}>
               <IconFileSearch /> <span className="truncate">Explore for &ldquo;{term}&rdquo;</span>
             </CommandItem>
           </CommandGroup>
