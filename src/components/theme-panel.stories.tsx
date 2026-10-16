@@ -192,3 +192,17 @@ export const Sheet = meta.story({
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/** The accent's color is edited on the slot, on the rule behind it (one source): the rule's value is patched, and an Automatic slot is named for it. */
+export const EditTheAccentInPlace = meta.story({
+  beforeEach: ({ msw }) => void msw.use(sent.on("patch", "/api/v1/brand/rules/:id", {})),
+  play: async ({ args, canvas, userEvent }) => {
+    await waitFor(() => expect(sent.last("GET")?.path).toBe("/api/v1/brand/rules?brand=acme"));
+    const hex = canvas.getByRole("textbox", { name: "Accent color, hex" });
+    await userEvent.clear(hex);
+    await userEvent.type(hex, "#123456");
+    await waitFor(() => expect(sent.calls.some((c) => c.method === "PATCH" && c.path.startsWith("/api/v1/brand/rules/") && (c.body as { value?: string })?.value === "#123456")).toBe(true), { timeout: 3000 });
+    await waitFor(() => expect(sent.calls.some((c) => c.method === "PATCH" && c.path === THEME)).toBe(true));
+    await waitFor(() => expect(args.onSaved).toHaveBeenCalled());
+  },
+});
