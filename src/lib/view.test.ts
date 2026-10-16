@@ -45,3 +45,9 @@ test("the catalog's statuses go back into the URL as asset states, and come out 
   const back = narrowOf(parseView(new URLSearchParams(statesOf(["current", "draft"]).map((s) => `status=${s}`).join("&"))));
   assert.deepEqual(back?.statuses, ["current", "draft"]);
 });
+
+test("Explore's type tab is part of the view, so a saved search opens on it", () => {
+  const v = parseView(new URLSearchParams("q=button&in=component&tag=forms"));
+  assert.equal(v.in, "component");
+  assert.equal(canonical("tag=forms&in=component&q=button"), "q=button&tag=forms&in=component");
+});

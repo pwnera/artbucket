@@ -1556,7 +1556,8 @@ const TOOLS: Record<ToolName, Tool> = {
   save_search: tool({
     description:
       "Keep a search a person runs often, under a name, as an /api/v1/assets query string: search_assets' arguments as " +
-      "q, tag, type, collection, status, f.{field}, uploadedSince, expiresBefore, untagged.",
+      "q, tag, type, collection, status, f.{field}, uploadedSince, expiresBefore, untagged; and `in`, a catalog type, to open it " +
+      "on that type in Explore (in=component).",
     action: "search.save",
     readOnly: false,
     input: TOOL_INPUTS.save_search,

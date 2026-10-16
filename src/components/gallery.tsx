@@ -192,9 +192,9 @@ function go(patch: Partial<View>, push = false) {
   const next = { ...currentView(), ...patch };
   // On Review, review is the page, not a parameter.
   const base = onReview() && next.review ? REVIEW : "/";
-  // Which place it is (Assets' ?browse) and Explore's type (?in=) stay as the view moves.
+  // Which place it is (Assets' ?browse) stays as the view moves; Explore's type (?in=) is the view's own.
   const now = new URLSearchParams(window.location.search);
-  const kept = [now.has("browse") && "browse", now.get("in") && `in=${encodeURIComponent(now.get("in")!)}`].filter(Boolean);
+  const kept = [now.has("browse") && "browse"].filter(Boolean);
   const qs = [...kept, viewQuery(base === REVIEW ? { ...next, review: false } : next)].filter(Boolean).join("&");
   window.history[push ? "pushState" : "replaceState"](null, "", qs ? `${base}?${qs}` : base);
 }
@@ -1146,7 +1146,8 @@ export function Gallery({
   const browsing = sp.has("browse");
   // Explore searches everything: its words across every type, or one type (?in=) on its own.
   const only = !browsing && (CATALOG_TYPES as readonly string[]).includes(sp.get("in") ?? "") ? (sp.get("in") as CatalogType) : null;
-  const everything = !browsing && !activeSearch && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
+  // A saved search opens as it was saved: Explore's list, on its type's tab, when it was saved there.
+  const everything = !browsing && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
   // The facets narrow every type, as they narrow the assets; a file type or a field leaves only assets.
   const narrow = narrowOf(view);
   // Explore's own list (components/catalog-matches.tsx) in place of the asset grid: every tab but Assets, unless a filter only assets have is on.

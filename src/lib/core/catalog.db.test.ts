@@ -178,3 +178,10 @@ test("kind: finds assets of a file kind, and nothing else", async () => {
   assert.ok(images.items.every((i) => i.type === "asset"));
   assert.equal((await searchCatalog(ada.caller, parseQuery("logo kind:font"), { record: false })).items.length, 0);
 });
+
+test("a saved search keeps Explore's type tab, and refuses one that isn't a type", async () => {
+  const { saveSearch } = await import("@/lib/core/searches");
+  const s = await saveSearch(ada.caller, { name: "Buttons", query: "q=button&in=component&tag=forms" });
+  assert.equal(s.query, "in=component&q=button&tag=forms");
+  await assert.rejects(saveSearch(ada.caller, { name: "Bad", query: "q=x&in=widgets" }), /No type "widgets"/);
+});

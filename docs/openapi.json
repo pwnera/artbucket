@@ -18920,7 +18920,7 @@
                   "query": {
                     "type": "string",
                     "maxLength": 4000,
-                    "description": "An /api/v1/assets query string, e.g. \"q=fox&f.channel=web\""
+                    "description": "An /api/v1/assets query string, e.g. \"q=fox&f.channel=web\"; `in` (a catalog type) opens it on that type in Explore, e.g. \"q=button&in=component\""
                   }
                 },
                 "required": [
