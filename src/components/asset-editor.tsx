@@ -1207,6 +1207,10 @@ export function AssetEditor({
                         : "Anyone who can open the library finds it. This is about your team: links and embeds are in Share."}
                   </p>
                   {(privateOn || hiddenByCollections) && <AssetPeople asset={asset} collections={collections} />}
+                  {/* Every way in, people, keys, portals, links and the public door, in one list: the catalog's Access tab. */}
+                  <Link href={`/catalog?o=${asset.id}&tab=access`} className="text-primary-ink w-fit text-xs hover:underline">
+                    Everyone who can see it, and how
+                  </Link>
                 </Group>
               )}
 

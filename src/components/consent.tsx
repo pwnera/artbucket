@@ -19,14 +19,16 @@ import { cappedScope, SCOPES, type Grantable, type Scope } from "@/lib/scopes";
  * What you pick is the agent's scope; it never gets more than you have.
  */
 
-/** Read to admin, as the ladder goes; each names the team role it matches (lib/scopes.ts ROLES). */
+/** Read to admin, as the ladder goes, named as people's roles are (lib/scopes.ts ROLES): a key is a Viewer, a Contributor, an Editor or an Admin. The API keeps the scopes. */
 export const SCOPE_LABELS: { scope: Scope; label: string; hint: string }[] = [
-  { scope: "read", label: "Read only", hint: "Search and read the brand; changes nothing. Like a Viewer." },
-  { scope: "propose", label: "Suggest", hint: "Also suggest assets and tags, which wait for you to review. Like a Contributor." },
-  { scope: "write", label: "Edit", hint: "Also change and delete assets, collections and fields directly, no review, and edit brand rules, pages and theme. Like an Editor." },
-  { scope: "admin", label: "Admin", hint: "Everything, including making and revoking keys. Like an Admin." },
+  { scope: "read", label: "Viewer", hint: "Search and read the brand; changes nothing." },
+  { scope: "propose", label: "Contributor", hint: "Also suggest assets and tags, which wait for you to review." },
+  { scope: "write", label: "Editor", hint: "Also change and delete assets, collections and fields directly, no review, and edit brand rules, pages and theme." },
+  { scope: "admin", label: "Admin", hint: "Everything, including making and revoking keys." },
 ];
 export const scopeLabel = (s: Scope) => SCOPE_LABELS.find((x) => x.scope === s)?.label ?? s;
+/** "a Viewer", "an Editor". */
+const asRole = (s: Scope) => `${/^[AEIOU]/.test(scopeLabel(s)) ? "an" : "a"} ${scopeLabel(s)}`;
 
 /** A project a person can give an agent, with the most they may give there. */
 export type Givable = { id: string; name: string; organization: string; max: Grantable };
@@ -149,7 +151,7 @@ function Choose({
   /** Where the chat app gets its answer. */
   redirect?: string | null;
   error?: string | null;
-  /** The option marked recommended: Suggest for an agent, what the CLI asks for on /device. */
+  /** The option marked recommended: Contributor for an agent, what the CLI asks for on /device. */
   recommended?: Grantable;
 }) {
   const brand = useBrand();
@@ -346,7 +348,7 @@ export function Device({ code: given, initial, email }: { code?: string; initial
         }
         lead={
           done.allowed
-            ? `${client} can now work${where ? ` in ${where}` : ""} with ${scopeLabel(done.scope ?? "read")} access. Go back to your terminal: it has its key.`
+            ? `${client} can now work${where ? ` in ${where}` : ""} as ${asRole(done.scope ?? "read")}. Go back to your terminal: it has its key.`
             : "Nothing was connected. You can close this page."
         }
       >

@@ -20,12 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Confirm } from "@/components/confirm";
 import type { HeadBrand, Release } from "@/lib/brand-head";
+import { ACCESS_WORDS } from "@/lib/portal";
 import { send } from "@/lib/send";
 
 const ACCESS: Record<Portal["access"], { label: string; icon: React.ReactNode }> = {
-  public: { label: "Anyone with the address", icon: <IconWorld aria-hidden /> },
-  password: { label: "With a password", icon: <IconLock aria-hidden /> },
-  members: { label: "People in this project", icon: <IconUsers aria-hidden /> },
+  public: { label: ACCESS_WORDS.public.label, icon: <IconWorld aria-hidden /> },
+  password: { label: ACCESS_WORDS.password.label, icon: <IconLock aria-hidden /> },
+  members: { label: ACCESS_WORDS.members.label, icon: <IconUsers aria-hidden /> },
 };
 
 /**
@@ -89,8 +90,8 @@ export function BrandSharing({
           title="BrandHub"
           description={
             hub.visibility === "public"
-              ? "Public: anyone and any agent reads its latest release."
-              : "Private: only people in this project, signed in."
+              ? "Public on BrandHub: anyone and any agent reads its latest release."
+              : "Only people given access: this project's people, signed in."
           }
         >
           <div className="flex flex-wrap items-center gap-2">

@@ -54,7 +54,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { brandPath } from "@/lib/site";
 import { SITE_KIND_LABEL, type SiteKind } from "@/lib/sites";
-import { DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
+import { ACCESS_WORDS, DEFAULT_PRESETS, PORTAL_PRESETS, PORTAL_SLUG, PRESET_IDS, subdomainRefusal, type PortalAccess, type PortalPreset, type PortalSite } from "@/lib/portal";
 import { ago, exact } from "@/lib/time";
 import { collapse, flash, useKept } from "@/lib/motion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -108,9 +108,9 @@ type Request = {
 const ASKED: Record<Exclude<Request["kind"], "access">, string> = { asset: "Asset", review: "Review", question: "Question" };
 
 const ACCESS: Record<PortalAccess, { label: string; hint: string; icon: typeof IconWorld }> = {
-  public: { label: "Anyone with the address", hint: "Open to all; search engines stay out unless you list it", icon: IconWorld },
-  password: { label: "Whoever has the password", hint: "Anyone else can ask for access", icon: IconLock },
-  members: { label: "People in this project", hint: "Signed in; anyone else can ask for access", icon: IconUsers },
+  public: { ...ACCESS_WORDS.public, icon: IconWorld },
+  password: { ...ACCESS_WORDS.password, icon: IconLock },
+  members: { ...ACCESS_WORDS.members, icon: IconUsers },
 };
 
 /** The Select's value for "no domain": /p/{slug} only. */

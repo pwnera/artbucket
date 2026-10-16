@@ -130,7 +130,11 @@ test("who can reach it: each person's role and the grant it comes through, then 
   assert.equal(w.holders.find((h) => h.who === "Ada")?.role, "Admin");
   // The private deck: Sam's project role doesn't reach it.
   const d = (await whoCan(ada.caller, deck.id))!;
-  assert.ok(!d.holders.some((h) => h.who === "Sam"));
+  assert.ok(!d.holders.some((h) => h.who === "Sam"));  // Through its collection: the press portal offers Logos, so its visitors get the logo.
+  assert.ok(w.holders.some((h) => h.kind === "public" && h.who === "Anyone" && h.via === "Portal Press, through collection Logos: approved, current, unexpired only"));
+  // A brand: the portals showing it.
+  const b = (await whoCan(ada.caller, `${org}/${corporate.slug}/brand/acme`))!;
+  assert.ok(b.holders.some((h) => h.who === "Anyone" && h.via === "Portal Press: its latest release"));
 });
 
 test("grants are made from the catalog: what takes them, and the ones made there", async () => {

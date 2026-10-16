@@ -6,6 +6,7 @@ import {
   apiKeys,
   assets,
   brandVersions,
+  brands,
   catalogEdges,
   catalogObjects,
   collections,
@@ -13,6 +14,8 @@ import {
   groupMembers,
   groups,
   organizations,
+  portalBrands,
+  portalCollections,
   portals,
   shareLinks,
   siteComponents,
@@ -566,8 +569,8 @@ export type Holder = {
  * Who can reach it, and through what: each person's highest role on its path
  * (organization, project, the object, an asset's collections), private objects
  * turning away roles below admin from above; agent keys of its project, capped
- * at their person; and the delivery door (a public asset, a portal's access,
- * view links). `who`: one person, by id or email.
+ * at their person; and the delivery door (a public asset, portals, BrandHub,
+ * view links, an asset's collections' too). `who`: one person, by id or email.
  */
 export async function whoCan(caller: Caller, ref: string, who?: string) {
   const item = await findObject(caller, ref);
@@ -639,7 +642,7 @@ export async function whoCan(caller: Caller, ref: string, who?: string) {
         via: k.userId ? `Agent key on ${item.project.name}, capped at ${k.person}` : `Agent key on ${item.project.name}`,
       });
     for (const x of await sharesOf(objectId)) holders.push({ kind: "project", who: x.project.name, role: "Viewer", scope: "read", via: `Shared from ${item.project.name}: its members read the latest release` });
-    holders.push(...(await delivery(objectType, objectId)));
+    holders.push(...(await delivery(objectType, objectId, cols)));
   }
   return { id: item.id, name: item.name, private: obj.private, holders, on, granted };
 }
@@ -659,24 +662,53 @@ async function grantedOn(resource: Resource, id: string) {
 }
 export type Granted = Awaited<ReturnType<typeof grantedOn>>[number];
 
-/** The other door: who receives it without a grant. */
-async function delivery(type: CatalogType, id: string): Promise<Holder[]> {
+/**
+ * The other door: who receives it without a grant. A public asset, a portal's
+ * visitors, BrandHub for a public brand, the portals offering a brand or a
+ * collection, and view links; an asset gets its collections' portals and links.
+ * A brand portal also shows the assets its rules hold: not listed on the asset yet.
+ */
+async function delivery(type: CatalogType, id: string, cols: string[]): Promise<Holder[]> {
   const out: Holder[] = [];
   const pub = (who: string, via: string, kind: Holder["kind"] = "public") => out.push({ kind, who, role: "Viewer", scope: null, via });
+  const visitors = (access: string) => (access === "public" ? "Anyone" : access === "password" ? "Anyone with the password" : "Members and approved requests");
   if (type === "asset") {
     const [a] = await db.select({ public: assets.public }).from(assets).where(eq(assets.id, id));
     if (a?.public) pub("Anyone with the link", "Public asset: approved, current, unexpired only");
   }
   if (type === "site") {
     const [p] = await db.select({ access: portals.access }).from(portals).where(eq(portals.id, id));
-    if (p) pub(p.access === "public" ? "Anyone" : p.access === "password" ? "Anyone with the password" : "Members and approved requests", `Portal access: ${p.access}`);
+    if (p) pub(visitors(p.access), `Portal access: ${p.access}`);
   }
-  if (type === "asset" || type === "collection") {
-    const links = await db
-      .select({ name: shareLinks.name })
+  if (type === "brand") {
+    const [b] = await db.select({ visibility: brands.visibility }).from(brands).where(eq(brands.id, id));
+    if (b?.visibility === "public") pub("Anyone, and any agent", "On BrandHub: its latest release");
+    for (const p of await db
+      .select({ name: portals.name, access: portals.access })
+      .from(portalBrands)
+      .innerJoin(portals, eq(portals.id, portalBrands.portalId))
+      .where(eq(portalBrands.brandId, id)))
+      pub(visitors(p.access), `Portal ${p.name}: its latest release`);
+  }
+  // A collection's portals and view links reach its assets too: an asset gets them through each collection it is in.
+  if (cols.length) {
+    const names = new Map((await db.select({ id: collections.id, name: collections.name }).from(collections).where(inArray(collections.id, cols))).map((c) => [c.id, c.name]));
+    const through = (col: string) => (type === "asset" ? `, through collection ${names.get(col) ?? ""}` : "");
+    for (const p of await db
+      .select({ name: portals.name, access: portals.access, col: portalCollections.collectionId })
+      .from(portalCollections)
+      .innerJoin(portals, eq(portals.id, portalCollections.portalId))
+      .where(inArray(portalCollections.collectionId, cols)))
+      pub(visitors(p.access), `Portal ${p.name}${through(p.col)}${type === "asset" ? ": approved, current, unexpired only" : ""}`);
+    for (const l of await db
+      .select({ name: shareLinks.name, col: shareLinks.collectionId })
       .from(shareLinks)
-      .where(and(eq(shareLinks.kind, "view"), type === "asset" ? eq(shareLinks.assetId, id) : eq(shareLinks.collectionId, id)));
-    for (const l of links) pub(l.name ? `Holders of the link "${l.name}"` : "Holders of a view link", "Share link", "link");
+      .where(and(eq(shareLinks.kind, "view"), inArray(shareLinks.collectionId, cols))))
+      pub(l.name ? `Holders of the link "${l.name}"` : "Holders of a view link", `Share link${through(l.col!)}`, "link");
+  }
+  if (type === "asset") {
+    for (const l of await db.select({ name: shareLinks.name }).from(shareLinks).where(and(eq(shareLinks.kind, "view"), eq(shareLinks.assetId, id))))
+      pub(l.name ? `Holders of the link "${l.name}"` : "Holders of a view link", "Share link", "link");
   }
   return out;
 }
