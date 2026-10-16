@@ -69,6 +69,6 @@ export const Failed = meta.story({
 export const EveryoneAdded = meta.story({
   beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/members", () => HttpResponse.json({ data: members.slice(0, 3), invitations: [] }))),
   play: async ({ canvas }) => {
-    await expect(await canvas.findByRole("link", { name: "Invite someone" })).toHaveAttribute("href", "/team?invite");
+    await expect(await canvas.findByRole("link", { name: "Invite someone" })).toHaveAttribute("href", "/settings/project/people?tab=people&invite");
   },
 });
