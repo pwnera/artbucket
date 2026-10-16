@@ -14,6 +14,7 @@ import {
   IconPlus,
   IconSend,
   IconFolderMinus,
+  IconForms,
   IconFolderPlus,
   IconTag,
   IconTagOff,
@@ -58,7 +59,9 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { fileSlug } from "@/lib/branding";
 import { formatBytes } from "@/lib/filename";
-import type { FieldDef } from "@/lib/fields";
+import type { FieldDef, FieldValue } from "@/lib/fields";
+import { FieldInputs, readFieldValues } from "@/components/fields";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pool } from "@/lib/pool";
 import type { Action } from "@/lib/permissions";
 import { normalizeTags } from "@/lib/search";
@@ -79,6 +82,12 @@ const ZIP_LIMIT = 1024 ** 3;
  */
 export type Patch = (ids: string[], fn: (a: Asset) => Asset | null) => (only?: string[]) => void;
 
+const patchFields = (a: Asset, fields: Record<string, FieldValue | null>) =>
+  fetch(`/api/v1/assets/${a.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields }),
+  });
 const patchTags = (a: Asset, tags: string[]) =>
   fetch(`/api/v1/assets/${a.id}`, {
     method: "PATCH",
@@ -328,7 +337,7 @@ export type Bulk = ReturnType<typeof useBulk>;
 
 // ---- the bar ------------------------------------------------------------------
 
-type Panel = "tag" | "untag" | "expiry" | "add" | null;
+type Panel = "tag" | "untag" | "expiry" | "field" | "add" | null;
 
 /**
  * Bulk actions over the selected assets, floating over the grid. It stays
@@ -465,6 +474,12 @@ export function SelectionBar({
       undo: inverse("Tagged", (a) => patchTags(a, a.tags)),
     });
   };
+  /** One custom field's value across the selection (null clears it); Undo puts each asset's own back. */
+  const setField = (d: FieldDef, value: FieldValue | null) =>
+    each(value === null ? `Cleared ${d.label} on` : `Set ${d.label} on`, (a) => patchFields(a, { [d.key]: value }), {
+      local: (x) => ({ ...x, fields: value === null ? Object.fromEntries(Object.entries(x.fields ?? {}).filter(([k]) => k !== d.key)) : { ...x.fields, [d.key]: value } }),
+      undo: inverse(`Put back ${d.label} on`, (a) => patchFields(a, { [d.key]: a.fields?.[d.key] ?? null })),
+    });
   const expire = (expires: string | null) =>
     each(expires ? `Set ${expires} as the last day of use for` : "Cleared the last day of use for", (a) => expireOn(a, expires), {
       local: (x) => ({ ...x, rights: x.rights ? { ...x.rights, expires } : x.rights }),
@@ -592,6 +607,9 @@ export function SelectionBar({
             </DropdownMenu>
           )}
           {canEdit && <ExpiryAction disabled={busy} open={panel === "expiry"} onOpenChange={toggle("expiry")} onApply={expire} className="hidden md:inline-flex" />}
+          {canEdit && fields.length > 0 && (
+            <FieldAction fields={fields} disabled={busy} open={panel === "field"} onOpenChange={toggle("field")} onApply={setField} className="hidden md:inline-flex" />
+          )}
 
           {(into.length > 0 || canCreate) && (
             <AddTo
@@ -663,6 +681,11 @@ export function SelectionBar({
                     <DropdownMenuItem onSelect={() => openPanel("expiry")}>
                       <IconCalendarOff /> Expiry…
                     </DropdownMenuItem>
+                    {fields.length > 0 && (
+                      <DropdownMenuItem onSelect={() => openPanel("field")}>
+                        <IconForms /> Set field…
+                      </DropdownMenuItem>
+                    )}
                   </>
                 )}
                 {removeHere && (
@@ -842,6 +865,93 @@ export function RejectAction({
  */
 function BarAnchor() {
   return <PopoverAnchor className="pointer-events-none absolute inset-x-0 top-0 h-0" />;
+}
+
+/**
+ * Set one custom field on the whole selection, or clear it: the field picked,
+ * then its value as the editor takes it (FieldInputs). A required field
+ * can be set, not cleared.
+ */
+function FieldAction({
+  fields,
+  disabled,
+  open,
+  onOpenChange,
+  onApply,
+  className,
+}: {
+  fields: FieldDef[];
+  disabled?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onApply: (d: FieldDef, value: FieldValue | null) => Promise<boolean>;
+  className?: string;
+}) {
+  const [key, setKey] = useState(fields[0]?.key ?? "");
+  const [busy, setBusy] = useState(false);
+  const d = fields.find((f) => f.key === key) ?? fields[0];
+  const apply = async (value: FieldValue | null) => {
+    setBusy(true);
+    try {
+      if (await onApply(d, value)) onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <BarAnchor />
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" disabled={disabled} className={className}>
+          <IconForms /> Set field
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        aria-label="Set a field"
+        className="grid w-80 gap-3"
+        // A select's options open in a layer of their own: picking one is not a click outside.
+        onInteractOutside={(e) => (e.target as Element | null)?.closest?.("[role=listbox]") && e.preventDefault()}
+      >
+        <label className="grid gap-1.5 text-sm font-medium">
+          Field
+          <Select value={d.key} onValueChange={setKey}>
+            <SelectTrigger className="w-full" aria-label="Field">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fields.map((f) => (
+                <SelectItem key={f.key} value={f.key}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <form
+          key={d.key}
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const value = readFieldValues(new FormData(e.currentTarget), [{ ...d, required: false }])[d.key];
+            void apply(value ?? null);
+          }}
+        >
+          <FieldInputs defs={[d]} />
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" className="flex-1" pending={busy}>
+              Set
+            </Button>
+            {!d.required && (
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void apply(null)}>
+                Clear
+              </Button>
+            )}
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /** Set, or clear, the last day of use across the selection: past it, links answer 410. */
