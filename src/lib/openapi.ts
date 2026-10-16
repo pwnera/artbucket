@@ -1789,6 +1789,15 @@ export function openapi(serverUrl: string) {
           ok: [200, "Requests", data(z.array(S.PortalRequest.extend({ site: z.object({ id: z.string(), name: z.string() }) })))],
         }),
       },
+      "/api/v1/sites/{id}/rebuild": {
+        parameters: [path("id", "Site id")],
+        post: op({
+          summary: "Build a site again",
+          scope: "write",
+          description: "Calls the site's deploy hook now, as a release does, with `event: \"site.rebuild\"`: for a build that still names an older component (Fixes). `status` is what the hook answered; a site without a hook is refused (422).",
+          ok: [200, "What the hook answered", data(z.object({ status: z.string() }))],
+        }),
+      },
       "/api/v1/sites/{id}/requests": {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),

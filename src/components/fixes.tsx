@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconCalendarEvent, IconCertificate, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
+import { IconCalendarEvent, IconCertificate, IconRefresh, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
@@ -29,7 +29,7 @@ export type FixesData = {
   stale: InsightsData["stale"];
   gaps: InsightsData["gaps"];
   licenses: { asset: Asset; expires: string; days: number; replacement: Asset | null }[];
-  components: { site: { id: string; name: string; slug: string }; path: string; component: { id: string; name: string; version: number }; current: { id: string; version: number }; since: string }[];
+  components: { site: { id: string; name: string; slug: string; rebuild?: boolean }; path: string; component: { id: string; name: string; version: number }; current: { id: string; version: number }; since: string }[];
 };
 
 /** One thing to do, whatever it is: what, where, since when, its action, and once done, when. */
@@ -213,6 +213,28 @@ function Extend({ asset, until, onDone }: { asset: string; until: string; onDone
   );
 }
 
+/** Build the site again through its deploy hook, so it picks up the current component (POST /api/v1/sites/{id}/rebuild). */
+function Rebuild({ site }: { site: { id: string; name: string } }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      pending={busy}
+      onClick={async () => {
+        setBusy(true);
+        const done = (await send("POST", `/api/v1/sites/${site.id}/rebuild`)) as { status: string } | null;
+        setBusy(false);
+        if (!done) return;
+        if (/^2\d\d$/.test(done.status)) toast.success(`${site.name} is building again`, { description: "It leaves Fixes once its new build is live." });
+        else toast.error(`${site.name}'s hook answered ${done.status}`);
+      }}
+    >
+      <IconRefresh /> Rebuild
+    </Button>
+  );
+}
+
 /** Open an issue about it, where the server's tracker takes it (`issueUrl` with the fix's kind and what it is about). */
 const IssueLink = ({ at, about }: { at: string | null; about: Record<string, string> }) =>
   at && (
@@ -350,9 +372,12 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
     ),
     done: null,
     action: (
-      <Button size="xs" variant="outline" asChild>
-        <Link href={`/components/${c.current.id}`}>Open @{c.current.version}</Link>
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button size="xs" variant={c.site.rebuild ? "ghost" : "outline"} asChild>
+          <Link href={`/components/${c.current.id}`}>Open @{c.current.version}</Link>
+        </Button>
+        {c.site.rebuild && <Rebuild site={c.site} />}
+      </span>
     ),
   }));
 

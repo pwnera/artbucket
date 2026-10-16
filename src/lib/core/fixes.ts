@@ -68,6 +68,7 @@ async function oldComponentsIn(projectId: string) {
     site_id: string;
     site_name: string;
     site_slug: string;
+    rebuild: boolean;
     path: string;
     id: string;
     name: string;
@@ -76,7 +77,7 @@ async function oldComponentsIn(projectId: string) {
     current_version: number;
     since: string;
   }>(sql`
-    select d.site_id, p.name as site_name, p.slug as site_slug, d.path, c.id, c.name, c.version, n.id as current_id, n.version as current_version, n.created_at as since
+    select d.site_id, p.name as site_name, p.slug as site_slug, p.rebuild_hook is not null as rebuild, d.path, c.id, c.name, c.version, n.id as current_id, n.version as current_version, n.created_at as since
     from site_deployments d
     join portals p on p.id = d.site_id
     cross join unnest(d.component_uses) u(id)
@@ -86,7 +87,7 @@ async function oldComponentsIn(projectId: string) {
     where d.state = 'live' and p.project_id = ${projectId}
     order by n.created_at, p.name, c.name`);
   return [...rows].map((r) => ({
-    site: { id: r.site_id, name: r.site_name, slug: r.site_slug },
+    site: { id: r.site_id, name: r.site_name, slug: r.site_slug, rebuild: r.rebuild },
     path: r.path,
     component: { id: r.id, name: r.name, version: r.version },
     current: { id: r.current_id, version: r.current_version },

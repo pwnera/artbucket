@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { brands, brandVersions, portals, projects, siteDeployments } from "@/lib/db/schema";
 import { diffRules } from "@/lib/history";
 import { recordAudit } from "@/lib/core/audit";
+import { AssetError } from "@/lib/core/errors";
+import type { Caller } from "@/lib/core/access";
+import { can } from "@/lib/permissions";
 import { limitsOf } from "@/lib/core/usage";
 import { env } from "@/lib/env";
 import { postPublic } from "@/lib/fetch-public";
@@ -86,4 +89,30 @@ async function unchangedSince(siteId: string, brandId: string, number: number): 
   if (!was || !now) return null;
   const declared = reads.flatMap((m) => m!.rules as string[]);
   return diffRules(was, now).some((c) => covers(declared, c.key)) ? null : from;
+}
+
+/**
+ * Build one site again now, by hand: Fixes' Rebuild, when a build still
+ * names an older component. Its hook is called as a release calls it, with
+ * `event: "site.rebuild"`; what it answered is kept on the site.
+ */
+export async function rebuildSite(caller: Caller, siteId: string) {
+  if (!can(caller, "portal.manage")) throw new AssetError("forbidden", "Rebuilding a site takes write on the project");
+  const [s] = await db
+    .select({ id: portals.id, slug: portals.slug, name: portals.name, hook: portals.rebuildHook })
+    .from(portals)
+    .where(and(eq(portals.id, siteId), eq(portals.projectId, caller.project.id)));
+  if (!s) return null;
+  if (!s.hook) throw new AssetError("invalid", "This site has no deploy hook: set one on its page to build it from here");
+  const url = unseal(s.hook, env.BETTER_AUTH_SECRET);
+  if (!url) throw new AssetError("invalid", "The hook can't be read: set it again");
+  let status: string;
+  try {
+    status = String(await postPublic(url, { event: "site.rebuild", site: s.slug }));
+  } catch (err) {
+    status = err instanceof Error ? err.message : "It could not be called";
+  }
+  await db.update(portals).set({ rebuiltAt: new Date(), rebuildStatus: status }).where(eq(portals.id, s.id));
+  await recordAudit(caller, "site.rebuilt", s.name, { status });
+  return { status };
 }
