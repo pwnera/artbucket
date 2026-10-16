@@ -7,7 +7,7 @@ const meta = preview.meta({
   title: "App/Features/Brands/Tabs",
   component: BrandTabs,
   args: { brand: acme, at: "overview" as const },
-  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "theme", "insights", "settings"] } },
+  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "look", "insights", "settings"] } },
   decorators: [withMe(me)],
 });
 

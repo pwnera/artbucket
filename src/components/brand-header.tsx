@@ -455,7 +455,7 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
 /** The crumb after the brand's name, by the address under /brands/{slug}; none on the Overview. */
 const CRUMBS: Record<string, string> = {
   rules: "Rules",
-  theme: "Theme",
+  look: "Look",
   assets: "Assets",
   releases: "Releases",
   "releases/new": "New release",
@@ -485,11 +485,11 @@ export function BrandPageHeader({ importing, ...head }: Omit<BrandHeaderProps, "
   );
 }
 
-const MORE_ICON = { theme: IconPalette, insights: IconChartBar, settings: IconSettings } as Partial<Record<BrandTab, typeof IconPalette>>;
+const MORE_ICON = { insights: IconChartBar, settings: IconSettings } as Partial<Record<BrandTab, typeof IconPalette>>;
 
 /**
  * The brand's menu, at the end of its header: the pages that aren't tabs
- * (Theme, Insights, Settings), then what is done to it now and then: keep
+ * (Insights, Settings), then what is done to it now and then: keep
  * it in Git, pin it to the sidebar, open it in the catalog (its lineage and
  * who reaches it).
  */

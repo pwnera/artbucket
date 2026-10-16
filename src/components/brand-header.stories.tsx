@@ -14,7 +14,7 @@ const meta = preview.meta({
   title: "App/Features/Brands/Header",
   component: BrandHeader,
   args: { brand: acme, origin: "https://app.artbucket.test", rules, status, release, at: "overview" as const, compact: false },
-  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "theme", "insights", "settings"] } },
+  argTypes: { at: { control: "select", options: ["overview", "rules", "assets", "guidelines", "releases", "sharing", "look", "insights", "settings"] } },
   parameters: { layout: "fullscreen" },
   decorators: [withMe(me)],
   beforeEach: ({ msw }) => {
