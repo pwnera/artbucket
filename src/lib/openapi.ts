@@ -676,6 +676,7 @@ export function openapi(serverUrl: string) {
             limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 30 }, description: "Page size" },
             cursor: { schema: { type: "integer", minimum: 0 }, description: "The previous page's `next`" },
             record: { schema: { type: "string", enum: ["true", "false"] }, description: "false: not counted as a search in Insights" },
+            facets: { schema: { type: "string", enum: ["true", "false"] }, description: "true: the matches' tags, and their statuses past the status filter, counted in `facets`" },
           },
           ok: [
             200,
@@ -688,6 +689,13 @@ export function openapi(serverUrl: string) {
               items: z.array(CatalogItem),
               hidden: z.object({ count: z.number().int(), example: z.string().nullable() }),
               next: z.number().int().nullable(),
+              facets: z
+                .object({
+                  tags: z.array(z.object({ value: z.string(), count: z.number().int() })),
+                  statuses: z.array(z.object({ value: z.enum(CATALOG_STATUSES), count: z.number().int() })),
+                })
+                .optional()
+                .describe("With facets=true"),
             }),
           ],
         }),

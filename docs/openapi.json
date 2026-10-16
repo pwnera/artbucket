@@ -15945,6 +15945,18 @@
               ]
             },
             "description": "false: not counted as a search in Insights"
+          },
+          {
+            "name": "facets",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true: the matches' tags, and their statuses past the status filter, counted in `facets`"
           }
         ],
         "responses": {
@@ -16208,6 +16220,66 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "facets": {
+                      "description": "With facets=true",
+                      "type": "object",
+                      "properties": {
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "statuses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "in_review",
+                                  "current",
+                                  "replaced",
+                                  "archived"
+                                ]
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "tags",
+                        "statuses"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [

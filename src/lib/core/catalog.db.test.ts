@@ -162,3 +162,12 @@ test("a search with words is one search for Insights, found when any type matche
   assert.deepEqual((await searches("acme")).map((e) => [e.surface, e.verdict]), [["app", "found"]]);
   assert.equal((await searches("zzunmatched")).length, 0);
 });
+
+test("asked for, a search counts its matches' tags, and their statuses past the status filter", async () => {
+  const r = await searchCatalog(ada.caller, parseQuery("logo status:current"), { facets: true, record: false });
+  const n = (s: string) => r.facets!.statuses.find((x) => x.value === s)?.count ?? 0;
+  assert.ok(n("current") >= 1);
+  assert.ok(n("replaced") >= 1, "the replaced logo is counted, a click away");
+  assert.ok(Array.isArray(r.facets!.tags));
+  assert.equal((await searchCatalog(ada.caller, parseQuery("logo"))).facets, undefined);
+});

@@ -279,6 +279,11 @@ export type CatalogResults = {
   /** Matches left out because they are replaced, archived or expired, and one to name. */
   hidden: { count: number; example: string | null };
   next: number | null;
+  /**
+   * Asked for (`facets`): every type's tags among the matches, and their
+   * statuses counted past the status filter, as Explore's filters show them.
+   */
+  facets?: { tags: { value: string; count: number }[]; statuses: { value: CatalogStatus; count: number }[] };
 };
 
 /**
@@ -292,11 +297,18 @@ export type CatalogResults = {
 export async function searchCatalog(
   caller: Caller,
   q: CatalogQuery,
-  { limit = 30, cursor = 0, record = true, surface = caller.key ? "api" : "app" }: { limit?: number; cursor?: number; record?: boolean; surface?: Surface } = {},
+  {
+    limit = 30,
+    cursor = 0,
+    record = true,
+    surface = caller.key ? "api" : "app",
+    facets = false,
+  }: { limit?: number; cursor?: number; record?: boolean; surface?: Surface; facets?: boolean } = {},
 ): Promise<CatalogResults> {
   const reaches = await reachOf(caller);
   const { where, rank } = await whereOf(caller, q, reaches);
   const shown = q.statuses.length ? where : and(where, sql`not ${retiredSql}`)!;
+  const faceted = facets ? facetsOf(shown, (await whereOf(caller, { ...q, statuses: [] }, reaches)).where) : null;
   const count = (w: SQL) =>
     db
       .select({ type: o.type, project: projects.slug, name: projects.name, n: sql<number>`count(*)::int` })
@@ -336,7 +348,30 @@ export async function searchCatalog(
     items: await withPreviews(await items(page)),
     hidden: hidden.length ? { count: hidden[0].n, example: await retiredWhy(hidden[0].row) } : { count: 0, example: null },
     next: found.length > limit ? cursor + limit : null,
+    ...(faceted && { facets: await faceted }),
   };
+}
+
+/**
+ * Tags among what `shown` matches, and statuses among what `anyStatus`
+ * matches (the query without its status filter, retired objects in): each
+ * count a click that returns that many, as asset search's facets are.
+ */
+async function facetsOf(shown: SQL, anyStatus: SQL) {
+  const [tags, statuses] = await Promise.all([
+    db.execute<{ value: string; count: number }>(
+      sql`select t.value, count(*)::int as count from ${o} join ${projects} on ${projects.id} = ${o.projectId},
+        jsonb_array_elements_text(${o.tags}) as t(value) where ${shown} group by 1 order by 2 desc, 1 limit 50`,
+    ),
+    db
+      .select({ value: o.status, count: sql<number>`count(*)::int` })
+      .from(o)
+      .innerJoin(projects, eq(projects.id, o.projectId))
+      .where(anyStatus)
+      .groupBy(o.status)
+      .orderBy(sql`2 desc`),
+  ]);
+  return { tags: [...tags], statuses };
 }
 
 /** Components with their story to show, as a search result draws them. */
