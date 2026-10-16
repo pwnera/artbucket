@@ -28,10 +28,11 @@ const RULES = "https://hub.artbucket.io/artbucket/artbucket/rules.json";
 type Release = { rules: { key: string; context: string | null; value: unknown }[] };
 let release: Promise<Release | undefined> | undefined;
 
-// Framed by another origin (artbucket.io shows the app's screens this way): what would leave the story does nothing,
-// so a link, a form or a new window never lands the frame on a page that isn't there. Links go to other pages, which
-// a story doesn't have, so they are stopped before the app sees them (no pending spinner either); what changes in
-// place (buttons, tabs, router.push) still works. Here, in Storybook and in tests, the parent is the same origin.
+// Framed by another origin (artbucket.io shows the app's screens this way): a link to another page, a form or a new
+// window never lands the frame on a page that isn't there. A link to another page is stopped before the app hears it
+// (else its pending state would spin forever); a download only has the browser's download cancelled, so the app still
+// says so; a link within the page (?page=, #) works as it does. Here, in Storybook and in tests, the parent is the same
+// origin, and nothing changes.
 const elsewhere = (() => {
   try {
     return window.parent !== window && !window.parent.location.href;
@@ -41,9 +42,13 @@ const elsewhere = (() => {
 })();
 if (elsewhere) {
   const stay = (e: Event) => {
-    if (!(e.target as Element).closest?.("a[href]")) return;
+    const a = (e.target as Element).closest?.("a[href]") as HTMLAnchorElement | null;
+    if (!a) return;
+    const to = new URL(a.href, location.href);
+    const here = to.origin === location.origin && to.pathname === location.pathname && (!a.target || a.target === "_self");
+    if (here && !a.hasAttribute("download")) return;
     e.preventDefault();
-    e.stopPropagation();
+    if (!a.hasAttribute("download")) e.stopPropagation();
   };
   window.addEventListener("click", stay, true);
   window.addEventListener("auxclick", stay, true);
