@@ -147,7 +147,7 @@ export const Dark = meta.story({ globals: { theme: "dark" } });
 
 /** Shared with nobody yet, never released: Share publicly releases it, makes a public portal at a free address, and lists it on BrandHub. */
 export const SharePublicly = meta.story({
-  args: { hub: hub({ visibility: "private", published: false }), portals: [], release: null },
+  args: { hub: hub({ visibility: "private", published: null }), portals: [], release: null },
   beforeEach: ({ msw }) =>
     void msw.use(
       sent.on("post", "/api/v1/brands/acme/publish", { number: 1 }),
