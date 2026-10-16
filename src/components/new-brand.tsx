@@ -147,17 +147,17 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
                 aria-label="How to set it up"
                 className={cn("grid gap-3", bookImport ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}
               >
-                <Choice value="builder" selected={how === "builder"} title="Start here" text="Blank, from your domain or from a template, then filled in on its Rules tab.">
+                <Choice value="builder" selected={how === "builder"} onPick={() => setStep("builder")} title="Start here" text="Blank, from your domain or from a template, then filled in on its Rules tab.">
                   <BuilderArt />
                 </Choice>
-                <Choice value="agent" selected={how === "agent"} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
+                <Choice value="agent" selected={how === "agent"} onPick={() => setStep("agent")} title="Start with an AI agent" text="Claude, Cursor or Codex drafts it for you to review.">
                   <AgentArt />
                 </Choice>
-                <Choice value="git" selected={how === "git"} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
+                <Choice value="git" selected={how === "git"} onPick={() => setStep("git")} title="From a Git repository" text="Brand as files, reviewed in pull requests.">
                   <FilesArt />
                 </Choice>
                 {bookImport && (
-                  <Choice value="book" selected={how === "book"} title="Import your brand" text="A zip of your brand's files, or its guidelines PDF.">
+                  <Choice value="book" selected={how === "book"} onPick={() => setStep("book")} title="Import your brand" text="A zip of your brand's files, or its guidelines PDF.">
                     <BookArt />
                   </Choice>
                 )}
@@ -445,10 +445,32 @@ export function NewBrand({ open, onClose, onDone }: { open: boolean; onClose: ()
  * A choice card of a RadioGroup, its picture and words, the whole card the hit target: the radio hides in it, named
  * by the title and described by the text, so arrow keys move between cards as between radios.
  */
-function Choice({ value, selected, title, text, compact, children }: { value: string; selected: boolean; title: string; text: string; compact?: boolean; children: React.ReactNode }) {
+/**
+ * `onPick`: a pointer's click on it goes on at once. The keys (arrows, which
+ * the radios click as they move, and Space) only pick, and Continue goes on:
+ * those clicks carry no `detail`, a pointer's does.
+ */
+function Choice({
+  value,
+  selected,
+  title,
+  text,
+  compact,
+  onPick,
+  children,
+}: {
+  value: string;
+  selected: boolean;
+  title: string;
+  text: string;
+  compact?: boolean;
+  onPick?: () => void;
+  children: React.ReactNode;
+}) {
   const id = useId();
   return (
     <label
+      onClick={(e) => e.detail > 0 && onPick?.()}
       className={cn(
         "group has-focus-visible:ring-ring/50 relative grid cursor-pointer content-start gap-3 overflow-hidden rounded-lg border text-start transition-colors has-focus-visible:ring-[3px]",
         selected ? "border-primary ring-primary ring-1" : "hover:border-foreground/20",

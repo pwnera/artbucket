@@ -36,6 +36,7 @@ import { CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { InfoTip } from "@/components/info-tip";
 import { AppHeader, PageHeader } from "@/components/page";
+import { cn } from "@/lib/utils";
 import { useShell } from "@/components/shell";
 import { Thumb } from "@/components/thumb";
 import { Badge } from "@/components/ui/badge";
@@ -164,12 +165,13 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
   // Arriving from a brand (publish, the launch checklist): a new portal showing it, named for it, open at once.
   const fresh = params.get("new");
   const freshBrand = fresh ? brands.find((b) => b.slug === fresh) : undefined;
-  // Arriving from the catalog (Open portal): that portal's editor, open at once.
+  // Arriving with an old ?edit= link (the catalog's Open portal did): that portal's own page.
   const asked = params.get("edit");
-  // ?new=portal (the sidebar's New): a new portal, open at once.
-  const [editing, setEditing] = useState<Portal | "new" | null>(() =>
-    freshBrand || fresh === "portal" ? "new" : (asked && portals.find((x) => x.id === asked)) || null,
-  );
+  useEffect(() => {
+    if (asked && portals.some((x) => x.id === asked && x.kind === "portal")) router.replace(`/sites/${asked}`);
+  }, [asked, portals, router]);
+  // ?new=portal (the sidebar's New): a new portal, open at once, in a dialog; once made it has its page.
+  const [editing, setEditing] = useState<"new" | null>(() => (freshBrand || fresh === "portal" ? "new" : null));
   // A built site, made or deployed to (components/site-deployments.tsx); ?new=site opens a new one, ?deployments={id} one's deployments (the re-check's email).
   const deployed = params.get("deployments");
   const [building, setBuilding] = useState<Portal | "new" | null>(() => (fresh === "site" ? "new" : (deployed && portals.find((x) => x.id === deployed)) || null));
@@ -262,7 +264,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
                     {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole row opens it, this button's box stretched over the row, under its actions. */}
-                    <button type="button" onClick={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
+                    <button type="button" onClick={() => (p.kind === "portal" ? router.push(`/sites/${p.id}`) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
@@ -292,7 +294,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                   </IconButton>
                   <RowMenu
                     portal={p}
-                    onEdit={() => (p.kind === "portal" ? setEditing(p) : setBuilding(p))}
+                    onEdit={() => (p.kind === "portal" ? router.push(`/sites/${p.id}`) : setBuilding(p))}
                     onBuild={() => setBuilding(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
                     onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
@@ -306,7 +308,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
       {shownEditing && (
         <PortalDialog
           open={!!editing}
-          portal={shownEditing === "new" ? null : shownEditing}
+          portal={null}
           collections={collections}
           brands={brands}
           showing={shownEditing === "new" && freshBrand ? freshBrand : undefined}
@@ -596,6 +598,7 @@ function siteSummary(site: PortalSite) {
  */
 export function PortalDialog({
   open = true,
+  page = false,
   portal,
   collections,
   brands,
@@ -606,6 +609,8 @@ export function PortalDialog({
   onDeleted,
 }: {
   open?: boolean;
+  /** Drawn as its own page (/sites/{id}): a portal's settings are too many for a dialog. A new one stays a dialog. */
+  page?: boolean;
   portal: Portal | null;
   collections: Pickable[];
   brands: { slug: string; name: string }[];
@@ -708,7 +713,8 @@ export function PortalDialog({
     setBusy(false);
     if (!saved) return;
     onSaved(saved, current ? "saved" : "made");
-    onClose();
+    // On its page it stays, saved; a dialog closes.
+    if (!page) onClose();
   }
 
   async function verify() {
@@ -722,24 +728,8 @@ export function PortalDialog({
     onSaved(p);
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent
-        className="pb-0 sm:max-w-xl"
-        guard={{ dirty, onDiscard: onClose, ...(ready && { onSave: () => formRef.current?.requestSubmit() }) }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready && !busy) {
-            e.preventDefault();
-            formRef.current?.requestSubmit();
-          }
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug break-words">{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
-          <DialogDescription>
-            Only approved, unexpired assets show.
-          </DialogDescription>
-        </DialogHeader>
+  const body = (
+    <>
         <form
           ref={formRef}
           id={id}
@@ -1078,7 +1068,7 @@ export function PortalDialog({
           </div>
         </form>
         {/* Stuck to the bottom: Save is never below the fold, however long the form. */}
-        <DialogFooter className="bg-popover sticky bottom-0 -mx-6 flex-row items-center border-t px-6 py-3">
+        <DialogFooter className={cn("sticky bottom-0 flex-row items-center border-t py-3", page ? "bg-background z-10" : "bg-popover -mx-6 px-6")}>
           {current && (
             <Confirm
               title={`Delete ${current.name}?`}
@@ -1106,7 +1096,10 @@ export function PortalDialog({
             <Kbd keys={["mod", "Enter"]} className="bg-primary-foreground/15 text-primary-foreground hidden border-transparent sm:inline-flex" />
           </Button>
         </DialogFooter>
-      </DialogContent>
+    </>
+  );
+  const pickers = (
+    <>
       {picking === "logo" && (
         <LibraryPicker
           title="Pick the logo"
@@ -1131,7 +1124,71 @@ export function PortalDialog({
           }}
         />
       )}
+    </>
+  );
+  // Its own page: the same form and footer, the page's header and the pickers over it; ⌘Enter saves here too.
+  if (page)
+    return (
+      <div
+        className="mx-auto grid w-full max-w-2xl gap-5 px-4 pt-6 md:px-6"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready && !busy) {
+            e.preventDefault();
+            formRef.current?.requestSubmit();
+          }
+        }}
+      >
+        <PageHeader icon={<IconWorld />} title={current?.name ?? "New portal"} description="Only approved, unexpired assets show." />
+        {body}
+        {pickers}
+      </div>
+    );
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        className="pb-0 sm:max-w-xl"
+        guard={{ dirty, onDiscard: onClose, ...(ready && { onSave: () => formRef.current?.requestSubmit() }) }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ready && !busy) {
+            e.preventDefault();
+            formRef.current?.requestSubmit();
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle className="pr-6 leading-snug break-words">{current ? `Edit ${current.name}` : "New portal"}</DialogTitle>
+          <DialogDescription>
+            Only approved, unexpired assets show.
+          </DialogDescription>
+        </DialogHeader>
+        {body}
+      </DialogContent>
+      {pickers}
     </Dialog>
+  );
+}
+
+/** A portal's own page (/sites/{id}): its settings, saved in place, with the Sites list a crumb away. */
+export function PortalPage({ portal, portalDomain }: { portal: Portal; portalDomain?: string }) {
+  const { collections, brands } = useShell();
+  const router = useRouter();
+  return (
+    <>
+      <AppHeader trail={[{ label: "Sites", href: "/sites" }, { label: portal.name }]} />
+      <PortalDialog
+        page
+        portal={portal}
+        collections={collections}
+        brands={brands}
+        portalDomain={portalDomain}
+        onClose={() => router.push("/sites")}
+        onSaved={(saved, said) => {
+          if (said) toastSaved(saved, said);
+          router.refresh();
+        }}
+        onDeleted={() => router.push("/sites")}
+      />
+    </>
   );
 }
 

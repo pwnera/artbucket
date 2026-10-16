@@ -204,7 +204,7 @@ function BrandPortals({
 }) {
   const router = useRouter();
   const { collections, brands } = useShell();
-  const [editing, setEditing] = useState<Portal | "new" | null>(null);
+  const [editing, setEditing] = useState<"new" | null>(null);
   const linked = hub?.portal?.slug;
   return (
     <Group title="Sites" info="Where people outside the team read the brand and take its files.">
@@ -226,7 +226,8 @@ function BrandPortals({
             <li key={p.id} className="flex flex-wrap items-center gap-3 p-3">
               <div className="grid min-w-0 flex-1 basis-40 gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  <Button variant="link" onClick={() => setEditing(p)} className="text-foreground h-auto min-w-0 justify-start p-0 text-start">
+                  {/* Its settings are a page of their own; a new one is made here, in a dialog. */}
+                  <Button variant="link" onClick={() => router.push(`/sites/${p.id}`)} className="text-foreground h-auto min-w-0 justify-start p-0 text-start">
                     <span className="truncate">{p.name}</span>
                   </Button>
                   {p.expired && <Badge variant="outline">Offline</Badge>}
@@ -264,10 +265,10 @@ function BrandPortals({
       )}
       {editing && (
         <PortalDialog
-          portal={editing === "new" ? null : editing}
+          portal={null}
           collections={collections}
           brands={brands}
-          showing={editing === "new" ? brand : undefined}
+          showing={brand}
           portalDomain={portalDomain}
           onClose={() => setEditing(null)}
           onSaved={(saved, said) => {
