@@ -41,6 +41,26 @@ test("a line may link, and an unsubscribe link sits under the message, in both p
   assert.doesNotMatch(render(draft, { name: "A", accent: null, logo: null, emailFooter: null }).html, /Unsubscribe/);
 });
 
+test("a message in parts: its title, counts across, a list per part, in both parts", () => {
+  const m = render(
+    {
+      to: "a@x.test",
+      subject: "Your week in {product}",
+      heading: { title: "Your week in {product}", sub: "Oct 5 to Oct 11" },
+      stats: [{ value: "2", label: "releases" }],
+      sections: [{ title: "Brand releases", rows: [{ text: "Acme @3", url: "https://x.test/brands/acme", meta: "Released", note: "A warmer accent" }], more: { text: "And 2 more", url: "https://x.test/library" } }],
+      lines: ["You get this on Mondays."],
+    },
+    { name: "Acme", accent: "#ffcc00", logo: null, emailFooter: null },
+  );
+  assert.match(m.text, /^Your week in Acme\nOct 5 to Oct 11\n\n2 releases\n\nBRAND RELEASES\nAcme @3, Released, A warmer accent https:\/\/x\.test\/brands\/acme\nAnd 2 more https:\/\/x\.test\/library\n\nYou get this on Mondays\.$/);
+  assert.match(m.html, /<h1[^>]*>Your week in Acme<\/h1>/);
+  assert.match(m.html, /<a href="https:\/\/x\.test\/brands\/acme"[^>]*>Acme @3<\/a>/);
+  assert.match(m.html, /border-top:4px solid #ffcc00/);
+  // A plain message keeps the plain layout.
+  assert.doesNotMatch(render(draft, { name: "A", accent: null, logo: null, emailFooter: null }).html, /<h1|<table/);
+});
+
 test("the server's BRAND_* sit under an organization's own, property by property", () => {
   const env = { BRAND_NAME: "Studio Assets", BRAND_ACCENT: "#112233" };
   assert.deepEqual(brandingFromEnv({}), null);

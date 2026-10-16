@@ -1,5 +1,6 @@
 import preview from "#.storybook/preview";
 import { acme, assetFiles, emptyStatus, freezeNow, me, northwind, release, rules, status, updates, versions, viewer, withMe } from "#.storybook/fixtures/brands";
+import { useEffect, useState } from "react";
 import { fixture, swapApi } from "#.storybook/fixtures/artbucket";
 import { inApp } from "#.storybook/fixtures/library";
 import { OUR_BOOK } from "#.storybook/fixtures/our-brand";
@@ -8,6 +9,8 @@ import { http, HttpResponse } from "msw";
 import { expect, mocked, waitFor } from "storybook/test";
 import { BrandPageHeader } from "@/components/brand-header";
 import { NewRelease, ReleaseList } from "@/components/brand-releases";
+import { accentCss } from "@/lib/color";
+import type { Update } from "@/lib/history";
 
 const meta = preview.meta({
   title: "App/Features/Brands/Releases",
@@ -196,5 +199,92 @@ export const OnArtbucket = meta.story({
     await expect(await canvas.findByText("What changes since @12")).toBeInTheDocument();
     await expect(await canvas.findByText("color.primary")).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Release @13" })).toBeEnabled();
+  },
+});
+
+/** The weekly accents, in their order (scripts/weekly-accent.mjs in the hosted repo releases the next each Monday). */
+const WEEKS = [["Volt", "#c6f432"], ["Iris", "#6b4dff"], ["Signal", "#ff5b1f"], ["Tide", "#2f62ff"], ["Moss", "#14a874"], ["Fuchsia", "#c92a72"]] as const;
+/** Where Monday's release is: this week's accent (0 to 5), the step (0 Sunday, 1 the push, 2 released, 3 and 4 followed), the live release's number. */
+type Stage = { week: number; step: number; release: number };
+/** Who may move it: artbucket.io's stage, which frames this story, and a local site. */
+const STAGED_BY = /^(https:\/\/(www\.|dev\.)?artbucket\.io|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/;
+
+/** The stage's place, as its args start it (a change of args remounts it), then as the framing page posts it (`{ type: "artbucket:stage", ...Stage }`). */
+function useStage(start: Stage) {
+  const [stage, setStage] = useState(start);
+  useEffect(() => {
+    const on = (e: MessageEvent) => {
+      const d = e.data as Partial<Stage> & { type?: string };
+      if (e.source !== window.parent || !STAGED_BY.test(e.origin) || d?.type !== "artbucket:stage") return;
+      const n = (v: unknown, max: number) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= max ? (v as number) : null);
+      const week = n(d.week, 5), step = n(d.step, 4), release = n(d.release, 100_000);
+      if (week !== null && step !== null && release) setStage({ week, step, release });
+    };
+    addEventListener("message", on);
+    return () => removeEventListener("message", on);
+  }, []);
+  return stage;
+}
+
+const days = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+const weekly = (version: number, week: number, daysAgo: number): Update => ({
+  version,
+  publishedAt: days(daysAgo),
+  publishedBy: "weekly-accent",
+  note: `${WEEKS[(week + 6) % 6][0]}, the week's accent.`,
+  image: null,
+  changes: { rules: { added: [], changed: ["color.primary"], removed: [] }, pages: { added: [], changed: [], removed: [] } },
+});
+
+/** Our brand's Releases tab on a Monday: the push, the release, then the app on the new accent, as the stage says. */
+function WeeklyTab({ stage: start, globals }: { stage: Stage; globals: Record<string, unknown> }) {
+  const { week, step, release: latest } = useStage(start);
+  const released = step >= 2;
+  const live = released ? latest + 1 : latest;
+  const updates = [...(released ? [weekly(latest + 1, week + 1, 0)] : []), weekly(latest, week, 7), weekly(latest - 1, week - 1, 14), weekly(latest - 2, week - 2, 21)];
+  // The app follows the brand (Settings, Branding): on the new accent once the sites do.
+  const accent = WEEKS[(step >= 3 ? week + 1 : week) % 6][1];
+  const brand = fixture(globals, acme);
+  return (
+    <>
+      <style>{accentCss(accent)}</style>
+      <BrandPageHeader brand={brand} origin="https://app.artbucket.io" rules={rules} status={{ ...fixture(globals, status), publish: step === 1 ? "behind" : "current" }} release={{ ...release, number: live, note: updates[0].note, publishedAt: updates[0].publishedAt }} importing={false} />
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
+        <ReleaseList slug={brand.slug} target={brand} updates={updates} pending={step === 1} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * As artbucket.io's home frames it (`globals=fixture:artbucket`): our brand's weekly accent going out, step by step.
+ * The page posts where its stage is; the args set where it starts.
+ */
+export const WeeklyAccent = meta.story({
+  globals: { fixture: "artbucket" },
+  args: { stage: { week: 0, step: 0, release: 43 } } as never,
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/brands/artbucket/releases" } } },
+  beforeEach: ({ msw }) => {
+    msw.use(assetFiles);
+    mocked(useSelectedLayoutSegments).mockReturnValue(["releases"]);
+  },
+  render: (args, { globals }) => {
+    const { stage } = args as unknown as { stage: Stage };
+    return <WeeklyTab key={`${stage.week}.${stage.step}.${stage.release}`} stage={stage} globals={globals} />;
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Volt, the week's accent.")).toBeInTheDocument();
+    await expect(canvas.queryByText("Unreleased changes since @43")).not.toBeInTheDocument();
+  },
+});
+
+/** The same, on Monday: the push waits as unreleased changes, then the release and the app on Iris. */
+export const WeeklyAccentReleased = meta.story({
+  ...WeeklyAccent.input,
+  args: { stage: { week: 0, step: 3, release: 43 } } as never,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Iris, the week's accent.")).toBeInTheDocument();
+    await expect(canvas.getAllByText("@44")[0]).toBeInTheDocument();
   },
 });
