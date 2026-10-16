@@ -4,6 +4,7 @@ import { delay, http, HttpResponse } from "msw";
 import { AccessProvider } from "@/components/can";
 import { Shell } from "@/components/shell";
 import { fixture } from "./artbucket";
+import font from "./nunito-sans.woff2?url";
 import type { Me } from "@/components/account";
 import type { Page as ActivityPage } from "@/components/activity";
 import type { BrandAsset } from "@/components/brand-assets";
@@ -94,9 +95,10 @@ export function picture(id: string, w = 800, h = 600) {
 /** A one-ink icon, as an icon pack brings them. */
 const GLYPH = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>`;
 
-/** Every /a/ address: a picture for images and stills, the glyph for an icon, a refusal for the rest (a font, a clip). */
+/** Every /a/ address: a picture for images and stills, the glyph for an icon, a face for the font, a refusal for the rest (a clip). */
 export const renditions = [
   http.get("/a/ast_loader*", () => HttpResponse.json({ v: "5.7.4", fr: 30, ip: 0, op: 30, w: 100, h: 100, layers: [] })),
+  http.get("/a/ast_font", async () => new HttpResponse(await (await fetch(font)).arrayBuffer(), { headers: { "Content-Type": "font/woff2" } })),
   http.get("/a/ast_icon_star*", () => new HttpResponse(GLYPH, { headers: { "Content-Type": "image/svg+xml" } })),
   http.get("/a/:id/:spec", ({ params }) => new HttpResponse(picture(String(params.id)), { headers: { "Content-Type": "image/svg+xml" } })),
   http.get("/a/:id", ({ params }) => {
