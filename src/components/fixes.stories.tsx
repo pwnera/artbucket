@@ -108,6 +108,23 @@ export const Extend = meta.story({
   },
 });
 
+/** A site built with an old component, with a deploy hook: Rebuild builds it again from the row. */
+export const Rebuild = meta.story({
+  args: { data: { ...data, components: data.components.map((c) => ({ ...c, site: { ...c.site, rebuild: true } })) } },
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      http.post("/api/v1/sites/:id/rebuild", ({ params }) => {
+        body = { rebuilt: params.id };
+        return HttpResponse.json({ data: { status: "201" } });
+      }),
+    ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Rebuild" }));
+    await waitFor(() => expect(body).toEqual({ rebuilt: "sit_portal" }));
+    await expect(await screen.findByText("Acme brand portal is building again")).toBeInTheDocument();
+  },
+});
+
 export const RequestIt = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Request it" }));

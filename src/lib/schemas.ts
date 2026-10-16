@@ -1717,7 +1717,7 @@ export const Fixes = z.object({
   components: z
     .array(
       z.object({
-        site: z.object({ id: uuid, name: z.string(), slug: z.string() }),
+        site: z.object({ id: uuid, name: z.string(), slug: z.string(), rebuild: z.boolean().describe("It has a deploy hook: POST /api/v1/sites/{id}/rebuild builds it again") }),
         path: z.string().describe("Where the build is mounted"),
         component: z.object({ id: uuid, name: z.string(), version: z.number().int() }).describe("The version its manifest names"),
         current: z.object({ id: uuid, version: z.number().int() }).describe("The version its Storybook shows now"),

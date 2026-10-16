@@ -13,7 +13,7 @@ import { ENTER_PATH } from "@/lib/sites";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
 import { createPortal, decideRequest, getPortal, listProjectRequests, listRequests, pendingRequests, requestAccess, updatePortal } from "@/lib/core/portals";
-import { rebuildSites } from "@/lib/core/rebuild";
+import { rebuildSite, rebuildSites } from "@/lib/core/rebuild";
 import { addDomain, hostTarget, portalHome } from "@/lib/core/domains";
 import { resolveBrand } from "@/lib/core/brands";
 import { publishBrand, setRules } from "@/lib/core/brand";
@@ -336,6 +336,9 @@ test("a release calls the deploy hook of each site built from the brand, and the
   const brand = await resolveBrand(ada.caller.project.id, "default");
   assert.deepEqual(await rebuildSites(brand.id, { number: 7, note: "Bluer primary" }), [{ site: site.slug, status: "201" }]);
   assert.deepEqual(calls, [{ url: hook, body: { event: "brand.released", brand: "default", release: 7, note: "Bluer primary", site: site.slug } }]);
+  // By hand, from Fixes: the same hook, its own event.
+  assert.deepEqual(await rebuildSite(ada.caller, site.id), { status: "201" });
+  assert.deepEqual(calls.at(-1), { url: hook, body: { event: "site.rebuild", site: site.slug } });
   const after = (await getPortal(ada.caller, site.id))!;
   assert.equal(after.rebuild?.lastStatus, "201");
   assert.ok(after.rebuild?.lastAt);
@@ -346,6 +349,7 @@ test("a release calls the deploy hook of each site built from the brand, and the
   // Cleared: nothing is called, and the lineage forgets it.
   await updatePortal(ada.caller, site.id, { rebuild: null });
   assert.deepEqual(await rebuildSites(brand.id, { number: 8 }), []);
+  await assert.rejects(rebuildSite(ada.caller, site.id), /no deploy hook/);
   assert.equal((await getPortal(ada.caller, site.id))!.rebuild, null);
 });
 
@@ -725,7 +729,7 @@ test("a build names the components it is made with: its lineage, and a fix once 
 
   await deploy(ada.caller, sb.id, storybook("bold"));
   const fix = (await fixesOf(ada.caller)).components.find((c) => c.site.id === app.id)!;
-  assert.deepEqual([fix.component.id, fix.component.version, fix.current.version], [v1.id, 1, 2]);
+  assert.deepEqual([fix.component.id, fix.component.version, fix.current.version, fix.site.rebuild], [v1.id, 1, 2, false]);
   const detail = (await componentOf(ada.caller, at))!;
   assert.deepEqual(detail.versions.map((v) => [v.version, v.status, v.usedBy.map((u) => u.id)]), [[2, "current", []], [1, "replaced", [app.id]]]);
 

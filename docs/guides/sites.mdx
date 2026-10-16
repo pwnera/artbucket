@@ -398,6 +398,11 @@ release last called it and what it answered. A site hosted elsewhere with a
 hook is in the brand's lineage too, so replacing a logo shows it. `null`
 removes it.
 
+The same hook builds the site again by hand: **Rebuild** on its row in
+**Fixes**, when a build still names an older component, or
+`POST /api/v1/sites/{id}/rebuild`, which calls it with
+`{"event": "site.rebuild", "site": "{address}"}`.
+
 ## Checked again, every day
 
 A build checked once can go wrong later: a photo's license ends, a logo is

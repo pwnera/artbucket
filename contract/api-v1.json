@@ -43215,12 +43215,17 @@
                                 },
                                 "slug": {
                                   "type": "string"
+                                },
+                                "rebuild": {
+                                  "type": "boolean",
+                                  "description": "It has a deploy hook: POST /api/v1/sites/{id}/rebuild builds it again"
                                 }
                               },
                               "required": [
                                 "id",
                                 "name",
-                                "slug"
+                                "slug",
+                                "rebuild"
                               ],
                               "additionalProperties": false
                             },
@@ -53775,6 +53780,87 @@
                       ],
                       "additionalProperties": false
                     }
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/sites/{id}/rebuild": {
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Site id",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "post": {
+      "summary": "Build a site again",
+      "description": "Calls the site's deploy hook now, as a release does, with `event: \"site.rebuild\"`: for a build that still names an older component (Fixes). `status` is what the hook answered; a site without a hook is refused (422).\n\nScope: `write`.",
+      "x-scope": "write",
+      "responses": {
+        "200": {
+          "description": "What the hook answered",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
