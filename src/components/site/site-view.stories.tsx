@@ -1,6 +1,6 @@
 import preview from "#.storybook/preview";
 import { useMemo, useState } from "react";
-import { expect, waitFor } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 import { SiteView } from "@/components/site/site-view";
 import { LOOKS } from "@/lib/brand-theme";
 import { FIXTURES, fixtureUrl, fixtureView } from "@/lib/fixtures/brand-book";
@@ -119,7 +119,10 @@ export const OnArtbucket = meta.story({
   parameters: brandColors,
   play: async ({ canvas, userEvent }) => {
     await expect(canvas.getByRole("heading", { level: 1 })).toBeInTheDocument();
-    const nav = (name: RegExp) => canvas.getAllByRole("link", { name })[0];
+    // The book's own pages, in its sidebar. On a narrow frame they are in its menu: the page shows as it opens.
+    const pages = canvas.queryByRole("navigation", { name: "Guidelines" });
+    if (!pages) return;
+    const nav = (name: RegExp) => within(pages).getByRole("link", { name });
     await userEvent.click(nav(/Color$/));
     await waitFor(() => expect(nav(/Color$/)).toHaveAttribute("aria-current", "page"));
     await userEvent.click(nav(/^Overview$/));

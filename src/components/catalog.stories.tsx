@@ -344,7 +344,11 @@ export const OnArtbucketLineage = OnArtbucket.extend({
     await expect(await canvas.findByText("Changing artbucket-logo.svg reaches 3 things downstream, in 1 project.", {}, { timeout: 15_000 })).toBeInTheDocument();
     // The graph fits itself to the room it had as it drew: fitted again, to the tree's room too.
     await expect(await canvas.findByText("Press kit")).toBeInTheDocument();
-    fireEvent.click(canvas.getByRole("button", { name: "Fit View" }));
+    const fit = canvas.getByRole("button", { name: "Fit View" });
+    fireEvent.click(fit);
+    // Once more when the cards have their sizes: the first fit can come before they are measured.
+    await new Promise((r) => setTimeout(r, 500));
+    fireEvent.click(fit);
     // Left as a visitor finds it: no button focused, so no tooltip or ring stays up.
     (document.activeElement as HTMLElement | null)?.blur();
     await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
