@@ -60,7 +60,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AssetMenu, type ActionContext } from "@/components/asset-menu";
+import { AssetMenu, AssetMenuButton, type ActionContext } from "@/components/asset-menu";
 import { ShareDialog, type ShareTarget } from "@/components/share-dialog";
 import { usePref, useRemember } from "@/components/sidebar-prefs";
 import { GRID_COLS, GridSkeleton, ListSkeleton } from "@/components/skeletons";
@@ -1694,6 +1694,7 @@ export function Gallery({
                         onCursor={setCursor}
                         large={density === "l"}
                         open={view.asset === a.id}
+                        menu={<AssetMenuButton asset={a} {...menuFor(a)} />}
                       />
                     </li>
                   </AssetMenu>
@@ -1962,6 +1963,7 @@ export const AssetCard = memo(function AssetCard({
   onCursor,
   large = false,
   open = false,
+  menu,
 }: {
   asset: Asset;
   onOpen?: (a: Asset) => void;
@@ -1978,6 +1980,8 @@ export const AssetCard = memo(function AssetCard({
   large?: boolean;
   /** Shown in the viewer: its picture has moved there (the open's view transition). */
   open?: boolean;
+  /** Its menu on a ⋯ (asset-menu.tsx AssetMenuButton), beside the card's own button rather than in it. */
+  menu?: React.ReactNode;
 }) {
   const [hover, setHover] = useState(false);
   const [peek, setPeek] = useState(false);
@@ -2139,6 +2143,7 @@ export const AssetCard = memo(function AssetCard({
           )}
         />
       )}
+      {menu}
     </div>
   );
 });

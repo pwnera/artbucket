@@ -16,6 +16,7 @@ import {
   IconTrash,
   IconUpload,
   IconX,
+  IconDots,
 } from "@/components/icons";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
@@ -36,6 +37,18 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { IconButton } from "@/components/icon-button";
 import { Kbd } from "@/components/ui/kbd";
 import { complain } from "@/lib/send";
 import { undoable } from "@/lib/undo";
@@ -344,5 +357,58 @@ function MenuBody({ asset: a, ctx }: { asset: Asset; ctx: ActionContext }) {
         </Fragment>
       ))}
     </>
+  );
+}
+
+function DropdownItems({ items }: { items: AssetAction[] }) {
+  return items.map((it) =>
+    it.items ? (
+      <DropdownMenuSub key={it.id}>
+        <DropdownMenuSubTrigger>
+          {it.icon} {it.label}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="max-h-72 w-60 overflow-y-auto">
+          <DropdownItems items={it.items} />
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    ) : (
+      <DropdownMenuItem key={it.id} variant={it.destructive ? "destructive" : "default"} onSelect={it.run}>
+        {it.icon} {it.label}
+        {it.hint && <span className="text-muted-foreground ml-auto pl-4 font-mono text-2xs">{it.hint}</span>}
+      </DropdownMenuItem>
+    ),
+  );
+}
+
+/**
+ * The same menu as an asset's right click, on a ⋯ over its card: touch has
+ * no right click, and a keyboard reaches it in turn. Shown on hover where
+ * there is one, always where there isn't.
+ */
+export function AssetMenuButton({ asset: a, ...ctx }: ActionContext & { asset: Asset }) {
+  const can = useCan();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          label={`More for ${a.metadata?.title || a.filename}`}
+          size="icon-xs"
+          variant="secondary"
+          // Beside the card's checkbox (top right), never over it.
+          className="bg-background/80 absolute top-1.5 right-8 z-10 backdrop-blur pointer-coarse:right-9 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 data-[state=open]:opacity-100"
+        >
+          <IconDots />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>{ctx.bulk ? `${ctx.bulk.count} selected` : a.metadata?.title || a.filename}</DropdownMenuLabel>
+        {assetActions(a, can, ctx).map((g, i) => (
+          <Fragment key={i}>
+            <DropdownMenuSeparator />
+            <DropdownItems items={g} />
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
