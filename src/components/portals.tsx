@@ -1484,15 +1484,39 @@ function SiteFields({
 
 /** Who asked in, and a yes or a no for each; a decision can be changed. */
 function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open?: boolean; onClose: (changed: boolean) => void }) {
-  const [rows, setRows] = useState<Request[] | null>(null);
+  const changed = useRef(false);
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose(changed.current)}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>
+          <DialogDescription>
+            Approved access lasts 90 days or until the portal closes.
+          </DialogDescription>
+        </DialogHeader>
+        <RequestList site={portal.id} onChanged={() => (changed.current = true)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** A request, with its site when listed across them. */
+type Asked = Request & { site?: { id: string; name: string } };
+
+/**
+ * Requests and their answers: one site's (`site`), or every site's in the
+ * project, each naming its site (the Inbox's Requests).
+ */
+export function RequestList({ site, onChanged }: { site?: string; onChanged?: () => void }) {
+  const [rows, setRows] = useState<Asked[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   /** The request and the answer being sent, so a double click can't send two. */
   const [busy, setBusy] = useState<string | null>(null);
-  const changed = useRef(false);
+  const at = (r: { site?: { id: string } }) => `/api/v1/sites/${r.site?.id ?? site}/requests`;
   useEffect(() => {
     let live = true;
-    fetch(`/api/v1/sites/${portal.id}/requests`, { cache: "no-store" })
+    fetch(site ? `/api/v1/sites/${site}/requests` : "/api/v1/sites/requests", { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
         const b = await r.json();
@@ -1502,12 +1526,12 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
     return () => {
       live = false;
     };
-  }, [portal.id, attempt]);
+  }, [site, attempt]);
 
-  async function decide(r: Request, status: "approved" | "denied") {
+  async function decide(r: Asked, status: "approved" | "denied") {
     setBusy(`${r.id}:${status}`);
     try {
-      const res = await fetch(`/api/v1/sites/${portal.id}/requests/${r.id}`, {
+      const res = await fetch(`${at(r)}/${r.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -1517,9 +1541,9 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
         toast.error(body.error?.message ?? "That didn't go through");
         return false;
       }
-      changed.current = true;
+      onChanged?.();
       const next: Request = body.data;
-      setRows((rs) => rs?.map((x) => (x.id === r.id ? next : x)) ?? null);
+      setRows((rs) => rs?.map((x) => (x.id === r.id ? { ...next, site: x.site } : x)) ?? null);
       if (r.kind !== "access") toast.success(status === "approved" ? "Marked done" : "Dismissed");
       else if (status === "denied") toast.success(r.status === "approved" ? `${r.email} no longer has access` : "Denied");
       else if (body.emailed) toast.success(`${r.email} has access, and a link by email`);
@@ -1539,26 +1563,17 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
     }
   }
 
-  async function remove(r: Request) {
+  async function remove(r: Asked) {
     if (busy) return;
     setBusy(`${r.id}:delete`);
-    const ok = await send("DELETE", `/api/v1/sites/${portal.id}/requests/${r.id}`);
+    const ok = await send("DELETE", `${at(r)}/${r.id}`);
     setBusy(null);
     if (!ok) return;
-    changed.current = true;
+    onChanged?.();
     setRows((rs) => rs?.filter((x) => x.id !== r.id) ?? null);
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose(changed.current)}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug break-words">Requests · {portal.name}</DialogTitle>
-          <DialogDescription>
-            Approved access lasts 90 days or until the portal closes.
-          </DialogDescription>
-        </DialogHeader>
-        {failed ? (
+  return failed ? (
           <Empty size="sm">
             <EmptyHeader>
               <EmptyTitle>Couldn&apos;t load the requests</EmptyTitle>
@@ -1662,12 +1677,10 @@ function RequestsDialog({ portal, open = true, onClose }: { portal: Portal; open
                 )}
                 <p className="text-muted-foreground text-xs" title={exact(r.createdAt)}>
                   Asked {ago(r.createdAt)}
+                  {r.site && ` on ${r.site.name}`}
                 </p>
               </li>
             ))}
           </ul>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+        );
 }

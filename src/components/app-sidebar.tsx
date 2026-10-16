@@ -122,7 +122,7 @@ export function AppSidebar({
     sites: pathname === "/sites" || pathname.startsWith("/sites/"),
     // Explore's Components tab, with nothing typed: the page Components was.
     components: pathname.startsWith("/components") || (inLibrary && view.in === "component" && !view.q.trim()),
-    inbox: pathname === "/review" || pathname === "/fixes" || pathname === "/imports" || pathname.startsWith("/imports/"),
+    inbox: pathname === "/review" || pathname === "/fixes" || pathname === "/requests" || pathname === "/imports" || pathname.startsWith("/imports/"),
     templates: pathname === "/templates",
     // A collection, a saved search or the trash is its own item, so Assets isn't lit for one.
     assets: inLibrary && !view.collection && !onSearch && !trash && !(view.in === "component" && !view.q.trim()),
@@ -168,7 +168,7 @@ export function AppSidebar({
               {/* The places: where you start, every object as a tree, what waits on you, how it is used. */}
               <Place href="/" label="Home" icon={<IconHome />} active={at.home} />
               <Place href="/catalog" label="Catalog" icon={<IconSitemap />} active={at.catalog} />
-              {/* Review, Fixes and Imports, one count of what waits on this person. */}
+              {/* Review, Fixes, Requests and Imports, one count of what waits on this person. */}
               <Place
                 href="/review"
                 label="Inbox"

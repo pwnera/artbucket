@@ -1243,7 +1243,7 @@ export async function requestAccess(
     const note = input.note || null;
     await db.insert(portalRequests).values({ portalId: p.id, email, name: input.name || null, note, kind, page: input.page ?? null, section: input.section ?? null });
     const ws = await projectById(p.projectId);
-    const manage = `${await appUrlFor(ws?.organizationId ?? null)}/portals?open=${p.id}`;
+    const manage = `${await appUrlFor(ws?.organizationId ?? null)}/requests`;
     const who = input.name ? `${input.name} (${email})` : email;
     for (const to of await adminsOf(p)) {
       const draft = portalRequestEmail(to, { portal: p.name, who, note, url: manage });
@@ -1287,6 +1287,34 @@ export async function listRequests(caller: Caller, portalId: string) {
     domainOf(p.id),
   ]);
   return Promise.all(rows.map((r) => presentRequest(p, d, r)));
+}
+
+/**
+ * Every site's requests in the project, newest first, each naming its site:
+ * the Inbox's Requests. `pending`: only how many wait, for its count.
+ */
+export async function listProjectRequests(caller: Caller) {
+  mayManage(caller);
+  const rows = await db
+    .select({ r: portalRequests, p: portals })
+    .from(portalRequests)
+    .innerJoin(portals, eq(portals.id, portalRequests.portalId))
+    .where(eq(portals.projectId, caller.project.id))
+    .orderBy(desc(portalRequests.createdAt))
+    .limit(200);
+  const domains = new Map<string, ReturnType<typeof domainOf>>();
+  const domain = (id: string) => domains.get(id) ?? domains.set(id, domainOf(id)).get(id)!;
+  return Promise.all(rows.map(async ({ r, p }) => ({ ...(await presentRequest(p, await domain(p.id), r)), site: { id: p.id, name: p.name } })));
+}
+
+export async function pendingRequests(caller: Caller) {
+  mayManage(caller);
+  const [{ pending }] = await db
+    .select({ pending: count() })
+    .from(portalRequests)
+    .innerJoin(portals, eq(portals.id, portalRequests.portalId))
+    .where(and(eq(portals.projectId, caller.project.id), eq(portalRequests.status, "pending")));
+  return pending;
 }
 
 /**

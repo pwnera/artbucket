@@ -259,6 +259,18 @@
             ]
           },
           "description": "false: no facet counts, each empty, answered faster: for `total` alone"
+        },
+        {
+          "name": "record",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "false: not counted as a search in Insights (a list beside a search counted already)"
         }
       ],
       "responses": {
@@ -6724,7 +6736,7 @@
     },
     "patch": {
       "summary": "Edit an asset, or review what was proposed",
-      "description": "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and `supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking a draft takes write; any other move takes write with the approve ability. Whoever proposed an asset (`proposedBy`, the same key or person) can't approve it: 403, someone else does.\n\nScope: `write`.",
+      "description": "Also its rights (replaced whole), provenance (`origin`, `parentAssetId`, `generator`, `prompt`), and `supersededBy`: the asset that replaces it, which /api/v1/check then names. `status` moves it through its lifecycle: draft, proposed (in review), active (approved), archived, rejected. Submitting or reworking a draft takes write, and so does any other move, approving included. Whoever proposed an asset (`proposedBy`, the same key or person) can't approve it: 403, someone else does.\n\nScope: `write`.",
       "x-scope": "write",
       "requestBody": {
         "required": true,
@@ -15812,6 +15824,22 @@
           "description": "Repeat for several"
         },
         {
+          "name": "kind",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "font",
+              "document",
+              "other"
+            ]
+          },
+          "description": "An asset's file kind: only assets; repeat for several"
+        },
+        {
           "name": "project",
           "in": "query",
           "schema": {
@@ -15885,6 +15913,30 @@
             "minimum": 0
           },
           "description": "The previous page's `next`"
+        },
+        {
+          "name": "record",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "false: not counted as a search in Insights"
+        },
+        {
+          "name": "facets",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "true: the matches' tags, and their statuses past the status filter, counted in `facets`"
         }
       ],
       "responses": {
@@ -16086,6 +16138,13 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "preview": {
+                          "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -16141,6 +16200,66 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "facets": {
+                    "description": "With facets=true",
+                    "type": "object",
+                    "properties": {
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "string"
+                            },
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "statuses": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "in_review",
+                                "current",
+                                "replaced",
+                                "archived"
+                              ]
+                            },
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "tags",
+                      "statuses"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -16375,6 +16494,13 @@
                               },
                               "updatedAt": {
                                 "type": "string"
+                              },
+                              "preview": {
+                                "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
                               }
                             },
                             "required": [
@@ -16614,6 +16740,13 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "preview": {
+                          "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "sharedFrom": {
                           "type": "object",
@@ -16868,6 +17001,13 @@
                   "updatedAt": {
                     "type": "string"
                   },
+                  "preview": {
+                    "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "usedBy": {
                     "type": "array",
                     "items": {
@@ -17015,6 +17155,13 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "preview": {
+                          "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -17373,6 +17520,13 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "preview": {
+                          "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "up": {
                           "type": "integer",
@@ -18175,6 +18329,13 @@
                           },
                           "description": "Its stories' and source files, as Storybook's index.json names them"
                         },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                        },
                         "path": {
                           "type": "string",
                           "description": "Where its Storybook is mounted on the site"
@@ -18253,6 +18414,7 @@
                         "story",
                         "stories",
                         "files",
+                        "tags",
                         "path",
                         "createdAt",
                         "createdBy",
@@ -18421,6 +18583,13 @@
                               },
                               "description": "Its stories' and source files, as Storybook's index.json names them"
                             },
+                            "tags": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                            },
                             "path": {
                               "type": "string",
                               "description": "Where its Storybook is mounted on the site"
@@ -18538,6 +18707,7 @@
                             "story",
                             "stories",
                             "files",
+                            "tags",
                             "path",
                             "createdAt",
                             "createdBy",
@@ -18714,7 +18884,7 @@
                 "query": {
                   "type": "string",
                   "maxLength": 4000,
-                  "description": "An /api/v1/assets query string, e.g. \"q=fox&f.channel=web\""
+                  "description": "An /api/v1/assets query string, e.g. \"q=fox&f.channel=web\"; `in` (a catalog type) opens it on that type in Explore, e.g. \"q=button&in=component\""
                 }
               },
               "required": [
@@ -40489,7 +40659,11 @@
                                 "sso",
                                 "branding",
                                 "domains",
-                                "rebuilds"
+                                "rebuilds",
+                                "automations",
+                                "fixes",
+                                "templates",
+                                "digest"
                               ]
                             }
                           },
@@ -45372,8 +45546,8 @@
   "/api/v1/automations": {
     "get": {
       "summary": "The project's automations",
-      "description": "What is sent, by email or a signed webhook, when a brand is released, an asset's license is about to end, governance changes, the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "What is sent, by email or a signed webhook, when a brand is released, an asset's license is about to end, governance changes, the use check keeps refusing an asset, Fixes finds something new, or a proposal waits in review: those the caller may manage. An editor of a brand manages its release automations; every other trigger, and any brand's releases, take admin on the project.\n\nScope: `write`.",
+      "x-scope": "write",
       "responses": {
         "200": {
           "description": "Automations",
@@ -45608,8 +45782,8 @@
     },
     "post": {
       "summary": "Make an automation",
-      "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. governance fires on each entry of the project's audit log and each asset decision (`asset.approved`, `asset.rejected`, `asset.archived`...) that `actions` names, exact or by prefix (`share.*`), every one when empty; never on entries outside a project or a private asset's. check.refused fires once per asset and window when the use check refused it `times` times within `days` (7 unless said). fix.opened fires once for each new thing Fixes lists, of `kind` (stale or gap, or both), first seen since the automation was made. review.waiting fires once for each proposal in review `days` or more. email sends to `emails`; webhook POSTs to `url` the run's payload (`format` json), a Slack incoming webhook's message (slack) or a Teams workflow's Adaptive Card (teams), signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "brand.released fires when a brand (`brand`, or any) is released; asset.expiring once per approved asset, `days` before its last day of use, and again for a new date. governance fires on each entry of the project's audit log and each asset decision (`asset.approved`, `asset.rejected`, `asset.archived`...) that `actions` names, exact or by prefix (`share.*`), every one when empty; never on entries outside a project or a private asset's. check.refused fires once per asset and window when the use check refused it `times` times within `days` (7 unless said). fix.opened fires once for each new thing Fixes lists, of `kind` (stale or gap, or both), first seen since the automation was made. review.waiting fires once for each proposal in review `days` or more. email sends to `emails`; webhook POSTs to `url` the run's payload (`format` json), a Slack incoming webhook's message (slack) or a Teams workflow's Adaptive Card (teams), signed as `Artbucket-Signature: t={unix seconds},v1={hex HMAC-SHA256 of \"{t}.{body}\"}` with `secret`, which is in this answer only. A delivery that fails is tried again 5 minutes, then an hour later: 3 attempts in all.\n\nScope: `write`.",
+      "x-scope": "write",
       "requestBody": {
         "required": true,
         "content": {
@@ -45976,8 +46150,8 @@
     ],
     "patch": {
       "summary": "Change an automation",
-      "description": "What is left out stays. Made a webhook, it gets a secret, in this answer only.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "What is left out stays. Made a webhook, it gets a secret, in this answer only.\n\nScope: `write`.",
+      "x-scope": "write",
       "requestBody": {
         "required": true,
         "content": {
@@ -46326,8 +46500,8 @@
     },
     "delete": {
       "summary": "Delete an automation",
-      "description": "Its run log goes with it.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "Its run log goes with it.\n\nScope: `write`.",
+      "x-scope": "write",
       "responses": {
         "200": {
           "description": "Deleted",
@@ -46408,8 +46582,8 @@
     ],
     "get": {
       "summary": "An automation's run log",
-      "description": "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "Its latest 50 runs, newest first: what set each off, and every attempt at delivering it, with the webhook's status or the error.\n\nScope: `write`.",
+      "x-scope": "write",
       "responses": {
         "200": {
           "description": "Runs",
@@ -46578,8 +46752,8 @@
     ],
     "post": {
       "summary": "Send a test",
-      "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest; for governance the latest audit entry it takes, else one made up; for check.refused that asset; for fix.opened the first open Fix of its kind, else a made-up search; for review.waiting the oldest proposal, else the oldest asset. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `admin`.",
-      "x-scope": "admin",
+      "description": "Send it now, on or off, with a sample event: for brand.released its brand's latest release (the default brand's for any brand), for asset.expiring the approved asset whose license ends soonest, else the newest; for governance the latest audit entry it takes, else one made up; for check.refused that asset; for fix.opened the first open Fix of its kind, else a made-up search; for review.waiting the oldest proposal, else the oldest asset. What it sends says `test: true`. One attempt, never tried again, kept in the run log marked as a test. A 422 when there is nothing to make a sample from.\n\nScope: `write`.",
+      "x-scope": "write",
       "responses": {
         "201": {
           "description": "The run, delivered or failed",
@@ -53394,6 +53568,213 @@
                       "updatedAt"
                     ],
                     "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "An error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "detail": {}
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v1/sites/requests": {
+    "get": {
+      "summary": "Every site's requests",
+      "description": "Every site's requests in the project, newest first, each with its `site`: access asked at a door, and assets, reviews and questions asked from a page.\n\nScope: `write`.",
+      "x-scope": "write",
+      "parameters": [
+        {
+          "name": "count",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ]
+          },
+          "description": "true: `{ pending }` alone, how many wait: for a badge"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Requests",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "approved",
+                            "denied"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "access",
+                            "asset",
+                            "review",
+                            "question"
+                          ],
+                          "description": "access: to get in; asset, review or question: asked from a request section"
+                        },
+                        "page": {
+                          "description": "The page a request section asked from",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "section": {
+                          "description": "The request section, by id",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "expiresAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "decidedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        "url": {
+                          "description": "For an approved request: their own link, to copy",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "site": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "note",
+                        "status",
+                        "kind",
+                        "page",
+                        "section",
+                        "expiresAt",
+                        "decidedBy",
+                        "decidedAt",
+                        "createdAt",
+                        "url",
+                        "site"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -68862,7 +69243,7 @@
   "/api/v1/mcp": {
     "post": {
       "summary": "MCP (Streamable HTTP, stateless)",
-      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_sites, update_site, create_site, check_site, deploy_site, close_site, delete_site, list_site_requests, decide_site_request, search_catalog, describe_object, lineage, share_object, who_can, review_assets, update_asset, update_assets, delete_asset, restore_asset, asset_versions, make_version_current, get_activity, get_insights, asset_insights, brand_insights, brand_updates, brand_assets, brand_tokens, create_share, list_shares, save_search, list_searches, list_members, object_activity, shared_with_us, list_projects, propose_fields. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
+      "description": "JSON-RPC 2.0 for Model Context Protocol clients. Tools: search_assets, describe_asset, rendition_url, check_use, ingest_asset, import_google_font, find_icons, import_icons, brand_rules, my_proposals, propose_tags, review_asset, list_fields, create_field, update_field, delete_field, list_collections, create_collection, update_collection, update_collection_assets, delete_collection, brand_status, create_brand, update_brand, set_brand_hub, delete_brand, list_templates, brand_playbook, preview_page, list_pages, get_page, set_rules, save_page, edit_page, delete_page, generate_pages, get_theme, set_theme, list_versions, get_version, name_version, restore_version, list_comments, add_comment, update_comment, delete_comment, publish, list_sites, update_site, create_site, check_site, deploy_site, list_deployments, restore_deployment, close_site, delete_site, list_site_requests, decide_site_request, search_catalog, describe_object, lineage, share_object, who_can, review_assets, update_asset, update_assets, delete_asset, restore_asset, asset_versions, make_version_current, get_activity, get_insights, asset_insights, brand_insights, brand_updates, brand_assets, brand_tokens, create_share, list_shares, save_search, list_searches, list_members, object_activity, shared_with_us, list_projects, propose_fields, get_fixes, list_automations, create_automation, update_automation, delete_automation, test_automation, automation_runs, create_project, rename_project. Each tool checks its own scope. Resources: a brand's rules (artbucket://brand/rules for the default brand, artbucket://brands/{slug}/rules for any, and /{context} after either for one context) and its pages as Markdown (artbucket://brands/{slug}/pages/{page}).\n\nScope: `read`.",
       "x-scope": "read",
       "requestBody": {
         "required": true,

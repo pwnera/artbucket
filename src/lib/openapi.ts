@@ -1778,6 +1778,17 @@ export function openapi(serverUrl: string) {
           ok: [200, "The portal", data(S.Portal)],
         }),
       },
+      "/api/v1/sites/requests": {
+        get: op({
+          summary: "Every site's requests",
+          scope: "write",
+          description: "Every site's requests in the project, newest first, each with its `site`: access asked at a door, and assets, reviews and questions asked from a page.",
+          query: {
+            count: { schema: { type: "string", enum: ["true", "false"] }, description: "true: `{ pending }` alone, how many wait: for a badge" },
+          },
+          ok: [200, "Requests", data(z.array(S.PortalRequest.extend({ site: z.object({ id: z.string(), name: z.string() }) })))],
+        }),
+      },
       "/api/v1/sites/{id}/requests": {
         parameters: [path("id", "Portal id")],
         get: op({ summary: "Access requests", scope: "write", description: "Who asked in, newest first, and what became of it.", ok: [200, "Requests", data(z.array(S.PortalRequest))] }),

@@ -179,6 +179,8 @@ export const sitesApi = () => [
   ),
   http.get("/api/v1/brands", () => HttpResponse.json({ data: [{ slug: "acme", name: "Acme", default: true }, { slug: "northwind", name: "Northwind", default: false }] })),
   http.get("/api/v1/sites/:id/requests", () => HttpResponse.json({ data: requests })),
+  // The Inbox's Requests: the same, each naming its site.
+  http.get("/api/v1/sites/requests", () => HttpResponse.json({ data: requests.map((r, i) => ({ ...r, site: i % 2 ? { id: docs.id, name: docs.name } : { id: partners.id, name: partners.name } })) })),
   http.get("/api/v1/sites/:id/deployments", () => HttpResponse.json({ data: deployments })),
 ];
 
