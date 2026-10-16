@@ -10,11 +10,12 @@ import { save } from "@/components/asset-menu";
 import { copyText } from "@/components/copy-button";
 import { FacetFilter } from "@/components/facet-filter";
 import { IconButton } from "@/components/icon-button";
-import { IconArrowUpRight, IconCopy, IconDots, IconDownload, IconLink, IconPin, IconPinFilled, IconSitemap } from "@/components/icons";
+import { IconArrowUpRight, IconComponents, IconCopy, IconDots, IconDownload, IconLink, IconPin, IconPinFilled, IconSitemap } from "@/components/icons";
 import { usePins } from "@/components/sidebar-prefs";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { openPath, STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
 import type { Narrow } from "@/lib/view";
@@ -156,7 +157,20 @@ export function CatalogMatches({
           </div>
           {/* Ranked together, whatever their type: a strong component comes before a weak asset. */}
           <Section title={only ? TYPE_LABEL[only].many : "Results"} count={shown?.r.total}>
-            {shown && !shown.items.length ? (
+            {shown && !shown.items.length && only === "component" && !q && !narrow.tags.length && !narrow.statuses.length ? (
+              // Nothing deployed yet: how to bring a Storybook's components in, as the Components page said.
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconComponents />
+                  </EmptyMedia>
+                  <EmptyTitle>No components yet</EmptyTitle>
+                  <EmptyDescription>
+                    Deploy a Storybook to a site (<code>artbucket site push storybook-static --site storybook --kind storybook</code>) and each component it documents shows up here.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : shown && !shown.items.length ? (
               <p className="text-muted-foreground text-sm">No {only ? TYPE_LABEL[only].many.toLowerCase() : "results"} match.</p>
             ) : (
               <CardGrid>{(shown?.items ?? []).map(card)}</CardGrid>

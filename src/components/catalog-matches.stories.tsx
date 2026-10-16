@@ -133,3 +133,12 @@ export const LongNames = meta.story({
 });
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
+
+/** The Components tab with nothing deployed yet (what /components was): how to bring a Storybook's components in. */
+export const NoComponentsYet = meta.story({
+  args: { q: "", only: "component" },
+  beforeEach: ({ msw }) => void msw.use(answer([])),
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByText("No components yet")).toBeInTheDocument();
+  },
+});

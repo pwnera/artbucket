@@ -2,7 +2,7 @@ import preview from "#.storybook/preview";
 import { http, HttpResponse } from "msw";
 import { expect, screen, within } from "storybook/test";
 import { inApp } from "#.storybook/fixtures/library";
-import { ComponentPage, Components, ComponentSheet } from "@/components/components-page";
+import { ComponentPage, ComponentSheet } from "@/components/components-page";
 
 /** A story as a site would serve it: a frame of plain HTML, so nothing reaches the network. */
 const frame = (label: string) =>
@@ -31,41 +31,6 @@ const row = (id: string, name: string, title: string, over: object = {}) => ({
   ...over,
 });
 
-const rows = [
-  row("cmp_button", "Button", "UI/Button"),
-  row("cmp_card", "Card", "UI/Card", { versions: 1, version: 1 }),
-  row("cmp_logo", "Logo", "Brand/Logo", { preview: null }),
-  row("cmp_hero", "Hero", "Marketing/Hero", { path: "/marketing", site: { id: "prt_mk", slug: "marketing", name: "Acme marketing" } }),
-];
-
-/**
- * Components (Components): what the project's Storybooks document, each at the version live now with its story beside
- * it, grouped by site; and a component's page (ComponentPage) with every version and the sites built with it.
- */
-const meta = preview.meta({
-  title: "App/Features/Library/Components page",
-  component: Components,
-  decorators: [inApp],
-  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/components" } } },
-  args: { rows },
-});
-
-/** Two sites' components, each card a link to its page. */
-export const Playground = meta.story({
-  play: async ({ canvas }) => {
-    await expect(await canvas.findByRole("link", { name: "Button" }, { timeout: 5000 })).toHaveAttribute("href", "/components/cmp_button");
-    await expect(canvas.getByText("No preview for this one")).toBeInTheDocument();
-  },
-});
-
-/** No Storybook deployed yet: how to deploy one. */
-export const Empty = meta.story({ args: { rows: [] } });
-
-/** They couldn't load. */
-export const Failed = meta.story({ args: { rows: null } });
-
-export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
-
 const detail = {
   id: "cmp_button",
   address: "acme/acme/site:storybook/component:ui-button",
@@ -80,10 +45,17 @@ const detail = {
   ],
 };
 
+/** A component's page (ComponentPage): every version, its story live, the sites built with it; and the same in a panel over Explore. */
+const meta = preview.meta({
+  title: "App/Features/Library/Components page",
+  component: ComponentPage,
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/components/cmp_button" } } },
+  args: { c: detail as never },
+});
+
 /** A component's page: its story live, its versions; an old one whose build is gone keeps only its record. */
 export const Detail = meta.story({
-  parameters: { nextjs: { navigation: { pathname: "/components/cmp_button" } } },
-  render: () => <ComponentPage c={detail as never} />,
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(await canvas.findByRole("button", { name: /@1/ }, { timeout: 5000 }));
     await expect(canvas.getByText("The build that held @1 is no longer kept, so only its record remains.")).toBeInTheDocument();
@@ -100,3 +72,5 @@ export const InExplore = meta.story({
     await expect(within(panel).getByRole("heading", { name: /Versions/ })).toBeInTheDocument();
   },
 });
+
+export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });

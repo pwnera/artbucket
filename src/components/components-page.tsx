@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/catalog";
-import { IconComponents, IconExternalLink, IconWorld } from "@/components/icons";
+import { IconComponents, IconExternalLink } from "@/components/icons";
 import { AppHeader, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ComponentDetail, ComponentRow } from "@/lib/core/components";
+import type { ComponentDetail } from "@/lib/core/components";
 import { ago, exact } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +20,6 @@ import { cn } from "@/lib/utils";
  * while its build is kept, and the sites built with it.
  */
 
-type Row = Omit<ComponentRow, "createdAt"> & { createdAt: string };
 type Detail = Omit<ComponentDetail, "versions"> & { versions: (Omit<ComponentDetail["versions"][number], "createdAt"> & { createdAt: string })[] };
 
 /** A story, alone, as Storybook draws it: never interactive in a card, so the card stays a link. */
@@ -30,71 +28,13 @@ function Story({ src, title, className }: { src: string | null; title: string; c
   return <iframe src={src} title={title} loading="lazy" sandbox="allow-scripts allow-same-origin" className={cn("bg-background w-full border-0", className)} />;
 }
 
-export function Components({ rows }: { rows: Row[] | null }) {
-  const sites = [...new Map((rows ?? []).map((r) => [`${r.site.id}${r.path}`, r])).values()];
-  return (
-    <>
-      <AppHeader trail={[{ label: "Components" }]} />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
-        <PageHeader
-          icon={<IconComponents />}
-          title="Components"
-          description="What your Storybooks document, each at the version live now. A new version comes with each deploy that changes it; builds that name an older one show up in Fixes."
-        />
-        {!rows ? (
-          <p className="text-muted-foreground text-sm">Components couldn&apos;t load. Try again in a moment.</p>
-        ) : !rows.length ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <IconComponents />
-              </EmptyMedia>
-              <EmptyTitle>No components yet</EmptyTitle>
-              <EmptyDescription>
-                Deploy a Storybook to a site (<code>artbucket site push storybook-static --site storybook --kind storybook</code>) and each component it documents shows up here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          sites.map((s) => (
-            <section key={`${s.site.id}${s.path}`} className="space-y-3">
-              <h2 className="font-display flex items-center gap-2 text-sm font-semibold">
-                <IconWorld aria-hidden className="text-muted-foreground size-4" />
-                {s.site.name}
-                {s.path !== "/" && <span className="text-muted-foreground font-mono font-normal">{s.path}</span>}
-              </h2>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {rows
-                  .filter((r) => r.site.id === s.site.id && r.path === s.path)
-                  .map((r) => (
-                    <li key={r.id} className="group relative overflow-hidden rounded-lg border">
-                      <Story src={r.preview} title={r.name} className="pointer-events-none h-44" />
-                      <div className="border-t px-3 py-2.5">
-                        <Link href={`/components/${r.id}`} className="font-medium after:absolute after:inset-0">
-                          {r.name}
-                        </Link>
-                        <p className="text-muted-foreground truncate text-xs">
-                          {r.title} · @{r.version} · {r.versions} {r.versions === 1 ? "version" : "versions"}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          ))
-        )}
-      </div>
-    </>
-  );
-}
-
 /** A story's id from its name, as Storybook makes it from the export: "Logo Use" is ui-button--logo-use. */
 const storyId = (slug: string, name: string) => `${slug}--${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 
 export function ComponentPage({ c }: { c: Detail }) {
   return (
     <>
-      <AppHeader trail={[{ label: "Components", href: "/components" }, { label: c.name }]} />
+      <AppHeader trail={[{ label: "Components", href: "/?in=component" }, { label: c.name }]} />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-16 md:px-6">
         <ComponentView c={c} />
       </div>
