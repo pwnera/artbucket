@@ -106,7 +106,7 @@ export const Tokens = meta.story({
   },
 });
 
-/** Start from this brand: Duplicate copies it into a new brand, then opens it. */
+/** Start from this brand: Duplicate makes "Acme copy" at once, opens it, and its toast offers Rename. */
 export const Duplicate = meta.story({
   beforeEach: ({ msw }) =>
     void msw.use(
@@ -118,11 +118,11 @@ export const Duplicate = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: /Use this brand/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Duplicate" }));
-    const dialog = await screen.findByRole("dialog", { name: "Duplicate Acme" });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Create brand" }));
     await waitFor(() => expect(body).toEqual({ name: "Acme copy", from: "acme" }));
     await expect(await screen.findByText("Created Acme copy")).toBeInTheDocument();
     await expect(getRouter().push).toHaveBeenCalledWith("/brands/acme-copy");
+    await userEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await expect(getRouter().push).toHaveBeenCalledWith("/brands/acme-copy/settings");
   },
 });
 
@@ -240,5 +240,24 @@ export const EditMenu = meta.story({
     await expect(screen.getByRole("menuitem", { name: "Change the pages…" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  },
+});
+
+/** The name is edited where it is shown: a click makes it a field, Enter saves it. */
+export const RenameInPlace = meta.story({
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      http.patch("/api/v1/brands/acme", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: { ...acme, name: "Acme Inc" } });
+      }),
+    ),
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Acme" }));
+    const field = canvas.getByRole("textbox", { name: "Brand name" });
+    await userEvent.clear(field);
+    await userEvent.type(field, "Acme Inc{Enter}");
+    await waitFor(() => expect(body).toEqual({ name: "Acme Inc" }));
+    await expect(getRouter().refresh).toHaveBeenCalled();
   },
 });
