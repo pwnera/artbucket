@@ -36,19 +36,18 @@ const meta = preview.meta({
 export const Playground = meta.story({
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("textbox", { name: "Name" })).toHaveValue("Northwind");
-    // Nothing changed: nothing to save.
-    await expect(canvas.getByRole("button", { name: "Rename" })).toBeDisabled();
+    // Saved as it is left: no button to press.
+    await expect(canvas.queryByRole("button", { name: "Rename" })).not.toBeInTheDocument();
     await expect(canvas.getByText(/main, brand, 14 files, synced yesterday, with changes to bring in/)).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Manage" })).toHaveAttribute("href", source.connect!);
   },
 });
 
-/** Rename: PATCH the name, Saved beside the button, the page read again. */
+/** Rename: typed and left (Enter leaves it too), PATCH the name, Saved beside it, the page read again. */
 export const Rename = meta.story({
   play: async ({ canvas, userEvent }) => {
     const name = canvas.getByRole("textbox", { name: "Name" });
     await userEvent.clear(name);
-    await expect(canvas.getByRole("button", { name: "Rename" })).toBeDisabled();
     await userEvent.type(name, "Northwind Coffee{Enter}");
     await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/northwind", body: { name: "Northwind Coffee" } }));
     await expect(await canvas.findByText("Saved")).toBeInTheDocument();
@@ -85,19 +84,18 @@ export const Domain = meta.story({
   play: async ({ canvas, userEvent }) => {
     const domain = canvas.getByRole("textbox", { name: /Domain/ });
     await userEvent.clear(domain);
-    await userEvent.click(canvas.getByRole("button", { name: "Save" }));
+    await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(sent.last("PATCH")).toEqual({ path: "/api/v1/brands/acme", body: { domain: null } }));
-    await userEvent.type(domain, "https://www.acme.test/");
-    await userEvent.click(canvas.getByRole("button", { name: "Save" }));
+    await userEvent.type(domain, "https://www.acme.test/{Enter}");
     await waitFor(() => expect(sent.last("PATCH")?.body).toEqual({ domain: "https://www.acme.test/" }));
     await waitFor(() => expect(domain).toHaveValue("acme.test"));
   },
 });
 
-/** Private, or open to the whole project again. */
+/** Limited to people given access, or open to the whole project again. */
 export const OpenToTheProject = meta.story({
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.getByText("Private")).toBeInTheDocument();
+    await expect(canvas.getByText("Only people given access")).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Open to the project" }));
     await waitFor(() => expect(sent.last("PATCH")?.body).toEqual({ private: false }));
     await expect(await screen.findByText("Northwind is the project's again")).toBeInTheDocument();
