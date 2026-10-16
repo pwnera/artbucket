@@ -15,7 +15,7 @@ const fn0 = () => {};
 
 /**
  * The app's one sidebar, in the shell as the (app) layout mounts it: the places, the content, what the person pinned,
- * and at the foot Integrations, Trash, Settings, BrandHub and the account. Every item is a link.
+ * and at the foot Integrations, Automations, Trash, Settings, BrandHub and the account. Every item is a link.
  */
 const meta = preview.meta({
   title: "App/Features/Shell/Sidebar",
@@ -47,7 +47,8 @@ export const Playground = meta.story({
     await expect(canvas.getByRole("link", { name: "Catalog" })).toHaveAttribute("data-active", "true");
     await expect(canvas.getByRole("link", { name: "Trash" })).toHaveAttribute("href", "/assets?browse&status=deleted");
     await expect(canvas.getByRole("link", { name: /^Inbox\s*, 3 in Review, 2 in Fixes$/ })).toHaveAttribute("href", "/review");
-    for (const name of ["Explore", "Review", /^Fixes/, "Automations"]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
+    for (const name of ["Explore", "Review", /^Fixes/]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Automations" })).toHaveAttribute("href", "/automations");
     await expect(canvas.getByRole("link", { name: "Integrations" })).toHaveAttribute("href", "/connections");
     await expect(await canvas.findByRole("link", { name: "38 GB of 100 GB used" })).toHaveAttribute("href", "/settings/organization/usage");
     await expect(canvas.getByRole("link", { name: /^BrandHub/ })).toHaveAttribute("target", "_blank");
@@ -133,7 +134,7 @@ export const Viewer = meta.story({
   args: { me: viewer },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
-    for (const name of ["Insights", "Sites"]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
+    for (const name of ["Insights", "Sites", "Automations"]) await expect(canvas.queryByRole("link", { name })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("link", { name: /used$/ })).not.toBeInTheDocument();
   },
 });

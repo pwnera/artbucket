@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  IconBolt,
   IconBook,
   IconBookmark,
   IconChartBar,
@@ -73,8 +74,8 @@ export type SavedSearch = { id: string; name: string; query: string };
 /**
  * The app's one sidebar, the same on every page: the places (Home, Catalog,
  * Inbox, Insights), the content (Brands, Assets, Collections, Components,
- * Brand files, Sites), and at the foot Integrations, Trash, Settings and
- * BrandHub, which opens in a new tab. Every item is a link, and every view it
+ * Brand files, Sites), and at the foot Integrations, Automations, Trash,
+ * Settings and BrandHub, which opens in a new tab. Every item is a link, and every view it
  * links to is a URL.
  *
  * Library links move within the page (history.pushState) when you are
@@ -114,6 +115,7 @@ export function AppSidebar({
     home: pathname === "/",
     catalog: pathname.startsWith("/catalog"),
     connections: pathname === "/connections",
+    automations: pathname === "/automations",
     insights: pathname.startsWith("/insights"),
     brands: pathname === "/brands" || pathname.startsWith("/brands/") || pathname === "/brand",
     collections: pathname === "/collections" || (inLibrary && !!view.collection),
@@ -209,6 +211,8 @@ export function AppSidebar({
           <ExpandItem />
           {/* Agents, keys and Git; turned off here (Settings, Features): nothing to connect. */}
           {!me.off.includes("agents") && <Place href="/connections" label="Integrations" icon={<IconRobot />} active={at.connections} />}
+          {/* What runs on its own: an email or a webhook on a release or an expiry. */}
+          {can("automation.manage") && <Place href="/automations" label="Automations" icon={<IconBolt />} active={at.automations} />}
           {/* The 30-day trash, a place of its own rather than a status to filter by: each asset there restores from its menu. */}
           {can("asset.delete") && <Place href="/assets?browse&status=deleted" label="Trash" icon={<IconTrash />} active={trash} />}
           <SidebarMenuItem>
