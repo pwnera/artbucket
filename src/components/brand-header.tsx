@@ -513,7 +513,15 @@ function ReleaseButton({ brand, word, compact }: { brand: BrandInfo; word?: stri
           <IconWorldUpload aria-hidden /> <span className={word}>Release</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="max-h-[80vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto">
+      <PopoverContent
+        align="end"
+        className="max-h-[80vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto"
+        // Typing starts in the note, not on the title's info button.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          requestAnimationFrame(() => document.getElementById("publish-note")?.focus());
+        }}
+      >
         <ReleaseForm
           compact
           host={{
