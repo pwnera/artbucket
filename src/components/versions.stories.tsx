@@ -58,16 +58,18 @@ export const RestoreAnEarlierVersion = meta.story({
   },
 });
 
-/** Two versions side by side, older on the left, what differs in bold. */
+/** Two versions side by side, older on the left, what differs in bold, under the list rather than over the viewer. */
 export const Compare = meta.story({
   play: async ({ canvas, userEvent }) => {
     await canvas.findByText("3 versions · v3 current");
     await unfold(canvas, userEvent);
     await userEvent.click(canvas.getByRole("button", { name: "Compare with version 1" }));
-    const dialog = await screen.findByRole("dialog", { name: "Version 1 and version 3" });
-    await expect(within(dialog).getByRole("rowheader", { name: "Title" })).toBeInTheDocument();
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    // In the viewer, under the versions: no dialog over it.
+    const it = await canvas.findByRole("region", { name: "Version 1 and version 3" });
+    await expect(within(it).getByRole("rowheader", { name: "Title" })).toBeInTheDocument();
+    await expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await userEvent.click(within(it).getByRole("button", { name: "Close the comparison" }));
+    await waitFor(() => expect(canvas.queryByRole("region", { name: "Version 1 and version 3" })).not.toBeInTheDocument());
   },
 });
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconUpload, IconArchive } from "@/components/icons";
+import { IconArrowBackUp, IconCheck, IconColumns, IconPhoto, IconSend, IconUpload, IconArchive, IconX } from "@/components/icons";
+import { IconButton } from "@/components/icon-button";
 import { toast } from "sonner";
 import { send } from "@/components/collections";
 import { useCan } from "@/components/can";
@@ -12,7 +13,6 @@ import { usePref } from "@/components/sidebar-prefs";
 import { putWithProgress } from "@/components/uploads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -266,7 +266,7 @@ export function Versions({
 }) {
   // null while loading: a stack shows skeleton rows, not the explanation, until it lands.
   const [versions, setVersions] = useState<Asset[] | null>(null);
-  const [comparing, setComparing] = useState<{ with: Asset; open: boolean } | null>(null);
+  const [comparing, setComparing] = useState<Asset | null>(null);
   // The version being made current: its own button spins, the others wait.
   const [making, setMaking] = useState<string | null>(null);
   const busy = making !== null;
@@ -414,7 +414,8 @@ export function Versions({
                   size="icon-sm"
                   variant="ghost"
                   aria-label={`Compare with version ${v.version}`}
-                  onClick={() => setComparing({ with: v, open: true })}
+                  aria-pressed={comparing?.id === v.id}
+                  onClick={() => setComparing((c) => (c?.id === v.id ? null : v))}
                 >
                   <IconColumns />
                 </Button>
@@ -429,18 +430,14 @@ export function Versions({
         </ul>
       )}
       {comparing && (
-        <Compare
-          open={comparing.open}
-          pair={[comparing.with, asset].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)) as [Asset, Asset]}
-          onClose={() => setComparing((c) => c && { ...c, open: false })}
-        />
+        <Compare pair={[comparing, asset].sort((a, b) => (a.version ?? 0) - (b.version ?? 0)) as [Asset, Asset]} onClose={() => setComparing(null)} />
       )}
     </Fold>
   );
 }
 
-/** Two versions side by side, older on the left, and what differs between them. */
-function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean; onClose: () => void }) {
+/** Two versions side by side, older on the left, and what differs between them: in the viewer, under the versions, not over it. */
+function Compare({ pair, onClose }: { pair: [Asset, Asset]; onClose: () => void }) {
   const [bg] = usePreviewBg(pair[1].mime);
   const rows: [string, (a: Asset) => string][] = [
     ["State", (a) => (a.current ? `${STATE_LABEL[a.state]}, current` : STATE_LABEL[a.state])],
@@ -453,13 +450,18 @@ function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean;
     ["Added", (a) => `${new Date(a.createdAt).toLocaleDateString()}${a.proposedBy ? `, by ${a.proposedBy}` : ""}`],
   ];
   return (
-    // Kept mounted while it closes, so it animates out.
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-4xl">
-        <DialogTitle>
-          Version {pair[0].version} and version {pair[1].version}
-        </DialogTitle>
-        <DialogDescription>Older on the left. What differs is in bold.</DialogDescription>
+    <section aria-label={`Version ${pair[0].version} and version ${pair[1].version}`} className="animate-in fade-in-0 mt-3 grid gap-3 rounded-lg border p-3 duration-200">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h4 className="text-sm font-medium">
+            Version {pair[0].version} and version {pair[1].version}
+          </h4>
+          <p className="text-muted-foreground text-xs">Older on the left. What differs is in bold.</p>
+        </div>
+        <IconButton variant="ghost" size="icon-sm" label="Close the comparison" onClick={onClose}>
+          <IconX />
+        </IconButton>
+      </div>
         <div className="grid grid-cols-2 gap-3">
           {pair.map((a) => (
             <figure key={a.id} className="grid gap-2">
@@ -472,18 +474,18 @@ function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean;
                   </span>
                 )}
               </div>
-              <figcaption className="text-sm font-medium">v{a.version}</figcaption>
+              <figcaption className="text-xs font-medium">v{a.version}</figcaption>
             </figure>
           ))}
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <tbody>
             {rows.map(([label, of]) => {
               const [x, y] = pair.map(of);
               const differs = x !== y;
               return (
                 <tr key={label} className="border-t">
-                  <th scope="row" className="text-muted-foreground w-32 py-1.5 pr-2 text-left align-top font-normal">
+                  <th scope="row" className="text-muted-foreground w-20 py-1.5 pr-2 text-left align-top font-normal">
                     {label}
                   </th>
                   {[x, y].map((v, i) => (
@@ -496,7 +498,6 @@ function Compare({ pair, open, onClose }: { pair: [Asset, Asset]; open: boolean;
             })}
           </tbody>
         </table>
-      </DialogContent>
-    </Dialog>
+    </section>
   );
 }
