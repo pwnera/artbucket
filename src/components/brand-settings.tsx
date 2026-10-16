@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ago } from "@/lib/hub";
 import { send } from "@/lib/send";
+import { PeopleOn } from "@/components/catalog";
 import { brandPath } from "@/lib/site";
 
 /**
@@ -123,6 +124,8 @@ export function BrandSettings({ brand, source }: { brand: HeadBrand; source: Sou
             {brand.private ? "Open to the project" : "Limit to people given access"}
           </Button>
         </div>
+        {/* Who is given access, added here: a person, a group, or someone invited by email. */}
+        <PeopleOn id={brand.id} />
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
           <p className="flex items-center gap-1.5 text-sm">
             {brand.default ? "Default brand" : "Not the default brand"}

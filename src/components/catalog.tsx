@@ -35,9 +35,11 @@ import { build, CatalogTree, findNode, LIST, NEW, type Node } from "@/components
 import { IconButton } from "@/components/icon-button";
 import { AppHeader } from "@/components/page";
 import { PinButton } from "@/components/pin-button";
-import { CopyButton } from "@/components/copy-button";
+import { CopyButton, copyText } from "@/components/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { ActivityLine, CatalogItem, Granted, Holder } from "@/lib/core/catalog";
@@ -629,7 +631,7 @@ function Access({ o }: { o: Described }) {
 }
 
 /** The project's members settings, in that project (?project= switches to it first). */
-const membersOf = (project: string) => `/settings/project/members?project=${project}`;
+const membersOf = (project: string) => `/settings/project/people?tab=project&project=${project}`;
 
 /**
  * Where else who reaches it is decided: a portal's own access, the grant
@@ -661,6 +663,17 @@ function ManageElsewhere({ o, grantable, manage }: { o: Described; grantable: bo
       </ul>
     </Card>
   );
+}
+
+/**
+ * Who has a role on one asset, brand or collection, granted in place beside
+ * what it is about (a collection's dialog, a brand's Settings): the catalog's
+ * grants, for the project's admins.
+ */
+export function PeopleOn({ id }: { id: string }) {
+  const { data, reload } = useView<AccessView>(`/api/v1/catalog/${id}/access`);
+  const can = useCan();
+  return data?.on && can("member.manage") ? <Grants on={data.on} granted={data.granted} reload={reload} /> : null;
 }
 
 /**
@@ -765,8 +778,37 @@ function Grants({ on, granted, reload }: { on: NonNullable<AccessView["on"]>; gr
           </SelectContent>
         </Select>
       </div>
+      <InviteOn on={on} role={role} roleName={roleName(role)} onSent={reload} />
       <p className="text-muted-foreground text-xs">{"It reaches everything inside it. A group's grant is each of its members'."}</p>
     </Card>
+  );
+}
+
+/** Someone not in the project yet: an invitation by email, with the role, on this one thing (POST /api/v1/invitations). */
+function InviteOn({ on, role, roleName, onSent }: { on: NonNullable<AccessView["on"]>; role: Scope; roleName: string; onSent: () => void }) {
+  const id = useId();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  async function invite() {
+    setBusy(true);
+    const done = (await send("POST", "/api/v1/invitations", { email: email.trim(), resource: on.type, resourceId: on.id, scope: role })) as { url: string; emailed: boolean } | null;
+    setBusy(false);
+    if (!done) return;
+    toast.success(`${email.trim()} is invited as ${roleName} on ${on.name}`, done.emailed ? undefined : { description: "Email is off: copy their link and send it.", action: { label: "Copy link", onClick: () => void copyText(done.url, { what: "their link" }) } });
+    setEmail("");
+    onSent();
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Label htmlFor={`${id}-email`} className="sr-only">
+        Invite by email
+      </Label>
+      <Input id={`${id}-email`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Or invite by email" className="min-w-56 flex-1" />
+      <Button size="sm" variant="outline" pending={busy} disabled={!valid} onClick={() => void invite()}>
+        Invite as {roleName}
+      </Button>
+    </div>
   );
 }
 
