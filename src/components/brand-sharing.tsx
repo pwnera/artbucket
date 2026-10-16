@@ -97,19 +97,19 @@ export function BrandSharing({
             {can("brand.publish", brand) &&
               (hub.visibility === "public" ? (
                 <Button variant="outline" size="sm" pending={busy === "hub"} onClick={() => void share({ visibility: "private" }, "hub")}>
-                  Make private
+                  Hide from the public
                 </Button>
               ) : (
                 // Asked first, as on the Brands page: it is the brand's latest release, for anyone and any agent.
                 <Confirm
                   title={`Make ${brand.name} public?`}
-                  says="Anyone, and any agent, will read its latest release on BrandHub, with its usable files, and each release after. You can make it private again."
-                  action="Make public"
+                  says="Anyone, and any agent, will read its latest release on BrandHub, with its usable files, and each release after. You can hide it from the public again."
+                  action="Make public on BrandHub"
                   destructive={false}
                   run={() => share({ visibility: "public" }, "hub")}
                 >
                   <Button size="sm" disabled={!hub.published} title={hub.published ? undefined : "Release it first"}>
-                    Make public
+                    Make public on BrandHub
                   </Button>
                 </Confirm>
               ))}
