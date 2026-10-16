@@ -30,7 +30,7 @@ import { Snippet } from "@/components/agent-access";
 import { useMe } from "@/components/can";
 import { Combobox } from "@/components/combobox";
 import { Confirm } from "@/components/confirm";
-import { CopyButton } from "@/components/copy-button";
+import { copyText, CopyButton } from "@/components/copy-button";
 import { IconButton } from "@/components/icon-button";
 import { emailsIn, SendLinkDialog, ShareDialog, type ShareLink } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -116,10 +116,8 @@ export function People({
   const [dialog, setDialog] = useState<{ kind: "invite" } | { kind: "grant"; user: { id: string; name: string } } | null>(
     inviting ? { kind: "invite" } : null,
   );
-  const [resent, setResent] = useState<{ email: string; url: string; emailed: boolean } | null>(null);
   // Kept while they fade out, so they leave showing what they showed.
   const shownDialog = useKept(dialog);
-  const shownResent = useKept(resent);
   const [resending, setResending] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const manages = (g: Pick<Grant, "resource">) => can(me, g.resource === "organization" ? "organization.manage" : "member.manage");
@@ -264,7 +262,11 @@ export function People({
                         const r = await send("POST", `/api/v1/invitations/${i.id}/resend`);
                         setResending(null);
                         if (!r) return;
-                        setResent({ email: i.email, url: r.url, emailed: r.emailed });
+                        // Said in a toast with the link to copy, not a dialog to dismiss: the row keeps its Copy too.
+                        toast.success(r.emailed ? `Sent ${i.email} a new link` : `A new link for ${i.email}`, {
+                          description: r.emailed ? "Good for a week. The one sent before no longer works." : "Good for a week: send it yourself. The one before no longer works.",
+                          action: { label: "Copy link", onClick: () => void copyText(r.url, { what: "the invitation link" }) },
+                        });
                         refresh();
                       }}
                     >
@@ -299,20 +301,6 @@ export function People({
       )}
 
       {shownDialog && <GrantDialog me={me} dialog={shownDialog} open={!!dialog} places={places} onClose={close} onDone={refresh} />}
-      {shownResent && (
-        <Dialog open={!!resent} onOpenChange={(o) => !o && setResent(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Invitation for {shownResent.email}</DialogTitle>
-              <DialogDescription>A new link, good for a week. The one sent before no longer works.</DialogDescription>
-            </DialogHeader>
-            <InviteLink me={me} url={shownResent.url} emailed={shownResent.emailed} />
-            <DialogFooter>
-              <Button onClick={() => setResent(null)}>Done</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
     </Writable>
   );
