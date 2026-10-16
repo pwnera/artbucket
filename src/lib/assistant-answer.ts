@@ -66,7 +66,7 @@ const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const TABS = ["overview", ...BRAND_TABS];
 const PLACES: Record<string, string> = {
-  library: "/",
+  library: "/assets",
   review: "/review",
   collections: "/collections",
   brands: "/brands",
