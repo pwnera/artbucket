@@ -42,8 +42,8 @@ export const Playground = meta.story({
     await expect(canvas.getByRole("img", { name: "acme.test verified" })).toBeInTheDocument();
     await expect(canvas.getByText("acme/acme")).toBeInTheDocument();
     await expect(canvas.getByText("Unreleased changes")).toBeInTheDocument();
-    // Behind the live release: Release is the one filled button.
-    await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/acme/releases/new");
+    // Behind the live release: Release is the one filled button, and opens in place.
+    await expect(canvas.getByRole("button", { name: "Release" })).toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
     await expect(canvas.getByText(/Signal orange for alerts/)).toBeInTheDocument();
   },
@@ -65,7 +65,7 @@ export const UpToDate = meta.story({
   args: { status: { ...status, publish: "current" as const } },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Up to date")).toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
   },
 });
 
@@ -74,7 +74,7 @@ export const NeverReleased = meta.story({
   args: { brand: northwind, rules: [], status: emptyStatus, release: null },
   play: async ({ canvas }) => {
     await expect(canvas.getByText("Never released")).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/northwind/releases/new");
+    await expect(canvas.getByRole("button", { name: "Release" })).toBeInTheDocument();
   },
 });
 
@@ -134,7 +134,7 @@ export const Pin = meta.story({
   play: async ({ canvas, userEvent }) => {
     const more = canvas.getByRole("button", { name: "More for Acme" });
     await userEvent.click(more);
-    await expect(await screen.findByRole("menuitem", { name: "Theme" })).toHaveAttribute("href", "/brands/acme/theme");
+    await expect(await screen.findByRole("menuitem", { name: "Settings" })).toHaveAttribute("href", "/brands/acme/settings");
     await userEvent.click(screen.getByRole("menuitem", { name: "Pin to the sidebar" }));
     await waitFor(() => expect(JSON.parse(localStorage.getItem(PINS) ?? "[]")).toEqual([{ id: "brd_acme", type: "brand", label: "Acme", href: "/brands/acme" }]));
     // Closed for good before it opens again: a click while it fades out would land on the closing menu.
@@ -170,7 +170,7 @@ export const Viewer = meta.story({
   decorators: [withMe(viewer)],
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
   },
 });
 
@@ -220,5 +220,16 @@ export const Addresses = meta.story({
   play: async ({ canvas }) => {
     await expect(canvas.queryByText("brand.json")).not.toBeInTheDocument();
     await expect(canvas.getByText("PowerPoint template")).toBeInTheDocument();
+  },
+});
+
+/** Release opens in place: the note, what changes folded, and the full page a link away. */
+export const ReleaseInPlace = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Release" }));
+    await expect(await screen.findByRole("textbox", { name: "Note for readers" })).toBeInTheDocument();
+    await expect(screen.getByRole("link", { name: "Open full page" })).toHaveAttribute("href", "/brands/acme/releases/new");
+    await userEvent.click(canvas.getByRole("button", { name: "Release" }));
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Note for readers" })).not.toBeInTheDocument());
   },
 });

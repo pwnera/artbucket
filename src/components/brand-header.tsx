@@ -45,6 +45,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { sendResult } from "@/lib/send";
+import { ReleaseForm } from "@/components/builder/release-form";
 import type { Release } from "@/lib/brand-head";
 import { logoOf } from "@/lib/hub";
 import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness";
@@ -141,13 +142,7 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
           </Link>
         </Button>
       )}
-      {can("brand.edit", brand) && status?.publish !== "current" && (
-        <Button asChild size="sm" title={compact ? "Release" : undefined}>
-          <Link href={brandPath(brand.slug, "/releases/new")}>
-            <LinkIcon icon={<IconWorldUpload aria-hidden />} /> <span className={word}>Release</span>
-          </Link>
-        </Button>
-      )}
+      {can("brand.edit", brand) && status?.publish !== "current" && <ReleaseButton brand={brand} word={word} compact={compact} />}
       <BrandMenu brand={brand} at={at} connect={source && !source.source ? source.connect : null} />
     </div>
   );
@@ -449,6 +444,40 @@ export function BrandAddresses({ brand, origin, hub, release, onTokens }: { bran
         for the MCP server and the API.
       </p>
     </>
+  );
+}
+
+/**
+ * Release, in place: a popover with the note and what changes, folded, and
+ * the full page a link away for an image, a portal or a long note (decision 2).
+ */
+function ReleaseButton({ brand, word, compact }: { brand: BrandInfo; word?: string; compact?: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" title={compact ? "Release" : undefined}>
+          <IconWorldUpload aria-hidden /> <span className={word}>Release</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="max-h-[80vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto">
+        <ReleaseForm
+          compact
+          host={{
+            brand: brand.slug,
+            target: brand,
+            name: brand.name,
+            transport: quietly,
+            // The page reads the score and who sees it; the popover leaves those offers to it.
+            status: null,
+            comments: { open: 0, review: guidelinesPath(brand.slug, { comments: "1" }) },
+            released: () => router.refresh(),
+          }}
+          onClose={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
