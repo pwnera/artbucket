@@ -45,7 +45,7 @@ export function BrandRulesEditor({ brand, init }: { brand: BrandInfo; init: Init
   return (
     <div className="grid gap-4">
       <UseInCode brand={brand} />
-      <RulesSheet b={b} open inline onOpenChange={() => {}} onOpenPage={(page) => router.push(guidelinesPath(brand.slug, { page }))} />
+      <RulesSheet b={b} onOpenPage={(page) => router.push(guidelinesPath(brand.slug, { page }))} />
     </div>
   );
 }

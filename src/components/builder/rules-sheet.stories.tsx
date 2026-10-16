@@ -1,28 +1,16 @@
 import preview from "#.storybook/preview";
 import { acmeInit, me, status, viewRules, withMe } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
-import { useState } from "react";
 import { toast } from "sonner";
-import { expect, fn, screen, userEvent, waitFor } from "storybook/test";
+import { expect, screen, userEvent, waitFor } from "storybook/test";
 import { RulesSheet } from "@/components/builder/rules-sheet";
 import { useBuilder } from "@/components/builder/use-builder";
 import type { ViewRule } from "@/lib/site";
 
-/** The sheet on a builder of its own, as the builder opens it for b.panel "rules". */
-function Builder({ rules, open, inline, onOpenChange }: { rules: ViewRule[]; open: boolean; inline: boolean; onOpenChange(open: boolean): void }) {
+/** The list on a builder of its own, as the brand's Rules tab shows it. */
+function Builder({ rules }: { rules: ViewRule[] }) {
   const b = useBuilder("acme", acmeInit(rules));
-  const [shown, setShown] = useState(open);
-  return (
-    <RulesSheet
-      b={b}
-      open={shown}
-      inline={inline}
-      onOpenChange={(o) => {
-        setShown(o);
-        onOpenChange(o);
-      }}
-    />
-  );
+  return <RulesSheet b={b} />;
 }
 
 /** What the sheet sent: PATCH /brand/rules bodies (set_rules) and PUT /brand/rules/order bodies, in order. */
@@ -33,7 +21,7 @@ const ORDER = "/api/v1/brand/rules/order";
 const meta = preview.meta({
   title: "App/Features/Builder/Rules sheet",
   component: Builder,
-  args: { rules: viewRules, open: true, inline: false, onOpenChange: fn() },
+  args: { rules: viewRules },
   argTypes: { rules: { control: false } },
   decorators: [withMe(me)],
   beforeEach: ({ msw }) => {
@@ -62,17 +50,11 @@ async function fold(name: RegExp) {
   await waitFor(() => expect(screen.queryByRole("button", { name, expanded: true })).not.toBeInTheDocument());
 }
 
-/** The builder's Rules sheet: every rule by section, over the canvas. Esc in a field puts the field back, and leaves the sheet open. */
+/** The brand's Rules tab: every rule by section, in the page. */
 export const Playground = meta.story({
-  play: async ({ args, userEvent }) => {
-    await expect(await screen.findByRole("dialog", { name: /Rules/ })).toBeInTheDocument();
-    await expect(screen.getByRole("heading", { name: "Color" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("textbox", { name: "Find a rule" }));
-    await userEvent.keyboard("{Escape}");
-    await expect(screen.getByRole("dialog", { name: /Rules/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await expect(args.onOpenChange).toHaveBeenCalledWith(false);
+  play: async () => {
+    await expect(await screen.findByRole("heading", { name: "Color" })).toBeInTheDocument();
+    await expect(screen.getByRole("textbox", { name: "Find a rule" })).toBeInTheDocument();
   },
 });
 
@@ -189,9 +171,6 @@ export const ContextVersion = meta.story({
     await fold(/^Headings/);
   },
 });
-
-/** Inline, the brand's Rules tab: the same list in the page, no sheet. */
-export const Inline = meta.story({ args: { inline: true } });
 
 /** No rules yet. */
 export const Empty = meta.story({

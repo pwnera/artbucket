@@ -141,10 +141,8 @@ export const Report = meta.story({
 /** Claim it, as an admin of an organization that proved its domain: the claim names the proof. */
 export const Claim = meta.story({
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Report or claim this listing" }));
-    const d = within(await screen.findByRole("dialog"));
-    await userEvent.click(d.getByRole("tab", { name: "It's my brand" }));
-    await expect(d.getByRole("heading", { name: "Claim Acme" })).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "It's my brand: claim it" }));
+    const d = within(await screen.findByRole("dialog", { name: "Claim Acme" }));
     await userEvent.type(d.getByRole("textbox", { name: "Who you are to Acme" }), "I run Acme's brand team. Please hand it over.");
     await userEvent.click(d.getByRole("button", { name: "Send claim" }));
     await waitFor(() => expect(sent.last("POST")).toEqual({ path: `${API}/claims`, body: { note: "I run Acme's brand team. Please hand it over." } }));
@@ -157,9 +155,8 @@ export const Claim = meta.story({
 export const ClaimElsewhere = meta.story({
   args: { claim: { href: "https://app.artbucket.test/login?next=/hub/acme/acme", label: "Sign in" } },
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Report or claim this listing" }));
-    const d = within(await screen.findByRole("dialog"));
-    await userEvent.click(d.getByRole("tab", { name: "It's my brand" }));
+    await userEvent.click(canvas.getByRole("button", { name: "It's my brand: claim it" }));
+    const d = within(await screen.findByRole("dialog", { name: "Claim Acme" }));
     await expect(d.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "https://app.artbucket.test/login?next=/hub/acme/acme");
     await expect(d.queryByRole("button", { name: "Send claim" })).not.toBeInTheDocument();
     await userEvent.click(d.getByRole("button", { name: "Cancel" }));

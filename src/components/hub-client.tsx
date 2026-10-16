@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronDown, IconFlag, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@/components/icons";
+import { IconChevronDown, IconFlag,
+  IconShieldCheck, IconGitFork, IconRobot, IconSearch, IconStar, IconStarFilled, IconUserCheck, IconUserPlus } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
@@ -148,6 +149,9 @@ export function UseBrand({ url, name }: { url: string; name: string }) {
   );
 }
 
+/** The listing's two quiet links, Claim and Report. */
+const door = "text-muted-foreground hover:text-foreground h-auto gap-1.5 p-0 text-xs font-normal underline-offset-2";
+
 /**
  * Report a listing, or claim it (lib/core/hub-trust.ts). Anyone reports,
  * signed in or not. A community listing can be claimed by its brand's
@@ -161,6 +165,10 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
   const [reason, setReason] = useState<ReportReason>("impersonation");
   const [busy, setBusy] = useState(false);
   const at = `/api/v1/hub/${encodeURIComponent(org)}/${encodeURIComponent(brand)}`;
+  const opening = (t: "report" | "claim") => {
+    setTab(t);
+    setOpen(true);
+  };
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -219,11 +227,17 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
     );
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="link" className="text-muted-foreground hover:text-foreground h-auto gap-1.5 p-0 text-xs font-normal underline-offset-2">
-          <IconFlag aria-hidden className="size-3.5" /> {claim ? "Report or claim this listing" : "Report this listing"}
+      {/* Two doors, not a tab inside one: the owner's comes first. */}
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {claim && (
+          <Button type="button" variant="link" onClick={() => opening("claim")} className={door}>
+            <IconShieldCheck aria-hidden className="size-3.5" /> It&apos;s my brand: claim it
+          </Button>
+        )}
+        <Button type="button" variant="link" onClick={() => opening("report")} className={door}>
+          <IconFlag aria-hidden className="size-3.5" /> Report this listing
         </Button>
-      </DialogTrigger>
+      </span>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
@@ -234,23 +248,7 @@ export function ListingTrust({ org, brand, name, claim }: { org: string; brand: 
                 : "Say this is your brand. The claim names the domain or GitHub account your organization proved, and your email, for the listing's owner and this server's operator: they hand it over or take it down."}
             </DialogDescription>
           </DialogHeader>
-          {claim ? (
-            <Tabs value={tab} onValueChange={(v) => setTab(v as "report" | "claim")} className="gap-4">
-              <TabsList variant="line" aria-label="Report or claim" className="w-full justify-start border-b">
-                <TabsTrigger value="report" className="flex-none px-3">
-                  Report
-                </TabsTrigger>
-                <TabsTrigger value="claim" className="flex-none px-3">
-                  It&apos;s my brand
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value={tab} className="grid gap-4">
-                {fields}
-              </TabsContent>
-            </Tabs>
-          ) : (
-            fields
-          )}
+          {fields}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel

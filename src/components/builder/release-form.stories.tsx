@@ -2,7 +2,7 @@ import preview from "#.storybook/preview";
 import { acme, emptyStatus, me, status, versions, viewer, viewRules, withMe } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
 import { expect, fn, waitFor } from "storybook/test";
-import { ReleaseForm, type ReleaseHost } from "@/components/builder/publish-dialog";
+import { ReleaseForm, type ReleaseHost } from "@/components/builder/release-form";
 import type { Status } from "@/components/builder/use-status";
 import type { SnapRule } from "@/lib/history";
 import { sendResult } from "@/lib/send";

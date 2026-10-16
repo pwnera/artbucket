@@ -99,7 +99,7 @@ type News = { error: string } | { draft: number | null; since: number | null; dr
 const draftDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /**
- * The release form, in a dialog or on a page: `onClose` is Cancel and, once
+ * The release form, on the brand's new release page: `onClose` is Cancel and, once
  * released, Done; `onDone`, when given, is Done instead.
  */
 export function ReleaseForm({ host, onClose, onDone }: { host: ReleaseHost; onClose: () => void; onDone?: () => void }) {

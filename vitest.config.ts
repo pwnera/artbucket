@@ -18,6 +18,10 @@ export default defineConfig({
         plugins: [storybookTest({ configDir: path.join(import.meta.dirname, ".storybook"), storybookScript: "pnpm storybook --no-open" })],
         test: {
           name: "storybook",
+          // ponytail: one retry on CI, where ~180 story files load in parallel and Chromium now and then fails to fetch a
+          // module the server has (seen: addon-a11y's axe-core chunk, with nothing re-optimized). A story that fails twice
+          // still fails the run; drop this once the browser runner stops dropping fetches under load.
+          retry: process.env.CI ? 1 : 0,
           browser: { enabled: true, headless: true, provider: playwright({ contextOptions: { reducedMotion: "reduce" } }), instances: [{ browser: "chromium" }] },
         },
       },

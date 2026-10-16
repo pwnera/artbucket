@@ -6,10 +6,9 @@ import { assets, byId, collections, fields, inApp, library } from "#.storybook/f
 import type { Asset } from "@/components/gallery";
 import { SelectionBar, useBulk } from "@/components/selection-bar";
 
-/** The bar as the library drives it: its selection, the bulk work over it, and Delete's confirmation. */
+/** The bar as the library drives it: its selection and the bulk work over it. */
 function Bar({ picked: first, review = false, current }: { picked: Asset[]; review?: boolean; current?: string }) {
   const [picked, setPicked] = useState(first);
-  const [deleting, setDeleting] = useState(false);
   const bulk = useBulk({ picked, current, onDone: fn(), onClear: () => setPicked([]) });
   return (
     <SelectionBar
@@ -21,8 +20,6 @@ function Bar({ picked: first, review = false, current }: { picked: Asset[]; revi
       current={collections.find((c) => c.id === current)}
       review={review}
       bulk={bulk}
-      deleting={deleting}
-      onDeletingChange={setDeleting}
       onSelectAll={() => setPicked(assets)}
       onClear={() => setPicked([])}
       onOpenCollection={fn()}
@@ -93,13 +90,12 @@ export const Expiry = meta.story({
   },
 });
 
-/** Delete asks first, then counts up in the bar while it works. */
+/** Delete goes at once, counting up in the bar while it works; the toast offers Undo (the trash keeps them 30 days). */
 export const Delete = meta.story({
   beforeEach: ({ msw }) => void msw.use(record(300)),
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Delete" }));
-    const confirm = await screen.findByRole("alertdialog", { name: "Delete 3 assets?" });
-    await userEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
+    await expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await expect(await canvas.findByText(/Deleted \d of 3/)).toBeInTheDocument();
     await waitFor(() => expect(sent.filter((s) => s.method === "DELETE")).toHaveLength(3));
   },

@@ -30,7 +30,11 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["mod", "Z"], label: "Undo, while its toast shows", group: "General" },
   { keys: ["mod", ","], label: "Open settings", group: "General", href: "/settings" },
   { keys: ["?"], label: "Keyboard shortcuts", group: "General" },
+  { keys: ["G", "E"], sequence: true, label: "Explore", group: "Go to", href: "/" },
   { keys: ["G", "A"], sequence: true, label: "Assets", group: "Go to", href: "/?browse" },
+  { keys: ["G", "B"], sequence: true, label: "Brands", group: "Go to", href: "/brands" },
+  { keys: ["G", "C"], sequence: true, label: "Catalog", group: "Go to", href: "/catalog" },
+  { keys: ["G", "W"], sequence: true, label: "Sites", group: "Go to", href: "/sites" },
   { keys: ["G", "R"], sequence: true, label: "Review", group: "Go to", href: "/review" },
   { keys: ["G", "G"], sequence: true, label: "Guidelines", group: "Go to", href: "/brand" },
   { keys: ["G", "Y"], sequence: true, label: "Activity", group: "Go to", href: "/insights/activity" },
@@ -85,6 +89,7 @@ const busy = (t: EventTarget | null) =>
 export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boolean | ((o: boolean) => boolean)) => void; setHelp: (open: boolean) => void }) {
   const navigate = useNavigate();
   const team = useTeam();
+  const sites = useCan()("portal.manage");
   const armed = useRef(0);
   // G pressed and waiting for its letter: shown, so the key doesn't seem to do nothing.
   const [chord, setChord] = useState(false);
@@ -117,7 +122,7 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
         clearTimeout(chordEnds.current);
         setChord(false);
         const to = SHORTCUTS.find((s) => s.sequence && s.keys[1].toLowerCase() === key)?.href;
-        if (to && (to !== "/team" || team)) {
+        if (to && (to !== "/team" || team) && (to !== "/sites" || sites)) {
           e.preventDefault();
           navigate(to);
         }
@@ -144,7 +149,7 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, team, setPalette, setHelp]);
+  }, [navigate, team, sites, setPalette, setHelp]);
   return chord;
 }
 

@@ -250,7 +250,7 @@ export const SelectAndTag = meta.story({
 });
 const patched: { id: string; tags: string[] }[] = [];
 
-/** Select all, then Delete: asked first, then one DELETE each, with Undo. */
+/** Select all, then Delete: one DELETE each, at once, with Undo. */
 export const SelectAllAndDelete = meta.story({
   decorators: [inApp],
   parameters: page,
@@ -269,8 +269,6 @@ export const SelectAllAndDelete = meta.story({
     await userEvent.click(await canvas.findByRole("checkbox", { name: "Select all 3 loaded" }));
     const bar = await canvas.findByRole("toolbar", { name: "Selection" });
     await userEvent.click(within(bar).getByRole("button", { name: "Delete" }));
-    const confirm = await screen.findByRole("alertdialog", { name: "Delete 3 assets?" });
-    await userEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(deleted.sort()).toEqual(["ast_hero", "ast_icon_star", "ast_logo"]));
   },
 });

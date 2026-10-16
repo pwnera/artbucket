@@ -27,7 +27,6 @@ import { useCan } from "@/components/can";
 import { useShell } from "@/components/shell";
 import { CollectionDialog, CollectionIcon, type Collection } from "@/components/collections";
 import type { Option } from "@/components/combobox";
-import { Confirm } from "@/components/confirm";
 import type { Asset } from "@/components/gallery";
 import { extOf, PRESETS, stem } from "@/components/renditions";
 import { approve, expireOn, moveTo, reject } from "@/components/review-actions";
@@ -344,8 +343,6 @@ export function SelectionBar({
   current,
   review = false,
   bulk,
-  deleting,
-  onDeletingChange,
   onSelectAll,
   onClear,
   onOpenCollection,
@@ -362,9 +359,6 @@ export function SelectionBar({
   /** In the review queue: approve and reject come first. */
   review?: boolean;
   bulk: Bulk;
-  /** The delete confirmation, open: from Delete here, the Delete key or the context menu. */
-  deleting: boolean;
-  onDeletingChange: (open: boolean) => void;
   onSelectAll: () => void;
   onClear: () => void;
   onOpenCollection: (c: Collection) => void;
@@ -387,10 +381,6 @@ export function SelectionBar({
   const canCreate = can("collection.create");
   const live = items.filter((a) => a.state !== "deleted");
   const canDelete = onAll("asset.delete") && live.length > 0;
-  // What the delete confirmation asked about, held while it runs: the delete empties the selection, and the bar, as it goes.
-  const [asked, setAsked] = useState<Asset[] | null>(null);
-  if (deleting && !asked && canDelete) setAsked(live);
-  if (!deleting && asked) setAsked(null);
 
   // Tags created since the page loaded belong in the list: fetched as Tag opens.
   const loadTags = useCallback(() => {
@@ -690,7 +680,7 @@ export function SelectionBar({
               size="sm"
               className="text-destructive hover:text-destructive"
               disabled={busy}
-              onClick={() => onDeletingChange(true)}
+              onClick={() => void bulk.deleteLive(live).then((ok) => ok && onClear())}
               aria-label="Delete"
             >
               <IconTrash /> <span className="hidden md:inline">Delete</span>
@@ -698,20 +688,6 @@ export function SelectionBar({
           )}
         </div>
       )}
-
-      {/* Soft, and undoable, but many at once: still asked first. */}
-      <Confirm
-        open={!!asked}
-        onOpenChange={onDeletingChange}
-        title={`Delete ${files(asked?.length ?? 0)}?`}
-        says="They leave the library and their links stop working at once. Restore them from Deleted within 30 days; then they are gone for good."
-        action="Delete"
-        run={async () => {
-          const ok = await bulk.deleteLive(asked ?? []);
-          if (ok) onClear();
-          return ok;
-        }}
-      />
 
       <CollectionDialog
         open={creating}

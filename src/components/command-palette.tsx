@@ -31,6 +31,8 @@ import {
   IconUsers,
   IconPlus,
   IconWorld,
+  IconPalette,
+  IconSitemap,
 } from "@/components/icons";
 import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import { useTheme } from "next-themes";
@@ -443,11 +445,26 @@ export function CommandPalette({
         <CommandGroup heading="Go to">
           <CommandItem value="Explore search everything find" onSelect={() => go("/")}>
             <IconSearch /> Explore
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/" />
+            </CommandShortcut>
           </CommandItem>
           <CommandItem value="Assets library all files images" onSelect={() => go("/?browse")}>
             <IconPhoto /> Assets
             <CommandShortcut className="tracking-normal">
               <GoKeys to="/?browse" />
+            </CommandShortcut>
+          </CommandItem>
+          <CommandItem value="Brands guidelines rules theme" onSelect={() => go("/brands")}>
+            <IconPalette /> Brands
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/brands" />
+            </CommandShortcut>
+          </CommandItem>
+          <CommandItem value="Catalog tree everything lineage" onSelect={() => go("/catalog")}>
+            <IconSitemap /> Catalog
+            <CommandShortcut className="tracking-normal">
+              <GoKeys to="/catalog" />
             </CommandShortcut>
           </CommandItem>
           <CommandItem value="Guidelines brand rules" onSelect={() => go("/brand")}>
@@ -484,6 +501,9 @@ export function CommandPalette({
           {can("portal.manage") && (
             <CommandItem value="Sites portals brand portal press kit partner hub retailer" onSelect={() => go("/sites")}>
               <IconWorld /> Sites
+              <CommandShortcut className="tracking-normal">
+                <GoKeys to="/sites" />
+              </CommandShortcut>
             </CommandItem>
           )}
           {can("insights.read") && (
