@@ -293,7 +293,10 @@ which file and what replaced it. A read key is enough.
 A check stores nothing. To have an app you run elsewhere (your product, a
 site on Vercel) in the catalog, downstream of the components and assets it
 uses, make it a site of kind **Hosted elsewhere** (`external`) and record
-what it uses from its CI, at the repository's root:
+what it uses from its CI, at the repository's root. Its page under **Sites**
+edits its name, address and description, which the catalog, lineage, Fixes
+and search show (`PATCH /api/v1/sites/{id}` with `name`, `url`, `intro`); its
+address in scans (`--site`) stays as it was made:
 
 ```yaml
 - run: npx --yes artbucket site scan src --site acme-app

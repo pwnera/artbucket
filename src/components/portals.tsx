@@ -66,6 +66,8 @@ export type Portal = {
   slug: string;
   name: string;
   intro: string | null;
+  /** An external site's own address, where it lives. */
+  externalUrl?: string | null;
   access: PortalAccess;
   password: boolean;
   expiresAt: string | null;
@@ -264,7 +266,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate font-medium">
                     {/* eslint-disable-next-line no-restricted-syntax -- Raw: the whole row opens it, this button's box stretched over the row, under its actions. */}
-                    <button type="button" onClick={() => (p.kind === "portal" ? router.push(`/sites/${p.id}`) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
+                    <button type="button" onClick={() => (p.kind === "portal" || p.kind === "external" ? router.push(`/sites/${p.id}`) : setBuilding(p))} className="truncate text-left after:absolute after:inset-0">
                       {p.name}
                     </button>
                     {p.access === "password" && <IconLock className="text-muted-foreground size-3.5 shrink-0" aria-label="Password" />}
@@ -294,7 +296,7 @@ export function Portals({ portals, portalDomain, buildUrl }: { portals: Portal[]
                   </IconButton>
                   <RowMenu
                     portal={p}
-                    onEdit={() => (p.kind === "portal" ? router.push(`/sites/${p.id}`) : setBuilding(p))}
+                    onEdit={() => (p.kind === "portal" || p.kind === "external" ? router.push(`/sites/${p.id}`) : setBuilding(p))}
                     onBuild={() => setBuilding(p)}
                     onChanged={(saved) => setRows((rs) => upsert(rs, saved))}
                     onDeleted={() => collapse(document.querySelector(`[data-portal="${CSS.escape(p.id)}"]`), () => setRows((rs) => rs.filter((r) => r.id !== p.id)))}
