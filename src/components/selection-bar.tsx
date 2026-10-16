@@ -481,11 +481,11 @@ export function SelectionBar({
       undo: inverse(`Put back ${d.label} on`, (a) => patchFields(a, { [d.key]: a.fields?.[d.key] ?? null })),
     });
   const expire = (expires: string | null) =>
-    each(expires ? `Set ${expires} as the last day of use for` : "Cleared the last day of use for", (a) => expireOn(a, expires), {
+    each(expires ? `Set expiry ${expires} on` : "Cleared the expiry of", (a) => expireOn(a, expires), {
       local: (x) => ({ ...x, rights: x.rights ? { ...x.rights, expires } : x.rights }),
       undo: async (done) => {
         const before = was(done);
-        await inverse("Restored the last day of use for", (a) => expireOn(a, before.get(a.id)?.rights?.expires ?? null))(done);
+        await inverse("Put back the expiry of", (a) => expireOn(a, before.get(a.id)?.rights?.expires ?? null))(done);
       },
     });
 
@@ -986,11 +986,11 @@ function ExpiryAction({
           <IconCalendarOff /> Expiry
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="top" aria-label="Last day of use" className="grid w-72 gap-3">
+      <PopoverContent side="top" aria-label="Expiry" className="grid w-72 gap-3">
         <label className="grid gap-1.5 text-sm font-medium">
           <span className="flex items-center gap-1.5">
-            Last day of use
-            <InfoTip>After it, their links answer 410 and checks refuse them. The rest of their rights stay as they are.</InfoTip>
+            Expiry
+            <InfoTip>The last day they may be used. After it, their links answer 410 and checks refuse them. The rest of their rights stay as they are.</InfoTip>
           </span>
           <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
         </label>

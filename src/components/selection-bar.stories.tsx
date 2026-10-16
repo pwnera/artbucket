@@ -80,11 +80,11 @@ export const AddToCollection = meta.story({
   },
 });
 
-/** The last day of use, set across the selection. */
+/** Expiry, set across the selection. */
 export const Expiry = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Expiry" }));
-    await userEvent.type(await screen.findByLabelText(/Last day of use/, { selector: "input" }), "2026-12-31");
+    await userEvent.type(await screen.findByLabelText(/Expiry/, { selector: "input" }), "2026-12-31");
     await userEvent.click(screen.getByRole("button", { name: "Set" }));
     await waitFor(() => expect(sent).toHaveLength(3));
   },
