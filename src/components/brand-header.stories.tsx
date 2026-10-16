@@ -96,16 +96,13 @@ export const CopyTheAddress = meta.story({
   },
 });
 
-/** Use this brand, Tokens: every format in a dialog, the file fetched as the brand is now. */
-export const TokensDialog = meta.story({
+/** Use this brand, Tokens: every format is on the brand's Sharing tab, the one place for them. */
+export const Tokens = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: /Use this brand/ }));
     const tokens = (await screen.findByText("Tokens")).closest("li")!;
     await userEvent.click(within(tokens as HTMLElement).getByRole("button", { name: "Get" }));
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
-    await waitFor(() => expect(dialog).toHaveTextContent("--color-primary: #2f62ff"));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Design tokens" })).not.toBeInTheDocument());
+    await waitFor(() => expect(getRouter().push).toHaveBeenCalledWith("/brands/acme/sharing#tokens"));
   },
 });
 

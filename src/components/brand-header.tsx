@@ -33,7 +33,7 @@ import { ExternalLink } from "@/components/external-link";
 import { GitSource } from "@/components/git-source";
 import { AppHeader } from "@/components/page";
 import { TabNav } from "@/components/hub";
-import { TokensDialog, tokensPath } from "@/components/tokens-dialog";
+import { tokensPath } from "@/components/tokens-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -310,7 +310,6 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
   const router = useRouter();
   const can = useCan();
   const [copying, setCopying] = useState<{ open: boolean; n: number } | null>(null);
-  const [tokens, setTokens] = useState(false);
   return (
     <>
       <Popover>
@@ -329,7 +328,7 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" aria-label="Use this brand" className="grid w-[min(26rem,calc(100vw-2rem))] gap-3 p-3">
-          <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => setTokens(true)} />
+          <BrandAddresses brand={brand} origin={origin} hub={hub} release={release} onTokens={() => router.push(`${brandPath(brand.slug, "/sharing")}#tokens`)} />
           {can("brand.create") && (
             <>
               <Separator />
@@ -346,7 +345,6 @@ function UseThisBrand({ brand, origin, hub, release, compact }: { brand: BrandIn
           )}
         </PopoverContent>
       </Popover>
-      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
       {copying && (
         <BrandDialog
           key={copying.n}

@@ -1,7 +1,7 @@
 import preview from "#.storybook/preview";
 import { acme, assetFiles, longBrand, northwind, rules } from "#.storybook/fixtures/brands";
 import { http, HttpResponse } from "msw";
-import { expect, screen, waitFor } from "storybook/test";
+import { expect } from "storybook/test";
 import { BrandRules } from "@/components/brand-rules";
 
 const css = ":root {\n  --color-primary: #2f62ff;\n  --color-ink: #0b1020;\n}\n";
@@ -22,15 +22,10 @@ export const Playground = meta.story({
   },
 });
 
-/** Get tokens: the formats in a dialog, the file fetched as the brand is now. */
+/** Get tokens: the formats are on the brand's Sharing tab, the one place for them. */
 export const GetTokens = meta.story({
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Get tokens" }));
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
-    // Highlighted, the file is split into spans: its text, whole.
-    await waitFor(() => expect(dialog).toHaveTextContent("--color-primary: #2f62ff"));
-    await userEvent.click(screen.getByRole("button", { name: "Close" }));
-    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("link", { name: "Get tokens" })).toHaveAttribute("href", `/brands/${acme.slug}/sharing#tokens`);
   },
 });
 

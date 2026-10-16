@@ -1,8 +1,8 @@
 import preview from "#.storybook/preview";
 import { acme, longBrand, northwind } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
-import { expect, fn, screen, spyOn, waitFor, within } from "storybook/test";
-import { TokensDialog } from "@/components/tokens-dialog";
+import { expect, screen, spyOn, waitFor, within } from "storybook/test";
+import { TokensView } from "@/components/tokens-dialog";
 
 /** What GET /api/v1/brand/tokens answers, per format: a few lines of each, as lib/tokens.ts writes them. */
 const FILES: Record<string, string> = {
@@ -13,9 +13,9 @@ const FILES: Record<string, string> = {
 let asked: string[] = [];
 
 const meta = preview.meta({
-  title: "App/Features/Brands/Tokens dialog",
-  component: TokensDialog,
-  args: { brand: acme, open: true, onOpenChange: fn() },
+  title: "App/Features/Brands/Tokens",
+  component: TokensView,
+  args: { brand: acme, className: "h-[28rem]" },
   argTypes: { context: { control: "select", options: [undefined, "dark", "print"] } },
   beforeEach: ({ msw }) => {
     asked = [];
@@ -30,10 +30,10 @@ const meta = preview.meta({
   },
 });
 
-/** Opened from a brand's header: CSS variables first, the file as the API serves it, highlighted. */
+/** On a brand's Sharing tab: CSS variables first, the file as the API serves it, highlighted. */
 export const Playground = meta.story({
   play: async () => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await expect(within(dialog).getByText("acme.tokens.css")).toBeInTheDocument();
     await expect(await within(dialog).findByText("#2f62ff")).toBeInTheDocument();
     // The default brand needs no ?brand=.
@@ -46,7 +46,7 @@ export const Playground = meta.story({
 export const Formats = meta.story({
   args: { brand: northwind },
   play: async ({ userEvent }) => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await userEvent.click(within(dialog).getByRole("button", { name: "Tailwind CSS 4" }));
     await expect(within(dialog).getByText("northwind.theme.css")).toBeInTheDocument();
     await expect(await within(dialog).findByText("@theme")).toBeInTheDocument();
@@ -63,7 +63,7 @@ export const Copy = meta.story({
     return () => write.mockRestore();
   },
   play: async ({ userEvent }) => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await within(dialog).findByText("#2f62ff");
     await userEvent.click(within(dialog).getByRole("button", { name: "Copy acme.tokens.css" }));
     await expect(navigator.clipboard.writeText).toHaveBeenCalledWith(FILES.css);
@@ -75,7 +75,7 @@ export const Copy = meta.story({
 export const InAContext = meta.story({
   args: { context: "dark", brand: longBrand },
   play: async () => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await expect(within(dialog).getByText("acme-international-holdings-partner-programme-dark.tokens.css")).toBeInTheDocument();
     await waitFor(() => expect(asked).toEqual(["?format=css&brand=acme-international-holdings-partner-programme&context=dark"]));
   },
@@ -91,7 +91,7 @@ export const Loading = meta.story({
       }),
     ),
   play: async () => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await expect(within(dialog).getByRole("status", { name: "Loading" })).toBeInTheDocument();
     await expect(within(dialog).getByRole("button", { name: "Copy acme.tokens.css" })).toBeDisabled();
   },
@@ -104,7 +104,7 @@ export const Failed = meta.story({
     msw.use(http.get("/api/v1/brand/tokens", () => (++tries === 1 ? HttpResponse.json({ error: { code: "not_found", message: "No release" } }, { status: 404 }) : new HttpResponse(FILES.css))));
   },
   play: async ({ userEvent }) => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
     await expect(await within(dialog).findByText("Couldn't load this format.")).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
     await expect(await within(dialog).findByText("#2f62ff")).toBeInTheDocument();
@@ -115,8 +115,9 @@ export const Failed = meta.story({
 export const Phone = meta.story({
   globals: { viewport: { value: "phone" } },
   play: async ({ userEvent }) => {
-    const dialog = await screen.findByRole("dialog", { name: "Design tokens" });
-    await userEvent.click(within(dialog).getByRole("combobox", { name: "Format" }));
+    // The list of formats folds into a select on a phone.
+    const dialog = document.body;
+    await userEvent.click(await within(dialog).findByRole("combobox", { name: "Format" }));
     await userEvent.click(await screen.findByRole("option", { name: "TypeScript" }));
     await expect(await within(dialog).findByText("acme.tokens.ts")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());

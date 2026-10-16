@@ -15,7 +15,7 @@ import type { Status } from "@/components/builder/use-status";
 import { PortalDialog, toastSaved, type Portal } from "@/components/portals";
 import { Group } from "@/components/settings/panels";
 import { useShell } from "@/components/shell";
-import { TokensDialog } from "@/components/tokens-dialog";
+import { TokensView } from "@/components/tokens-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Confirm } from "@/components/confirm";
@@ -66,7 +66,6 @@ export function BrandSharing({
     setHub(initialHub);
   }
   const [busy, setBusy] = useState<string | null>(null);
-  const [tokens, setTokens] = useState(false);
   const share = async (body: { visibility?: "public" | "private"; portal?: string | null }, what: string) => {
     setBusy(what);
     const done = (await send("PATCH", `/api/v1/brands/${encodeURIComponent(brand.slug)}/hub`, body)) as BrandHub | null;
@@ -144,9 +143,20 @@ export function BrandSharing({
       {portals && <BrandPortals brand={brand} portals={portals} portalDomain={portalDomain} hub={hub} busy={busy} onLink={link} />}
 
       <Group title="For agents and code" info="The addresses an agent or a build reads the brand from.">
-        <BrandAddresses brand={brand} origin={origin} hub={hub?.published ? hub : null} release={release} onTokens={() => setTokens(true)} />
+        <BrandAddresses
+          brand={brand}
+          origin={origin}
+          hub={hub?.published ? hub : null}
+          release={release}
+          onTokens={() => document.getElementById("tokens")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
       </Group>
-      <TokensDialog brand={brand} open={tokens} onOpenChange={setTokens} />
+      {/* The one place for its tokens: the header's "Use this brand" and Rules link here. */}
+      <section id="tokens" className="scroll-mt-20">
+        <Group title="Design tokens" description="Each format is also a link that stays current: a build or an agent reads the brand as it is now.">
+          <TokensView brand={brand} className="h-[28rem]" />
+        </Group>
+      </section>
     </div>
   );
 }

@@ -152,7 +152,7 @@ export const Viewer = meta.story({
   decorators: [withMe(viewer)],
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Add a rule" })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Get tokens" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Get tokens" })).toBeInTheDocument();
     await expect(canvas.getAllByText("Acme Blue").length).toBeGreaterThan(0);
   },
 });
