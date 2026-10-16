@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useState, useTransition } from "react";
 import { IconCheck, IconPhoto, IconPlus, IconTrash, IconX } from "@/components/icons";
@@ -42,7 +43,7 @@ const OWN_ACCENT = "#6d4aff";
  * server's configuration (BRAND_*), or the product's own. The page remounts
  * it from what the server has after each save.
  */
-export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /** The project's, whose releases the accent may follow. */ brands: { id: string; name: string }[] }) {
+export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /** The project's, whose releases the accent may follow. */ brands: { id: string; slug: string; name: string }[] }) {
   const id = useId();
   const router = useRouter();
   const v = setting.value;
@@ -133,9 +134,10 @@ export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /
         {image("logo", "Logo", "The sidebar, sign-in, share links and email")}
         {image("icon", "Icon", "Square: the browser tab")}
         <div className="grid gap-2">
-          <Label htmlFor={`${id}-accent`}>Accent</Label>
+          {/* The app's own color, not a brand's: a brand's accent is on its Look tab. */}
+          <Label htmlFor={`${id}-accent`}>App accent</Label>
           <div className="flex flex-wrap items-center gap-2">
-            <ColorField id={`${id}-accent`} label="Accent" value={accent ?? OWN_ACCENT} onChange={setAccent} />
+            <ColorField id={`${id}-accent`} label="App accent" value={accent ?? OWN_ACCENT} onChange={setAccent} />
             {accent ? (
               <IconButton variant="ghost" label="Back to the product's own accent" onClick={() => setAccent(null)}>
                 <IconX />
@@ -167,7 +169,17 @@ export function BrandingPanel({ setting, brands }: { setting: BrandingSetting; /
                 {accentFrom && !brands.some((b) => b.id === accentFrom) && <SelectItem value={accentFrom}>A brand of another project</SelectItem>}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs">Each release sets the accent to the brand&apos;s primary color. Alone, it keeps the product&apos;s name and marks.</p>
+            <p className="text-muted-foreground text-xs">
+              Each release sets the app&apos;s accent to the brand&apos;s, set on its{" "}
+              {brands.find((b) => b.id === accentFrom) ? (
+                <Link href={`/brands/${brands.find((b) => b.id === accentFrom)!.slug}/look`} className="text-foreground underline underline-offset-2">
+                  Look tab
+                </Link>
+              ) : (
+                "Look tab"
+              )}
+              . Alone, it keeps the product&apos;s name and marks.
+            </p>
           </div>
         )}
       </Group>
