@@ -220,3 +220,31 @@ export const PasswordDark = meta.story({
   args: { slug: "partners", base: "/p/partners", path: "", initial: { site: door("password"), query: "" } },
   globals: { theme: "dark" },
 });
+
+/** Our portal's doors, as artbucket.io frames them on /sites (`globals=fixture:artbucket`): the same site, behind a password or for the team. */
+const ours = (access: "password" | "members") => ({
+  slug: "brand",
+  base: "/p/brand",
+  path: "",
+  initial: { site: refused("password", "This portal asks for a password", { name: "Artbucket", access, theme: { logo: null, accent: "#2f62ff", background: null } }), query: "" },
+});
+
+/** Behind a password: any password a visitor tries is said to be wrong, and Ask for access is there. */
+export const OnArtbucketPassword = meta.story({
+  args: ours("password"),
+  globals: { fixture: "artbucket" },
+  beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/portal/:slug/site", () => HttpResponse.json(ours("password").initial.site, { status: 401 }))),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Artbucket" })).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Password")).toBeInTheDocument();
+  },
+});
+
+/** For the team: sign in, or ask for access. */
+export const OnArtbucketMembers = meta.story({
+  args: ours("members"),
+  globals: { fixture: "artbucket" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/Sign in if you are one of them, or ask for access/)).toBeInTheDocument();
+  },
+});

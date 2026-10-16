@@ -1,6 +1,7 @@
 import preview from "#.storybook/preview";
 import { http, HttpResponse } from "msw";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
+import { swapApi } from "#.storybook/fixtures/artbucket";
 import { freezeNow, recorder } from "#.storybook/fixtures/brands";
 import { docs, external, portal, sitesApi, verified } from "#.storybook/fixtures/sites";
 import { BuildSiteDialog } from "@/components/site-deployments";
@@ -192,3 +193,19 @@ export const RebuildHook = meta.story({
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/**
+ * As artbucket.io frames it on /sites (`globals=fixture:artbucket`): our docs site's deployments, a failed one saying
+ * which replaced file it used, a preview, the live one, and Restore on a replaced one.
+ */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket" },
+  beforeEach: swapApi,
+  play: async () => {
+    const it = within(await screen.findByRole("dialog", { name: "Artbucket docs" }));
+    const list = await it.findByRole("region", { name: "Deployments" });
+    await expect(await within(list).findByText("failed")).toBeInTheDocument();
+    list.scrollIntoView({ block: "start" });
+    await expect(screen.getByRole("dialog")).not.toHaveTextContent(/acme/i);
+  },
+});

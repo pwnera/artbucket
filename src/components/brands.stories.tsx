@@ -1,6 +1,6 @@
 import preview from "#.storybook/preview";
 import { brandRows, hub, IMPORTER, importer, manyRows, offers } from "#.storybook/fixtures/brand-pages";
-import { assetFiles, recorder } from "#.storybook/fixtures/brands";
+import { assetFiles, freezeNow, recorder } from "#.storybook/fixtures/brands";
 import { inApp } from "#.storybook/fixtures/library";
 import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
 import { expect, screen, waitFor, within } from "storybook/test";
@@ -29,7 +29,10 @@ const meta = preview.meta({
       was = localStorage.getItem(LAYOUT);
       localStorage.removeItem(LAYOUT);
     } catch {}
+    // "Released 2 days ago" is read against the fixtures' NOW, not today.
+    const unfreeze = freezeNow();
     return () => {
+      unfreeze();
       try {
         if (was === null) localStorage.removeItem(LAYOUT);
         else localStorage.setItem(LAYOUT, was);
@@ -175,3 +178,13 @@ export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
 
+
+/** New brand open over the Brands page, as artbucket.io's solution pages frame it: every way to start, nothing typed. */
+export const NewBrandDialog = meta.story({
+  args: { create: true },
+  parameters: { nextjs: { navigation: { pathname: "/brands" } } },
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "New brand" });
+    await expect(within(dialog).getByRole("radio", { name: "Start here" })).toBeChecked();
+  },
+});

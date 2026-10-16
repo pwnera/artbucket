@@ -99,3 +99,16 @@ export const Describe = meta.story({
 });
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
+
+/**
+ * As artbucket.io frames it on /library (`globals=fixture:artbucket`): Sizes and formats open, its links following new
+ * versions, each preset with its real size, a custom one to type.
+ */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket" },
+  play: async ({ canvas, userEvent }) => {
+    const pop = await openIt(canvas, userEvent);
+    await expect(within(pop).getByText("Links follow new versions")).toBeInTheDocument();
+    await expect(pop).not.toHaveTextContent(/acme/i);
+  },
+});

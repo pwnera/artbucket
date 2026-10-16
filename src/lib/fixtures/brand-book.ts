@@ -796,7 +796,9 @@ const svg = (w: number, h: number, body: string) =>
 const MARK = '<circle cx="48" cy="48" r="40" fill="#e87d0d"/><circle cx="48" cy="48" r="17" fill="#fff"/><circle cx="48" cy="48" r="11" fill="#265787"/>';
 
 /** The placeholder assets drawn as SVG, so the dev page needs no server and no upload. */
-const PICTURES: Record<string, { filename: string; title: string; description: string; width: number; height: number; src: string }> = {
+/** A picture a book shows, drawn in place: its file's name, words and size, and the image itself as a data URL. */
+export type Picture = { filename: string; title: string; description: string; width: number; height: number; src: string };
+const PICTURES: Record<string, Picture> = {
   [PLACEHOLDERS.mark]: {
     filename: "blender-mark.svg",
     title: "The mark",
@@ -846,8 +848,8 @@ const BLANK = svg(160, 120, '<rect width="160" height="120" fill="#d4d4d8"/>');
 /** Where a fixture's asset loads from, whatever rendition was asked: the `url` the dev page hands the site. */
 export const fixtureUrl = (id: string) => PICTURES[id]?.src ?? BLANK;
 
-function media(id: string): Media {
-  const p = PICTURES[id];
+function media(id: string, pictures: Record<string, Picture> = PICTURES): Media {
+  const p = pictures[id];
   const src = p?.src ?? BLANK;
   const filename = p?.filename ?? `${id}.svg`;
   return {
@@ -870,8 +872,8 @@ function media(id: string): Media {
   };
 }
 
-const viewAsset = (id: string): ViewAsset => {
-  const m = media(id);
+const viewAsset = (id: string, pictures?: Record<string, Picture>): ViewAsset => {
+  const m = media(id, pictures);
   return { id, rendition: null, title: m.title, filename: m.filename, mime: m.mime, size: m.size, preview: true, width: m.width, height: m.height, supersededBy: null };
 };
 
@@ -885,7 +887,16 @@ const viewAsset = (id: string): ViewAsset => {
 export function fixtureView(name: string, slug?: string | null, lang?: string | null): PageView {
   const make = Object.hasOwn(FIXTURES, name) ? FIXTURES[name] : undefined;
   if (!make) throw new Error(`No fixture "${name}"; there are ${Object.keys(FIXTURES).join(", ")}`);
-  const book = make();
+  return bookView(name, make(), { slug, lang });
+}
+
+/**
+ * The same for a book given as itself (a brand's folder read by brand-files `fromFiles`, say), with the pictures it
+ * shows by id in place of the fixtures' own.
+ */
+export function bookView(name: string, book: BrandBook, o: { slug?: string | null; lang?: string | null; pictures?: Record<string, Picture> } = {}): PageView {
+  const { slug, lang } = o;
+  const pictures = o.pictures ?? PICTURES;
   const parsed = book.rules.map((raw) => RuleInput.parse(raw));
   // As the planner does: a context version without a label reads its default's.
   const labelOf = new Map(parsed.filter((r) => !r.context && r.label).map((r) => [r.key, r.label!]));
@@ -898,7 +909,7 @@ export function fixtureView(name: string, slug?: string | null, lang?: string | 
       value: r.value,
       usage: r.usage ?? null,
       spec: ("spec" in r && r.spec) || null,
-      assets: (r.assets ?? []).map((a) => viewAsset(a.id)),
+      assets: (r.assets ?? []).map((a) => viewAsset(a.id, pictures)),
     };
   });
   const reads = lang ?? book.theme.languages?.[0]?.code ?? null;
@@ -932,12 +943,12 @@ export function fixtureView(name: string, slug?: string | null, lang?: string | 
   const at = slug ? pages.find((p) => p.meta.slug === slug) : pages[0];
   if (!at) throw new Error(`No page "${slug}" in ${name}; there are ${pages.map((p) => p.meta.slug).join(", ")}`);
   const ids = new Set([
-    ...Object.keys(PICTURES),
+    ...Object.keys(pictures),
     ...rules.flatMap((r) => r.assets.map((a) => a.id)),
     ...assetRefs({ cover: at.meta.cover, sections: at.sections }).map((r) => r.id),
     ...(book.theme.device ? [book.theme.device] : []),
   ]);
-  const shelf = Object.keys(PICTURES).map(media);
+  const shelf = Object.keys(pictures).map((id) => media(id, pictures));
   const theme = deriveTheme(rules, book.theme);
   return {
     brand: { slug: name, name: name[0].toUpperCase() + name.slice(1) },
@@ -950,7 +961,7 @@ export function fixtureView(name: string, slug?: string | null, lang?: string | 
     page: { ...at.meta, sections: at.sections, aliases: [], layout: at.layout },
     locked: false,
     rules,
-    media: Object.fromEntries([...ids].map((id) => [id, media(id)])),
+    media: Object.fromEntries([...ids].map((id) => [id, media(id, pictures)])),
     collections: Object.fromEntries(
       at.sections.filter((s) => isLive(s.template)).map((s) => [s.id, { items: shelf, total: shelf.length, error: null }]),
     ),

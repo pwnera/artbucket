@@ -119,3 +119,26 @@ export const NoBrand = meta.story({
 });
 
 export const Phone = meta.story({ args: { hub }, globals: { viewport: { value: "phone" } } });
+
+/**
+ * As artbucket.io frames it on /templates (`globals=fixture:artbucket;sidebar:open`): Brand files with our names,
+ * public on BrandHub, so the share card is BrandHub's own, drawn live from our release; the slides, the document,
+ * the press kit and three files of our own, sample ones.
+ */
+export const OnArtbucket = meta.story({
+  args: { hub: { ...hub, url: "https://hub.artbucket.io/artbucket/artbucket", verified: "brand.artbucket.io" } },
+  globals: { fixture: "artbucket" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Share card" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Download the press kit" })).toHaveAttribute("href", "https://hub.artbucket.io/artbucket/artbucket/press-kit.zip");
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+    // Opened at the files of our own, the part artbucket.io shows it for, kept there while the card above loads.
+    const own = canvas.getByRole("heading", { name: "Your own templates" });
+    // window.scrollTo, not scrollIntoView, which would scroll the page framing it too; below the sticky header.
+    const pin = () => window.scrollTo({ top: own.getBoundingClientRect().top + window.scrollY - 72, behavior: "instant" });
+    pin();
+    const watch = new ResizeObserver(pin);
+    watch.observe(document.body);
+    setTimeout(() => watch.disconnect(), 5000);
+  },
+});

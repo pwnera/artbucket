@@ -346,3 +346,16 @@ export const NewPortalPhone = meta.story({
 });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/**
+ * A public portal at its address under the portals' domain, no domain of its own needed, as artbucket.io's open-source
+ * page frames it: the brand's last release and its press kit, open to anyone.
+ */
+export const PublicPortal = meta.story({
+  parameters: at(),
+  render: () => <PortalPage portal={portal({ id: "sit_brand", slug: "acme", name: "Acme brand", intro: "Our marks, colors and rules, and the press kit." })} portalDomain={PORTAL_DOMAIN} />,
+  play: async () => {
+    const it = await page("Acme brand");
+    await expect(it.getByRole("radio", { name: /Anyone with the address/ })).toBeChecked();
+  },
+});

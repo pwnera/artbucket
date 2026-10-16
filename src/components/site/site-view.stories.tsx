@@ -1,7 +1,10 @@
 import preview from "#.storybook/preview";
+import { useMemo, useState } from "react";
+import { expect, waitFor } from "storybook/test";
 import { SiteView } from "@/components/site/site-view";
 import { LOOKS } from "@/lib/brand-theme";
 import { FIXTURES, fixtureUrl, fixtureView } from "@/lib/fixtures/brand-book";
+import { OURS, ourView } from "#.storybook/fixtures/our-brand";
 
 type BookProps = { fixture: string; page: string; context: string; look: string; headline: string };
 
@@ -84,3 +87,44 @@ export const BoldEveryTemplate = meta.story({ args: { look: "bold", fixture: "bi
 export const CinematicEveryTemplate = meta.story({ args: { look: "cinematic", fixture: "big", page: "everything" }, parameters: brandColors });
 export const PlayfulEveryTemplate = meta.story({ args: { look: "playful", fixture: "big", page: "everything" }, parameters: brandColors });
 export const BoardEveryTemplate = meta.story({ args: { look: "board", fixture: "big", page: "everything" }, parameters: brandColors });
+
+// ---- our own book, as artbucket.io frames it ----------------------------------------------------------
+
+/** Our book, its links live: a page of the nav opens in place, as the portal moves between pages. */
+function OurBook({ page: first }: { page: string }) {
+  const [page, setPage] = useState(first);
+  const view = useMemo(() => ourView(page), [page]);
+  return (
+    // Its links are `?page=`: kept in the story rather than leaving it.
+    <div
+      onClickCapture={(e) => {
+        const to = (e.target as Element).closest("a")?.getAttribute("href")?.match(/^\?page=([^#&]+)/)?.[1];
+        if (!to) return;
+        e.preventDefault();
+        setPage(to);
+        window.scrollTo(0, 0);
+      }}
+    >
+      <SiteView view={view} href={(p, s) => `?page=${p}${s ? `#${s}` : ""}`} url={(id) => OURS[id]?.src ?? fixtureUrl(id)} />
+    </div>
+  );
+}
+
+/**
+ * Our own brand book, as artbucket.io frames it on /sites: the core's brand/ folder drawn by the brand site's
+ * renderer on its Board look, as brand.artbucket.io shows its latest release. Its pages open in place.
+ */
+export const OnArtbucket = meta.story({
+  render: () => <OurBook page="overview" />,
+  parameters: brandColors,
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    const nav = (name: RegExp) => canvas.getAllByRole("link", { name })[0];
+    await userEvent.click(nav(/Color$/));
+    await waitFor(() => expect(nav(/Color$/)).toHaveAttribute("aria-current", "page"));
+    await userEvent.click(nav(/^Overview$/));
+    await waitFor(() => expect(nav(/^Overview$/)).toHaveAttribute("aria-current", "page"));
+    // Its focus ring and tooltip gone, as a visitor finds it.
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+});

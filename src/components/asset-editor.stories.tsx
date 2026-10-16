@@ -1,14 +1,15 @@
 import preview from "#.storybook/preview";
 import { delay, http, HttpResponse } from "msw";
 import { useState } from "react";
-import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
+import { expect, fireEvent, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import { freezeNow } from "#.storybook/fixtures/brands";
-import { as, assets, asset as make, byId, collections, fields, library, NOW, versions } from "#.storybook/fixtures/library";
+import { as, assets, asset as make, byId, collections, fields, inApp, library, NOW, versions } from "#.storybook/fixtures/library";
 import { fontUrl } from "#.storybook/fixtures/patterns";
 import { AssetEditor, AssetEditorSkeleton } from "@/components/asset-editor";
 import { AssetViewer } from "@/components/asset-viewer";
 import type { Asset } from "@/components/gallery";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { rightsReasons } from "@/lib/rights";
 
 /** Every PATCH a story's editor sent, oldest first: cleared before each story. */
 const sent: Record<string, unknown>[] = [];
@@ -510,3 +511,82 @@ export const Dark = Suggested.extend({ globals: { theme: "dark" } });
 
 /** Rights open, in the dark: the fields, chips and date notes. */
 export const DarkRights = Rights.extend({ globals: { theme: "dark" } });
+
+/**
+ * As artbucket.io frames it on /ai: an image an agent made, waiting for review, its Provenance open (generated, the
+ * model, the prompt). The image model is a made-up one, not ours.
+ */
+export const ProvenanceOnArtbucket = meta.story({
+  args: { asset: { ...byId("ast_ai"), generator: "Example Image Model" } as Asset },
+  globals: { fixture: "artbucket" },
+  // fireEvent, not userEvent (openFold): framed by artbucket.io, the story's document isn't focused.
+  play: async () => {
+    const dialog = await screen.findByRole("dialog");
+    const fold = within(dialog).getByText("Provenance", { selector: "summary, summary *" }).closest("details")!;
+    if (!fold.open) fireEvent.click(fold.querySelector("summary")!);
+    const provenance = within(fold);
+    await expect(await provenance.findByRole("textbox", { name: "Made with" })).toHaveValue("Example Image Model");
+    // The fold at the top of the panel, as someone who opened it would read it: the panel scrolls, not the dialog.
+    // What loads above it after (its uses, its access) would push it down, so it is kept there for a few seconds.
+    let panel = fold.parentElement;
+    while (panel && getComputedStyle(panel).overflowY !== "auto") panel = panel.parentElement;
+    if (panel) {
+      const box = panel;
+      const pin = () => box.scrollTo({ top: box.scrollTop + fold.getBoundingClientRect().top - box.getBoundingClientRect().top - 16 });
+      pin();
+      const watch = new ResizeObserver(pin);
+      for (const c of box.children) watch.observe(c);
+      setTimeout(() => watch.disconnect(), 5000);
+    }
+    await expect(dialog).not.toHaveTextContent(/acme/i);
+  },
+});
+
+/** A fold at the top of the asset's panel, as someone who opened it reads it: the panel scrolls, never the page framing it. */
+const foldToTop = (title: string) => {
+  const fold = within(screen.getByRole("dialog")).getByText(title, { selector: "summary, summary *" }).closest("details")!;
+  let panel = fold.parentElement;
+  while (panel && getComputedStyle(panel).overflowY !== "auto") panel = panel.parentElement;
+  panel?.scrollTo({ top: fold.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - 16 });
+};
+
+/** POST /api/v1/check, answered by the core's own rules (lib/rights.ts) on the asset's rights, on the fixtures' today. */
+const check = http.post("/api/v1/check", async ({ request }) => {
+  const use = (await request.json()) as { asset: string; channel?: string; territory?: string; date?: string };
+  const reasons = rightsReasons(all.find((a) => a.id === use.asset)?.rights ?? null, { ...use, date: use.date ?? "2026-10-16" });
+  return HttpResponse.json({ allowed: !reasons.some((r) => r.blocking), reasons, suggest: [] });
+});
+
+/** In the app, as artbucket.io's solution pages frame it: a licensed photo opened from Assets, its Rights open. */
+export const RightsInTheApp = meta.story({
+  args: { asset: licensed },
+  decorators: [inApp],
+  parameters: { nextjs: { navigation: { pathname: "/assets" } } },
+  play: async () => {
+    const rights = await openFold("Rights");
+    await expect(rights.getByRole("button", { name: "Remove Germany (DE)" })).toBeInTheDocument();
+    foldToTop("Rights");
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+});
+
+/**
+ * In the app: Can I use this? asked for social in the United States, refused by the core's own rules, each reason said.
+ * The use is set as a change, not typed: a framed story's document isn't focused, so typed keys never reach it.
+ */
+export const CheckInTheApp = meta.story({
+  args: { asset: licensed },
+  decorators: [inApp],
+  parameters: { nextjs: { navigation: { pathname: "/assets" } } },
+  beforeEach: ({ msw }) => void msw.use(check),
+  play: async () => {
+    const fold = await openFold("Can I use this?");
+    await fireEvent.change(fold.getByLabelText("Where"), { target: { value: "social" } });
+    await fireEvent.change(fold.getByLabelText("Territory"), { target: { value: "US" } });
+    await userEvent.click(fold.getByRole("button", { name: "Check" }));
+    await expect(await fold.findByText("Not for this use")).toBeInTheDocument();
+    await expect(fold.getByText("Not licensed in US: DE, FR only")).toBeInTheDocument();
+    foldToTop("Can I use this?");
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+});

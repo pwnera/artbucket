@@ -1,8 +1,10 @@
 import preview from "#.storybook/preview";
-import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
-import { expect, screen, waitFor } from "storybook/test";
+import { getRouter, useSelectedLayoutSegments } from "@storybook/nextjs-vite/navigation.mock";
+import { expect, mocked, screen, waitFor, within } from "storybook/test";
 import { me, recorder, viewer, withMe } from "#.storybook/fixtures/brands";
+import { inApp } from "#.storybook/fixtures/library";
 import { ProjectsPanel } from "@/components/settings/panels";
+import { SettingsShell } from "@/components/settings/shell";
 
 const sent = recorder();
 const projects = [
@@ -88,3 +90,20 @@ export const LongNames = meta.story({
 
 /** On a phone Rename and Delete fold into one menu, so the name keeps its width. */
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
+
+/** In the app, as Settings, Organization, Projects shows it: one library per client or team, in the shell. */
+export const InSettings = meta.story({
+  render: (args) => (
+    <SettingsShell>
+      <ProjectsPanel {...args} />
+    </SettingsShell>
+  ),
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", app: { me: { hub: true } }, nextjs: { navigation: { pathname: "/settings/organization/projects" } } },
+  beforeEach: () => void mocked(useSelectedLayoutSegments).mockReturnValue(["(sections)", "organization", "projects"]),
+  play: async ({ canvas }) => {
+    const nav = canvas.getByRole("navigation", { name: "Settings" });
+    await expect(within(nav).getByRole("link", { name: "Projects" })).toHaveAttribute("aria-current", "page");
+    await expect(canvas.getByText("Northwind")).toBeInTheDocument();
+  },
+});

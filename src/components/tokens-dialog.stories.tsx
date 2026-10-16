@@ -1,8 +1,9 @@
 import preview from "#.storybook/preview";
-import { acme, longBrand, northwind } from "#.storybook/fixtures/brands";
+import { acme, longBrand, northwind, rules } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
 import { expect, screen, spyOn, waitFor, within } from "storybook/test";
 import { TokensView } from "@/components/tokens-dialog";
+import { TOKEN_FORMATS, type TokenFormatId } from "@/lib/tokens";
 
 /** What GET /api/v1/brand/tokens answers, per format: a few lines of each, as lib/tokens.ts writes them. */
 const FILES: Record<string, string> = {
@@ -121,5 +122,25 @@ export const Phone = meta.story({
     await userEvent.click(await screen.findByRole("option", { name: "TypeScript" }));
     await expect(await within(dialog).findByText("acme.tokens.ts")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  },
+});
+
+/**
+ * Every format written by lib/tokens.ts itself from Acme's rules, as GET /api/v1/brand/tokens would (the default of each
+ * rule, no context), for artbucket.io's product teams page: any format picked shows what the API answers for it.
+ */
+export const EveryFormat = meta.story({
+  beforeEach: ({ msw }) =>
+    void msw.use(
+      http.get("/api/v1/brand/tokens", ({ request }) => {
+        const id = (new URL(request.url).searchParams.get("format") ?? "css") as TokenFormatId;
+        const f = TOKEN_FORMATS[id] ?? TOKEN_FORMATS.css;
+        const text = f.render(rules.filter((r) => r.context === null), { origin: "https://app.acme.test", title: "acme design tokens, from Artbucket." });
+        return new HttpResponse(text, { headers: { "Content-Type": f.mime } });
+      }),
+    ),
+  play: async () => {
+    const dialog = await screen.findByRole("navigation", { name: "Formats" }).then((n) => n.parentElement!);
+    await expect(await within(dialog).findByText("#2f62ff")).toBeInTheDocument();
   },
 });

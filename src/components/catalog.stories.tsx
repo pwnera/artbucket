@@ -1,10 +1,12 @@
 import preview from "#.storybook/preview";
-import { recorder, treeProjects } from "#.storybook/fixtures/brands";
+import { lineage, recorder, treeProjects } from "#.storybook/fixtures/brands";
 import { acmeBrand, catalogApi, describeAny, logo, manyAssets, portal, primaryRule } from "#.storybook/fixtures/catalog";
+import { fixture, swapApi, toAcme } from "#.storybook/fixtures/artbucket";
 import { inApp } from "#.storybook/fixtures/library";
 import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
+import { http, HttpResponse } from "msw";
 import { useEffect, useState } from "react";
-import { expect, screen, waitFor, within } from "storybook/test";
+import { expect, fireEvent, screen, waitFor, within } from "storybook/test";
 import { CatalogExplorer, type Tab, type TreeProject } from "@/components/catalog";
 
 const sent = recorder();
@@ -13,13 +15,13 @@ const sent = recorder();
  * The page as app/(app)/catalog/page.tsx draws it, its address kept here: what the explorer pushes (`?o=`, `?f=`,
  * `&tab=`) becomes the next object, folder and tab, as the server would answer them.
  */
-function CatalogPage({ projects, at }: { projects: TreeProject[]; at: string }) {
+function CatalogPage({ projects, at, describeAs = describeAny }: { projects: TreeProject[]; at: string; describeAs?: typeof describeAny }) {
   const [url, setUrl] = useState(at);
   useEffect(() => void getRouter().push.mockImplementation((u: string) => setUrl(u)), []);
   const q = new URL(url, "https://app.artbucket.test").searchParams;
   const o = q.get("o");
   const folder = o ? null : (q.get("f") ?? projects[0]?.id ?? null);
-  return <CatalogExplorer projects={projects} object={o ? describeAny(o) : null} folder={folder} tab={(q.get("tab") ?? "overview") as Tab} />;
+  return <CatalogExplorer projects={projects} object={o ? describeAs(o) : null} folder={folder} tab={(q.get("tab") ?? "overview") as Tab} />;
 }
 
 /**
@@ -285,3 +287,66 @@ export const HideTheTree = meta.story({
 export const Phone = meta.story({ args: { object: logo, folder: null }, globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ args: { object: logo, folder: null }, globals: { theme: "dark" } });
+
+/**
+ * As artbucket.io frames it (`globals=fixture:artbucket`): our logo open on its Lineage, every tab and the tree live to
+ * click, with our own names in the page and in what its tabs fetch.
+ */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket" },
+  beforeEach: (ctx) => {
+    // One hop at a time, as the API answers `depth=1`: the portal comes in with the brand's or the press kit's +.
+    ctx.msw.use(
+      http.get("/api/v1/catalog/:id/lineage", ({ params, request }) => {
+        const id = String(params.id);
+        const dir = new URL(request.url).searchParams.get("direction") ?? "up,down";
+        const edges = lineage.edges.filter((e) => (dir.includes("down") && e.from === id) || (dir.includes("up") && e.to === id));
+        const ids = new Set([id, ...edges.flatMap((e) => [e.from, e.to])]);
+        return HttpResponse.json({ ...lineage, root: id, nodes: lineage.nodes.filter((n) => ids.has(n.id)), edges, unseen: id === lineage.root ? lineage.unseen : 0 });
+      }),
+    );
+    return swapApi(ctx);
+  },
+  render: ({ projects }, { globals }) => <CatalogPage projects={projects} at="/catalog?o=ast_logo&tab=lineage" describeAs={(id) => fixture(globals, describeAny(toAcme(id)))} />,
+  play: async ({ canvas, userEvent }) => {
+    await expect(await canvas.findByText("Changing artbucket-logo.svg reaches 3 things downstream, in 1 project.", {}, { timeout: 15_000 })).toBeInTheDocument();
+    const tabs = within(canvas.getByRole("navigation", { name: "Object" }));
+    await userEvent.click(tabs.getByRole("button", { name: "access" }));
+    await expect(await canvas.findByRole("cell", { name: "Grace Hopper" })).toBeInTheDocument();
+    await userEvent.click(tabs.getByRole("button", { name: /lineage/ }));
+    await expect(await canvas.findByText("Changing artbucket-logo.svg reaches 3 things downstream, in 1 project.")).toBeInTheDocument();
+    // The page, not the toasts an earlier story of the run left behind.
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+    // Its focus ring and tooltip gone, as a visitor finds it.
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+});
+
+/** The home's Catalog (artbucket.io/#catalog): our project as a folder, each object's status; the sidebar folded for the room. */
+export const OnArtbucketProject = OnArtbucket.extend({
+  globals: { fixture: "artbucket", sidebar: "folded" },
+  render: ({ projects }, { globals }) => <CatalogPage projects={projects} at="/catalog" describeAs={(id) => fixture(globals, describeAny(toAcme(id)))} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Artbucket", level: 2 })).toBeInTheDocument();
+    const lately = within(canvas.getByRole("region", { name: "Updated lately" }));
+    for (const status of ["Current", "Draft", "In review", "Replaced"]) await expect(lately.getAllByText(status)[0]).toBeInTheDocument();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+  },
+});
+
+/** The home's Lineage (artbucket.io/#lineage): our logo's Lineage with the room it wants, the sidebar folded and the tree hidden. */
+export const OnArtbucketLineage = OnArtbucket.extend({
+  globals: { fixture: "artbucket", sidebar: "folded" },
+  // fireEvent, as framed by artbucket.io the story's document isn't focused. On a phone's width there is no tree.
+  play: async ({ canvas }) => {
+    const tree = canvas.queryByRole("button", { name: "Hide the tree" });
+    if (tree) fireEvent.click(tree);
+    await expect(await canvas.findByText("Changing artbucket-logo.svg reaches 3 things downstream, in 1 project.", {}, { timeout: 15_000 })).toBeInTheDocument();
+    // The graph fits itself to the room it had as it drew: fitted again, to the tree's room too.
+    await expect(await canvas.findByText("Press kit")).toBeInTheDocument();
+    fireEvent.click(canvas.getByRole("button", { name: "Fit View" }));
+    // Left as a visitor finds it: no button focused, so no tooltip or ring stays up.
+    (document.activeElement as HTMLElement | null)?.blur();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+  },
+});

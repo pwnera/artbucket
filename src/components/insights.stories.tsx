@@ -121,3 +121,13 @@ export const Page = meta.story({
     await expect(await canvas.findByRole("heading", { name: "Insights", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
   },
 });
+
+/** Use checks in the app, as artbucket.io's solution pages frame it: every refusal, its reason, and whether the replacement was taken. */
+export const ChecksPage = Page.extend({
+  args: { tab: "checks" },
+  parameters: { nextjs: { navigation: { pathname: "/insights/checks", segments: ["checks"] } } },
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("heading", { name: "Use checks", level: 1 }, { timeout: 5000 })).toBeInTheDocument();
+    await expect(canvas.getByRole("table")).toHaveTextContent("Newsletter agent");
+  },
+});
