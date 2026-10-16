@@ -135,7 +135,8 @@ and **Contact**, the footer's feedback address when one is set.
 A portal can close on a date: after it, the address answers `410`.
 
 On the last two, anyone else can **ask for access**: their email, a name, and
-a note. The project's admins get an email. Approve, and they get a link of
+a note. The project's admins get an email, and every site's requests wait
+in **Inbox**, **Requests** (`GET /api/v1/sites/requests`). Approve, and they get a link of
 their own by email (and one to copy, if email is off), good for 90 days or
 until the portal closes. Remove the request to take it back.
 

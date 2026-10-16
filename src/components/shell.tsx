@@ -34,6 +34,8 @@ type ShellValue = {
   setReviewCount: Setter<number>;
   /** What isn't done in Fixes, for the Inbox's tabs. */
   fixesCount: number;
+  /** Sites' requests waiting, for the Inbox's tabs. */
+  requestsCount: number;
   brands: BrandInfo[];
   setBrands: Setter<BrandInfo[]>;
   /** Folds the sidebar to icons while true, without touching what the person chose. */
@@ -331,6 +333,7 @@ export function Shell({
       reviewCount,
       setReviewCount,
       fixesCount: sidebar.fixesCount,
+      requestsCount: sidebar.requestsCount ?? 0,
       brands,
       setBrands,
       setSqueeze,
@@ -344,7 +347,7 @@ export function Shell({
     }),
     // forget reads `searches`, which is here: it is the same function for the same list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collections, searches, reviewCount, sidebar.fixesCount, brands, add, setCommands, openCollection, collectionEdits, libraryEdits],
+    [collections, searches, reviewCount, sidebar.fixesCount, sidebar.requestsCount, brands, add, setCommands, openCollection, collectionEdits, libraryEdits],
   );
 
   const newCollection = can("collection.create") ? () => void openCollection("new") : undefined;

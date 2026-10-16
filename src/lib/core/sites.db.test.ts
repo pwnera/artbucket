@@ -12,7 +12,7 @@ import { env } from "@/lib/env";
 import { ENTER_PATH } from "@/lib/sites";
 import { ingestBytes } from "@/lib/core/assets";
 import { createCollection } from "@/lib/core/collections";
-import { createPortal, decideRequest, getPortal, listRequests, requestAccess, updatePortal } from "@/lib/core/portals";
+import { createPortal, decideRequest, getPortal, listProjectRequests, listRequests, pendingRequests, requestAccess, updatePortal } from "@/lib/core/portals";
 import { rebuildSites } from "@/lib/core/rebuild";
 import { addDomain, hostTarget, portalHome } from "@/lib/core/domains";
 import { resolveBrand } from "@/lib/core/brands";
@@ -470,6 +470,18 @@ test("an approved request's key opens a site's builds, and stops when the reques
   await assert.rejects(siteFile(elsewhere.slug, {}, "/", cookie), /for members/);
   await decideRequest(ada.caller, shut.id, asked.id, "denied");
   await assert.rejects(siteFile(shut.slug, {}, "/", cookie), /for members/);
+});
+
+test("the Inbox lists every site's requests, each naming its site, and counts what waits", async () => {
+  const one = await createPortal(ada.caller, { name: "Press room", slug: `press-room-${Date.now().toString(36)}`, kind: "docs", access: "members" });
+  const before = await pendingRequests(ada.caller);
+  await requestAccess(one.slug, { email: "dana@example.com", name: "Dana" }, "203.0.113.10");
+  assert.equal(await pendingRequests(ada.caller), before + 1);
+  const all = await listProjectRequests(ada.caller);
+  const dana = all.find((r) => r.email === "dana@example.com")!;
+  assert.deepEqual(dana.site, { id: one.id, name: "Press room" });
+  await decideRequest(ada.caller, one.id, dana.id, "denied");
+  assert.equal(await pendingRequests(ada.caller), before);
 });
 
 test("a release that changes nothing a site's build reads calls no hook; one that does, does", async (t) => {
