@@ -161,7 +161,6 @@ export const FromARepository = meta.story({
   play: async ({ userEvent }) => {
     const first = within(await dialog());
     await userEvent.click(first.getByRole("radio", { name: "From a Git repository" }));
-    await userEvent.click(first.getByRole("button", { name: "Continue" }));
     const d = within(await screen.findByRole("dialog", { name: "From a Git repository" }));
     await expect(d.getByRole("link", { name: /Bring in a brand from a repository/ })).toHaveAttribute("href", me.git!);
     await userEvent.click(d.getByRole("button", { name: /Start a new brand, kept in a repository/ }));
@@ -176,7 +175,6 @@ export const FromARepositoryWithTheCli = meta.story({
   play: async ({ args, userEvent }) => {
     const first = within(await dialog());
     await userEvent.click(first.getByRole("radio", { name: "From a Git repository" }));
-    await userEvent.click(first.getByRole("button", { name: "Continue" }));
     const d = within(await screen.findByRole("dialog", { name: "From a Git repository" }));
     await userEvent.type(d.getByRole("textbox", { name: "Brand name" }), "Acme Kids");
     await userEvent.click(d.getByRole("button", { name: "Make it" }));
@@ -194,7 +192,6 @@ export const WithAnAgent = meta.story({
   play: async ({ args, userEvent }) => {
     const first = within(await dialog());
     await userEvent.click(first.getByRole("radio", { name: "Start with an AI agent" }));
-    await userEvent.click(first.getByRole("button", { name: "Continue" }));
     const d = within(await screen.findByRole("dialog", { name: "Let an agent build it" }));
     await userEvent.type(d.getByRole("textbox", { name: "Brand name" }), "Northwind");
     await userEvent.type(d.getByRole("textbox", { name: "Website" }), "https://northwind.test");
@@ -213,7 +210,6 @@ export const ImportYourBrand = meta.story({
   play: async ({ userEvent }) => {
     const first = within(await dialog());
     await userEvent.click(first.getByRole("radio", { name: "Import your brand" }));
-    await userEvent.click(first.getByRole("button", { name: "Continue" }));
     const d = within(await screen.findByRole("dialog", { name: "Import your brand" }));
     await expect(await d.findByText("Choose a .zip or a PDF")).toBeInTheDocument();
     await expect(d.getByRole("button", { name: "Upload and read" })).toBeDisabled();
