@@ -2,34 +2,36 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { NavLink } from "@/components/app-sidebar";
 import { useMe } from "@/components/can";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
+import { FacetFilter } from "@/components/facet-filter";
 import { Button } from "@/components/ui/button";
-import { openPath, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
+import { openPath, STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
 import type { Narrow } from "@/lib/view";
 import { cn } from "@/lib/utils";
 
 /**
- * What a search in Explore finds of every type (GET /api/v1/catalog): a row
- * of types to pick one, then the top results as one ranked list, assets
- * among brands, collections, sites, rules, guideline pages and components,
- * each drawn as the same card, above the assets to work on; or (`only`)
- * every match of one type, a page at a time. Each opens where the app shows
- * it; an asset of this project in the viewer, in place.
+ * Explore's search of every type (GET /api/v1/catalog): a row of types to
+ * pick one, the Tags and Status filters every type takes, then one ranked
+ * list, assets among brands, collections, sites, rules, guideline pages and
+ * components, each drawn as the same card, a page at a time; or (`only`)
+ * every match of one type. Each opens where the app shows it; an asset of
+ * this project in the viewer, in place. The Assets tab is the asset grid
+ * (components/gallery.tsx), with the filters only assets have.
  */
 
 const OTHERS: CatalogType[] = ["brand", "collection", "site", "rule", "page", "component"];
 const EVERY: CatalogType[] = [...OTHERS, "asset"];
-const SHOWN = 8;
 const PAGE = 40;
 
 type Found = { key: string; r: CatalogResults; items: CatalogResults["items"] };
 
 /** `record`: the search of every type is Explore's one search for Insights; a type's tab is a look at it. */
 const fetchCatalog = (q: string, types: CatalogType[], narrow: Narrow, cursor: number, signal?: AbortSignal) => {
-  const params = new URLSearchParams({ q, limit: String(PAGE), cursor: String(cursor) });
+  const params = new URLSearchParams({ q, limit: String(PAGE), cursor: String(cursor), facets: "true" });
   if (types.length !== EVERY.length) params.set("record", "false");
   for (const t of types) params.append("type", t);
   for (const t of narrow.tags) params.append("tag", t);
@@ -65,31 +67,42 @@ function useFound(q: string, types: CatalogType[] | null, narrow: Narrow) {
   return now && { ...now, more };
 }
 
-/** `narrow`: Explore's tags and states, which narrow every type as they narrow the assets below. */
+/** Retired statuses aren't picked here: replaced has no asset state to keep in the URL, and the results say what they left out. */
+const PICKABLE: CatalogStatus[] = ["draft", "in_review", "current", "archived"];
+
+/**
+ * `narrow`: Explore's tags and states, which narrow every type; `onNarrow`
+ * changes them. `assets`: the asset grid's count, for its tab.
+ */
 export function CatalogMatches({
   q,
   only,
   assets,
   narrow,
+  onNarrow,
   onOpenAsset,
 }: {
   q: string;
   only: CatalogType | null;
   assets: number;
   narrow: Narrow;
+  onNarrow: (n: Narrow) => void;
   onOpenAsset: (id: string) => void;
 }) {
   const here = useMe()?.project.id;
+  const params = useSearchParams();
   const all = useFound(q, EVERY, narrow);
   const one = useFound(q, only && only !== "asset" ? [only] : null, narrow);
   const card = (i: Item) => <ResultCard key={i.id} i={i} {...(i.type === "asset" && i.project.id === here ? { onClick: () => onOpenAsset(i.id) } : { href: openPath(i) })} />;
   if (!all) return null;
   const types = OTHERS.filter((t) => all.r.counts[t] || t === only);
-  if (!types.length) return null;
+  // A tab keeps the words and the filters; a file type or a field, only assets have, stays on the Assets tab.
   const href = (t: CatalogType | null) => {
-    const p = new URLSearchParams();
-    if (q) p.set("q", q);
+    const p = new URLSearchParams(params);
+    p.delete("asset");
     if (t) p.set("in", t);
+    else p.delete("in");
+    if (t !== "asset") for (const k of [...p.keys()]) if (k === "type" || k.startsWith("f.")) p.delete(k);
     return p.size ? `/?${p}` : "/";
   };
   const tab = (t: CatalogType | null, label: string, n?: number) => (
@@ -106,39 +119,49 @@ export function CatalogMatches({
       {n != null && <span className={cn("text-xs tabular-nums", only !== t && "text-muted-foreground")}>{n.toLocaleString()}</span>}
     </NavLink>
   );
+  const shown = only && only !== "asset" ? one : all;
+  const facets = shown?.r.facets;
   return (
     <>
       <nav aria-label="What to explore" className="flex flex-wrap gap-2">
-        {tab(null, "Everything")}
+        {tab(null, "Everything", all.r.total)}
         {tab("asset", TYPE_LABEL.asset.many, assets)}
         {types.map((t) => tab(t, TYPE_LABEL[t].many, all.r.counts[t] ?? 0))}
       </nav>
-      {only === "asset" ? null : only ? (
-        <Section title={TYPE_LABEL[only].many} count={one?.r.total}>
-          {one && !one.items.length ? (
-            <p className="text-muted-foreground text-sm">No {TYPE_LABEL[only].many.toLowerCase()} match.</p>
-          ) : (
-            <CardGrid>{(one?.items ?? []).map(card)}</CardGrid>
-          )}
-          {one?.r.next != null && (
-            <Button variant="outline" size="sm" onClick={one.more}>
-              Show more
-            </Button>
-          )}
-        </Section>
-      ) : (
-        // Ranked together, whatever their type: a strong component comes before a weak asset.
-        <Section title="Top results">
-          <CardGrid>{all.items.slice(0, SHOWN).map(card)}</CardGrid>
-          {all.r.total > SHOWN && <p className="text-muted-foreground text-xs">Pick a type above to see every match of it</p>}
-          {/* What the search left out, so a missing logo isn't a mystery: "logo.png @3 matches too, but it was replaced by @4." */}
-          {all.r.hidden.example && (
-            <p className="text-muted-foreground text-xs">
-              {all.r.hidden.example}
-              {all.r.hidden.count > 1 && ` ${all.r.hidden.count - 1} more replaced, archived or expired ${all.r.hidden.count === 2 ? "match" : "matches"} left out too.`}
-            </p>
-          )}
-        </Section>
+      {only === "asset" ? null : (
+        <>
+          {/* The filters every type takes, counted over these matches. */}
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
+            <FacetFilter label="Tags" mode="all" counts={facets?.tags ?? []} selected={narrow.tags} onChange={(tags) => onNarrow({ ...narrow, tags })} />
+            <FacetFilter
+              label="Status"
+              counts={(facets?.statuses ?? []).filter((s) => PICKABLE.includes(s.value))}
+              selected={narrow.statuses}
+              format={(v) => STATUS_LABEL[v as CatalogStatus] ?? v}
+              onChange={(statuses) => onNarrow({ ...narrow, statuses: statuses as Narrow["statuses"] })}
+            />
+          </div>
+          {/* Ranked together, whatever their type: a strong component comes before a weak asset. */}
+          <Section title={only ? TYPE_LABEL[only].many : "Results"} count={shown?.r.total}>
+            {shown && !shown.items.length ? (
+              <p className="text-muted-foreground text-sm">No {only ? TYPE_LABEL[only].many.toLowerCase() : "results"} match.</p>
+            ) : (
+              <CardGrid>{(shown?.items ?? []).map(card)}</CardGrid>
+            )}
+            {shown?.r.next != null && (
+              <Button variant="outline" size="sm" onClick={shown.more}>
+                Show more
+              </Button>
+            )}
+            {/* What the search left out, so a missing logo isn't a mystery: "logo.png @3 matches too, but it was replaced by @4." */}
+            {shown?.r.hidden.example && (
+              <p className="text-muted-foreground text-xs">
+                {shown.r.hidden.example}
+                {shown.r.hidden.count > 1 && ` ${shown.r.hidden.count - 1} more replaced, archived or expired ${shown.r.hidden.count === 2 ? "match" : "matches"} left out too.`}
+              </p>
+            )}
+          </Section>
+        </>
       )}
     </>
   );

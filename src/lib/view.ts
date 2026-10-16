@@ -84,6 +84,9 @@ export type Narrow = { tags: string[]; statuses: ("draft" | "in_review" | "curre
 /** An asset state as the catalog's lifecycle says it (lib/db/schema.ts catalog_objects); expired and deleted have none of their own. */
 const STATUS_OF: Record<string, Narrow["statuses"][number]> = { draft: "draft", proposed: "in_review", active: "current", archived: "archived", rejected: "archived" };
 
+/** The catalog's statuses back as the view's asset states, which the URL keeps: what Explore's Status filter writes. */
+export const statesOf = (statuses: string[]) => [...new Set(statuses.flatMap((s) => Object.entries(STATUS_OF).find(([, c]) => c === s)?.[0] ?? []))];
+
 /**
  * The view's facets, for every type Explore finds beside assets, or null when
  * they leave nothing but assets: a file type, a custom field, or only states

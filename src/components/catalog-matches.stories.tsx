@@ -1,7 +1,7 @@
 import preview from "#.storybook/preview";
 import { catalogItems } from "#.storybook/fixtures/brands";
-import { delay, http, HttpResponse } from "msw";
-import { expect, fn, waitFor } from "storybook/test";
+import { http, HttpResponse } from "msw";
+import { expect, fn, screen, waitFor } from "storybook/test";
 import { CatalogMatches } from "@/components/catalog-matches";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import type { CatalogResults } from "@/lib/core/catalog";
@@ -30,15 +30,16 @@ const answer = (items: typeof others, page = 40) =>
       items: all.slice(cursor, cursor + page),
       hidden: { count: 0, example: null },
       next: cursor + page < all.length ? cursor + page : null,
+      facets: { tags: [{ value: "press", count: 1 }], statuses: [{ value: "current", count: all.length }] },
     };
     return HttpResponse.json(body);
   });
 
-/** What a search in Explore finds of every type, above the assets: a row of types, then the top results ranked together, or every match of one. */
+/** Explore's search of every type: a row of types, the filters every type takes, then one ranked list, or every match of one type. */
 const meta = preview.meta({
   title: "App/Features/Catalog/Matches",
   component: CatalogMatches,
-  args: { q: "acme", only: null, assets: 128, narrow: { tags: [], statuses: [] }, onOpenAsset: fn() },
+  args: { q: "acme", only: null, assets: 128, narrow: { tags: [], statuses: [] }, onNarrow: fn(), onOpenAsset: fn() },
   argTypes: { only: { control: "select", options: [null, "asset", "brand", "collection", "site", "rule", "page", "component"] } },
   parameters: { nextjs: { navigation: { pathname: "/", query: { q: "acme" } } } },
   // NavLink closes the phone's sheet, so it reads the sidebar's state.
@@ -52,18 +53,21 @@ const meta = preview.meta({
   beforeEach: ({ msw }) => void msw.use(answer(others)),
 });
 
-/** Everything: a tab per type that matched, and the top eight of every type, assets among them, in rank order. */
+/** Everything: a tab per type that matched, and one list of every type, assets among them, in rank order, a page at a time. */
 export const Playground = meta.story({
-  play: async ({ canvas }) => {
+  play: async ({ canvas, args, userEvent }) => {
     const nav = await canvas.findByRole("navigation", { name: "What to explore" });
     await expect(nav).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Everything" })).toHaveAttribute("aria-current", "page");
+    await expect(canvas.getByRole("link", { name: /^Everything/ })).toHaveAttribute("aria-current", "page");
     await expect(canvas.getByRole("link", { name: /^Assets 128/ })).toHaveAttribute("href", "/?q=acme&in=asset");
     await expect(canvas.getByRole("link", { name: /^Rules 13/ })).toHaveAttribute("href", "/?q=acme&in=rule");
-    const top = canvas.getByRole("region", { name: "Top results" });
+    const list = canvas.getByRole("region", { name: "Results" });
     // Each opens where the app shows it: a brand its page, not the catalog's.
-    await expect(top.querySelector('a[href^="/brands/acme?"]')).not.toBeNull();
-    await expect(canvas.getByText("Pick a type above to see every match of it")).toBeInTheDocument();
+    await expect(list.querySelector('a[href^="/brands/acme?"]')).not.toBeNull();
+    // Tags narrow every type, as they narrow the assets.
+    await userEvent.click(canvas.getByRole("button", { name: /Tags/ }));
+    await userEvent.click(await screen.findByRole("option", { name: /press/ }));
+    await expect(args.onNarrow).toHaveBeenCalledWith({ tags: ["press"], statuses: [] });
   },
 });
 
@@ -94,16 +98,15 @@ export const AssetsPicked = meta.story({
   args: { only: "asset" },
   play: async ({ canvas }) => {
     await expect(await canvas.findByRole("link", { name: /^Assets 128/ })).toHaveAttribute("aria-current", "page");
-    await expect(canvas.queryByRole("region", { name: "Top results" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("region", { name: "Results" })).not.toBeInTheDocument();
   },
 });
 
-/** Nothing but assets matched: nothing shows, so the assets stand alone. */
-export const Hidden = meta.story({
+/** Nothing matched: the tabs stay, and the list says so. */
+export const Nothing = meta.story({
   beforeEach: ({ msw }) => void msw.use(answer([])),
   play: async ({ canvas }) => {
-    await delay(400);
-    await expect(canvas.queryByRole("navigation")).not.toBeInTheDocument();
+    await expect(await canvas.findByText("No results match.")).toBeInTheDocument();
   },
 });
 

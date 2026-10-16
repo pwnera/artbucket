@@ -90,7 +90,7 @@ import { hasPreview, isIcon, isLottie, isMono, parseLink } from "@/lib/preview";
 import { flash, Morph, transition, useKept } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { CATALOG_TYPES, TYPE_LABEL, type CatalogType } from "@/lib/catalog";
-import { canonical, explored, isNarrowed, narrowOf, parseView, viewQuery, type View } from "@/lib/view";
+import { canonical, explored, isNarrowed, narrowOf, parseView, statesOf, viewQuery, type View } from "@/lib/view";
 import { reason, refusal, sendResult } from "@/lib/send";
 
 export type Asset = {
@@ -1128,9 +1128,10 @@ export function Gallery({
   // Explore searches everything: its words across every type, or one type (?in=) on its own.
   const only = !browsing && (CATALOG_TYPES as readonly string[]).includes(sp.get("in") ?? "") ? (sp.get("in") as CatalogType) : null;
   const everything = !browsing && !activeSearch && !view.review && !inCollection && (!!view.q.trim() || (!!only && only !== "asset"));
-  const othersOnly = everything && !!only && only !== "asset";
   // The facets narrow every type, as they narrow the assets; a file type or a field leaves only assets.
   const narrow = narrowOf(view);
+  // Explore's own list (components/catalog-matches.tsx) in place of the asset grid: every tab but Assets, unless a filter only assets have is on.
+  const othersOnly = everything && only !== "asset" && !!narrow;
   const startScreen =
     !browsing && !only && !view.q.trim() && !view.collection && !view.review && !activeSearch && !view.tags.length && !view.types.length && !view.status.length && !Object.keys(view.filters).length;
   // A search that settled is one to come back to.
@@ -1138,7 +1139,7 @@ export function Gallery({
   useEffect(() => {
     if (searched && !searching && recentQueries[0] !== searched) setRecentQueries(rememberQuery(recentQueries, searched));
   }, [searched, searching, recentQueries, setRecentQueries]);
-  const typeOnly = othersOnly && !searched ? TYPE_LABEL[only!].many : null;
+  const typeOnly = othersOnly && only && !searched ? TYPE_LABEL[only].many : null;
   const title = activeSearch?.name ?? (view.review ? "Waiting for review" : (inCollection?.name ?? (searched ? `\u201c${searched}\u201d` : (typeOnly ?? "All assets"))));
   const where = activeSearch?.name ?? (view.review ? "Review" : (inCollection?.name ?? (searched ? "Search" : (typeOnly ?? undefined))));
   // Where the trail starts: a collection under Collections, the plain grid under Assets, the rest under Explore.
@@ -1378,8 +1379,16 @@ export function Gallery({
         </PageHeader>
 
         {/* Explore searches everything: what else matches, as folders above the files, or one type on its own. */}
-        {everything && narrow && <CatalogMatches q={view.q.trim()} only={only} assets={total} narrow={narrow} onOpenAsset={openAsset} />}
-        {everything && !only && <h2 className="-mb-2 text-sm font-medium">Assets</h2>}
+        {everything && narrow && (
+          <CatalogMatches
+            q={view.q.trim()}
+            only={only}
+            assets={total}
+            narrow={narrow}
+            onNarrow={(n) => go({ tags: n.tags, status: statesOf(n.statuses) })}
+            onOpenAsset={openAsset}
+          />
+        )}
 
         {!othersOnly && (
           <>
