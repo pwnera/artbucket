@@ -1,4 +1,8 @@
+import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/nextjs-vite";
+
+// The app's Google faces from google-fonts.json, not fonts.googleapis.com, whose failed fetch failed CI builds (google-fonts-refresh.mjs).
+process.env.NEXT_FONT_GOOGLE_MOCKED_RESPONSES ??= fileURLToPath(new URL("./google-fonts.json", import.meta.url));
 
 /**
  * The core's components, the app's and the brand site's, where they are built and checked: `pnpm storybook`.
