@@ -91,6 +91,8 @@ export const MoveDown = meta.story({
     await userEvent.click(await screen.findByRole("button", { name: "More for Ink" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Move down" }));
     await waitFor(() => expect(ordered).toEqual([{ keys: ["color.primary", "color.paper", "color.ink", "color.accent"] }]));
+    // The row's menu closes as it acts: the a11y check runs once it is gone, not on its way out.
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   },
 });
 
@@ -101,6 +103,8 @@ export const MoveRefused = meta.story({
     await userEvent.click(await screen.findByRole("button", { name: "More for Ink" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Move down" }));
     await expect(await screen.findByText("The new order couldn't be saved")).toBeInTheDocument();
+    // The row's menu closes as it acts: the a11y check runs once it is gone, not on its way out.
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   },
 });
 
@@ -128,6 +132,8 @@ export const Duplicate = meta.story({
       ]),
     );
     await fold(/^Tone of voice copy/);
+    // The row's menu closes as it acts: the a11y check runs once it is gone, not on its way out.
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   },
 });
 

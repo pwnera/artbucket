@@ -313,7 +313,7 @@ test("formerBuilderPath: the retired builder's links land where that work is now
   assert.equal(formerBuilderPath("acme", { page: "logo", context: "print" }), "/brands/acme/guidelines?page=logo&context=print&ways=1");
   assert.equal(formerBuilderPath("acme", { panel: "rules" }), "/brands/acme/rules");
   assert.equal(formerBuilderPath("acme", { panel: "history" }), "/brands/acme/releases");
-  assert.equal(formerBuilderPath("acme", { panel: "tokens" }), "/brands/acme/theme");
+  assert.equal(formerBuilderPath("acme", { panel: "tokens" }), "/brands/acme/look");
   assert.equal(formerBuilderPath("acme", { panel: "publish" }), "/brands/acme/releases/new");
   assert.equal(formerBuilderPath("acme", { panel: "constructor", page: "logo" }), "/brands/acme/guidelines?page=logo&ways=1", "only the panels it had");
   assert.equal(formerBuilderPath("acme", { git: "connected" }), "/brands/acme?git=connected");
