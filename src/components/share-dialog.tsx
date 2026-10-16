@@ -498,7 +498,7 @@ function Made({
           </>
         )}
         {link.expiresAt ? `It works until ${new Date(link.expiresAt).toLocaleDateString()}.` : "It works until you revoke it."} Every link is in{" "}
-        <Link href="/team?tab=sharing" className="underline underline-offset-2">
+        <Link href="/settings/project/people?tab=sharing" className="underline underline-offset-2">
           Team
         </Link>
         .

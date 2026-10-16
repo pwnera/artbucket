@@ -511,15 +511,15 @@ export function CommandPalette({
             </CommandShortcut>
           </CommandItem>
           {team && (
-            <CommandItem value="Team people members organization" onSelect={() => go("/team")}>
-              <IconUsers /> Team
+            <CommandItem value="People team members organization invite" onSelect={() => go("/settings/project/people")}>
+              <IconUsers /> People
               <CommandShortcut className="tracking-normal">
-                <GoKeys to="/team" />
+                <GoKeys to="/settings/project/people" />
               </CommandShortcut>
             </CommandItem>
           )}
           {can("member.manage") && (
-            <CommandItem value="Invite people someone add member email" onSelect={() => go("/team?invite")}>
+            <CommandItem value="Invite people someone add member email" onSelect={() => go("/settings/project/people?tab=people&invite")}>
               <IconMailPlus /> Invite people
             </CommandItem>
           )}
@@ -545,12 +545,12 @@ export function CommandPalette({
             </CommandItem>
           )}
           {can("share.manage") && (
-            <CommandItem value="Share and upload links request uploads collect guest photographer agency" onSelect={() => go("/team?tab=sharing")}>
+            <CommandItem value="Share and upload links request uploads collect guest photographer agency" onSelect={() => go("/settings/project/people?tab=sharing")}>
               <IconShare /> Share and upload links
             </CommandItem>
           )}
           {can("audit.read") && (
-            <CommandItem value="Audit log who changed access sign-ins keys" onSelect={() => go("/team?tab=audit")}>
+            <CommandItem value="Audit log who changed access sign-ins keys" onSelect={() => go("/settings/project/people?tab=audit")}>
               <IconHistory /> Audit log
             </CommandItem>
           )}

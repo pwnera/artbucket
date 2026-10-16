@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { People, type Members } from "@/components/settings/access";
+import type { AuditPage, Members } from "@/components/settings/access";
+import type { ShareLink } from "@/components/share-dialog";
+import { Team } from "@/components/team";
 import { GroupsPanel, type GroupRow } from "@/components/settings/groups";
 import { BrandingPanel, DomainsPanel, type BrandingSetting, type Domain } from "@/components/settings/branding";
 import { EmailPanel, type EmailSetting } from "@/components/settings/email";
@@ -16,7 +17,6 @@ import { find, has, locked, opens } from "@/components/settings/sections";
 import { SectionSkeleton } from "@/components/skeletons";
 import type { FieldDef } from "@/lib/fields";
 import type { Scope } from "@/lib/scopes";
-import type { Collection } from "@/components/collections";
 import { get, whoami } from "@/lib/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ const LOADS: Record<string, string> = {
   "project/fields": "fields",
   "project/features": "features?context=project",
   "organization/features": "features?context=organization",
-  "project/members": "members?in=project",
+  "project/people": "members?in=project",
   "organization/usage": "usage",
   "organization/projects": "projects",
   "organization/groups": "groups",
@@ -56,6 +56,9 @@ export default async function SettingsSection({ params }: { params: Promise<Para
   const { context, section } = await params;
   // The workspace is the project now: its old addresses lead there.
   if (context === "workspace") redirect(`/settings/project/${section}`);
+  // Members and Team are People now.
+  if (context === "project" && section === "members") redirect("/settings/project/people?tab=project");
+  if (context === "project" && section === "team") redirect("/settings/project/people");
   const s = find(context, section);
   if (!s) notFound();
   // A page of its own elsewhere (Team): the menu links there, and so does this URL.
@@ -71,19 +74,17 @@ export default async function SettingsSection({ params }: { params: Promise<Para
 async function Section({ context, section, s }: Params & { s: NonNullable<ReturnType<typeof find>> }) {
   // What the section reads, fetched alongside who is looking: the API checks access itself, and a redirect drops it.
   const loading = LOADS[`${context}/${section}`];
-  const forMembers = `${context}/${section}` === "project/members";
+  const forMembers = `${context}/${section}` === "project/people";
   const forHub = `${context}/${section}` === "organization/hub";
   const forDomains = `${context}/${section}` === "organization/domains";
   const forSso = `${context}/${section}` === "organization/sso";
   const forGroups = `${context}/${section}` === "organization/groups";
   const forBranding = `${context}/${section}` === "organization/branding";
-  const [me, loaded, collections, brandList, reports, domains, offers, spaces] = await Promise.all([
+  const [me, loaded, brandList, reports, domains, offers, spaces, everyone, shares, audit] = await Promise.all([
     whoami(),
     loading ? get(loading, (b: unknown) => b, null) : null,
-    // What a member's access can be scoped to.
-    forMembers ? get("collections", (b: { data: Collection[] }) => b.data, []) : [],
-    // And its brands: what Branding's accent may follow, too.
-    forMembers || forBranding ? get("brands", (b: { data: { id: string; slug: string; name: string; private?: boolean }[] }) => b.data, []) : [],
+    // Its brands: what Branding's accent may follow.
+    forBranding ? get("brands", (b: { data: { id: string; slug: string; name: string; private?: boolean }[] }) => b.data, []) : [],
     // BrandHub's second read, beside its GitHub accounts.
     forHub ? get("hub/reports", (b: { data: HubReport[] }) => b.data, null) : [],
     // And its domains: a verified one proves its listings as a GitHub account does.
@@ -93,14 +94,18 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
     forHub ? get("hub/offers", (b: { data: HubOffer[] }) => b.data, []) : [],
     // Where people joining by email domain or single sign-on land, when there is more than one.
     forDomains || forSso || forGroups ? get("projects", (b: { data: Project[] }) => b.data, []) : [],
+    // People's other tabs: the organization's people, links and the audit log, each null for whoever may not.
+    forMembers ? get("members", (b: Members) => b, null) : null,
+    forMembers ? get("shares", (b: { data: ShareLink[] }) => b.data, null) : null,
+    forMembers ? get("audit", (b: AuditPage) => b, null) : null,
   ]);
   // Who can be put in a group: the organization's people.
   const people = forGroups ? await get("members", (b: Members) => b.data.map(({ id, name, email }) => ({ id, name, email })), []) : [];
   if (!opens(me, s)) redirect("/settings");
   // Its feature is off here: the plan that has it, or Settings' first when there is none to take.
   if (locked(me, s)) redirect(me.upgrade ?? "/settings");
-  // Failed, not empty: "No custom fields yet" would invite making them all again.
-  if (loading && loaded === null) return <LoadFailed />;
+  // Failed, not empty: "No custom fields yet" would invite making them all again. People's first tab is an admin's: an editor has the others.
+  if (loading && loaded === null && !forMembers) return <LoadFailed />;
   const data = <T,>() => (loaded as { data: T }).data;
   const ws = me.project;
 
@@ -132,19 +137,8 @@ async function Section({ context, section, s }: Params & { s: NonNullable<Return
           ]}
         />
       );
-    case "project/members":
-      return (
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            The whole organization, links and audit log are in{" "}
-            <Link href="/team" className="text-foreground underline underline-offset-2">
-              Team
-            </Link>
-            .
-          </p>
-          <People me={me} members={loaded as Members} collections={collections} brands={brandList} view="project" />
-        </div>
-      );
+    case "project/people":
+      return <Team tab="project" project={loaded as Members | null} members={everyone} shares={shares} audit={audit} />;
     case "organization/projects":
       return <ProjectsPanel me={me} projects={data<{ id: string; slug: string; name: string; scope: Scope | null }[]>()} />;
     case "organization/email": {
