@@ -71,6 +71,17 @@ export const Playground = meta.story({
   },
 });
 
+/** Every card's ⋯, and its right click: the same few things whatever its type, and Download for an asset. */
+export const Menu = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(await canvas.findByRole("button", { name: "More for Acme" }));
+    for (const name of ["Open", "Open in catalog", "Copy link", "Copy address", "Pin to the sidebar"]) await expect(await screen.findByRole("menuitem", { name })).toBeInTheDocument();
+    await expect(screen.queryByRole("menuitem", { name: "Download" })).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  },
+});
+
 /** One type picked (?in=rule): every match, a page at a time. */
 export const OneType = meta.story({
   args: { only: "rule" },

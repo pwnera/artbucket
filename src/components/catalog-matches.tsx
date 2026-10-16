@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { NavLink } from "@/components/app-sidebar";
+import { NavLink, useNavigate } from "@/components/app-sidebar";
 import { useMe } from "@/components/can";
 import { StatusBadge, TypeIcon } from "@/components/catalog";
+import { save } from "@/components/asset-menu";
+import { copyText } from "@/components/copy-button";
 import { FacetFilter } from "@/components/facet-filter";
+import { IconButton } from "@/components/icon-button";
+import { IconArrowUpRight, IconCopy, IconDots, IconDownload, IconLink, IconPin, IconPinFilled, IconSitemap } from "@/components/icons";
+import { usePins } from "@/components/sidebar-prefs";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { openPath, STATUS_LABEL, TYPE_LABEL, type CatalogStatus, type CatalogType } from "@/lib/catalog";
 import type { CatalogResults } from "@/lib/core/catalog";
@@ -169,14 +176,44 @@ export function CatalogMatches({
 
 type Item = CatalogResults["items"][number];
 
+type Action = { id: string; label: string; icon: React.ReactNode; run: () => void };
+
+/** What every result offers, whatever its type, and an asset's download: one list, for its right click and its ⋯. */
+function useActions(i: Item, href: string | undefined, onClick: (() => void) | undefined): Action[][] {
+  const navigate = useNavigate();
+  const { has, toggle } = usePins();
+  const at = openPath(i);
+  const pinned = has(i.id);
+  return [
+    [
+      { id: "open", label: "Open", icon: <IconArrowUpRight />, run: () => (onClick ? onClick() : navigate(href ?? at)) },
+      { id: "catalog", label: "Open in catalog", icon: <IconSitemap />, run: () => navigate(`/catalog?o=${i.id}`) },
+      ...(i.type === "asset" ? [{ id: "download", label: "Download", icon: <IconDownload />, run: () => save(`/a/${i.id}?download`, i.name) }] : []),
+    ],
+    [
+      { id: "link", label: "Copy link", icon: <IconLink />, run: () => void copyText(new URL(at, location.origin).href, { what: "the link" }) },
+      { id: "address", label: "Copy address", icon: <IconCopy />, run: () => void copyText(i.address, { what: "the address" }) },
+      {
+        id: "pin",
+        label: pinned ? "Unpin" : "Pin to the sidebar",
+        icon: pinned ? <IconPinFilled /> : <IconPin />,
+        // Pinned where it opens in whichever project is open: the project switch is the proxy's, not the pin's.
+        run: () => toggle({ id: i.id, type: i.type, label: i.name, href: at.replace(/[?&]project=[^&#]+/, "").replace(/\?(?=#|$)/, "") }),
+      },
+    ],
+  ];
+}
+
 /**
  * A search result of any type, drawn one way: what it looks like on top (an
  * asset's rendition, a component's story, else its type's icon), then its
  * name, what it is and where, and its status when not current. It opens
- * where the app shows it (lib/catalog.ts openPath), as from every other list.
+ * where the app shows it (lib/catalog.ts openPath), as from every other list;
+ * its right click and its ⋯ offer the same few things for every type.
  */
 export function ResultCard({ i, href, onClick }: { i: Item; href?: string; onClick?: () => void }) {
   const [broken, setBroken] = useState(false);
+  const actions = useActions(i, href, onClick);
   const look =
     i.type === "asset" && !broken ? (
       // eslint-disable-next-line @next/next/no-img-element -- a rendition, already sized
@@ -192,7 +229,7 @@ export function ResultCard({ i, href, onClick }: { i: Item; href?: string; onCli
   const body = (
     <>
       <span className="bg-muted relative flex aspect-[4/3] items-center justify-center overflow-hidden border-b">{look}</span>
-      <span className="flex items-center gap-2 px-3 py-2">
+      <span className="flex items-center gap-2 px-3 py-2 pe-10">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{i.name}</span>
           <span className="text-muted-foreground block truncate text-xs">
@@ -205,17 +242,54 @@ export function ResultCard({ i, href, onClick }: { i: Item; href?: string; onCli
   );
   const cls = "bg-card hover:bg-accent focus-visible:ring-ring/50 flex w-full flex-col overflow-hidden rounded-xl border text-start transition-colors outline-none focus-visible:ring-2";
   return (
-    <li>
-      {href ? (
-        <Link href={href} className={cls}>
-          {body}
-        </Link>
-      ) : (
-        // eslint-disable-next-line no-restricted-syntax -- the card twin of the Link above, the whole card the hit target
-        <button type="button" onClick={onClick} className={cls}>
-          {body}
-        </button>
-      )}
+    <li className="group relative">
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          {href ? (
+            <Link href={href} className={cls}>
+              {body}
+            </Link>
+          ) : (
+            // eslint-disable-next-line no-restricted-syntax -- the card twin of the Link above, the whole card the hit target
+            <button type="button" onClick={onClick} className={cls}>
+              {body}
+            </button>
+          )}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-56">
+          <ContextMenuLabel>{i.name}</ContextMenuLabel>
+          {actions.map((g, n) => (
+            <Fragment key={n}>
+              <ContextMenuSeparator />
+              {g.map((a) => (
+                <ContextMenuItem key={a.id} onSelect={a.run}>
+                  {a.icon} {a.label}
+                </ContextMenuItem>
+              ))}
+            </Fragment>
+          ))}
+        </ContextMenuContent>
+      </ContextMenu>
+      {/* The same, for touch and keyboards: no right click there. */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <IconButton label={`More for ${i.name}`} size="icon-xs" variant="ghost" className="absolute end-2 bottom-2.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 data-[state=open]:opacity-100">
+            <IconDots />
+          </IconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {actions.map((g, n) => (
+            <Fragment key={n}>
+              {n > 0 && <DropdownMenuSeparator />}
+              {g.map((a) => (
+                <DropdownMenuItem key={a.id} onSelect={a.run}>
+                  {a.icon} {a.label}
+                </DropdownMenuItem>
+              ))}
+            </Fragment>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </li>
   );
 }

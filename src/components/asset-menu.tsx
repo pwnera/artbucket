@@ -43,7 +43,7 @@ import { savedName } from "@/lib/filename";
 import { hasPreview } from "@/lib/preview";
 
 /** Save a URL the way a download link would, without one on the page. */
-function save(url: string, filename: string) {
+export function save(url: string, filename: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
