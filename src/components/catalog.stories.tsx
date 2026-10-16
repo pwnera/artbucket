@@ -106,7 +106,7 @@ export const ObjectOverview = meta.story({
     await userEvent.click(canvas.getByRole("button", { name: "See lineage" }));
     await expect(getRouter().push).toHaveBeenLastCalledWith("/catalog?o=ast_logo&tab=lineage", { scroll: false });
     // Shared with Northwind already: nothing left to share it into.
-    await expect(canvas.queryByRole("button", { name: "Share to another project" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("combobox", { name: "Share into" })).not.toBeInTheDocument();
   },
 });
 
@@ -121,17 +121,15 @@ export const StopSharing = meta.story({
   },
 });
 
-/** Share a brand into another project of the organization: its members read it as Viewers. */
+/** Share a brand into another project of the organization, in place under Shared with: its members read it as Viewers. */
 export const ShareToProject = meta.story({
   args: { object: acmeBrand, folder: null },
   beforeEach: ({ msw }) => void msw.use(sent.on("post", "/api/v1/grants")),
   play: async ({ canvas, userEvent }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Share to another project" }));
-    const dialog = await screen.findByRole("dialog", { name: "Share Acme" });
-    await expect(within(dialog).getByRole("combobox", { name: "Into" })).toHaveTextContent("Northwind");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Share" }));
+    await expect(canvas.getByRole("combobox", { name: "Share into" })).toHaveTextContent("Northwind");
+    await userEvent.click(canvas.getByRole("button", { name: "Share" }));
     await waitFor(() => expect(sent.last("POST")).toEqual({ path: "/api/v1/grants", body: { project: "prj_northwind", resource: "brand", resourceId: "brd_acme", scope: "read" } }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(getRouter().refresh).toHaveBeenCalled());
   },
 });
 

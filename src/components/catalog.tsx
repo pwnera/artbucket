@@ -23,10 +23,8 @@ import {
   IconArrowUpRight,
   IconShieldLock,
   IconLayoutSidebarLeftExpand,
-  IconShare,
   IconX,
 } from "@/components/icons";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { send } from "@/lib/send";
 import { useCan, useMe } from "@/components/can";
@@ -211,7 +209,6 @@ function ObjectView({
             <IconButton size="icon" label="Who can reach it, and grants" onClick={() => go(o.id, "access")}>
               <IconShieldLock />
             </IconButton>
-            {SHAREABLE.includes(o.type) && <ShareToProject o={o} projects={projects} />}
             <Button asChild>
               <a href={o.open}>Open {TYPE_LABEL[o.type].one.toLowerCase()}</a>
             </Button>
@@ -236,7 +233,7 @@ function ObjectView({
           </button>
         ))}
       </nav>
-      {tab === "overview" && <Overview o={o} go={go} />}
+      {tab === "overview" && <Overview o={o} go={go} projects={projects} />}
       {tab === "lineage" && <LineageGraph key={o.id} id={o.id} onOpen={(id) => go(id, "lineage")} />}
       {tab === "access" && <Access key={o.id} o={o} />}
       {tab === "activity" && <Activity key={o.id} id={o.id} />}
@@ -419,7 +416,7 @@ const Card = ({ title, aside, children }: { title: string; aside?: React.ReactNo
   </section>
 );
 
-function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }) {
+function Overview({ o, go, projects }: { o: Described; go: (id: string, t?: Tab) => void; projects: TreeProject[] }) {
   const props: [string, React.ReactNode][] = [
     ["Type", TYPE_LABEL[o.type].one],
     ["Project", o.project.name],
@@ -469,15 +466,15 @@ function Overview({ o, go }: { o: Described; go: (id: string, t?: Tab) => void }
           See lineage
         </Button>
       </Card>
-      {SHAREABLE.includes(o.type) && <SharedWith o={o} />}
+      {SHAREABLE.includes(o.type) && <SharedWith o={o} projects={projects} />}
     </div>
   );
 }
 
 const SHAREABLE: CatalogType[] = ["brand", "collection", "asset"];
 
-/** Where it is shared, each taken back by its X (an admin of either project). */
-function SharedWith({ o }: { o: Described }) {
+/** Where it is shared, each taken back by its X (an admin of either project), and another project to share it into, in place. */
+function SharedWith({ o, projects }: { o: Described; projects: TreeProject[] }) {
   const router = useRouter();
   return (
     <Card title="Shared with" aside={<span className="text-muted-foreground text-sm tabular-nums">{o.sharedWith.length}</span>}>
@@ -505,33 +502,28 @@ function SharedWith({ o }: { o: Described }) {
       ) : (
         <p className="text-muted-foreground text-sm">Only {o.project.name} reaches it.</p>
       )}
+      <ShareToProject o={o} projects={projects} />
     </Card>
   );
 }
 
-/** Share into another project of the organization: Viewer for its members, kept and edited here. */
+/**
+ * Share into another project of the organization: Viewer for its members,
+ * kept and edited here. A row under Shared with, not a dialog behind an icon
+ * that looked like Share's.
+ */
 function ShareToProject({ o, projects }: { o: Described; projects: TreeProject[] }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const others = projects.filter((p) => p.id !== o.project.id && !o.sharedWith.some((x) => x.project.id === p.id));
   const [to, setTo] = useState(others[0]?.id ?? "");
+  const [busy, setBusy] = useState(false);
   if (!others.length) return null;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <IconButton size="icon" label="Share to another project">
-          <IconShare />
-        </IconButton>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Share {o.name}</DialogTitle>
-          <DialogDescription>
-            Its members read it, as a Viewer, where it is: it is kept and edited in {o.project.name}, and nothing is copied.
-          </DialogDescription>
-        </DialogHeader>
-        <Select value={to} onValueChange={setTo}>
-          <SelectTrigger className="w-full" aria-label="Into">
+    <div className="grid gap-1.5 border-t pt-3">
+      <p className="text-muted-foreground text-xs">Its members read it as a Viewer, where it is: nothing is copied.</p>
+      <div className="flex gap-2">
+        <Select value={others.some((p) => p.id === to) ? to : others[0].id} onValueChange={setTo}>
+          <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Share into">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -542,19 +534,22 @@ function ShareToProject({ o, projects }: { o: Described; projects: TreeProject[]
             ))}
           </SelectContent>
         </Select>
-        <DialogFooter>
-          <Button
-            onClick={async () => {
-              if (!(await send("POST", "/api/v1/grants", { project: to, resource: o.type, resourceId: o.id, scope: "read" }))) return;
-              setOpen(false);
-              router.refresh();
-            }}
-          >
-            Share
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Button
+          size="sm"
+          variant="outline"
+          pending={busy}
+          onClick={async () => {
+            setBusy(true);
+            const into = others.some((p) => p.id === to) ? to : others[0].id;
+            const ok = await send("POST", "/api/v1/grants", { project: into, resource: o.type, resourceId: o.id, scope: "read" });
+            setBusy(false);
+            if (ok) router.refresh();
+          }}
+        >
+          Share
+        </Button>
+      </div>
+    </div>
   );
 }
 
