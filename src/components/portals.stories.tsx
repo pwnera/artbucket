@@ -204,6 +204,33 @@ export const AddDomain = meta.story({
   },
 });
 
+/** A domain the organization doesn't have yet, added and verified from the site, then picked for it. */
+export const NewDomain = meta.story({
+  parameters: at(),
+  render: () => <PortalPage portal={partners} portalDomain={PORTAL_DOMAIN} />,
+  beforeEach: ({ msw }) => {
+    msw.use(
+      http.post("/api/v1/domains", () =>
+        HttpResponse.json({ data: { host: "partners.acme.test", verified: false, record: { name: "_artbucket-challenge.partners.acme.test", value: "ab-7f3k" }, cname: { name: "partners.acme.test", value: "domains.artbucket.test" } } }, { status: 201 }),
+      ),
+      http.post("/api/v1/domains/:host/verify", () => HttpResponse.json({ data: { host: "partners.acme.test", verified: true } })),
+    );
+  },
+  play: async ({ userEvent }) => {
+    const it = await page("Partner hub");
+    await userEvent.click(it.getByText("Domain"));
+    await userEvent.click(it.getByRole("button", { name: "Add a domain" }));
+    await userEvent.type(it.getByLabelText("A domain of the organization's"), "partners.acme.test");
+    await userEvent.click(it.getByRole("button", { name: "Add" }));
+    await expect(await it.findByText("_artbucket-challenge.partners.acme.test")).toBeInTheDocument();
+    await userEvent.click(it.getByRole("button", { name: "Check now" }));
+    await expect(await screen.findByText("partners.acme.test is verified")).toBeInTheDocument();
+    // Picked for the site at once: Save sends it.
+    await userEvent.click(await it.findByRole("button", { name: /Save/ }));
+    await waitFor(() => expect((sent.last("PATCH")?.body as { domain?: string } | null)?.domain).toBe("partners.acme.test"));
+  },
+});
+
 /** Its domain added, not seen yet: the records to set at the DNS host, then Check now. */
 export const DomainPending = meta.story({
   parameters: at(),
