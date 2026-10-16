@@ -34,7 +34,8 @@ const meta = preview.meta({
   parameters: { layout: "padded" },
 });
 
-const inside = async (canvas: { getByTitle: (t: string) => HTMLElement }, subject: string, text: RegExp) => {
+// By what the email says, not its names: framed with Artbucket's (globals.fixture), the args a play gets are Acme's.
+const inside = async (canvas: { getByTitle: (t: RegExp) => HTMLElement }, subject: RegExp, text: RegExp) => {
   const frame = canvas.getByTitle(subject) as HTMLIFrameElement;
   await waitFor(() => expect(frame.contentDocument?.body.textContent).toMatch(text));
 };
@@ -50,9 +51,9 @@ export const Notify = meta.story({
       assets: [{ title: "acme-logo.svg", version: 1, current: { title: "acme-logo.svg", version: 2, url: "https://assets.acme.test/c/ast_logo/acme-logo.svg" } }],
     }),
   },
-  play: async ({ canvas, args }) => {
-    await expect(canvas.getByText(args.draft.subject)).toBeInTheDocument();
-    await inside(canvas, args.draft.subject, /still loads a version replaced since/);
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/still uses an old version of/)).toBeInTheDocument();
+    await inside(canvas, /still uses an old version of/, /still loads a version replaced since/);
   },
 });
 
@@ -79,8 +80,8 @@ export const Digest = meta.story({
       },
     }),
   },
-  play: async ({ canvas, args }) => {
-    await expect(canvas.getByText(args.draft.subject)).toBeInTheDocument();
-    await inside(canvas, args.draft.subject, /found nothing/);
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/^Your week in /)).toBeInTheDocument();
+    await inside(canvas, /^Your week in /, /found nothing/);
   },
 });
