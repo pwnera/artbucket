@@ -53,7 +53,8 @@ const meta = preview.meta({
 export const Playground = meta.story({
   play: async ({ args, userEvent }) => {
     const dialog = await screen.findByRole("dialog", { name: /Share Autumn campaign hero/ });
-    await expect(within(dialog).getByRole("tab", { name: /Link/ })).toHaveAttribute("aria-selected", "true");
+    // One screen: no tabs, the link first.
+    await expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
     const name = within(dialog).getByLabelText("What they see it called");
     await userEvent.clear(name);
     await userEvent.type(name, "Hero for Northwind");
@@ -80,11 +81,10 @@ export const BadEmail = meta.story({
   },
 });
 
-/** Embed: switch public on, and the two URLs to embed. */
+/** Embed, under the link: switch public on, and the two URLs to embed. */
 export const Embed = meta.story({
   play: async ({ args, userEvent }) => {
     const dialog = await screen.findByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("tab", { name: /Embed/ }));
     await userEvent.click(within(dialog).getByRole("switch"));
     await waitFor(() => expect(sent).toEqual([{ method: "PATCH", url: "/api/v1/assets", body: { public: true } }]));
     await expect(await within(dialog).findByText("Always the current version")).toBeInTheDocument();
@@ -97,8 +97,8 @@ export const TeamOnly = meta.story({
   args: { target: { kind: "view", asset: { id: "ast_ai", name: "generated-moodboard.png", shareable: false } } },
   play: async () => {
     const dialog = await screen.findByRole("dialog");
-    await expect(within(dialog).getByRole("tab", { name: /Link/ })).toBeDisabled();
-    await expect(within(dialog).getByText("Shareable once approved, by someone who may share it.")).toBeInTheDocument();
+    await expect(within(dialog).queryByRole("button", { name: "Make link" })).not.toBeInTheDocument();
+    await expect(within(dialog).getByText(/Shareable once approved, by someone who may share it/)).toBeInTheDocument();
   },
 });
 

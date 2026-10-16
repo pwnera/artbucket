@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { IconCheck, IconCopy, IconFolderUp, IconLink, IconLock, IconPlus, IconShare, IconTrash, IconUsers, IconWorld } from "@/components/icons";
+import { IconCheck, IconCopy, IconFolderUp, IconLink, IconLock, IconPlus, IconShare, IconTrash } from "@/components/icons";
 import { Snippet } from "@/components/agent-access";
 import { useCan, useMe } from "@/components/can";
 import { send } from "@/components/collections";
@@ -18,7 +18,6 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { followingUrl } from "@/lib/asset-url";
 import { sendResult } from "@/lib/send";
@@ -75,12 +74,7 @@ const PRESETS = [
   { value: "never", label: "Never" },
 ];
 
-const MODES = {
-  team: { label: "Team", icon: IconUsers, hint: "People with access in the library." },
-  link: { label: "Link", icon: IconLink, hint: "Anyone with the link, no account needed." },
-  public: { label: "Embed", icon: IconWorld, hint: "Anyone gets the file at a URL, for a site, a doc or an email." },
-} as const;
-type Mode = keyof typeof MODES;
+const EMBED_HINT = "Anyone gets the file at a URL, for a site, a doc or an email.";
 
 /**
  * Make a link for someone without an account: to look at a collection or an
@@ -153,7 +147,6 @@ function Share({
   const what = chosen?.name ?? target.asset?.name ?? "the project";
   // An asset is shareable only when its caller says so; a collection or the project, by what the dialog offers.
   const shareable = !target.asset || target.asset.shareable === true;
-  const [mode, setMode] = useState<Mode>(target.asset?.public && shareable ? "public" : shareable ? "link" : "team");
 
   useEffect(() => {
     // Only someone who may list links sees them; anyone else simply makes one.
@@ -421,33 +414,26 @@ function Share({
                 : "Anyone with the link sees its approved assets."}
           </DialogDescription>
         </DialogHeader>
+        {/* One screen, no tabs: a link for anyone, then the file at a URL for embedding. Copy link, for the team, is the viewer's. */}
         {target.asset && !upload ? (
-          <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="gap-3">
-            <TabsList className="w-full">
-              {(Object.keys(MODES) as Mode[]).map((m) => {
-                const M = MODES[m];
-                return (
-                  <TabsTrigger key={m} value={m} disabled={m !== "team" && !shareable}>
-                    <M.icon /> {M.label}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-            <p className="text-muted-foreground text-xs">
-              {shareable ? MODES[mode].hint : "Shareable once approved, by someone who may share it."}
-            </p>
-            <TabsContent value="team" className="grid gap-4">
+          shareable ? (
+            <div className="grid gap-4">
+              <div className="grid gap-3">{linkPart}</div>
+              {!made && (
+                <div className="grid gap-2 border-t pt-4">
+                  <p className="text-sm font-medium">Embed</p>
+                  <p className="text-muted-foreground text-xs">{EMBED_HINT}</p>
+                  <PublicToggle asset={target.asset} onChanged={onChanged} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <p className="text-muted-foreground text-sm">Shareable once approved, by someone who may share it. People with access open it from its link:</p>
               <TeamLink id={target.asset.id} />
               {done}
-            </TabsContent>
-            <TabsContent value="link" className="grid gap-3">
-              {linkPart}
-            </TabsContent>
-            <TabsContent value="public" className="grid gap-4">
-              <PublicToggle asset={target.asset} onChanged={onChanged} />
-              {done}
-            </TabsContent>
-          </Tabs>
+            </div>
+          )
         ) : (
           linkPart
         )}
