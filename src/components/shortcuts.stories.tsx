@@ -17,16 +17,16 @@ export const Playground = meta.story({
   play: async () => {
     const dialog = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
     for (const group of ["General", "Go to", "Explore", "Guidelines"]) await expect(within(dialog).getByRole("heading", { name: group })).toBeInTheDocument();
-    // Team only for whoever manages people or links.
-    await expect(within(dialog).queryByText("Team")).not.toBeInTheDocument();
+    // People only for whoever manages people or links.
+    await expect(within(dialog).queryByText("People")).not.toBeInTheDocument();
   },
 });
 
-/** For an admin, G then T goes to Team too. */
+/** For an admin, G then P goes to People too. */
 export const ForAnAdmin = meta.story({
   decorators: [withMe(me)],
   play: async () => {
-    await expect(await screen.findByText("Team")).toBeInTheDocument();
+    await expect(await screen.findByText("People")).toBeInTheDocument();
   },
 });
 

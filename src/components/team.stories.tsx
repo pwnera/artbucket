@@ -28,12 +28,12 @@ const audit: AuditPage = {
 };
 
 const meta = preview.meta({
-  title: "App/Features/Settings/Team",
+  title: "App/Features/Settings/People page",
   component: Team,
-  args: { tab: "people", members, shares: [shareLink()], audit },
+  args: { tab: "people", project: null, members, shares: [shareLink()], audit },
   // Inner first: Ada (an organization admin) looking, inside the app's shell.
   decorators: [withMe(me), inApp],
-  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/team" } } },
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/settings/project/people" } } },
   beforeEach: ({ msw }) => {
     sent = [];
     msw.use(
@@ -48,11 +48,19 @@ const meta = preview.meta({
   },
 });
 
+/** An admin: this project's members first, then everyone, links and the audit log, one tab each. */
+export const WithProject = meta.story({
+  args: { tab: "project", project: members },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("tab", { name: "Acme 3" })).toHaveAttribute("aria-selected", "true");
+    await expect(canvas.getByRole("tab", { name: "Everyone 3" })).toBeInTheDocument();
+  },
+});
+
 /** The organization's people with what each may do, the invitation waiting, and the tabs for links and the audit log. */
 export const Playground = meta.story({
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("heading", { name: "Team · Acme" })).toBeInTheDocument();
-    await expect(canvas.getByRole("tab", { name: "People 3" })).toHaveAttribute("aria-selected", "true");
+    await expect(canvas.getByRole("tab", { name: "Everyone 3" })).toHaveAttribute("aria-selected", "true");
     await expect(canvas.getByText("sam@acme.test")).toBeInTheDocument();
     await expect(canvas.getByText(/Contributor on Acme · by Ada Lovelace · expires in 5 days/)).toBeInTheDocument();
   },

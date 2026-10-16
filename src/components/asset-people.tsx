@@ -122,7 +122,7 @@ export function AssetPeople({ asset, collections }: { asset: { id: string; colle
       ) : (
         <p className="text-muted-foreground text-xs">
           Everyone in the project is here already.{" "}
-          <Link href="/team?invite" className="text-foreground underline underline-offset-2">
+          <Link href="/settings/project/people?tab=people&invite" className="text-foreground underline underline-offset-2">
             Invite someone
           </Link>{" "}
           to add them.

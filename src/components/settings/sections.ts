@@ -60,20 +60,12 @@ export const SECTIONS: Section[] = [
   },
   {
     context: "project",
-    id: "members",
-    label: "Members",
+    id: "people",
+    label: "People",
     icon: IconUsers,
-    description: "Who can open this project, and as what.",
-    action: "member.manage",
-  },
-  {
-    context: "project",
-    id: "team",
-    label: "Team",
-    icon: IconUsersGroup,
-    description: "People, share links and the audit log.",
-    action: "member.manage",
-    href: "/team",
+    description: "Who can open this project and as what, everyone in the organization and their invitations, links for people without an account, and the audit log.",
+    // An editor manages share links; the rest of it is for admins, and shows to them only.
+    action: "share.manage",
   },
   {
     context: "project",

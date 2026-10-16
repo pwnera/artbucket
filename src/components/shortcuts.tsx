@@ -39,7 +39,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: ["G", "N"], sequence: true, label: "Insights", group: "Go to", href: "/insights" },
   { keys: ["G", "G"], sequence: true, label: "Guidelines", group: "Go to", href: "/brand" },
   { keys: ["G", "Y"], sequence: true, label: "Activity", group: "Go to", href: "/insights/activity" },
-  { keys: ["G", "T"], sequence: true, label: "Team", group: "Go to", href: "/team" },
+  { keys: ["G", "P"], sequence: true, label: "People", group: "Go to", href: "/settings/project/people" },
   { keys: ["G", "S"], sequence: true, label: "Settings", group: "Go to", href: "/settings" },
   { keys: ["mod", "A"], label: "Select every asset", group: "Explore" },
   { keys: ["Esc"], label: "Clear the selection", group: "Explore" },
@@ -123,7 +123,7 @@ export function useShortcuts({ setPalette, setHelp }: { setPalette: (open: boole
         clearTimeout(chordEnds.current);
         setChord(false);
         const to = SHORTCUTS.find((s) => s.sequence && s.keys[1].toLowerCase() === key)?.href;
-        if (to && (to !== "/team" || team) && (to !== "/sites" || sites)) {
+        if (to && (to !== "/settings/project/people" || team) && (to !== "/sites" || sites)) {
           e.preventDefault();
           navigate(to);
         }
@@ -170,7 +170,7 @@ export function ChordHint({ on }: { on: boolean }) {
 /** The "?" sheet: every shortcut, by group, as the keys to press. */
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const team = useTeam();
-  const shown = SHORTCUTS.filter((s) => s.href !== "/team" || team);
+  const shown = SHORTCUTS.filter((s) => s.href !== "/settings/project/people" || team);
   const groups = [...new Set(shown.map((s) => s.group))];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
