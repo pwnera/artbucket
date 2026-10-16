@@ -88,6 +88,7 @@ export function CatalogMatches({
   narrow,
   onNarrow,
   onOpenAsset,
+  onOpenComponent,
 }: {
   q: string;
   only: CatalogType | null;
@@ -95,12 +96,17 @@ export function CatalogMatches({
   narrow: Narrow;
   onNarrow: (n: Narrow) => void;
   onOpenAsset: (id: string) => void;
+  /** A component opens in a panel over Explore (components/components-page.tsx ComponentSheet). */
+  onOpenComponent: (id: string) => void;
 }) {
   const here = useMe()?.project.id;
   const params = useSearchParams();
   const all = useFound(q, EVERY, narrow);
   const one = useFound(q, only && only !== "asset" ? [only] : null, narrow);
-  const card = (i: Item) => <ResultCard key={i.id} i={i} {...(i.type === "asset" && i.project.id === here ? { onClick: () => onOpenAsset(i.id) } : { href: openPath(i) })} />;
+  // In place where it can be: an asset of this project in the viewer, a component in its panel; the rest where the app shows it.
+  const open = (i: Item) =>
+    i.type === "asset" && i.project.id === here ? { onClick: () => onOpenAsset(i.id) } : i.type === "component" ? { onClick: () => onOpenComponent(i.id) } : { href: openPath(i) };
+  const card = (i: Item) => <ResultCard key={i.id} i={i} {...open(i)} />;
   if (!all) return null;
   const types = OTHERS.filter((t) => all.r.counts[t] || t === only);
   // A tab keeps the words and the filters; a file type or a field, only assets have, stays on the Assets tab.

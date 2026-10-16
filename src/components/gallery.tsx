@@ -34,6 +34,7 @@ import { call, curl, ForAgents } from "@/components/agent-access";
 import { AssetTable } from "@/components/asset-table";
 import { AppHeader, PageHeader } from "@/components/page";
 import { CatalogMatches } from "@/components/catalog-matches";
+import { ComponentSheet } from "@/components/components-page";
 import { ExploreStart, rememberQuery, useRecentQueries } from "@/components/explore-start";
 import type { AddActions, AddId } from "@/components/shell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -213,6 +214,24 @@ const closeAsset = () => {
   if (!pushedViewer) return go({ asset: null });
   pushedViewer = false;
   window.history.back();
+};
+
+// A component found in Explore opens in a panel over it (?component=), as an asset opens in the viewer, and closes the same way.
+let pushedComponent = false;
+const openComponent = (id: string) => {
+  const p = new URLSearchParams(window.location.search);
+  p.set("component", id);
+  pushedComponent = true;
+  window.history.pushState(null, "", `?${p}`);
+};
+const closeComponent = () => {
+  if (pushedComponent) {
+    pushedComponent = false;
+    return window.history.back();
+  }
+  const p = new URLSearchParams(window.location.search);
+  p.delete("component");
+  window.history.replaceState(null, "", p.size ? `?${p}` : window.location.pathname);
 };
 
 const PAGE = 100;
@@ -1387,8 +1406,10 @@ export function Gallery({
             narrow={narrow}
             onNarrow={(n) => go({ tags: n.tags, status: statesOf(n.statuses) })}
             onOpenAsset={openAsset}
+            onOpenComponent={openComponent}
           />
         )}
+        <ComponentSheet id={sp.get("component")} onClose={closeComponent} />
 
         {!othersOnly && (
           <>

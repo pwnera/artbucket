@@ -1,7 +1,8 @@
 import preview from "#.storybook/preview";
-import { expect } from "storybook/test";
+import { http, HttpResponse } from "msw";
+import { expect, screen, within } from "storybook/test";
 import { inApp } from "#.storybook/fixtures/library";
-import { ComponentPage, Components } from "@/components/components-page";
+import { ComponentPage, Components, ComponentSheet } from "@/components/components-page";
 
 /** A story as a site would serve it: a frame of plain HTML, so nothing reaches the network. */
 const frame = (label: string) =>
@@ -86,5 +87,16 @@ export const Detail = meta.story({
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(await canvas.findByRole("button", { name: /@1/ }, { timeout: 5000 }));
     await expect(canvas.getByText("The build that held @1 is no longer kept, so only its record remains.")).toBeInTheDocument();
+  },
+});
+
+/** A component opened from Explore: the same view in a panel over it, read from /api/v1/components/{id}. */
+export const InExplore = meta.story({
+  beforeEach: ({ msw }) => void msw.use(http.get("/api/v1/components/:id", () => HttpResponse.json({ data: detail }))),
+  render: () => <ComponentSheet id="cmp_button" onClose={() => {}} />,
+  play: async () => {
+    const panel = await screen.findByRole("dialog", { name: "Button" });
+    await expect(within(panel).getByRole("link", { name: "Open its page" })).toHaveAttribute("href", "/components/cmp_button");
+    await expect(within(panel).getByRole("heading", { name: /Versions/ })).toBeInTheDocument();
   },
 });

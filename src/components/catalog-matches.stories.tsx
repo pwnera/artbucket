@@ -39,7 +39,7 @@ const answer = (items: typeof others, page = 40) =>
 const meta = preview.meta({
   title: "App/Features/Catalog/Matches",
   component: CatalogMatches,
-  args: { q: "acme", only: null, assets: 128, narrow: { tags: [], statuses: [] }, onNarrow: fn(), onOpenAsset: fn() },
+  args: { q: "acme", only: null, assets: 128, narrow: { tags: [], statuses: [] }, onNarrow: fn(), onOpenAsset: fn(), onOpenComponent: fn() },
   argTypes: { only: { control: "select", options: [null, "asset", "brand", "collection", "site", "rule", "page", "component"] } },
   parameters: { nextjs: { navigation: { pathname: "/", query: { q: "acme" } } } },
   // NavLink closes the phone's sheet, so it reads the sidebar's state.
