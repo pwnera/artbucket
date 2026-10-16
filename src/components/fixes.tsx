@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconCertificate, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
+import { IconCalendarEvent, IconCertificate, IconCircleCheck, IconComponents, IconFlag, IconFolderUp, IconHistory, IconSearch, IconSend, IconTool } from "@/components/icons";
 import { AssetLink, date, NotifyDialog, type Asset, type InsightsData, type Place } from "@/components/insights";
 import { useMe } from "@/components/can";
 import { AppHeader, PageHeader } from "@/components/page";
@@ -12,6 +12,11 @@ import { has } from "@/components/settings/sections";
 import { ShareDialog } from "@/components/share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { send } from "@/lib/send";
+import { toast } from "sonner";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { ago, exact } from "@/lib/time";
 import { InboxTabs } from "@/components/inbox-tabs";
@@ -62,7 +67,7 @@ const Done = ({ children, at, by }: { children: React.ReactNode; at?: string; by
  * list, each with the one thing to do about it. Places still showing a
  * replaced version (Notify, Insights' own dialog), searches that found
  * nothing (Request it, an upload link named after them), licenses about
- * to end (open the asset, or what replaced it) and sites built with an old
+ * to end (open the asset or what replaced it, or extend it in place) and sites built with an old
  * component (open the current one, then deploy the site with it). What
  * isn't done comes first; what is stays below, saying when, until it leaves
  * Insights' window. A server with an issue tracker (`issueUrl`,
@@ -74,7 +79,7 @@ export function Fixes({ data, collections, issueUrl = null }: { data: FixesData 
   const me = useMe();
   const [notifying, setNotifying] = useState<Place | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
-  const rows = data ? rowsOf(data, setNotifying, setRequesting, issueUrl) : [];
+  const rows = data ? rowsOf(data, setNotifying, setRequesting, issueUrl, () => router.refresh()) : [];
   const todo = rows.filter((r) => !r.done);
   const done = rows.filter((r) => r.done);
   return (
@@ -172,6 +177,42 @@ function Section({ title, rows, empty }: { title: string; rows: Row[]; empty?: s
   );
 }
 
+/**
+ * A license renewed: its new last day, set on the row. Rights save whole, so
+ * the asset's are read first and only the day changes.
+ */
+function Extend({ asset, until, onDone }: { asset: string; until: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState(until.slice(0, 10));
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    const got = (await send("GET", `/api/v1/assets/${asset}`)) as { rights: Record<string, unknown> | null } | null;
+    const ok = got && (await send("PATCH", `/api/v1/assets/${asset}`, { rights: { ...got.rights, expires: day } }));
+    setBusy(false);
+    if (!ok) return;
+    setOpen(false);
+    toast.success(`Usable until ${date(day)}`);
+    onDone();
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="xs" variant="outline">
+          <IconCalendarEvent /> Extend
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" aria-label="Extend the license" className="grid w-64 gap-2">
+        <Label htmlFor={`extend-${asset}`}>New last day of use</Label>
+        <Input id={`extend-${asset}`} type="date" value={day} min={until.slice(0, 10)} onChange={(e) => setDay(e.target.value)} />
+        <Button size="sm" pending={busy} disabled={!day || day <= until.slice(0, 10)} onClick={() => void save()}>
+          Extend
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** Open an issue about it, where the server's tracker takes it (`issueUrl` with the fix's kind and what it is about). */
 const IssueLink = ({ at, about }: { at: string | null; about: Record<string, string> }) =>
   at && (
@@ -183,7 +224,7 @@ const IssueLink = ({ at, about }: { at: string | null; about: Record<string, str
   );
 
 /** Every fix as a row: licenses first (they run out), then places, then old components, then searches, each in the API's order. */
-function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string) => void, issueUrl: string | null): Row[] {
+function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string) => void, issueUrl: string | null, refresh: () => void): Row[] {
   const licenses: Row[] = data.licenses.map((l) => ({
     key: `license:${l.asset.id}`,
     icon: <IconCertificate />,
@@ -207,9 +248,12 @@ function rowsOf(data: FixesData, notify: (p: Place) => void, request: (q: string
       </span>
     ),
     action: (
-      <Button size="xs" variant="outline" asChild>
-        <Link href={`/assets?asset=${l.asset.id}`}>Open the asset</Link>
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button size="xs" variant="ghost" asChild>
+          <Link href={`/assets?asset=${l.asset.id}`}>Open the asset</Link>
+        </Button>
+        <Extend asset={l.asset.id} until={l.expires} onDone={refresh} />
+      </span>
     ),
   }));
 

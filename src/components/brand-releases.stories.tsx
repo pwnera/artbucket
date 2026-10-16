@@ -20,6 +20,7 @@ export const Playground = meta.story({
     await expect(canvas.getByRole("link", { name: "Release" })).toHaveAttribute("href", "/brands/acme/releases/new");
     await expect(canvas.getByText("Ada Lovelace, 2 days ago")).toBeInTheDocument();
     await expect(canvas.getByText("1 new rule, 1 rule changed, 1 page edited")).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Notify on release" })).toHaveAttribute("href", "/automations?recipe=release-to-team&brand=acme");
   },
 });
 
@@ -44,6 +45,7 @@ export const Viewer = meta.story({
   decorators: [withMe(viewer)],
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("link", { name: "Release" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Notify on release" })).not.toBeInTheDocument();
   },
 });
 

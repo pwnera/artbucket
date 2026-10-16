@@ -61,6 +61,15 @@ export function ReleaseList({ slug, target, updates, pending }: { slug: string; 
           )}
         </div>
       )}
+      {/* Who hears of each release, set up from here: Automations opens on it, for this brand. */}
+      {can("automation.manage", target) && (
+        <p className="text-muted-foreground text-sm">
+          Tell people when it is released:{" "}
+          <Link href={`/automations?recipe=release-to-team&brand=${encodeURIComponent(slug)}`} className="text-primary-ink underline underline-offset-2">
+            Notify on release
+          </Link>
+        </p>
+      )}
       {updates.length > 0 && (
         <ol className="bg-card divide-y rounded-xl border">
           {updates.map((u, i) => (
