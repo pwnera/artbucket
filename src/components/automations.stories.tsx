@@ -1,8 +1,9 @@
 import preview from "#.storybook/preview";
 import { NOW, acme, automations, brands, editor, longBrand, me, withMe } from "#.storybook/fixtures/brands";
+import { swapApi } from "#.storybook/fixtures/artbucket";
 import { inApp } from "#.storybook/fixtures/library";
 import { delay, http, HttpResponse } from "msw";
-import { expect, screen, waitFor } from "storybook/test";
+import { expect, screen, waitFor, fireEvent } from "storybook/test";
 import { Automations, type AutomationRow } from "@/components/automations";
 
 /** What the last write sent, for a play test to read: reset before each story. */
@@ -162,10 +163,10 @@ export const SendATest = meta.story({
   beforeEach: ({ msw }) =>
     void msw.use(
       http.post("/api/v1/automations/:id/test", () =>
-        HttpResponse.json({ data: { id: "run_test", status: "delivered", test: true, payload: { event: "brand.released", brand: { slug: "acme", name: "Acme" }, version: 12 }, attempts: [{ at: NOW.toISOString(), ok: true, code: 200, error: null }], nextAt: null, createdAt: NOW.toISOString() } }),
+        HttpResponse.json({ data: { id: "run_test", status: "delivered", test: true, payload: { event: "brand.released", brand: { slug: "acme", name: "Acme" }, release: 12 }, attempts: [{ at: NOW.toISOString(), ok: true, code: 200, error: null }], nextAt: null, createdAt: NOW.toISOString() } }),
       ),
       http.get("/api/v1/automations/:id/runs", () =>
-        HttpResponse.json({ data: [{ id: "run_test", status: "delivered", test: true, payload: { event: "brand.released", brand: { slug: "acme", name: "Acme" }, version: 12 }, attempts: [{ at: NOW.toISOString(), ok: true, code: 200, error: null }], nextAt: null, createdAt: NOW.toISOString() }] }),
+        HttpResponse.json({ data: [{ id: "run_test", status: "delivered", test: true, payload: { event: "brand.released", brand: { slug: "acme", name: "Acme" }, release: 12 }, attempts: [{ at: NOW.toISOString(), ok: true, code: 200, error: null }], nextAt: null, createdAt: NOW.toISOString() }] }),
       ),
     ),
   play: async ({ canvas, userEvent }) => {
@@ -222,3 +223,62 @@ export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 /** One brand only: the brand picker offers Acme and Any brand. */
 export const OneBrand = meta.story({ args: { brands: [acme] } });
+
+const twoDaysAgo = new Date(NOW.getTime() - 2 * 86_400_000).toISOString();
+const run = (id: string, payload: Record<string, unknown>, at: string, test = false) => ({ id, status: "delivered", test, payload: { ...payload, ...(test && { test: true }) }, attempts: [{ at, ok: true, code: 200, error: null }], nextAt: null, createdAt: at });
+/** What each automation of the fixture posts (core/automations.ts, its payloads): a test sends a sample of its own event. */
+const samples: Record<string, Record<string, unknown>> = {
+  aut_release: { event: "brand.released", brand: { id: "brd_acme", slug: "acme", name: "Acme" }, release: 12, note: "The autumn refresh", url: "https://app.acme.test/brands/acme" },
+  aut_shares: { event: "governance", action: "share.created", target: "Press kit", actor: "Ada Lovelace", agent: false },
+  aut_licenses: { event: "asset.expiring", asset: { id: "ast_hero", filename: "hero-spring.jpg", title: null }, expires: "2026-11-01" },
+  aut_fixes: { event: "fix.opened", kind: "stale", place: "www.acme.test", asset: { id: "ast_logo_2019", filename: "acme-logo.svg", title: null } },
+};
+
+/**
+ * As artbucket.io frames it (`globals=fixture:artbucket`): our automations with the release one's run log open
+ * (delivered two days ago, as its row says), and every button live: Send a test lands a test run in its log, From a
+ * recipe opens the dialog on it.
+ */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket", sidebar: "open" },
+  beforeEach: (ctx) => {
+    const runs: Record<string, unknown[]> = { aut_release: [run("run_release", samples.aut_release, twoDaysAgo)] };
+    ctx.msw.use(
+      http.post("/api/v1/automations/:id/test", ({ params }) => {
+        const id = String(params.id);
+        const test = run(`run_test_${(runs[id] ?? []).length}`, samples[id] ?? samples.aut_release, NOW.toISOString(), true);
+        runs[id] = [test, ...(runs[id] ?? [])];
+        return HttpResponse.json({ data: test });
+      }),
+      http.get("/api/v1/automations/:id/runs", ({ params }) => HttpResponse.json({ data: runs[String(params.id)] ?? [] })),
+    );
+    return swapApi(ctx);
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByText("When Artbucket is released, email brand@artbucket.io")).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Show the runs of Tell the brand team" }));
+    await expect(await canvas.findByText("Artbucket release 12 is out")).toBeInTheDocument();
+    await expect(canvas.getByText("Attempt 1, 2 days ago: delivered (200)")).toBeInTheDocument();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+    // Left as a visitor finds it: no button focused, so no tooltip or ring stays up.
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+});
+
+/**
+ * New automation as artbucket.io frames it on /automations: the dialog open on a release mail to our brand team, every
+ * field live (When, Then, a webhook's As), and Make it adding it to the list.
+ */
+export const OnArtbucketNew = meta.story({
+  globals: { fixture: "artbucket", sidebar: "open" },
+  beforeEach: swapApi,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "New automation" }));
+    await screen.findByRole("dialog", { name: "New automation" });
+    // Set, not typed: framed on artbucket.io the story's document has no focus for keystrokes.
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Tell the brand team" } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "brand@artbucket.io" } });
+    await expect(screen.getByLabelText("To")).toHaveValue("brand@artbucket.io");
+    await expect(screen.getByRole("dialog")).not.toHaveTextContent(/acme/i);
+  },
+});

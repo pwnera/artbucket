@@ -1,8 +1,13 @@
 import preview from "#.storybook/preview";
-import { acme, acmeInit, emptyStatus, me, status, viewer, viewRules, withMe } from "#.storybook/fixtures/brands";
+import { acme, acmeInit, assetFiles, emptyStatus, me, release, rules, status, viewer, viewRules, withMe } from "#.storybook/fixtures/brands";
+import { swapApi } from "#.storybook/fixtures/artbucket";
+import { inApp } from "#.storybook/fixtures/library";
+import { ourNav, ourView } from "#.storybook/fixtures/our-brand";
+import { useSelectedLayoutSegments } from "@storybook/nextjs-vite/navigation.mock";
 import { delay, http, HttpResponse } from "msw";
 import { toast } from "sonner";
-import { expect, screen, waitFor } from "storybook/test";
+import { expect, mocked, screen, waitFor } from "storybook/test";
+import { BrandPageHeader } from "@/components/brand-header";
 import { BrandRulesEditor } from "@/components/brand-rules-editor";
 
 /** Every PATCH /api/v1/brand/rules body the editor sent, in order: what set_rules was asked. */
@@ -202,3 +207,48 @@ export const LinkedRule = meta.story({
 });
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
+
+/**
+ * The Rules tab in the app, as /brands/acme/rules lays it out (the brand's header over the editor), for artbucket.io's
+ * solution pages: the rules as records, an edit away from the draft.
+ */
+export const RulesTab = meta.story({
+  render: (args) => (
+    <>
+      <BrandPageHeader brand={args.brand} origin="https://app.artbucket.test" rules={rules} status={status} release={release} importing={false} />
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
+        <BrandRulesEditor {...args} />
+      </div>
+    </>
+  ),
+  decorators: [inApp],
+  parameters: { layout: "fullscreen" },
+  beforeEach: ({ msw }) => {
+    msw.use(assetFiles);
+    mocked(useSelectedLayoutSegments).mockReturnValue(["rules"]);
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("link", { name: "Rules" })).toHaveAttribute("aria-current", "page");
+    await expect(canvas.getByRole("heading", { name: "Color" })).toBeInTheDocument();
+  },
+});
+
+/**
+ * As artbucket.io frames it on /guidelines (`globals=fixture:artbucket`): our own rules, read from the core's brand/
+ * folder, with this week's accent open: its value, its note, its pair, live to change.
+ */
+export const OnArtbucket = meta.story({
+  args: { init: { ...acmeInit(ourView().rules), nav: ourNav() } },
+  globals: { fixture: "artbucket" },
+  // Left open for the visitor, the rule draws its contrast samples (Volt on white is the brand's own 1.28:1), and our
+  // 47 rules bring the section chips' counts, whose contrast is the chips' own (reported): a warning here, not a failure.
+  parameters: { a11y: { test: "todo" } },
+  beforeEach: swapApi,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: /^primary / }));
+    await expect((await canvas.findAllByRole("textbox", { name: "Hex value" }))[0]).toBeInTheDocument();
+    // Its focus ring and tooltip gone, as a visitor finds it.
+    (document.activeElement as HTMLElement | null)?.blur();
+    await expect(canvas.getByRole("heading", { name: "Color" }).closest("div")!.parentElement!).not.toHaveTextContent(/acme/i);
+  },
+});

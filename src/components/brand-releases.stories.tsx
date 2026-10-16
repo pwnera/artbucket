@@ -1,8 +1,12 @@
 import preview from "#.storybook/preview";
-import { acme, emptyStatus, freezeNow, me, northwind, rules, status, updates, versions, viewer, withMe } from "#.storybook/fixtures/brands";
-import { getRouter } from "@storybook/nextjs-vite/navigation.mock";
+import { acme, assetFiles, emptyStatus, freezeNow, me, northwind, release, rules, status, updates, versions, viewer, withMe } from "#.storybook/fixtures/brands";
+import { fixture, swapApi } from "#.storybook/fixtures/artbucket";
+import { inApp } from "#.storybook/fixtures/library";
+import { OUR_BOOK } from "#.storybook/fixtures/our-brand";
+import { getRouter, useSelectedLayoutSegments } from "@storybook/nextjs-vite/navigation.mock";
 import { http, HttpResponse } from "msw";
-import { expect, waitFor } from "storybook/test";
+import { expect, mocked, waitFor } from "storybook/test";
+import { BrandPageHeader } from "@/components/brand-header";
 import { NewRelease, ReleaseList } from "@/components/brand-releases";
 
 const meta = preview.meta({
@@ -123,4 +127,74 @@ export const FirstRelease = meta.story({
 export const NewReleaseLoading = meta.story({
   render: () => <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={0} />,
   beforeEach: ({ msw }) => void msw.use(http.get(`${base}/versions`, () => new Promise<Response>(() => {}))),
+});
+
+/** The brand's header, as the tabs' layout draws it over each tab, on the Releases tab. */
+const header = <BrandPageHeader brand={acme} origin="https://app.artbucket.test" rules={rules} status={status} release={release} importing={false} />;
+
+/** The Releases tab in the app, as artbucket.io's solution pages frame it: the header, then what readers got. */
+export const ReleasesTab = meta.story({
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/brands/acme/releases" } } },
+  beforeEach: ({ msw }) => {
+    msw.use(assetFiles);
+    mocked(useSelectedLayoutSegments).mockReturnValue(["releases"]);
+  },
+  render: (args) => (
+    <>
+      {header}
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-16 md:px-6">
+        <ReleaseList {...args} />
+      </div>
+    </>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Unreleased changes since @12")).toBeInTheDocument();
+  },
+});
+
+/** New release in the app, as artbucket.io's solution pages frame it: what changes since @12, before the note is written. */
+export const NewReleaseTab = meta.story({
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/brands/acme/releases" } } },
+  render: () => (
+    <>
+      {header}
+      <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-16 md:px-6">
+        <NewRelease slug="acme" target={acme} name="Acme" status={status} comments={2} />
+      </div>
+    </>
+  ),
+  beforeEach: ({ msw }) => {
+    msw.use(assetFiles, ...history);
+    mocked(useSelectedLayoutSegments).mockReturnValue(["releases"]);
+  },
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByText("What changes since @12")).toBeInTheDocument();
+  },
+});
+
+/**
+ * As artbucket.io frames it on /guidelines (`globals=fixture:artbucket`): our own rules (the core's brand/ folder) with
+ * Monday's change in the draft, this week's accent going from Volt to Iris, line by line before Release.
+ */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket" },
+  render: (_, { globals }) => <NewRelease slug="acme" target={fixture(globals, acme)} name="Artbucket" status={fixture(globals, status)} comments={0} />,
+  beforeEach: (ctx) => {
+    const ours = OUR_BOOK.rules as typeof rules;
+    const next = ours.map((r) => (r.key === "color.primary" && !r.context ? { ...r, label: "Iris", value: "#6b4dff" } : r));
+    ctx.msw.use(
+      http.get(`${base}/versions`, () => HttpResponse.json({ data: versions })),
+      http.get(`${base}/versions/12`, () => HttpResponse.json({ data: snap(ours) })),
+      http.get(`${base}/versions/13`, () => HttpResponse.json({ data: snap(next) })),
+      http.post(`${base}/publish`, () => HttpResponse.json({ data: { number: 13, portals: status.portals } })),
+    );
+    return swapApi(ctx);
+  },
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByText("What changes since @12")).toBeInTheDocument();
+    await expect(await canvas.findByText("color.primary")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Release @13" })).toBeEnabled();
+  },
 });

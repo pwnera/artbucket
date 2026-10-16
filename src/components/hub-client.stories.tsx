@@ -15,8 +15,8 @@ const API = "/api/v1/hub/acme/acme";
 const sent = recorder();
 
 /** A listing's header as app/hub/[org]/[brand]/page.tsx draws it: who and what, then star, start from, and use. */
-function ListingHeader({ claim }: { claim: React.ComponentProps<typeof ListingTrust>["claim"] }) {
-  const b = hubCards[0];
+function ListingHeader({ claim, card: b = hubCards[0] }: { claim: React.ComponentProps<typeof ListingTrust>["claim"]; card?: (typeof hubCards)[0] }) {
+  const hub = `https://hub.artbucket.test${b.path}`;
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -29,14 +29,14 @@ function ListingHeader({ claim }: { claim: React.ComponentProps<typeof ListingTr
         <Owner verified={b.verified} />
         <div className="ms-auto flex flex-wrap items-center gap-1">
           <HubToggle kind="star" api={`${API}/star`} on={false} count={41} compact />
-          <StartFrom from="acme/acme@12" name={b.name} app="https://app.artbucket.test" />
-          <UseBrand url={HUB} name={b.name} />
+          <StartFrom from={`${b.org}/${b.brand}@${b.version}`} name={b.name} app="https://app.artbucket.test" />
+          <UseBrand url={hub} name={b.name} />
         </div>
       </div>
       <Preview card={b} className="h-56 rounded-xl border" />
       <div className="flex items-center gap-4 text-sm">
         <Pulls n={b.pulls} />
-        <ListingTrust org="acme" brand="acme" name={b.name} claim={claim} />
+        <ListingTrust org={b.org} brand={b.brand} name={b.name} claim={claim} />
       </div>
     </div>
   );
@@ -247,3 +247,19 @@ export const SlashToSearch = meta.story({
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/**
+ * As artbucket.io frames it (`globals=fixture:artbucket`): our own listing's header, verified, so nothing to claim;
+ * Use this brand opens the addresses an agent reads.
+ */
+export const OnArtbucket = meta.story({
+  args: { card: hubCards[0], claim: null },
+  globals: { fixture: "artbucket" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("artbucket.io")).toBeInTheDocument();
+    const use = canvas.getByRole("button", { name: "Use this brand" });
+    await expect(canvas.queryByRole("button", { name: "It's my brand: claim it" })).not.toBeInTheDocument();
+    // The header, not the toasts other stories left behind.
+    await expect(use.closest(".grid")).not.toHaveTextContent(/acme/i);
+  },
+});

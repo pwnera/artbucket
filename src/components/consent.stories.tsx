@@ -167,3 +167,13 @@ export const Pickers = meta.story({
     </div>
   ),
 });
+
+/** As artbucket.io frames it on /ai (`globals=fixture:artbucket`): Claude asks to work in our project, as Ada. */
+export const OnArtbucket = meta.story({
+  globals: { fixture: "artbucket" },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("heading", { name: "Connect Claude" })).toBeInTheDocument();
+    await expect(canvas.getByText("ada@artbucket.io")).toBeInTheDocument();
+    await expect(canvasElement).not.toHaveTextContent(/acme/i);
+  },
+});

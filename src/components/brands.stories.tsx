@@ -175,3 +175,13 @@ export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
 
+
+/** New brand open over the Brands page, as artbucket.io's solution pages frame it: every way to start, nothing typed. */
+export const NewBrandDialog = meta.story({
+  args: { create: true },
+  parameters: { nextjs: { navigation: { pathname: "/brands" } } },
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "New brand" });
+    await expect(within(dialog).getByRole("radio", { name: "Start here" })).toBeChecked();
+  },
+});

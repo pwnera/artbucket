@@ -1,7 +1,10 @@
 import preview from "#.storybook/preview";
-import { expect, screen, waitFor } from "storybook/test";
+import { useSelectedLayoutSegments } from "@storybook/nextjs-vite/navigation.mock";
+import { expect, mocked, screen, waitFor, within } from "storybook/test";
 import { me, recorder, viewer, withMe } from "#.storybook/fixtures/brands";
+import { inApp } from "#.storybook/fixtures/library";
 import { HubPanel, type GithubAccount, type HubReport } from "@/components/settings/hub";
+import { SettingsShell } from "@/components/settings/shell";
 
 const sent = recorder();
 // Against the real now: lib/hub's ago() reads new Date(), not Date.now, so the dates move with it and it always says "yesterday".
@@ -89,3 +92,23 @@ export const Viewer = meta.story({
 });
 
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
+
+/**
+ * In the app, as Settings, Organization, BrandHub shows it, for artbucket.io's solution pages: a GitHub account
+ * added, waiting for the one file that proves it, no domain needed.
+ */
+export const InSettings = meta.story({
+  args: { github: [account("acme", false)], reports: [], domains: [], offers: [] },
+  render: (args) => (
+    <SettingsShell>
+      <HubPanel {...args} />
+    </SettingsShell>
+  ),
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", app: { me: { hub: true } }, nextjs: { navigation: { pathname: "/settings/organization/hub" } } },
+  beforeEach: () => void mocked(useSelectedLayoutSegments).mockReturnValue(["(sections)", "organization", "hub"]),
+  play: async ({ canvas }) => {
+    await expect(within(canvas.getByRole("navigation", { name: "Settings" })).getByRole("link", { name: "BrandHub" })).toHaveAttribute("aria-current", "page");
+    await expect(canvas.getByRole("button", { name: "Check now" })).toBeInTheDocument();
+  },
+});

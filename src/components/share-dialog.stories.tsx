@@ -1,7 +1,7 @@
 import preview from "#.storybook/preview";
 import { http, HttpResponse } from "msw";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
-import { as, collections, shareLink } from "#.storybook/fixtures/library";
+import { as, collections, inApp, shareLink } from "#.storybook/fixtures/library";
 import { SendLinkDialog, ShareDialog } from "@/components/share-dialog";
 
 const sent: { method: string; url: string; body: unknown }[] = [];
@@ -168,5 +168,20 @@ export const SendLink = meta.story({
     await userEvent.type(within(dialog).getByLabelText("Email addresses"), "lena@northwind.test");
     await userEvent.click(within(dialog).getByRole("button", { name: "Send" }));
     await expect(await within(dialog).findByText("Sent to 1 person.")).toBeInTheDocument();
+  },
+});
+
+/** Request uploads in the app, as artbucket.io's solution pages frame it: a link made for Autumn campaign, nothing typed. */
+export const RequestUploadsInTheApp = RequestUploads.extend({
+  decorators: [inApp],
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/collections" } } },
+  play: async ({ userEvent }) => {
+    const dialog = await screen.findByRole("dialog", { name: "Request uploads" });
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Files go into" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Autumn campaign" }));
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Make link" }));
+    await waitFor(() => expect(sent[0]?.body).toEqual({ kind: "upload", collection: "col_campaign", name: "Uploads for Autumn campaign" }));
+    // Framed, the button clicked last would keep its focus ring.
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 });

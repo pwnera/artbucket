@@ -14,13 +14,13 @@ type Filter = keyof typeof FILTERS;
  * BrandHub's front page below its hero (app/hub/page.tsx): the search, the tabs that filter, and the listings as
  * cards. The address is kept here, so a search or a tab picks the next cards as the server would.
  */
-function HubHome({ at }: { at: string }) {
+function HubHome({ at, cards: all = hubCards }: { at: string; cards?: typeof hubCards }) {
   const [url, setUrl] = useState(at);
   useEffect(() => void getRouter().push.mockImplementation((u: string) => setUrl(u)), []);
   const sp = new URL(url, "https://hub.artbucket.test").searchParams;
   const q = (sp.get("q") ?? "").toLowerCase();
   const filter = (sp.get("filter") ?? "all") as Filter;
-  const found = hubCards.filter((c) => !q || c.name.toLowerCase().includes(q) || c.org.includes(q));
+  const found = all.filter((c) => !q || c.name.toLowerCase().includes(q) || c.org.includes(q));
   const of: Record<Filter, typeof found> = {
     all: found,
     verified: found.filter((c) => c.visibility === "public" && c.verified),
@@ -156,3 +156,18 @@ export const Empty = meta.story({ args: { cards: [] } });
 export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 
 export const Dark = meta.story({ globals: { theme: "dark" } });
+
+/**
+ * As artbucket.io frames it (`globals=fixture:artbucket`): the front page's search and tabs over the cards, with our
+ * own names, live to search and filter. The long name is a layout test, left out here.
+ */
+export const OnArtbucket = meta.story({
+  args: { cards: hubCards.slice(0, 3) },
+  globals: { fixture: "artbucket" },
+  render: ({ cards }) => <HubHome at="/hub" cards={cards} />,
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("link", { name: "Artbucket" })).toHaveAttribute("href", "/hub/artbucket/artbucket");
+    await expect(canvas.getByText("artbucket.io")).toBeInTheDocument();
+    await expect(canvasElement).not.toHaveTextContent(/acme/i);
+  },
+});

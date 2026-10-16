@@ -1,6 +1,8 @@
 import preview from "#.storybook/preview";
 import { delay, http, HttpResponse } from "msw";
 import { expect, fn, screen, waitFor, within } from "storybook/test";
+import { fixture, liveUrl, swapApi } from "#.storybook/fixtures/artbucket";
+import { catalogItems } from "#.storybook/fixtures/brands";
 import { asset, assets, byId, inApp, library, listing, many, renditions } from "#.storybook/fixtures/library";
 import { AssetCard, Gallery, WELLS, type Asset } from "@/components/gallery";
 import { GRID_COLS } from "@/components/skeletons";
@@ -358,5 +360,100 @@ export const GridKeyboard = meta.story({
     await expect(bar).toHaveTextContent(/2 of 6/);
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(canvas.queryByRole("toolbar", { name: "Selection" })).not.toBeInTheDocument());
+  },
+});
+
+// ---- as artbucket.io frames them (`globals=fixture:artbucket`) ---------------------------------------
+
+/** Every word a prefix of a word of the asset's name, title or tags, as the library's search matches. */
+const matches = (a: Asset, q: string) => {
+  const words = [a.filename, a.metadata?.title ?? "", ...a.tags].join(" ").toLowerCase().split(/[^a-z0-9]+/);
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => words.some((x) => x.startsWith(w)));
+};
+const kindOf = (mime: string) => (/^(image|video|audio|font)\//.exec(mime)?.[1] ?? "document");
+
+/** GET /api/v1/assets answering the words, tags and types asked, with counts of what is left. */
+const searchable = http.get("/api/v1/assets", ({ request }) => {
+  const u = new URL(request.url);
+  if (u.searchParams.get("review") === "true") return HttpResponse.json(listing(assets.filter((a) => a.status === "proposed")));
+  const tags = u.searchParams.getAll("tag");
+  const types = u.searchParams.getAll("type");
+  const found = assets.filter((a) => a.state !== "archived" && matches(a, u.searchParams.get("q") ?? "") && tags.every((t) => a.tags.includes(t)) && (!types.length || types.includes(kindOf(a.mime))));
+  const count = (vs: string[]) => [...new Set(vs)].map((value) => ({ value, count: vs.filter((v) => v === value).length }));
+  return HttpResponse.json({ ...listing(found), facets: { tags: count(found.flatMap((a) => a.tags)), types: count(found.map((a) => kindOf(a.mime))), states: count(found.map((a) => a.state ?? "active")), fields: {} } });
+});
+
+/** GET /api/v1/catalog for the same words: every type they match, the assets among them. */
+const catalogSearch = http.get("/api/v1/catalog", ({ request }) => {
+  const u = new URL(request.url);
+  const q = (u.searchParams.get("q") ?? "").toLowerCase();
+  const types = u.searchParams.getAll("type");
+  const all = catalogItems.filter((i) => (!types.length || types.includes(i.type)) && q.split(/\s+/).every((w) => `${i.name} ${i.slug}`.toLowerCase().split(/[^a-z0-9]+/).some((x) => x.startsWith(w))));
+  const counts: Record<string, number> = {};
+  for (const i of all) counts[i.type] = (counts[i.type] ?? 0) + 1;
+  return HttpResponse.json({ query: q, total: all.length, counts, projects: [{ slug: "acme", name: "Acme", count: all.length }], items: all, hidden: { count: 0, example: null }, next: null, facets: { tags: [], statuses: [] } });
+});
+
+/**
+ * The library as artbucket.io frames it on /library: Assets' grid with our names, its search box and filters live
+ * (every word a prefix, the counts beside each filter following what is left).
+ */
+export const OnArtbucket = meta.story({
+  decorators: [inApp],
+  globals: { fixture: "artbucket", sidebar: "open" },
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/assets", query: { browse: "" } } } },
+  // The header's box searches everything, as in the app: what else matches comes above the assets.
+  beforeEach: (ctx) => {
+    ctx.msw.use(searchable, catalogSearch, ...library());
+    const [names, url] = [swapApi(ctx), liveUrl(ctx)];
+    return () => (names?.(), url());
+  },
+  render: (_, { globals }) => <Gallery initial={fixture(globals, listing(assets.filter((a) => a.state !== "archived")))} fields={[]} initialLayout="grid" />,
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("heading", { name: "All assets" })).toBeInTheDocument();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+  },
+});
+
+/**
+ * One search of everything, as artbucket.io frames it on /catalog: words in Explore's box find the brands, rules,
+ * collections and sites they name, above the assets that match.
+ */
+export const OnArtbucketSearch = meta.story({
+  decorators: [inApp],
+  globals: { fixture: "artbucket", sidebar: "open" },
+  // Our name, which the brand, its portal, its rule, its logos and its typeface all carry (the fixtures ask for Acme's).
+  parameters: { layout: "fullscreen", nextjs: { navigation: { pathname: "/assets", query: { q: "artbucket" } } } },
+  beforeEach: (ctx) => {
+    ctx.msw.use(searchable, catalogSearch, ...library());
+    const [names, url] = [swapApi(ctx), liveUrl(ctx)];
+    return () => (names?.(), url());
+  },
+  render: (_, { globals }) => <Gallery initial={fixture(globals, listing(assets.filter((a) => matches(a, "acme"))))} fields={[]} initialLayout="grid" />,
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("navigation", { name: "What to explore" })).toBeInTheDocument();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
+  },
+});
+
+/**
+ * Review as artbucket.io frames it on /ai: what an agent and a contributor sent, with our names, to decide in place.
+ * The image model is a made-up one, not ours.
+ */
+export const ReviewOnArtbucket = meta.story({
+  decorators: [inApp],
+  globals: { fixture: "artbucket", sidebar: "open" },
+  parameters: { ...page, nextjs: { navigation: { pathname: "/review" } } },
+  beforeEach: (ctx) => {
+    ctx.msw.use(...library());
+    return swapApi(ctx);
+  },
+  render: (_, { globals }) => (
+    <Gallery initial={fixture(globals, listing([{ ...byId("ast_ai"), generator: "Example Image Model" }, { ...byId("ast_hero"), proposedTags: ["outdoor", "city"] }]))} fields={[]} />
+  ),
+  play: async ({ canvas }) => {
+    await expect(await canvas.findByRole("heading", { name: "Waiting for review" })).toBeInTheDocument();
+    await expect(canvas.getByText("Campaign agent")).toBeInTheDocument();
+    await expect(canvas.getByRole("main")).not.toHaveTextContent(/acme/i);
   },
 });
