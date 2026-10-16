@@ -487,13 +487,15 @@ async function versionComponents(tx: Tx, siteId: string, path: string, deploymen
     const fingerprint = prints.get(c.slug)!;
     const same = known.find((k) => k.slug === c.slug && k.fingerprint === fingerprint);
     if (same) {
+      // Tags aren't its code: the same version takes the build's.
+      if (JSON.stringify(same.tags) !== JSON.stringify(c.tags)) await tx.update(siteComponents).set({ tags: c.tags }).where(eq(siteComponents.id, same.id));
       ids.push(same.id);
       continue;
     }
     const version = Math.max(0, ...known.filter((k) => k.slug === c.slug).map((k) => k.version)) + 1;
     const [row] = await tx
       .insert(siteComponents)
-      .values({ siteId, path, slug: c.slug, version, fingerprint, name: c.name, title: c.title, story: c.story, stories: c.stories, files: c.files, deploymentId, createdBy: actor })
+      .values({ siteId, path, slug: c.slug, version, fingerprint, name: c.name, title: c.title, story: c.story, stories: c.stories, files: c.files, tags: c.tags, deploymentId, createdBy: actor })
       .returning({ id: siteComponents.id });
     ids.push(row.id);
   }

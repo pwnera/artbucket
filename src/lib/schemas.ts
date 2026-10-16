@@ -1732,6 +1732,7 @@ const ComponentVersionBase = {
   story: z.string().describe("Its first story's id"),
   stories: z.array(z.string()).describe("Its stories' names, in order"),
   files: z.array(z.string()).describe("Its stories' and source files, as Storybook's index.json names them"),
+  tags: z.array(z.string()).describe("Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"),
   path: z.string().describe("Where its Storybook is mounted on the site"),
   createdAt: z.string(),
   createdBy: z.string().describe("Who deployed the build it came in"),

@@ -1322,6 +1322,8 @@ export const siteComponents = pgTable(
     stories: jsonb("stories").$type<string[]>().notNull(),
     /** Its stories' and source files, as index.json names them: what `artbucket site scan` matches imports against. */
     files: jsonb("files").$type<string[]>().notNull().default([]),
+    /** The team's own Storybook tags on its stories (lib/sites.ts storybookComponents): search reads them like an asset's. */
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     /** The deployment it first came in, and who made it. */
     deploymentId: uuid("deployment_id").references(() => siteDeployments.id, { onDelete: "set null" }),
     createdBy: text("created_by").notNull(),
@@ -1865,8 +1867,8 @@ export const catalogObjects = pgView("catalog_objects", {
       case when l.ids is not null and c.id = any(l.ids) then 'current'
         when exists (select 1 from ${siteComponents} n where n.id = any(l.ids) and n.slug = c.slug) then 'replaced'
         else 'archived' end,
-      c.version, null, false, '{}'::uuid[], '[]'::jsonb, c.created_at, c.created_at,
-      to_tsvector('simple', regexp_replace(c.title, '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c.stories) s), ''))
+      c.version, null, false, '{}'::uuid[], c.tags, c.created_at, c.created_at,
+      to_tsvector('simple', regexp_replace(c.title || ' ' || c.slug, '[/._-]+', ' ', 'g') || ' ' || coalesce((select string_agg(s, ' ') from jsonb_array_elements_text(c.stories || c.tags) s), ''))
     from ${siteComponents} c join ${portals} p on p.id = c.site_id
     left join lateral (select d.components as ids from ${siteDeployments} d where d.site_id = c.site_id and d.path = c.path and d.state = 'live') l on true`,
 );

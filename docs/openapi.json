@@ -295,6 +295,18 @@
               ]
             },
             "description": "false: no facet counts, each empty, answered faster: for `total` alone"
+          },
+          {
+            "name": "record",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "false: not counted as a search in Insights (a list beside a search counted already)"
           }
         ],
         "responses": {
@@ -15921,6 +15933,18 @@
               "minimum": 0
             },
             "description": "The previous page's `next`"
+          },
+          {
+            "name": "record",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "false: not counted as a search in Insights"
           }
         ],
         "responses": {
@@ -16122,6 +16146,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -16411,6 +16442,13 @@
                                 },
                                 "updatedAt": {
                                   "type": "string"
+                                },
+                                "preview": {
+                                  "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
@@ -16650,6 +16688,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "sharedFrom": {
                             "type": "object",
@@ -16904,6 +16949,13 @@
                     "updatedAt": {
                       "type": "string"
                     },
+                    "preview": {
+                      "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "usedBy": {
                       "type": "array",
                       "items": {
@@ -17051,6 +17103,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -17409,6 +17468,13 @@
                           },
                           "updatedAt": {
                             "type": "string"
+                          },
+                          "preview": {
+                            "description": "A component in search results: its story alone (Storybook's iframe.html) on its site's builds address",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "up": {
                             "type": "integer",
@@ -18211,6 +18277,13 @@
                             },
                             "description": "Its stories' and source files, as Storybook's index.json names them"
                           },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                          },
                           "path": {
                             "type": "string",
                             "description": "Where its Storybook is mounted on the site"
@@ -18289,6 +18362,7 @@
                           "story",
                           "stories",
                           "files",
+                          "tags",
                           "path",
                           "createdAt",
                           "createdBy",
@@ -18457,6 +18531,13 @@
                                 },
                                 "description": "Its stories' and source files, as Storybook's index.json names them"
                               },
+                              "tags": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Its stories' own Storybook tags, lowercase, Storybook's built-in ones left out: search matches them, and tag: filters by them"
+                              },
                               "path": {
                                 "type": "string",
                                 "description": "Where its Storybook is mounted on the site"
@@ -18574,6 +18655,7 @@
                               "story",
                               "stories",
                               "files",
+                              "tags",
                               "path",
                               "createdAt",
                               "createdBy",

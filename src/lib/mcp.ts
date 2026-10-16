@@ -379,7 +379,7 @@ const TOOLS: Record<ToolName, Tool> = {
       query.statuses.push(...(status ?? []));
       if (uses) query.uses.push(uses);
       if (usedby) query.usedBy.push(usedby);
-      const { items, counts, total, hidden, projects, next } = await searchCatalog(caller, query, { limit, cursor });
+      const { items, counts, total, hidden, projects, next } = await searchCatalog(caller, query, { limit, cursor, surface: "mcp" });
       return {
         results: items.map(({ id, type, name, address, status, release, expiring, project, parent }) => ({ id, type, name, address, status, release, expiring, project: project.slug, partOf: parent?.name ?? null })),
         counts,

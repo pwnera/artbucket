@@ -36,6 +36,11 @@ import {
 import { heldBy, hiddenIn, projectsOf, type Caller, type Project } from "@/lib/core/access";
 import { sharedInto, sharesOf } from "@/lib/core/project-shares";
 import { assetType } from "@/lib/core/assets";
+import { prefixQuery } from "@/lib/search";
+import { recordSearch, who } from "@/lib/core/events";
+import type { Surface } from "@/lib/insights";
+import { buildsAddress } from "@/lib/core/domains";
+import { storyAt } from "@/lib/sites";
 import type { AssetType } from "@/lib/filters";
 
 /**
@@ -155,6 +160,8 @@ export type CatalogItem = Omit<Row, "org" | "projectId" | "parentId"> & {
   sharedFrom?: { id: string; name: string };
   /** An asset's type, in the tree, which folds its assets by it. */
   kind?: AssetType;
+  /** A component's story alone, framed from its site's builds address (lib/sites.ts storyAt): what a search result shows of it. */
+  preview?: string | null;
 };
 
 const rows = (where: SQL) =>
@@ -235,16 +242,8 @@ async function walk(ids: string[], direction: "down" | "up", depth = 6): Promise
   return seenIds;
 }
 
-/** `logo:*` & `prim:*`: every word, as a prefix, so "log" finds the logo as it is typed. */
-const prefixQuery = (words: string) =>
-  words
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)
-    .map((w) => `${w}:*`)
-    .join(" & ");
-
 async function whereOf(caller: Caller, q: CatalogQuery, reaches: Reach[]): Promise<{ where: SQL; rank: SQL | null }> {
+  // Every word as a prefix, as asset search reads them (lib/search.ts): "café" and "log" match the same way in both.
   const ts = prefixQuery(q.words);
   const tsq = ts ? sql`to_tsquery('simple', ${ts})` : null;
   const ids = async (refs: string[]) => (await Promise.all(refs.map((r) => resolve(caller, r)))).filter((x): x is string => !!x);
@@ -286,8 +285,15 @@ export type CatalogResults = {
  * Search every type at once. Ranked by the words when there are some, else
  * newest first; `limit` per page, `cursor` the offset the last page gave.
  * Without a `status:` filter, retired objects are counted aside, not shown.
+ * A first page with words is a search for Insights, found if anything of
+ * any type matched; `record: false` for a look that isn't one (a type's tab,
+ * a list beside a search recorded already).
  */
-export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 30, cursor = 0 } = {}): Promise<CatalogResults> {
+export async function searchCatalog(
+  caller: Caller,
+  q: CatalogQuery,
+  { limit = 30, cursor = 0, record = true, surface = caller.key ? "api" : "app" }: { limit?: number; cursor?: number; record?: boolean; surface?: Surface } = {},
+): Promise<CatalogResults> {
   const reaches = await reachOf(caller);
   const { where, rank } = await whereOf(caller, q, reaches);
   const shown = q.statuses.length ? where : and(where, sql`not ${retiredSql}`)!;
@@ -320,15 +326,30 @@ export async function searchCatalog(caller: Caller, q: CatalogQuery, { limit = 3
     perProject.set(c.project, p);
   }
   const page = found.slice(0, limit) as Row[];
+  const total = Object.values(counts).reduce((s, n) => s + (n ?? 0), 0);
+  if (record && !cursor) recordSearch(caller.project.id, q.words, total > 0, { surface, ...who(caller) });
   return {
     query: formatQuery(q),
-    total: Object.values(counts).reduce((s, n) => s + (n ?? 0), 0),
+    total,
     counts,
     projects: [...perProject.values()].sort((a, b) => b.count - a.count),
-    items: await items(page),
+    items: await withPreviews(await items(page)),
     hidden: hidden.length ? { count: hidden[0].n, example: await retiredWhy(hidden[0].row) } : { count: 0, example: null },
     next: found.length > limit ? cursor + limit : null,
   };
+}
+
+/** Components with their story to show, as a search result draws them. */
+async function withPreviews(list: CatalogItem[]): Promise<CatalogItem[]> {
+  const ids = list.filter((i) => i.type === "component").map((i) => i.id);
+  if (!ids.length) return list;
+  const found = new Map(
+    (await db.select({ id: siteComponents.id, path: siteComponents.path, story: siteComponents.story }).from(siteComponents).where(inArray(siteComponents.id, ids))).map((c) => [c.id, c]),
+  );
+  return list.map((i) => {
+    const c = found.get(i.id);
+    return c && i.parent ? { ...i, preview: storyAt(buildsAddress({ slug: i.parent.slug }), null, c.path, c.story).preview } : i;
+  });
 }
 
 /** "logo-primary.svg @3 matches too, but it was replaced by @4." */

@@ -1,15 +1,15 @@
 import preview from "#.storybook/preview";
 import { catalogItems } from "#.storybook/fixtures/brands";
 import { delay, http, HttpResponse } from "msw";
-import { expect, waitFor } from "storybook/test";
+import { expect, fn, waitFor } from "storybook/test";
 import { CatalogMatches } from "@/components/catalog-matches";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import type { CatalogResults } from "@/lib/core/catalog";
 import type { CatalogType } from "@/lib/catalog";
 
-/** Everything the catalog holds besides assets, with a dozen rules so "and N more" and Show more have something to say. */
+/** Everything the catalog holds, with a dozen rules so the type tabs and Show more have something to say. */
 const others = [
-  ...catalogItems.filter((i) => i.type !== "asset"),
+  ...catalogItems,
   ...Array.from({ length: 12 }, (_, n) => ({ ...catalogItems.find((i) => i.id === "rul_primary")!, id: `rul_${n}`, slug: `color-${n}`, name: `Acme color ${n + 1}` })),
 ];
 
@@ -34,11 +34,11 @@ const answer = (items: typeof others, page = 40) =>
     return HttpResponse.json(body);
   });
 
-/** What else a search in Explore finds, above the assets: a row of types, then a first look at each, or every match of one. */
+/** What a search in Explore finds of every type, above the assets: a row of types, then the top results ranked together, or every match of one. */
 const meta = preview.meta({
   title: "App/Features/Catalog/Matches",
   component: CatalogMatches,
-  args: { q: "acme", only: null, assets: 128 },
+  args: { q: "acme", only: null, assets: 128, narrow: { tags: [], statuses: [] }, onOpenAsset: fn() },
   argTypes: { only: { control: "select", options: [null, "asset", "brand", "collection", "site", "rule", "page", "component"] } },
   parameters: { nextjs: { navigation: { pathname: "/", query: { q: "acme" } } } },
   // NavLink closes the phone's sheet, so it reads the sidebar's state.
@@ -52,7 +52,7 @@ const meta = preview.meta({
   beforeEach: ({ msw }) => void msw.use(answer(others)),
 });
 
-/** Everything: a tab per type that matched, and the first eight across them. */
+/** Everything: a tab per type that matched, and the top eight of every type, assets among them, in rank order. */
 export const Playground = meta.story({
   play: async ({ canvas }) => {
     const nav = await canvas.findByRole("navigation", { name: "What to explore" });
@@ -60,8 +60,10 @@ export const Playground = meta.story({
     await expect(canvas.getByRole("link", { name: "Everything" })).toHaveAttribute("aria-current", "page");
     await expect(canvas.getByRole("link", { name: /^Assets 128/ })).toHaveAttribute("href", "/?q=acme&in=asset");
     await expect(canvas.getByRole("link", { name: /^Rules 13/ })).toHaveAttribute("href", "/?q=acme&in=rule");
-    await expect(canvas.getByRole("link", { name: "Acme Brand · Acme" })).toHaveAttribute("href", "/catalog?o=brd_acme");
-    await expect(canvas.getByText(/and \d+ more: pick a type above to see them all/)).toBeInTheDocument();
+    const top = canvas.getByRole("region", { name: "Top results" });
+    // Each opens where the app shows it: a brand its page, not the catalog's.
+    await expect(top.querySelector('a[href^="/brands/acme?"]')).not.toBeNull();
+    await expect(canvas.getByText("Pick a type above to see every match of it")).toBeInTheDocument();
   },
 });
 
@@ -92,7 +94,7 @@ export const AssetsPicked = meta.story({
   args: { only: "asset" },
   play: async ({ canvas }) => {
     await expect(await canvas.findByRole("link", { name: /^Assets 128/ })).toHaveAttribute("aria-current", "page");
-    await expect(canvas.queryByRole("region", { name: "Brands, collections and more" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("region", { name: "Top results" })).not.toBeInTheDocument();
   },
 });
 

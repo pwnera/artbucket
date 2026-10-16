@@ -44,6 +44,7 @@ const CatalogItem = z.object({
   parent: z.object({ id: z.uuid(), type: z.enum(CATALOG_TYPES), slug: z.string(), name: z.string() }).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  preview: z.string().nullable().optional().describe("A component in search results: its story alone (Storybook's iframe.html) on its site's builds address"),
 });
 const catalogRef = { name: "ref", in: "path", required: true, schema: { type: "string" }, description: "An id, or an address" } as const;
 
@@ -215,6 +216,7 @@ export function openapi(serverUrl: string) {
             limit: { schema: { type: "integer", minimum: 1, maximum: 200, default: 100 }, description: "Page size" },
             offset: { schema: { type: "integer", minimum: 0, default: 0 }, description: "Skip this many" },
             facets: { schema: { type: "string", enum: ["true", "false"] }, description: "false: no facet counts, each empty, answered faster: for `total` alone" },
+            record: { schema: { type: "string", enum: ["true", "false"] }, description: "false: not counted as a search in Insights (a list beside a search counted already)" },
           },
           ok: [200, "Matching assets, with facet counts", S.Listing],
         }),
@@ -673,6 +675,7 @@ export function openapi(serverUrl: string) {
             admin: { schema: str, description: "`me`: what you hold Admin on directly" },
             limit: { schema: { type: "integer", minimum: 1, maximum: 100, default: 30 }, description: "Page size" },
             cursor: { schema: { type: "integer", minimum: 0 }, description: "The previous page's `next`" },
+            record: { schema: { type: "string", enum: ["true", "false"] }, description: "false: not counted as a search in Insights" },
           },
           ok: [
             200,

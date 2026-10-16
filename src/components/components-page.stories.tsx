@@ -17,6 +17,7 @@ const row = (id: string, name: string, title: string, over: object = {}) => ({
   story: `ui-${name.toLowerCase()}--default`,
   stories: ["Default", "Disabled"],
   files: [],
+  tags: [],
   path: "/",
   createdAt: "2026-10-12T09:00:00Z",
   createdBy: "Storybook deploy",

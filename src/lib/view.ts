@@ -69,3 +69,29 @@ export const canonical = (query: string) => viewQuery(parseView(new URLSearchPar
 /** Narrowed by something other than where you are (a collection, the review queue). */
 export const isNarrowed = (v: View) =>
   v.q.trim() !== "" || v.tags.length > 0 || v.types.length > 0 || v.status.length > 0 || v.extra.length > 0 || Object.values(v.filters).some((x) => x.length > 0);
+
+/**
+ * Explore's search box with words (not Assets' plain grid, a collection or
+ * Review), where something besides assets may match: its search of every
+ * type (components/catalog-matches.tsx) is the one Insights records, not
+ * the assets' beside it.
+ */
+export const explored = (v: View, browse: boolean) => !browse && !v.collection && !v.review && !!v.q.trim() && !!narrowOf(v);
+
+/** Explore's filters as the catalog reads them (GET /api/v1/catalog): its tags, and its asset states as the catalog's statuses. */
+export type Narrow = { tags: string[]; statuses: ("draft" | "in_review" | "current" | "archived")[] };
+
+/** An asset state as the catalog's lifecycle says it (lib/db/schema.ts catalog_objects); expired and deleted have none of their own. */
+const STATUS_OF: Record<string, Narrow["statuses"][number]> = { draft: "draft", proposed: "in_review", active: "current", archived: "archived", rejected: "archived" };
+
+/**
+ * The view's facets, for every type Explore finds beside assets, or null when
+ * they leave nothing but assets: a file type, a custom field, or only states
+ * no other type has.
+ */
+export function narrowOf(v: View): Narrow | null {
+  if (v.types.length || v.extra.length || Object.values(v.filters).some((x) => x.length)) return null;
+  const statuses = [...new Set(v.status.flatMap((s) => STATUS_OF[s] ?? []))];
+  if (v.status.length && !statuses.length) return null;
+  return { tags: v.tags, statuses };
+}

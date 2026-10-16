@@ -575,6 +575,13 @@
       "when": 1792084223494,
       "tag": "0081_proposed_by_id",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1792103006647,
+      "tag": "0082_component_tags",
+      "breakpoints": true
     }
   ]
 }
