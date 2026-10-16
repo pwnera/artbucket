@@ -1,4 +1,4 @@
-import type { Draft, Line } from "@/lib/branding";
+import type { Draft, Section } from "@/lib/branding";
 import type { Digest } from "@/lib/core/digest";
 
 /**
@@ -114,16 +114,10 @@ export function portalAccessEmail(to: string, a: { portal: string; organization:
 
 const day = (d: Date | string) => new Date(d).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-/** "a, b, c and 2 more": the first `max` named. */
-const listed = (names: string[], max = 5) => {
-  const shown = names.slice(0, max);
-  const more = names.length - shown.length;
-  return more > 0 ? `${shown.join(", ")} and ${more} more` : shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}` : shown.join("");
-};
 
 /**
- * The weekly digest (lib/core/digest.ts): a line or two per section that has
- * something, each linking where to act on it. Plain words, nothing to decode.
+ * The weekly digest (lib/core/digest.ts): the week's counts across the top, then a part per kind of news that has
+ * something, each row linking where to act on it. Plain words, nothing to decode.
  */
 export function digestEmail(
   to: string,
@@ -131,22 +125,41 @@ export function digestEmail(
 ): Draft {
   const { digest: d } = w;
   const at = (path: string) => `${w.url}${path}${path.includes("?") ? "&" : "?"}project=${w.projectId}`;
-  const lines: Line[] = [`Here is your week in ${w.project}, from ${day(w.start)} to ${day(new Date(w.start.getTime() + 6 * 86_400_000))}.`];
-  if (d.releases.length) {
-    lines.push(`${plural(d.releases.length, "brand release")} went out:`);
-    for (const r of d.releases) lines.push({ text: `${r.brand}, version ${r.version}${r.note ? `: ${r.note}` : ""}`, url: at(`/brands/${r.slug}`) });
-  }
-  if (d.added.length) lines.push({ text: `${plural(d.added.length, "new asset")}: ${listed(d.added)}.`, url: at("/library") });
-  if (d.replaced.length) lines.push({ text: `${plural(d.replaced.length, "asset")} got a new version: ${listed(d.replaced)}.`, url: at("/library") });
-  if (d.expiringTotal) {
-    lines.push(`${plural(d.expiringTotal, "license")} ${d.expiringTotal === 1 ? "ends" : "end"} in the next two weeks:`);
-    for (const e of d.expiring) lines.push({ text: `${e.title}, last day ${day(e.expires)}${e.replacement ? `. Replaced by ${e.replacement}` : ""}`, url: at(`/assets/${e.id}`) });
-    if (d.expiringTotal > d.expiring.length) lines.push(`And ${d.expiringTotal - d.expiring.length} more.`);
-  }
-  if (d.gaps.length) lines.push({ text: `People searched for ${listed(d.gaps.map((q) => `"${q}"`))} and found nothing.`, url: at("/insights") });
-  if (d.review) lines.push({ text: `${plural(d.review, "asset waits", "assets wait")} for review.`, url: at("/review") });
-  lines.push(`You get this on Mondays as an editor of ${w.project}. Turn it off in Settings, under Notifications, or unsubscribe below.`);
-  return { to, subject: `Your week in ${w.project}`, lines, action: { label: `Open ${w.project}`, url: at("/") }, unsubscribe: w.unsubscribe };
+  const library = at("/library");
+  const files = (names: string[], meta: string, max = 4): Section => ({
+    title: "",
+    rows: names.slice(0, max).map((text) => ({ text, url: library, meta })),
+    ...(names.length > max ? { more: { text: `And ${names.length - max} more in the library`, url: library } } : {}),
+  });
+  const sections: Section[] = [];
+  if (d.releases.length) sections.push({ title: "Brand releases", rows: d.releases.map((r) => ({ text: `${r.brand} @${r.version}`, url: at(`/brands/${r.slug}`), meta: "Released", note: r.note ?? undefined })) });
+  if (d.added.length) sections.push({ ...files(d.added, "New"), title: `New assets (${d.added.length})` });
+  if (d.replaced.length) sections.push({ ...files(d.replaced, "New version"), title: `New versions (${d.replaced.length})` });
+  if (d.expiringTotal)
+    sections.push({
+      title: "Licenses ending in the next two weeks",
+      rows: d.expiring.map((e) => ({ text: e.title, url: at(`/assets/${e.id}`), meta: `Last day ${day(e.expires)}`, note: e.replacement ? `Replaced by ${e.replacement}` : undefined })),
+      ...(d.expiringTotal > d.expiring.length ? { more: { text: `And ${d.expiringTotal - d.expiring.length} more`, url: library } } : {}),
+    });
+  if (d.gaps.length) sections.push({ title: "Searches that found nothing", rows: d.gaps.map((q) => ({ text: `"${q}"`, url: at("/insights"), meta: "No results" })) });
+  if (d.review) sections.push({ title: "Waiting for review", rows: [{ text: plural(d.review, "asset waits", "assets wait") + " for a decision", url: at("/review"), meta: "Review" }] });
+  const stats = [
+    { value: String(d.releases.length), label: d.releases.length === 1 ? "release" : "releases" },
+    { value: String(d.added.length + d.replaced.length), label: "new or updated" },
+    { value: String(d.expiringTotal), label: d.expiringTotal === 1 ? "license ending" : "licenses ending" },
+    { value: String(d.review), label: "to review" },
+  ];
+  const end = new Date(w.start.getTime() + 6 * 86_400_000);
+  return {
+    to,
+    subject: `Your week in ${w.project}`,
+    heading: { title: `Your week in ${w.project}`, sub: `${day(w.start)} to ${day(end)}` },
+    stats,
+    sections,
+    lines: [`You get this on Mondays as an editor of ${w.project}. Turn it off in Settings, under Notifications, or unsubscribe below.`],
+    action: { label: `Open ${w.project}`, url: at("/") },
+    unsubscribe: w.unsubscribe,
+  };
 }
 
 export const testEmail = (to: string, organization: string, url: string): Draft => ({

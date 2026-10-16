@@ -109,7 +109,32 @@ export type Draft = {
   code?: string;
   /** Where to stop getting this kind of email, linked small under the message. */
   unsubscribe?: string;
+  /** A message in parts (the weekly digest): a title over its dates, counts across, then a list per part, the lines after them. */
+  heading?: { title: string; sub?: string };
+  stats?: { value: string; label: string }[];
+  sections?: Section[];
 };
+
+/** A part of a message: its title, a row per item (a link, what it is beside it, a note under it), and the rest behind a link. */
+export type Section = { title: string; rows: { text: string; url?: string | null; meta?: string; note?: string }[]; more?: { text: string; url: string } };
+
+const MUTED = "#6b6b76";
+const LINE = "#e4e4ea";
+
+/** A part, as a mail client draws it: a table, the one layout every client keeps. */
+function sectionHtml(s: Section) {
+  const rows = s.rows
+    .map((r, i) => {
+      const rule = i ? `;border-top:1px solid ${LINE}` : "";
+      const name = r.url ? `<a href="${escape(r.url)}" style="color:#111111;text-decoration:none;font-weight:600">${escape(r.text)}</a>` : `<span style="font-weight:600">${escape(r.text)}</span>`;
+      const note = r.note ? `<div style="margin-top:2px;font-size:13px;color:${MUTED}">${escape(r.note)}</div>` : "";
+      return `<tr><td valign="top" style="padding:12px 16px;font-size:14px;line-height:1.4${rule}">${name}${note}</td><td align="right" valign="top" style="padding:12px 16px;font-size:13px;line-height:1.4;color:${MUTED};white-space:nowrap${rule}">${r.meta ? escape(r.meta) : ""}</td></tr>`;
+    })
+    .join("");
+  const more = s.more ? `<p style="margin:8px 0 0;font-size:13px"><a href="${escape(s.more.url)}" style="color:${MUTED}">${escape(s.more.text)}</a></p>` : "";
+  return `<p style="margin:28px 0 8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${MUTED}">${escape(s.title)}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;border:1px solid ${LINE};border-radius:10px">${rows}</table>${more}`;
+}
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 const ink = (hexColor: string) => {
@@ -131,7 +156,16 @@ export function render(d: Draft, brand: Pick<Brand, "name" | "accent" | "emailFo
   const lines = d.lines.map((l) => (typeof l === "string" ? { text: fill(l), url: null } : { text: fill(l.text), url: l.url }));
   const action = d.action && { label: fill(d.action.label), url: d.action.url };
   const accent = brand.accent ?? "#6D4AFF";
+  const sections = (d.sections ?? []).map((s) => ({ ...s, title: fill(s.title), rows: s.rows.map((r) => ({ ...r, text: fill(r.text) })) }));
   const text = [
+    ...(d.heading ? [fill(d.heading.title), ...(d.heading.sub ? [d.heading.sub] : []), ""] : []),
+    ...(d.stats?.length ? [d.stats.map((s) => `${s.value} ${s.label}`).join(" · "), ""] : []),
+    ...sections.flatMap((s) => [
+      s.title.toUpperCase(),
+      ...s.rows.map((r) => [r.text, r.meta, r.note].filter(Boolean).join(", ") + (r.url ? ` ${r.url}` : "")),
+      ...(s.more ? [`${s.more.text} ${s.more.url}`] : []),
+      "",
+    ]),
     ...lines.map((l) => (l.url ? `${l.text} ${l.url}` : l.text)),
     ...(d.code ? ["", d.code] : []),
     ...(action ? ["", `${action.label}: ${action.url}`] : []),
@@ -139,14 +173,18 @@ export function render(d: Draft, brand: Pick<Brand, "name" | "accent" | "emailFo
     ...(d.unsubscribe ? ["", `Unsubscribe: ${d.unsubscribe}`] : []),
   ].join("\n");
   const html = `<!doctype html><html><body style="margin:0;padding:32px 16px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111">
-<div style="max-width:480px;margin:0 auto;background:#fff;border:1px solid #e4e4ea;border-radius:12px;padding:32px">
+<div style="max-width:${sections.length ? 560 : 480}px;margin:0 auto;background:#fff;border:1px solid #e4e4ea;${sections.length ? `border-top:4px solid ${accent};` : ""}border-radius:12px;padding:32px">
 ${brand.logo ? `<p style="margin:0 0 24px"><img src="${escape(brand.logo)}" alt="${escape(brand.name)}" height="32" style="height:32px;width:auto"></p>` : ""}
-${lines.map((l) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.5">${l.url ? `<a href="${escape(l.url)}" style="color:#111111">${escape(l.text)}</a>` : escape(l.text)}</p>`).join("\n")}
+${d.heading ? `<h1 style="margin:0;font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-.01em">${escape(fill(d.heading.title))}</h1>${d.heading.sub ? `<p style="margin:4px 0 0;font-size:14px;color:${MUTED}">${escape(d.heading.sub)}</p>` : ""}` : ""}
+${d.stats?.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-collapse:separate;border-spacing:0"><tr>${d.stats.map((s) => `<td valign="top" width="${Math.floor(100 / d.stats!.length)}%" style="padding:12px 14px;background:#f5f5f7;border-radius:10px"><div style="font-size:22px;line-height:1.1;font-weight:700">${escape(s.value)}</div><div style="margin-top:2px;font-size:12px;color:${MUTED}">${escape(s.label)}</div></td>`).join('<td style="width:8px"></td>')}</tr></table>` : ""}
+${sections.map(sectionHtml).join("\n")}
+${sections.length ? `<div style="height:28px"></div>` : ""}
+${lines.map((l) => `<p style="margin:0 0 16px;${sections.length ? `font-size:13px;line-height:1.5;color:${MUTED}` : "font-size:15px;line-height:1.5"}">${l.url ? `<a href="${escape(l.url)}" style="color:#111111">${escape(l.text)}</a>` : escape(l.text)}</p>`).join("\n")}
 ${d.code ? `<p style="margin:8px 0 0;font-family:ui-monospace,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px">${escape(d.code)}</p>` : ""}
 ${action ? `<p style="margin:24px 0 0"><a href="${escape(action.url)}" style="display:inline-block;background:${accent};color:${ink(accent)};text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">${escape(action.label)}</a></p>` : ""}
 </div>
-${brand.emailFooter ? `<p style="max-width:480px;margin:16px auto 0;font-size:12px;color:#6b6b76;text-align:center">${escape(brand.emailFooter)}</p>` : ""}
-${d.unsubscribe ? `<p style="max-width:480px;margin:16px auto 0;font-size:12px;text-align:center"><a href="${escape(d.unsubscribe)}" style="color:#6b6b76">Unsubscribe</a></p>` : ""}
+${brand.emailFooter ? `<p style="max-width:${sections.length ? 560 : 480}px;margin:16px auto 0;font-size:12px;color:#6b6b76;text-align:center">${escape(brand.emailFooter)}</p>` : ""}
+${d.unsubscribe ? `<p style="max-width:${sections.length ? 560 : 480}px;margin:16px auto 0;font-size:12px;text-align:center"><a href="${escape(d.unsubscribe)}" style="color:#6b6b76">Unsubscribe</a></p>` : ""}
 </body></html>`;
   return { to: d.to, subject: fill(d.subject), text, html };
 }
