@@ -44,7 +44,7 @@ export const Playground = meta.story({
     await expect(canvas.getByText("Unreleased changes")).toBeInTheDocument();
     // Behind the live release: Release is the one filled button, and opens in place.
     await expect(canvas.getByRole("button", { name: "Release" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
+    await expect(canvas.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     await expect(canvas.getByText(/Signal orange for alerts/)).toBeInTheDocument();
   },
 });
@@ -169,7 +169,7 @@ export const ConnectGit = meta.story({
 export const Viewer = meta.story({
   decorators: [withMe(viewer)],
   play: async ({ canvas }) => {
-    await expect(canvas.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
   },
 });
@@ -190,7 +190,7 @@ export const Phone = meta.story({ globals: { viewport: { value: "phone" } } });
 export const Compact = meta.story({
   args: { compact: true, at: "guidelines" as const },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("link", { name: "Edit" })).toHaveAttribute("title", "Edit");
+    await expect(canvas.getByRole("button", { name: "Edit" })).toHaveAttribute("title", "Edit");
     await expect(canvas.getByRole("link", { name: "Guidelines" })).toHaveAttribute("aria-current", "page");
   },
 });
@@ -231,5 +231,17 @@ export const ReleaseInPlace = meta.story({
     await expect(screen.getByRole("link", { name: "Open full page" })).toHaveAttribute("href", "/brands/acme/releases/new");
     await userEvent.click(canvas.getByRole("button", { name: "Release" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: "Note for readers" })).not.toBeInTheDocument());
+  },
+});
+
+/** Edit offers what is edited here first, the rules and the look, then the ways to change the pages. */
+export const EditMenu = meta.story({
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Edit" }));
+    await expect(await screen.findByRole("menuitem", { name: "Rules" })).toHaveAttribute("href", "/brands/acme/rules");
+    await expect(screen.getByRole("menuitem", { name: /^Look/ })).toHaveAttribute("href", "/brands/acme/look");
+    await expect(screen.getByRole("menuitem", { name: "Change the pages…" })).toHaveAttribute("href", "/brands/acme/guidelines?ways=1");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   },
 });

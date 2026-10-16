@@ -52,7 +52,6 @@ import { liveLine, livePlaces, liveWhere, type LivePlace } from "@/lib/readiness
 import { cn } from "@/lib/utils";
 import type { Rule } from "@/lib/rules";
 import { brandPath, guidelinesPath } from "@/lib/site";
-import { LinkIcon } from "@/components/link-pending";
 import { SaveStatus } from "@/components/save-status";
 import { IDLE, snapshot, subscribe } from "@/lib/saving";
 import { usePins } from "@/components/sidebar-prefs";
@@ -136,11 +135,26 @@ export function BrandHeader({ brand, origin, rules, status, release, at, compact
       {source?.source && <GitSource source={source} slug={brand.slug} editor={can("brand.edit", brand)} compact />}
       <UseThisBrand brand={brand} origin={origin} hub={hub && release ? hub : null} release={release} compact={compact} />
       {can("brand.edit", brand) && (
-        <Button asChild size="sm" variant="outline" title={compact ? "Edit" : undefined}>
-          <Link href={guidelinesPath(brand.slug, editing)}>
-            <LinkIcon icon={<IconPencil aria-hidden />} /> <span className={word}>Edit</span>
-          </Link>
-        </Button>
+        // What can be edited here first (the rules, the look), then the ways to change the pages, which are made elsewhere.
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" title={compact ? "Edit" : undefined}>
+              <IconPencil aria-hidden /> <span className={word}>Edit</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem asChild>
+              <Link href={brandPath(brand.slug, "/rules")}>Rules</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={brandPath(brand.slug, "/look")}>Look: accent, type, logo</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={guidelinesPath(brand.slug, editing)}>Change the pages…</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       {can("brand.edit", brand) && status?.publish !== "current" && <ReleaseButton brand={brand} word={word} compact={compact} />}
       <BrandMenu brand={brand} at={at} connect={source && !source.source ? source.connect : null} />
