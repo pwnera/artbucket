@@ -11,6 +11,7 @@ import { recordAudit } from "@/lib/core/audit";
 import { inheritedFrom, joinCollections, listCollections } from "@/lib/core/collections";
 import { AssetError } from "@/lib/core/errors";
 import { recordSearch, who } from "@/lib/core/events";
+import { tellFeatures } from "@/lib/core/features";
 import { listFields } from "@/lib/core/fields";
 import { keepReach } from "@/lib/core/people";
 import { checkLimit, claimStorage, limitsOf, uncountRenditions } from "@/lib/core/usage";
@@ -400,6 +401,7 @@ async function promote(caller: Caller, input: FinalizeInput): Promise<{ asset: A
   const asset = await fileInto(ws, into, row.id);
   if (open) await recordAudit(caller, "asset.published", asset.filename);
   await record(caller, proposed ? "suggested" : "added", asset, row.version ? { version: row.version } : undefined);
+  tellFeatures("asset.created", { organizationId: caller.project.organizationId, projectId: ws }, { asset: { id: asset.id, filename: asset.filename, mime: asset.mime, status: asset.status, version: asset.version } });
   return { asset, deduped: false };
 }
 

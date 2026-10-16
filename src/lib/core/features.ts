@@ -9,7 +9,7 @@ import { createField, listFields } from "@/lib/core/fields";
 import { hashKey } from "@/lib/core/keys";
 import { effective } from "@/lib/core/settings";
 import { limitsOf } from "@/lib/core/usage";
-import { catalog, decide, featureById, onApp, ruleOf, type BuiltinFeature, type FeatureDef, type From, type Level, type Rule, type State } from "@/lib/features";
+import { catalog, decide, featureById, onApp, ruleOf, type BuiltinFeature, type FeatureDef, type FeatureEvent, type From, type Level, type Rule, type State } from "@/lib/features";
 import { memo } from "@/lib/memo";
 import { ago } from "@/lib/time";
 import { signerOpen } from "@/lib/core/signers";
@@ -431,6 +431,23 @@ async function disableIn(def: FeatureDef, caller: Who, organization: Org, projec
   // Told, but never asked: turning a feature off is the admin's to do, whatever it answers.
   if (def.hook) await callHook(def, { type: "feature.disabled", ...payload(def, caller, organization, project) }).catch((err) => console.error(`feature ${def.id}: disable hook`, err));
   await revokeKeys(def, project.id);
+}
+
+/**
+ * Tell the server's features that asked for `type` (their hook's `events`) and are on in the project, signed as
+ * switching is: `data` beside the event's own ({ asset } for asset.created). Never waited for and never failing what
+ * happened: a feature that doesn't answer misses it, and is told of the next one.
+ */
+export function tellFeatures(type: FeatureEvent, place: { organizationId: string; projectId: string }, data: Record<string, unknown>) {
+  const defs = catalog().filter((d) => d.hook?.events?.includes(type));
+  if (!defs.length) return;
+  void (async () => {
+    for (const def of defs) {
+      if (!(await featureOn(def.id, place))) continue;
+      const event = { type, feature: def.id, organization: { id: place.organizationId }, project: { id: place.projectId }, ...data, at: new Date().toISOString() };
+      await callHook(def, event).catch((err) => console.error(`feature ${def.id}: ${type} hook`, err));
+    }
+  })().catch((err) => console.error(`features: ${type}`, err));
 }
 
 const revokeKeys = (def: FeatureDef, projectId: string) => db.delete(apiKeys).where(and(eq(apiKeys.projectId, projectId), eq(apiKeys.feature, def.id)));

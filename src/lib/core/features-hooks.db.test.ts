@@ -4,8 +4,11 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { setTimeout as sleep } from "node:timers/promises";
 import { and, eq } from "drizzle-orm";
+import sharp from "sharp";
 import { signUp } from "@/test/db";
+import { ingestBytes } from "@/lib/core/assets";
 import { featureOn, switchFeature } from "@/lib/core/features";
 import { listFields } from "@/lib/core/fields";
 import { createProject } from "@/lib/core/people";
@@ -13,7 +16,7 @@ import { db } from "@/lib/db";
 import { apiKeys } from "@/lib/db/schema";
 
 // A server's feature as FEATURES_FILE has Intelligence: a key, a field, and a hook, here a server that says yes.
-const told: { type: string; project: { id: string } }[] = [];
+const told: { type: string; project: { id: string }; organization: { id: string }; asset?: Record<string, unknown> }[] = [];
 /** Whether the hook says no to being turned on, as Intelligence does for an organization without a plan for it. */
 let refusing = false;
 const hook = createServer((req, res) => {
@@ -99,4 +102,45 @@ test("a feature that refuses a new project is turned off there, never left readi
     0,
     "its key was taken back",
   );
+});
+
+test("a feature that asks for asset.created is told of each new asset where it is on, and nowhere else", async () => {
+  const third = join(dir, "features-events.json");
+  writeFileSync(
+    third,
+    JSON.stringify({
+      features: [
+        {
+          id: "tagger3",
+          name: "Tagger",
+          description: "Tags.",
+          key: { name: "Tagger", scope: "propose" },
+          hook: { url: `http://127.0.0.1:${port}/hooks`, secret: "TAGGER_HOOK_SECRET", events: ["asset.created"] },
+        },
+      ],
+    }),
+  );
+  process.env.FEATURES_FILE = third;
+  const png = (r: number) => sharp({ create: { width: 8, height: 8, channels: 3, background: { r, g: 3, b: 3 } } }).png().toBuffer();
+  /** The event about `id`, once it came: the core never waits for its features. */
+  const eventFor = async (id: string, ms = 3000) => {
+    for (let t = 0; t < ms; t += 50) {
+      const e = told.find((x) => x.type === "asset.created" && x.asset?.id === id);
+      if (e) return e;
+      await sleep(50);
+    }
+    return null;
+  };
+
+  await switchFeature(ada.caller, "organization", "tagger3", "on");
+  const { asset } = await ingestBytes(ada.caller, { bytes: await png(1), mime: "image/png", filename: "new.png" });
+  const event = await eventFor(asset.id);
+  assert.ok(event, "the feature was told");
+  assert.equal(event.project.id, ada.caller.project.id);
+  assert.equal(event.organization.id, org);
+  assert.deepEqual(event.asset, { id: asset.id, filename: "new.png", mime: "image/png", status: "active", version: null });
+
+  await switchFeature(ada.caller, "organization", "tagger3", "off");
+  const quiet = (await ingestBytes(ada.caller, { bytes: await png(2), mime: "image/png", filename: "later.png" })).asset;
+  assert.equal(await eventFor(quiet.id, 500), null, "off, it isn't told");
 });

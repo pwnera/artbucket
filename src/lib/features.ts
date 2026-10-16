@@ -19,6 +19,9 @@ import type { Feature as PlanFeature } from "@/lib/limits";
 export const LEVELS = ["organization", "project"] as const;
 export type Level = (typeof LEVELS)[number];
 export type State = "on" | "off";
+/** What else a server's feature may ask its hook to be told of: a new asset (an upload, a new version, an import). */
+export const FEATURE_EVENTS = ["asset.created"] as const;
+export type FeatureEvent = (typeof FEATURE_EVENTS)[number];
 
 /** What a feature from the server's file brings into a project it is turned on in, and how it is told. */
 const Hook = z.strictObject({
@@ -26,6 +29,8 @@ const Hook = z.strictObject({
   url: z.string().url(),
   /** The environment variable holding the secret the call is signed with (lib/core/features.ts). */
   secret: z.string().regex(/^[A-Z][A-Z0-9_]*$/, "The name of an environment variable, e.g. INTELLIGENCE_HOOK_SECRET"),
+  /** Told too, in the projects it is on in (lib/core/features.ts tellFeatures). */
+  events: z.array(z.enum(FEATURE_EVENTS)).default([]),
 });
 
 export const FeatureEntry = z.strictObject({
