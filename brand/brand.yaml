@@ -11,19 +11,18 @@ theme:
   body: type.body
   logo: logo.primary
   device: assets/mark-white.svg
-  # The Board look (lib/brand-theme.ts LOOKS.board): a band of the week's accent, then a dotted canvas.
-  radius: 18
-  width: wide
-  density: airy
-  scale: 1.333
+  radius: 8
+  width: normal
+  density: compact
+  scale: 1.2
   nav: sidebar
-  header: band
-  separation: space
-  numbering: true
-  motion: subtle
-  toc: none
-  titles: huge
-  grounds: canvas
+  header: plain
+  separation: hairline
+  numbering: false
+  motion: none
+  toc: side
+  titles: medium
+  grounds: plain
 rules:
   - brand
   - color
