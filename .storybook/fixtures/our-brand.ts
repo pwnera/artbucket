@@ -2,9 +2,8 @@ import { fromFiles } from "@/lib/brand-files";
 import { bookView, type BrandBook, type Picture } from "@/lib/fixtures/brand-book";
 
 /**
- * Our own brand, for what artbucket.io frames: the core's brand/ folder (what brand.artbucket.io is released from),
- * read as the GitHub App reads it (lib/brand-files.ts fromFiles), its files drawn as they are. Not a fixture made up
- * for stories: a change to brand/ shows here.
+ * Our own brand: the core's brand/ folder, read as brand as code reads it (lib/brand-files.ts fromFiles), its files
+ * drawn as they are. Not a fixture made up for stories: a change to brand/ shows here.
  */
 const folder = import.meta.glob("../../brand/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 // Next's static import: the file's address and size.
