@@ -1,14 +1,15 @@
 import preview from "../../.storybook/preview";
 import type { ComponentType } from "react";
 import { expect } from "storybook/test";
-import { fixtureUrl, fixtureView } from "@/lib/fixtures/brand-book";
+import { OURS, ourView } from "../../.storybook/fixtures/our-brand";
+import { fixtureUrl } from "@/lib/fixtures/brand-book";
 import type { Asset, Rule } from "./html.js";
 import * as kit from "./react.js";
 import "./ui.css";
 
-/** The release a story draws: the Blender fixture book's rules, its files drawn placeholders. */
-const RULES: Rule[] = fixtureView("blender").rules;
-const src = (asset: Asset) => fixtureUrl(asset.id);
+/** The release a story draws: our own brand, the core's brand/ folder (.storybook/fixtures/our-brand.ts), its files as they are. */
+const RULES: Rule[] = ourView().rules;
+const src = (asset: Asset) => OURS[asset.id]?.src ?? fixtureUrl(asset.id);
 
 // The kit types its components loosely (they return the host's elements): as React components here.
 const as = <P,>(c: (p: P) => unknown) => c as unknown as ComponentType<P>;
@@ -27,7 +28,7 @@ const RuleValue = as(kit.RuleValue);
  * import { Palette } from "@artbucket/ui/react"; // <Palette rules={...} />
  * ```
  *
- * Style: `@artbucket/ui/ui.css`. Here they draw the Blender fixture book's release.
+ * Style: `@artbucket/ui/ui.css`. Here they draw our own brand, from the core's brand/ folder.
  */
 const meta = preview.meta({ title: "Kit/React" });
 
