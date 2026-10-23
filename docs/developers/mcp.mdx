@@ -17,11 +17,11 @@ slug, or `organization/slug` when two share one); without it, the tool runs in
 the first one picked. The server's instructions list them.
 
 ```bash
-claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
+claude mcp add --transport http artbucket https://assets.example.com/api/v1/mcp
 ```
 
-That is [Artbucket Cloud](/cloud); on your own server, use its address
-(`https://assets.example.com/api/v1/mcp`).
+Use your server's address there (`http://localhost:3000/api/v1/mcp` on your
+machine).
 
 That is OAuth 2.1 with PKCE and dynamic client registration, discovered from
 `/.well-known/oauth-protected-resource`. The token lasts an hour and the agent
@@ -222,5 +222,5 @@ skill together:
 /plugin install artbucket@artbucket
 ```
 
-Its server is Artbucket Cloud. On your own server, start Claude Code with
-`ARTBUCKET_URL=https://your-server`.
+Start Claude Code with `ARTBUCKET_URL=https://your-server`; without it, the
+plugin uses `http://localhost:3000`.

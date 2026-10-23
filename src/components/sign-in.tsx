@@ -891,8 +891,7 @@ const AGENTS = ["Claude", "ChatGPT", "Gemini", "Cursor", "Figma"];
 
 /**
  * The start side of /login, when nothing is customized: the mark, a promise
- * and what backs it. It holds self-hosted and on Artbucket Cloud alike:
- * nothing about whose server it is.
+ * and what backs it. Nothing about whose server it is.
  */
 function SignInAside() {
   return (

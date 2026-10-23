@@ -6,14 +6,14 @@ description: Pull a brand into a folder, see what a push would change, push it, 
 The `artbucket` CLI reads and writes a [brand folder](/guides/brand-as-code/format)
 through the [sync API](/guides/brand-as-code/sync-api), and uploads the files
 under `assets/` the library doesn't have yet. It works against any Artbucket
-server, Artbucket Cloud or your own.
+server.
 
 ## Install and sign in
 
 The CLI is the `artbucket` package on npm, for Node 22 and later:
 
 ```bash
-npx artbucket login app.artbucket.io --scope write  # or your server: assets.example.com, http://localhost:3000
+npx artbucket login assets.example.com --scope write  # your server; http://localhost:3000 in full
 npm install -g artbucket                # to keep it, rather than npx each time
 ```
 
@@ -28,7 +28,7 @@ Without signing in, two variables say where and as whom:
 
 | Variable | |
 |---|---|
-| `ARTBUCKET_URL` | The server, e.g. `https://app.artbucket.io`. Wins over the one `login` saved |
+| `ARTBUCKET_URL` | The server, e.g. `https://assets.example.com`. Wins over the one `login` saved |
 | `ARTBUCKET_KEY` | An API key (`ab_...`). It decides the project. Wins over the saved one |
 
 A key for CI is made by a project admin, in the app (**Connections**) or with
@@ -43,7 +43,7 @@ on the folder mounted at `/work`, and keeps the key `login` saves in
 `/config`: a named volume there keeps you signed in between runs.
 
 ```bash
-docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket/cli login app.artbucket.io
+docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket/cli login assets.example.com
 docker run --rm -v artbucket:/config -v "$PWD":/work ghcr.io/pwnera/artbucket/cli brand pull brand --brand acme
 ```
 
@@ -209,7 +209,7 @@ on:
     branches: [main]
     paths: ["brand/**"]
 env:
-  ARTBUCKET_URL: https://app.artbucket.io
+  ARTBUCKET_URL: https://assets.example.com
   ARTBUCKET_KEY: ${{ secrets.ARTBUCKET_KEY }}
 jobs:
   brand:

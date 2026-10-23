@@ -8,8 +8,7 @@ process.env.NEXT_FONT_GOOGLE_MOCKED_RESPONSES ??= fileURLToPath(new URL("./googl
  * The core's components, the app's and the brand site's, where they are built and checked: `pnpm storybook`.
  * Stories sit beside their component (`*.stories.tsx`); the kit's (@artbucket/ui) in kit/ui; the guides
  * (tokens, icons, how to write a story) in .storybook/docs. Every story is a test too (`pnpm test:stories`):
- * it renders in Chromium, passes axe, and runs its play function. Artbucket Cloud publishes the build at
- * storybook.artbucket.io.
+ * it renders in Chromium, passes axe, and runs its play function.
  */
 const config: StorybookConfig = {
   framework: "@storybook/nextjs-vite",

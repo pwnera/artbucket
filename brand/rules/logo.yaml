@@ -45,5 +45,5 @@ logo.minSize:
 logo.poweredBy:
   type: text
   label: Powered by Artbucket
-  value: "A small pill, Powered by, the icon and Artbucket, that the app itself adds to the footer of public portals on the Free plan. It links to artbucket.io/powered-by."
+  value: "A small pill, Powered by, the icon and Artbucket, that the app itself adds to the footer of public portals on the Free plan. It links to artbucket.io."
   usage: Never recreate, restyle, move or crop it, and never copy it onto pages the app doesn't serve. The app draws it and takes it off on the Team and Business plans; to say a site uses Artbucket, write it in words and link to artbucket.io.

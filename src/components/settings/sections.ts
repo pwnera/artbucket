@@ -203,7 +203,7 @@ export const SECTIONS: Section[] = [
     icon: IconPalette,
     description: "Every component and token the app is built from, in Storybook.",
     action: null,
-    href: "https://storybook.artbucket.io",
+    href: "http://localhost:6006",
     dev: true,
   },
 ];

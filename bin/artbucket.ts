@@ -19,8 +19,8 @@ import { crc32, deflateRawSync } from "node:zlib";
 const HELP = `artbucket <command>
 
   login [server] [--scope read|propose|write]
-                          sign in through the browser (app.artbucket.io: https is
-                          assumed) and save a key, propose unless --scope says
+                          sign in through the browser (assets.example.com: https
+                          is assumed) and save a key, propose unless --scope says
                           otherwise (brand push takes write); later commands use
                           that server
   logout [server]         forget it
@@ -212,7 +212,7 @@ const { values: opt, positionals } = parseArgs({
 });
 const [cmd, ...args] = positionals;
 
-/** A server as given: app.artbucket.io is https://app.artbucket.io. */
+/** A server as given: assets.example.com is https://assets.example.com. */
 const origin = (s: string) => (/^https?:\/\//.test(s) ? s : `https://${s}`).replace(/\/+$/, "");
 const BASE = origin((cmd === "login" || cmd === "logout") && args[0] ? args[0] : (process.env.ARTBUCKET_URL ?? (saved.default as string | undefined) ?? "http://localhost:3000"));
 /** Set as a command starts (main): ARTBUCKET_KEY, else the one `login` saved, renewed first when it is about to lapse. */

@@ -98,9 +98,9 @@ What AdCP has no field for stays one link away, under `ext.artbucket`:
 "ext": {
   "artbucket": {
     "release": 4,
-    "rules": "https://hub.artbucket.io/acme/acme/rules.json",
-    "tokens": "https://hub.artbucket.io/acme/acme/tokens?format=json",
-    "llms": "https://hub.artbucket.io/acme/acme/llms.txt",
+    "rules": "https://hub.example.com/acme/acme/rules.json",
+    "tokens": "https://hub.example.com/acme/acme/tokens?format=json",
+    "llms": "https://hub.example.com/acme/acme/llms.txt",
     "guidelines": "https://press.acme.com"
   }
 }
@@ -162,16 +162,16 @@ verified domain `acme.com`:
   "tagline": "Tools that last.",
   "industries": ["tools", "hardware"],
   "logos": [
-    { "id": "primary", "url": "https://app.artbucket.io/a/1b7e...?s=...", "variant": "primary", "orientation": "horizontal", "width": 480, "height": 120, "tags": ["logo.primary"] },
-    { "id": "primary_dark_background", "url": "https://app.artbucket.io/a/9c40...?s=...", "variant": "primary", "orientation": "horizontal", "background": "dark-bg", "width": 480, "height": 120, "tags": ["logo.primary", "dark-background"] },
-    { "id": "mark", "url": "https://app.artbucket.io/a/2f88.../w_512,f_png?s=...", "variant": "icon", "orientation": "square", "slots": ["favicon", "app_icon", "profile_mark"], "width": 512, "height": 512, "tags": ["logo.mark"] }
+    { "id": "primary", "url": "https://assets.example.com/a/1b7e...?s=...", "variant": "primary", "orientation": "horizontal", "width": 480, "height": 120, "tags": ["logo.primary"] },
+    { "id": "primary_dark_background", "url": "https://assets.example.com/a/9c40...?s=...", "variant": "primary", "orientation": "horizontal", "background": "dark-bg", "width": 480, "height": 120, "tags": ["logo.primary", "dark-background"] },
+    { "id": "mark", "url": "https://assets.example.com/a/2f88.../w_512,f_png?s=...", "variant": "icon", "orientation": "square", "slots": ["favicon", "app_icon", "profile_mark"], "width": 512, "height": 512, "tags": ["logo.mark"] }
   ],
   "colors": { "primary": "#1f6feb", "background": "#ffffff", "ink": "#0d1117", "text": "#0d1117" },
   "fonts": {
-    "heading": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
-    "body": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/77d2...?s=..." }] },
-    "primary": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
-    "secondary": { "family": "Inter", "files": [{ "url": "https://app.artbucket.io/a/77d2...?s=..." }] }
+    "heading": { "family": "Inter", "files": [{ "url": "https://assets.example.com/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
+    "body": { "family": "Inter", "files": [{ "url": "https://assets.example.com/a/77d2...?s=..." }] },
+    "primary": { "family": "Inter", "files": [{ "url": "https://assets.example.com/a/6f1c...?s=..." }], "fallbacks": ["Helvetica", "Arial", "sans-serif"] },
+    "secondary": { "family": "Inter", "files": [{ "url": "https://assets.example.com/a/77d2...?s=..." }] }
   },
   "tone": {
     "voice": "Plain and warm, like a friend who knows tools.",
@@ -193,16 +193,16 @@ verified domain `acme.com`:
     "restrictions": ["Stretch or squash it", "Recolor it", "Set it on a busy photo"]
   },
   "assets": [
-    { "asset_id": "examples", "asset_type": "image", "url": "https://app.artbucket.io/a/4a09...?s=...", "name": "workshop.jpg", "width": 2400, "height": 1600, "format": "jpeg", "tags": ["imagery.examples"] }
+    { "asset_id": "examples", "asset_type": "image", "url": "https://assets.example.com/a/4a09...?s=...", "name": "workshop.jpg", "width": 2400, "height": 1600, "format": "jpeg", "tags": ["imagery.examples"] }
   ],
   "disclaimers": [{ "text": "Acme is a trademark of Acme Tools Ltd." }],
   "last_updated": "2026-09-30T10:00:00.000Z",
   "ext": {
     "artbucket": {
       "release": 4,
-      "rules": "https://hub.artbucket.io/acme/acme/rules.json",
-      "tokens": "https://hub.artbucket.io/acme/acme/tokens?format=json",
-      "llms": "https://hub.artbucket.io/acme/acme/llms.txt",
+      "rules": "https://hub.example.com/acme/acme/rules.json",
+      "tokens": "https://hub.example.com/acme/acme/tokens?format=json",
+      "llms": "https://hub.example.com/acme/acme/llms.txt",
       "guidelines": "https://press.acme.com"
     }
   }
@@ -219,7 +219,7 @@ To have agents that read your domain find the brand, host one file at
 Redirect. The brand's Sharing tab gives it:
 
 ```json
-{"$schema":"https://adcontextprotocol.org/schemas/v3/brand.json","authoritative_location":"https://hub.artbucket.io/acme/acme/brand.json"}
+{"$schema":"https://adcontextprotocol.org/schemas/v3/brand.json","authoritative_location":"https://hub.example.com/acme/acme/brand.json"}
 ```
 
 A domain the organization [verified](/guides/portals#a-domain-of-its-own),
