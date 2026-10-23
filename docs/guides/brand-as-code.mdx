@@ -88,7 +88,7 @@ those changes until they are exported and committed back.
 |---|---|---|---|
 | [The CLI](/guides/brand-as-code/cli), by hand | You | Pull and push | |
 | [A CI job](/guides/brand-as-code/cli#from-ci) | Your CI | Push from the main branch | A check on the files |
-| A Git integration ([Artbucket Cloud](#on-artbucket-cloud), or [your own](/guides/brand-as-code/sync-api)) | The integration | Both ways, as changes happen | A check, a preview link and a comment |
+| A Git integration ([your own](/guides/brand-as-code/sync-api)) | The integration | Both ways, as changes happen | A check, a preview link and a comment |
 
 All three call the same API. Artbucket never talks to the Git host itself:
 whoever holds the host's credentials (an app, a CI job, you) does.
@@ -111,33 +111,9 @@ first sync has landed and offers Release while readers don't see it yet. On
 Home's first-run checklist, the path for a product's brand and design
 system offers **My brand is already in a repository**, which brings it in.
 
-## On Artbucket Cloud
-
-Artbucket Cloud connects a GitHub repository to a brand from any of those
-places, and does all of the above itself: pull requests get a check, a
-preview link and a comment listing what they change and what merging does,
-merges come in, and edits made in the app go back as a commit or a pull
-request.
-
-The connection also decides what a change that reaches the branch does:
-
-- **From Artbucket:** a merge updates the draft, and someone releases it in
-  the app.
-- **When a change is merged:** each push to the branch, a merged pull request
-  too, is released, with its commit's first line as the note.
-- **On a GitHub release:** a merge updates the draft, and publishing a
-  release on GitHub releases its tag, with the release's title as the note.
-
-Neither releases while edits made in the app wait to reach the repository:
-the check says so, and the next merge or release carries both. Each release
-from the repository posts a GitHub deployment (environment `Artbucket`)
-linking to the brand on BrandHub or its portal, so the repository's sidebar
-shows what is live.
-
 ## From CI
 
-Without a Git integration (a self-hosted server, or a team that would rather
-not install one), a CI job pushes the brand's folder when it changes on the
+Without a Git integration, a CI job pushes the brand's folder when it changes on the
 main branch, and checks it on pull requests. The
 [CLI page](/guides/brand-as-code/cli#from-ci) has GitHub Actions and GitLab CI
 recipes.
@@ -147,14 +123,12 @@ recipes.
 A public, released brand has a badge on BrandHub at `/{org}/{brand}/badge.svg`.
 It wears the brand: its mark and its name, the release that is live on its
 primary color, and a check once its organization is
-[verified](/guides/portals#verified-by-github). Artbucket's own:
-
-[![Artbucket brand](https://hub.artbucket.io/artbucket/artbucket/badge.svg)](https://brand.artbucket.io/)
+[verified](/guides/portals#verified-by-github).
 
 The brand's Sharing tab, under BrandHub, gives its Markdown:
 
 ```md
-[![Brand on BrandHub](https://hub.artbucket.io/acme/acme/badge.svg)](https://hub.artbucket.io/acme/acme)
+[![Brand on BrandHub](https://hub.example.com/acme/acme/badge.svg)](https://hub.example.com/acme/acme)
 ```
 
 The mark is the image of a logo rule named for one (`logo.mark`, `logo.icon`,

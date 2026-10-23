@@ -4,7 +4,6 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status: stable](https://img.shields.io/badge/status-v1%20stable-brightgreen.svg)](https://docs.artbucket.io/developers/stability)
 [![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://docs.artbucket.io/developers/mcp)
-[![Artbucket brand](https://hub.artbucket.io/artbucket/artbucket/badge.svg)][Live brand page]
 
 <img src="public/icon.svg" width="96" height="96" alt="Artbucket logo">
 
@@ -22,7 +21,7 @@ the CLI and Git.
 
 **Web app · MCP · REST API · CLI · Git**
 
-[Try Artbucket Cloud][Artbucket Cloud] · [Live brand page] · [Docs] · [Run it yourself](#run-it-yourself)
+[Docs] · [Run it yourself](#run-it-yourself)
 
 <p align="center">
   <img src="docs/images/library.webp" alt="Artbucket's Explore: the Big Buck Bunny collection in a grid, with New, Explore, Catalog, Review, Insights and the Content group in the sidebar" width="1000">
@@ -60,18 +59,18 @@ screen where you pick what it may do (Suggest, Read or Edit), and the agent
 gets a key bound to you, never more than you can do.
 
 ```bash
-claude mcp add --transport http artbucket https://app.artbucket.io/api/v1/mcp
+claude mcp add --transport http artbucket http://localhost:3000/api/v1/mcp
 ```
 
-That is [Artbucket Cloud]; on your own server, use its URL. Then ask: *"Give me
+On a server of yours, use its URL. Then ask: *"Give me
 the approved logo for a dark background."* The agent checks the use and gets
 the brand's dark-background variant, as a URL at the size it needs.
 
 The Claude Code plugin adds a skill that teaches the workflow (brand rules
 first, a use check before publishing, provenance on anything generated):
 `/plugin marketplace add pwnera/artbucket`, then
-`/plugin install artbucket@artbucket` (Cloud; on your own server, start Claude
-Code with `ARTBUCKET_URL` set to its URL). Other agents: `npx skills add pwnera/artbucket`.
+`/plugin install artbucket@artbucket` (start Claude Code with `ARTBUCKET_URL`
+set to your server's URL; http://localhost:3000 if unset). Other agents: `npx skills add pwnera/artbucket`.
 See [MCP].
 
 ## Run it yourself
@@ -174,7 +173,6 @@ changes. Building a product on Artbucket, or need your own terms? Pwnera SAS
 also licenses it commercially: [open an issue][GitHub issues] and ask. `ee/` is
 reserved for commercial code. See [decision 0013].
 
-[Artbucket Cloud]: https://artbucket.io
 [check]: https://docs.artbucket.io/guides/check
 [sites]: https://docs.artbucket.io/guides/sites
 [brand as code]: https://docs.artbucket.io/guides/brand-as-code
@@ -196,7 +194,6 @@ reserved for commercial code. See [decision 0013].
 [quick start]: https://docs.artbucket.io/quickstart
 [Render]: https://docs.artbucket.io/installation/render
 [REST API]: https://docs.artbucket.io/developers/api
-[Live brand page]: https://brand.artbucket.io/
 [ROADMAP.md]: ROADMAP.md
 [SECURITY.md]: SECURITY.md
 [stability]: https://docs.artbucket.io/developers/stability

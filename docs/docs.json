@@ -30,7 +30,6 @@
         "group": "General",
         "pages": [
           "introduction",
-          "cloud",
           "quickstart",
           "roles",
           "how-it-works",
@@ -46,8 +45,7 @@
           "use-cases/check-a-photo",
           "use-cases/run-a-rebrand",
           "use-cases/brand-for-ai",
-          "use-cases/move-from-another-tool",
-          "use-cases/choose-a-cloud-plan"
+          "use-cases/move-from-another-tool"
         ]
       },
       {

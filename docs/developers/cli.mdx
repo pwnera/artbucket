@@ -4,7 +4,7 @@ description: artbucket, a thin client over the same API.
 ---
 
 ```bash
-npx artbucket login app.artbucket.io --scope write
+npx artbucket login assets.example.com --scope write
 npx artbucket brand push brand --publish
 ```
 
@@ -29,7 +29,7 @@ Without Node, the CLI is an image too: `ghcr.io/pwnera/artbucket/cli`, tagged li
 the app's ([Docker](/guides/brand-as-code/cli#with-docker)).
 
 ```bash
-docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket/cli login app.artbucket.io
+docker run --rm -it -v artbucket:/config ghcr.io/pwnera/artbucket/cli login assets.example.com
 docker run --rm -v artbucket:/config -v "$PWD":/work ghcr.io/pwnera/artbucket/cli brand push brand --publish
 ```
 

@@ -133,7 +133,7 @@ const schema = z.object({
   /**
    * Where BrandHub answers (lib/core/hub.ts): every published brand,
    * private to its project or public, for people and agents. A host of its
-   * own (https://hub.artbucket.io) is served by src/proxy.ts and shows public
+   * own (https://hub.example.com) is served by src/proxy.ts and shows public
    * brands; the app's own /hub shows them too, and private ones to people
    * signed in. On APP_URL's host, it is /hub (http://localhost:3000/hub).
    * Unset: no hub.
