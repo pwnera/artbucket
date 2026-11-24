@@ -48,6 +48,20 @@ const schema = z.object({
    */
   DOMAIN_TARGET: z.string().regex(/^[a-z0-9.-]+$/i, "A host name, e.g. domains.example.com").optional(),
   /**
+   * Host names this server answers the app on beside APP_URL's, routed to the
+   * same container by the operator's own proxy (Traefik, nginx, a load
+   * balancer). Each signs in like APP_URL does (lib/auth.ts trustedOrigins,
+   * by way of lib/core/domains.ts appOriginAt), keeps sessions of its own,
+   * and takes no claim in Settings, Domains, which is for an organization's
+   * own domains. Comma separated: brand.example.com,shop.example.net. Unset:
+   * APP_URL's only.
+   */
+  APP_EXTRA_HOSTS: z
+    .string()
+    .regex(/^[a-z0-9.,\s-]+$/i, "Comma-separated host names, e.g. brand.example.com,shop.example.net")
+    .transform((v) => [...new Set(v.split(",").map((h) => h.trim().toLowerCase().replace(/\.$/, "").replace(/:\d+$/, "")).filter(Boolean))])
+    .optional(),
+  /**
    * Where an organization's admins manage the plan behind its limits: a
    * "Manage plan" link in Settings, Usage, and named when a limit refuses
    * something. Unset: limits are simply set by whoever runs this server.
@@ -214,6 +228,15 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().regex(/^[\w-]+\.apps\.googleusercontent\.com$/, "A Google client ID: 1234-abc.apps.googleusercontent.com").optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   /**
+   * Password sign-in, for the whole server. "off" refuses /sign-in/email and
+   * the sign-in page hides its password form: everyone signs in through the
+   * server's own provider (OIDC_*, GOOGLE_*), which wants at least one of
+   * them set. Making an account by invitation still takes a password, and an
+   * organization's "Require single sign-on" (lib/core/sso.ts) stays what it
+   * is. Unset or "on": passwords sign in as always.
+   */
+  PASSWORD_LOGIN: z.enum(["on", "off"]).default("on"),
+  /**
    * A check on making an account with a password and on sending its email
    * code, against scripted sign-ups where SIGNUP=open (lib/auth.ts captchaAt).
    * TURNSTILE_*: a Cloudflare Turnstile widget's site key and secret key, both
@@ -242,7 +265,8 @@ const schema = z.object({
   (e) => [e.OIDC_ISSUER, e.OIDC_CLIENT_ID, e.OIDC_CLIENT_SECRET].filter(Boolean).length % 3 === 0,
   "Set OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together, or none of them",
 ).refine((e) => !e.GOOGLE_CLIENT_ID === !e.GOOGLE_CLIENT_SECRET, "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together, or neither")
-  .refine((e) => !e.TURNSTILE_SITE_KEY === !e.TURNSTILE_SECRET_KEY, "Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together, or neither");
+  .refine((e) => !e.TURNSTILE_SITE_KEY === !e.TURNSTILE_SECRET_KEY, "Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY together, or neither")
+  .refine((e) => e.PASSWORD_LOGIN !== "off" || !!(e.OIDC_ISSUER || e.GOOGLE_CLIENT_ID), "PASSWORD_LOGIN=off wants a server-wide provider to sign in through: set OIDC_* or GOOGLE_*");
 
 const parsed = schema.safeParse(process.env);
 

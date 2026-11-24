@@ -335,6 +335,7 @@ export async function describeCaller(caller: Caller, host?: string | null) {
       sso,
       anonymous,
       passwordReset,
+      passwordSignIn: env.PASSWORD_LOGIN !== "off",
       serverEmail: lockedBy("email", process.env),
       captcha,
       turnstile: captcha === "turnstile" ? (env.TURNSTILE_SITE_KEY ?? null) : null,

@@ -86,6 +86,20 @@ provider, and password reset links point there. Both work; they just show the
 server's address.
 </Note>
 
+Hosts you serve yourself, routed to the same container by your own proxy
+(Traefik, nginx, a load balancer), need none of that: put them in the
+environment, comma separated.
+
+```bash
+APP_EXTRA_HOSTS=brand.example.com,shop.example.net
+```
+
+An extra host answers with the whole app, as an unclaimed host already does,
+and signs in like `APP_URL` does. They are the server's own: no TXT record, no
+organization owns them, and routing them is your proxy's job, so proving them
+is your certificate, not a DNS check. Sessions made at one stay at that one,
+exactly as at a claimed domain.
+
 ## Email
 
 Every message renders in the organization's brand: its name in the subject and

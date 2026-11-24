@@ -164,6 +164,18 @@ Register `{APP_URL}/api/auth/callback/oidc` as the redirect URI with the
 provider, and `/api/auth/callback/oidc` on any organization's domain used for
 the app where people sign in with it.
 
+With the provider in place, password sign-in can go off for the whole server:
+
+```bash
+PASSWORD_LOGIN=off
+```
+
+`/api/auth/sign-in/email` refuses, the sign-in page shows the provider's
+button alone, and every sign-in goes through the provider. Making an account
+by invitation still takes a password, and an organization's own "Require
+single sign-on" above is unchanged. The server refuses to start with
+`PASSWORD_LOGIN=off` and no provider set (`OIDC_*`, `GOOGLE_*`).
+
 ## Email
 
 Off by default. Email sends invitations, share links and password resets

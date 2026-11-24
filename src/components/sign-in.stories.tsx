@@ -273,6 +273,15 @@ export const NoPasswordReset = meta.story({
   },
 });
 
+/** Password sign-in taken off for the server (PASSWORD_LOGIN=off): the provider's button, and no form under it. */
+export const PasswordSignInOff = meta.story({
+  args: { auth: auth({ oidc: { name: "Okta" }, passwordSignIn: false }) },
+  play: async () => {
+    await expect(screen.getByRole("button", { name: "Continue with Okta" })).toBeInTheDocument();
+    await expect(screen.queryByRole("textbox", { name: "Email" })).not.toBeInTheDocument();
+  },
+});
+
 /** A fresh install: the first account is the admin; it names the organization, and asks for the setup token when set. */
 export const FirstRun = meta.story({
   args: { auth: auth({ signUp: true, setupToken: true, open: false }) },

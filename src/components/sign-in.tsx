@@ -27,10 +27,13 @@ import { solve, type Challenge } from "@/lib/pow";
 
 export const UNREACHABLE = "Couldn't reach the server. Check your connection and try again.";
 const SSO_FAILED = "Single sign-on didn't finish. Try again, or use your password.";
+const PASSWORD_OFF = "Password sign-in is off on this server. Sign in with single sign-on.";
 
 /** better-auth's messages by code, said as what to do next. */
 const COPY: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: "That email and password don't match. Check both and try again.",
+  // The server's own switch (PASSWORD_LOGIN=off): a call the page kept from the form, or made anyway.
+  PASSWORD_LOGIN_OFF: PASSWORD_OFF,
   USER_ALREADY_EXISTS: "There's already an account with this email.",
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "There's already an account with this email.",
   PASSWORD_TOO_SHORT: "Use at least 10 characters.",
@@ -331,6 +334,7 @@ export function AuthForm({
   oidc,
   google = false,
   sso: ssoOffered = false,
+  passwordSignIn = true,
   email: fixed,
   callbackURL = "/",
   newUserURL,
@@ -356,6 +360,8 @@ export function AuthForm({
   google?: boolean;
   /** Some organization signs its people in through its own provider: found by the email's domain. */
   sso?: boolean;
+  /** Password sign-in at all (PASSWORD_LOGIN=off takes it off): signing in goes through the server's provider instead. */
+  passwordSignIn?: boolean;
   /** From an invitation: filled in. */
   email?: string;
   /** Where single sign-on returns, and where the form goes without `then`. */
@@ -397,6 +403,8 @@ export function AuthForm({
   /** The address the second step is for, shown above the password. */
   const [shown, setShown] = useState("");
   const [busy, setBusy] = useState<"form" | "sso" | "google" | null>(null);
+  /** Signing in without a password (PASSWORD_LOGIN=off): the form goes to the server's provider, or says the switch is on. */
+  const passwordless = !passwordSignIn && mode === "in";
   const [error, setError] = useState<{ text: string; code?: string } | null>(initialError ? { text: initialError } : null);
   /** The address a code was just sent to (lib/auth.ts): the account signs in once it is entered. */
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -432,7 +440,9 @@ export function AuthForm({
   async function submit(form: FormData) {
     // The first step only asks for the address, which the browser checked: one whose organization has its own provider
     // goes there, any other on to the password. Not straight back to a provider that just failed: the password is the way round.
-    if (step === "email") return void ((ssoOffered && !initialError && (await orgSso(true))) || toStep("password"));
+    // Without a password to go on to (PASSWORD_LOGIN=off), the address had its chance at an organization's provider: say so.
+    if (step === "email")
+      return void ((ssoOffered && !initialError && (await orgSso(true))) || (passwordSignIn && toStep("password")) || setError({ text: PASSWORD_OFF }));
     const v: Values = {
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
@@ -552,12 +562,18 @@ export function AuthForm({
                 <IconKey /> Continue with {oidc.name}
               </Button>
             )}
-            <div className="text-muted-foreground flex items-center gap-3 text-xs">
-              <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
-            </div>
+            {/* The divider only when a form follows it: passwordless sign-in with the server's provider alone has nothing to divide. */}
+            {!passwordless && (
+              <div className="text-muted-foreground flex items-center gap-3 text-xs">
+                <span className="bg-border h-px flex-1" /> or <span className="bg-border h-px flex-1" />
+              </div>
+            )}
           </>
         )}
+        {/* Passwordless (PASSWORD_LOGIN=off) with the server's provider alone: the buttons are all there is. The address
+            stays when it may route to an organization's provider, and sign-up keeps its password: invitations use it. */}
         <form
+          hidden={passwordless}
           className="grid gap-4"
           onChange={() => error && setError(null)}
           onSubmit={(e) => {
@@ -702,6 +718,9 @@ export function AuthForm({
             )}
           </Button>
         </form>
+        {passwordless && !ssoOffered && !oidc && !google && (
+          <p className="text-muted-foreground text-sm text-pretty">{PASSWORD_OFF}</p>
+        )}
         {signUp && (
           <p className="text-muted-foreground text-center text-sm">
             {mode === "in" ? "New here? " : "Have an account? "}
@@ -960,6 +979,7 @@ export function SignInPage({ auth, next, error = false, up = false }: { auth: Me
       oidc={auth.oidc}
       google={auth.google}
       sso={auth.sso}
+      passwordSignIn={auth.passwordSignIn}
       callbackURL={next || "/"}
       errorURL={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
       forgot={auth.passwordReset}
@@ -1203,6 +1223,7 @@ export function InvitePage({
       oidc={me?.auth.oidc ?? null}
       google={!!me?.auth.google}
       sso={!!me?.auth.sso}
+      passwordSignIn={me?.auth.passwordSignIn ?? true}
       email={info.email}
       // A new single sign-on account took the invitation as it was made; one that existed comes back to accept it.
       legal={me?.auth.legal}

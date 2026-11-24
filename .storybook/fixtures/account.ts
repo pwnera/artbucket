@@ -19,6 +19,7 @@ export const auth = (over: Partial<Me["auth"]> = {}): Me["auth"] => ({
   sso: false,
   anonymous: null,
   passwordReset: true,
+  passwordSignIn: true,
   serverEmail: true,
   captcha: null,
   turnstile: null,

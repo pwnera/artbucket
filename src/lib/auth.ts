@@ -185,6 +185,10 @@ export const auth = betterAuth({
         if (v !== undefined && v !== "" && !localPath(v)) throw new APIError("FORBIDDEN", { message: `${k} must be a path on this server` });
       }
       const email = ctx.body?.email;
+      // The server's own switch (PASSWORD_LOGIN=off): sign-in goes through its provider. Only sign-in: making an
+      // account by invitation still takes a password. A reset can't walk around this, for it signs no one in.
+      if (ctx.path === "/sign-in/email" && env.PASSWORD_LOGIN === "off")
+        throw new APIError("FORBIDDEN", { code: "PASSWORD_LOGIN_OFF", message: "Password sign-in is off on this server. Sign in with single sign-on." });
       if (typeof email === "string") {
         // An address at an organization's verified domain signs up through its provider, and so joins it. Here, not in
         // user.create: with email codes on, better-auth answers a refused sign-up as if it went, and the form would wait for a code.

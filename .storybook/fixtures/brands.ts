@@ -51,7 +51,7 @@ export const me: Me = {
   notice: null,
   feedback: { email: "hello@artbucket.test", version: "2.7.0" },
   joinable: null,
-  auth: { signUp: true, setupToken: false, open: false, oidc: null, google: false, sso: false, anonymous: null, passwordReset: true, serverEmail: true, captcha: null, turnstile: null },
+  auth: { signUp: true, setupToken: false, open: false, oidc: null, google: false, sso: false, anonymous: null, passwordReset: true, passwordSignIn: true, serverEmail: true, captcha: null, turnstile: null },
 };
 
 /** Someone with `scope` everywhere: `as("read")` is a viewer, who sees and may change nothing. */
