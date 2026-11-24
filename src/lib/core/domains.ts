@@ -146,12 +146,15 @@ export const portalAtHost = async (host: string) => (await hostTarget(host))?.po
 
 /**
  * Whether a browser origin is one of the app's own: APP_URL, BrandHub's own
- * host (this server's too: following and claiming a brand there), or an
- * organization's verified app domain.
+ * host (this server's too: following and claiming a brand there), an
+ * operator's extra host (APP_EXTRA_HOSTS), or an organization's verified app
+ * domain.
  */
 export async function isAppOrigin(origin: string) {
   if (origin === new URL(env.APP_URL).origin || (env.HUB_URL && origin === new URL(env.HUB_URL).origin)) return true;
   try {
+    const host = hostname(new URL(origin).host);
+    if (host && env.APP_EXTRA_HOSTS?.includes(host)) return true;
     const t = await hostTarget(new URL(origin).host);
     return !!t?.app;
   } catch {
@@ -161,11 +164,14 @@ export async function isAppOrigin(origin: string) {
 
 /**
  * better-auth's trusted origins for a request: the verified app domain it was
- * sent to, if it was sent to one, so sign-in works there. Never every
- * organization's domains: one organization's domain is no reason to trust it
- * on another's, or on APP_URL.
+ * sent to, if it was sent to one, so sign-in works there, or an operator's
+ * extra host (APP_EXTRA_HOSTS), which is the server's own like APP_URL. Never
+ * every organization's domains: one organization's domain is no reason to
+ * trust it on another's, or on APP_URL.
  */
 export async function appOriginAt(rawHost: string | null | undefined) {
+  const host = rawHost ? hostname(rawHost) : null;
+  if (host && env.APP_EXTRA_HOSTS?.includes(host)) return [`${scheme}//${host}`];
   const t = rawHost ? await hostTarget(rawHost).catch(() => null) : null;
   return t?.app ? [`${scheme}//${hostname(rawHost!)}`] : [];
 }

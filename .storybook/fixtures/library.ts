@@ -57,7 +57,7 @@ export const me = (scope: Scope = "admin", over: Partial<Me> = {}): Me => ({
   notice: null,
   feedback: null,
   joinable: null,
-  auth: { signUp: true, setupToken: false, open: false, oidc: null, google: false, sso: false, anonymous: null, passwordReset: true, serverEmail: true, captcha: null, turnstile: null },
+  auth: { signUp: true, setupToken: false, open: false, oidc: null, google: false, sso: false, anonymous: null, passwordReset: true, passwordSignIn: true, serverEmail: true, captcha: null, turnstile: null },
   ...over,
 });
 

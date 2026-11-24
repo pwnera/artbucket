@@ -40884,6 +40884,10 @@
                             "type": "boolean",
                             "description": "A forgotten password can be reset by email"
                           },
+                          "passwordSignIn": {
+                            "type": "boolean",
+                            "description": "Password sign-in is on (PASSWORD_LOGIN): /sign-in/email answers, and the sign-in page offers its form"
+                          },
                           "serverEmail": {
                             "type": "boolean",
                             "description": "The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"
@@ -40960,6 +40964,7 @@
                           "sso",
                           "anonymous",
                           "passwordReset",
+                          "passwordSignIn",
                           "serverEmail",
                           "captcha",
                           "turnstile"

@@ -1360,6 +1360,7 @@ export const Me = z.object({
     sso: z.boolean().describe("Some organization here signs its people in through its own provider: sign-in offers it by email domain"),
     anonymous: scope.describe("What a request without a key or a session may do"),
     passwordReset: z.boolean().describe("A forgotten password can be reset by email"),
+    passwordSignIn: z.boolean().describe("Password sign-in is on (PASSWORD_LOGIN): /sign-in/email answers, and the sign-in page offers its form"),
     serverEmail: z
       .boolean()
       .describe("The server sends every organization's email (EMAIL_*): organizations don't set their own, and a new account confirms its address with a code"),
